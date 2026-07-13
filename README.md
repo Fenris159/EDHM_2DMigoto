@@ -18,6 +18,21 @@
 
 Independent **XXMI / 2Dmigoto** libraries tailored for **[EDHM](https://github.com/psychicEgg/EDHM)** (Elite Dangerous HUD Mod) workflows.
 
+## Documentation (start here)
+
+**Developer documentation lives on the [project Wiki](https://github.com/Fenris159/EDHM_2DMigoto/wiki):**
+
+| Topic | Wiki page |
+|-------|-----------|
+| Overview & map | [Home](https://github.com/Fenris159/EDHM_2DMigoto/wiki) |
+| Install / use with EDHM | [Getting Started](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Getting-Started) |
+| Build from source | [Building](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Building) |
+| Shader hunting | [Shader Hunting](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Shader-Hunting) |
+| Config / overrides | [Configuration Reference](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Configuration-Reference), [ShaderFixes & Overrides](https://github.com/Fenris159/EDHM_2DMigoto/wiki/ShaderFixes-and-Overrides) |
+| Releases & vendor cache | [Releasing & CI](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Releasing-and-CI), [Vendor Cache](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Vendor-Cache-and-Releases) |
+
+In-tree `docs/` remains a short reference; the **wiki is canonical** for development how-tos.
+
 This repository starts from [SpectrumQT/XXMI-Libs-Package](https://github.com/SpectrumQT/XXMI-Libs-Package) (itself a streamlined fork of [bo3b/3Dmigoto](https://github.com/bo3b/3Dmigoto/)) but is **not** a GitHub fork of either project. You own this tree completely; useful upstream fixes can still be pulled in selectively.
 
 ## Goal products (EDHM)

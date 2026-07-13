@@ -1,5 +1,8 @@
 # Docs
 
+> **Canonical developer documentation:** [EDHM_2DMigoto Wiki](https://github.com/Fenris159/EDHM_2DMigoto/wiki)  
+> Files below are short in-tree copies for offline/repo browsing.
+
 | Document | Description |
 |----------|-------------|
 | [layout.md](layout.md) | What lives on develop vs xxmi-base; d3d11 build graph |
