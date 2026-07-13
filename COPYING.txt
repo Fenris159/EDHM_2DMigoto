@@ -1,0 +1,32 @@
+EDHM_2DMigoto License Notice
+============================
+
+This project custom-tailors XXMI / 2Dmigoto libraries for EDHM by examining
+3Dmigoto behavior and adjusting XXMI-derived code where EDHM compatibility was
+lost by moving away from the older 3Dmigoto runtime.
+
+The source code of 3Dmigoto, XXMI-derived libraries, and modified versions of
+those libraries in this project are released under the GNU General Public
+License version 3. See LICENSE.GPL.txt for the full license text.
+
+This project is derived from and should preserve attribution to:
+
+- 3Dmigoto, originally maintained by the 3Dmigoto project contributors.
+- XXMI-Libs-Package by SpectrumQT and contributors, itself forked from
+  3Dmigoto.
+- Deviare-InProcess from Nektra where used by the inherited 3Dmigoto codebase,
+  which is also licensed under the GNU General Public License version 3.
+
+Changes made in this repository are intended to restore or preserve EDHM
+compatibility, including shader/config behavior expected by Elite Dangerous HUD
+Mod workflows.
+
+Any shaders, configuration files, or game-specific mod assets distributed with
+or tested against this project are not automatically covered by the license of
+3Dmigoto or XXMI-derived library code. Those assets remain owned by their
+respective copyright holders and are handled in good faith only for the purpose
+of restoring or preserving compatibility with EDHM and Elite Dangerous modding
+workflows.
+
+This software is provided without warranty, under the terms of the GNU General
+Public License version 3.
