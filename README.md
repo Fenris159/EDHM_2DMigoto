@@ -44,8 +44,19 @@ Game-specific shaders, configs, and mod assets are **not** automatically covered
 
 | Branch | Role |
 |--------|------|
-| `main` | Stable base + accepted EDHM work |
-| `develop` | Day-to-day experimentation and EDHM patches |
+| `main` | **EDHM compatibility releases** — stable code you ship / package |
+| `develop` | Day-to-day EDHM patches and integration work |
+| `xxmi-base` | **Clean XXMI import mirror** — kept current with upstream XXMI only |
+
+Flow:
+
+```text
+xxmi/master  ──fetch──►  xxmi-base  ──cherry-pick / selective port──►  develop  ──release──►  main
+```
+
+- Advance `xxmi-base` when SpectrumQT ships useful XXMI commits (no EDHM edits on that branch).
+- On `develop`, pick only what you need, then layer EDHM fixes.
+- When `develop` is stable for EDHM, merge into `main` for a release.
 
 ## Building
 
@@ -71,26 +82,29 @@ xxmi       https://github.com/SpectrumQT/XXMI-Libs-Package.git
 Typical update workflow:
 
 ```powershell
-# 1. Fetch latest from XXMI (and optionally classic 3Dmigoto)
-git fetch xxmi --tags
-git fetch 3dmigoto master
+# 1. Fetch + fast-forward the clean XXMI mirror branch
+.\scripts\fetch-upstream.ps1 -UpdateBase -ShowNew
 
-# 2. Review what is new
-git log --oneline HEAD..xxmi/master
-git log -p --reverse HEAD..xxmi/master -- DirectX11/
+# 2. Review what is new on xxmi-base vs develop
+git log --oneline develop..xxmi-base
+git log -p --reverse develop..xxmi-base -- DirectX11/
 
-# 3. Selectively integrate
-git cherry-pick <commit>          # preferred for one-off fixes
-# or careful merge of a small range after review
+# 3. On develop, selectively integrate then test
+git switch develop
+git cherry-pick <commit>
+
+# 4. When ready to release EDHM-compatible builds
+git switch main
+git merge --no-ff develop
 ```
 
 More detail: `docs/upstream-sync.md`.
 
-Helper script (optional):
+Helper script:
 
 ```powershell
 .\scripts\fetch-upstream.ps1
-.\scripts\fetch-upstream.ps1 -ShowNew
+.\scripts\fetch-upstream.ps1 -UpdateBase -ShowNew
 ```
 
 ## How this differs from stock XXMI
@@ -103,4 +117,4 @@ Helper script (optional):
 
 ## Status
 
-Initial import of XXMI-Libs-Package history is complete. EDHM-specific runtime patches live on `develop` as they are developed.
+Initial import of XXMI-Libs-Package history is complete. `xxmi-base` tracks clean upstream XXMI. EDHM-specific runtime patches are developed on `develop` and released via `main`.
