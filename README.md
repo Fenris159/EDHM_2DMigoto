@@ -87,7 +87,10 @@ Actions → Release → Run workflow
   branch: main | develop
   version_action: use-current | bump-patch | bump-minor | bump-major | bump-prerelease
   create_tag: true
+  update_vendor_cache: true   # also commits vendor/edhm-runtime/d3d11.dll (LFS)
 ```
+
+After a successful non-draft release, `vendor/edhm-runtime/` holds the same `d3d11.dll` as the Release asset (convenience mirror for clones/packaging). Prefer pinning by **Release tag** for production EDHM packaging.
 
 ## Repository layout (`develop`)
 
@@ -99,9 +102,10 @@ Actions → Release → Run workflow
 | `DirectX11/` | **Product** — builds `d3d11.dll` |
 | `Dependencies/` | Runtime package pieces (`d3dx.ini`, bundled `d3dcompiler_47.dll`) |
 | `VERSION` / `CHANGELOG.md` / `CURRENT_RELEASE_NOTES.md` | SemVer package versioning and release notes |
+| `vendor/edhm-runtime/` | Mirrored `d3d11.dll` + checksums after each Release (Git LFS); see folder README |
 | `patches/` | EDHM-specific patch notes |
 | `docs/` | Build, layout, upstream-sync, releasing |
-| `scripts/` | Upstream fetch, version helpers |
+| `scripts/` | Upstream fetch, version helpers, vendor cache update |
 | `dist/` | Local build outputs (gitignored by default) |
 
 ### Background (required to link `d3d11.dll`)

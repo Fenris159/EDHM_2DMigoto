@@ -14,6 +14,10 @@ the package version below.
 
 ## [Unreleased]
 
+### Added
+
+- `vendor/edhm-runtime/` cache updated automatically by the Release workflow (Git LFS for `d3d11.dll`)
+
 ### Planned
 
 - First full merge of `develop` into `main` for a stable release cut
