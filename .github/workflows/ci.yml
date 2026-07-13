@@ -1,0 +1,94 @@
+# Continuous integration: validate tree and build d3d11.dll when the solution exists.
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-meta:
+    name: Meta checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Required files
+        run: |
+          set -euo pipefail
+          test -f README.md
+          test -f VERSION
+          test -f CHANGELOG.md
+          test -f CURRENT_RELEASE_NOTES.md
+          test -f COPYING.txt
+          test -f LICENSE.GPL.txt
+          # SemVer X.Y.Z or X.Y.Z-label.N
+          ver=$(tr -d '[:space:]' < VERSION)
+          echo "VERSION=$ver"
+          echo "$ver" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z]+\.[0-9]+)?$'
+
+      - name: Changelog has Unreleased
+        run: grep -q '## \[Unreleased\]' CHANGELOG.md
+
+      - name: CURRENT_RELEASE_NOTES non-empty
+        run: test -s CURRENT_RELEASE_NOTES.md
+
+  build-windows:
+    name: MSBuild (Windows)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Detect solution
+        id: sol
+        shell: pwsh
+        run: |
+          if (Test-Path 'EDHM_2DMigoto.sln') {
+            'exists=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            Write-Host 'Solution present — full build enabled'
+          } else {
+            'exists=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            Write-Host 'No EDHM_2DMigoto.sln (scaffold branch) — skipping compile'
+          }
+
+      - name: Setup MSBuild
+        if: steps.sol.outputs.exists == 'true'
+        uses: microsoft/setup-msbuild@v2
+        with:
+          vs-version: '[17.0,18.0)'
+
+      - name: Build Release|x64
+        if: steps.sol.outputs.exists == 'true'
+        shell: pwsh
+        run: |
+          msbuild EDHM_2DMigoto.sln `
+            -property:Configuration=Release `
+            -property:Platform=x64 `
+            -target:Rebuild `
+            -verbosity:minimal `
+            -restore:false
+
+      - name: Verify d3d11.dll
+        if: steps.sol.outputs.exists == 'true'
+        shell: pwsh
+        run: |
+          $dll = 'x64\Release\d3d11.dll'
+          if (-not (Test-Path $dll)) { throw "Missing $dll" }
+          Get-Item $dll | Format-List FullName, Length, LastWriteTime
+
+      - name: Upload build artifact
+        if: steps.sol.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: d3d11-release-x64-${{ github.sha }}
+          path: x64/Release/d3d11.dll
+          if-no-files-found: error
+          retention-days: 14

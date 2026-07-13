@@ -1,0 +1,247 @@
+# Build and publish GitHub Releases from main (stable) or develop (pre-release).
+# Optionally create / push a SemVer tag derived from VERSION (+ bump inputs).
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build and release from'
+        required: true
+        type: choice
+        options:
+          - main
+          - develop
+        default: develop
+      version_action:
+        description: 'How to treat VERSION before tagging'
+        required: true
+        type: choice
+        options:
+          - use-current
+          - bump-patch
+          - bump-minor
+          - bump-major
+          - bump-prerelease
+        default: use-current
+      pre_label:
+        description: 'Pre-release label (develop only): alpha | beta | rc'
+        required: true
+        type: choice
+        options:
+          - beta
+          - rc
+          - alpha
+        default: beta
+      create_tag:
+        description: 'Create and push a git tag for this release'
+        required: true
+        type: boolean
+        default: true
+      draft:
+        description: 'Create the GitHub Release as a draft'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and release (${{ inputs.branch }})
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Require solution (not scaffold-only)
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'EDHM_2DMigoto.sln')) {
+            throw @"
+EDHM_2DMigoto.sln is missing on branch '${{ inputs.branch }}'.
+Release builds require the slim source tree (typically develop, or main after merging develop).
+"@
+          }
+
+      - name: Configure git identity
+        shell: pwsh
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Resolve channel from branch
+        id: channel
+        shell: pwsh
+        run: |
+          if ('${{ inputs.branch }}' -eq 'main') {
+            'channel=release' | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+            'is_prerelease=false' | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          } else {
+            'channel=prerelease' | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+            'is_prerelease=true' | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+          Write-Host "Channel: $((Get-Content $env:GITHUB_OUTPUT | Select-String channel).Line)"
+
+      - name: Bump or read VERSION
+        id: ver
+        shell: pwsh
+        run: |
+          $action = '${{ inputs.version_action }}'
+          $preLabel = '${{ inputs.pre_label }}'
+          $channel = '${{ steps.channel.outputs.channel }}'
+
+          if ($channel -eq 'release' -and $action -eq 'bump-prerelease') {
+            throw "bump-prerelease is not valid for main/stable releases"
+          }
+
+          switch ($action) {
+            'use-current' { }
+            'bump-patch' { & .\scripts\version.ps1 -Action bump-patch | Out-Null }
+            'bump-minor' { & .\scripts\version.ps1 -Action bump-minor | Out-Null }
+            'bump-major' { & .\scripts\version.ps1 -Action bump-major | Out-Null }
+            'bump-prerelease' {
+              & .\scripts\version.ps1 -Action bump-prerelease -PreLabel $preLabel | Out-Null
+            }
+          }
+
+          # For develop pre-releases, ensure VERSION has a pre-release suffix if still clean
+          $raw = (Get-Content VERSION -Raw).Trim()
+          if ($channel -eq 'prerelease' -and $raw -notmatch '-') {
+            & .\scripts\version.ps1 -Action bump-prerelease -PreLabel $preLabel | Out-Null
+            $raw = (Get-Content VERSION -Raw).Trim()
+          }
+
+          # For main releases, strip any pre-release suffix from VERSION file for tagging
+          if ($channel -eq 'release' -and $raw -match '-') {
+            $core = ($raw -split '-')[0]
+            Set-Content VERSION -Value ($core + "`n") -NoNewline
+            $raw = $core
+            Write-Host "Normalized VERSION to release core: $raw"
+          }
+
+          $tagOut = & .\scripts\version.ps1 -Action tag -Channel $channel -PreLabel $preLabel
+          $tag = if ($tagOut -is [array]) { $tagOut[-1] } else { "$tagOut" }
+          $tag = $tag.Trim()
+          if ($tag -notmatch '^v') { $tag = "v$tag" }
+
+          $version = $tag.TrimStart('v')
+          "version=$version" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "tag=$tag" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "raw_version=$raw" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "VERSION file=$raw  tag=$tag  prerelease=${{ steps.channel.outputs.is_prerelease }}"
+
+      - name: Sync CURRENT_RELEASE_NOTES from CHANGELOG
+        shell: pwsh
+        run: |
+          & .\scripts\version.ps1 -Action sync-notes -Channel ${{ steps.channel.outputs.channel }}
+          Write-Host '--- CURRENT_RELEASE_NOTES.md ---'
+          Get-Content CURRENT_RELEASE_NOTES.md
+
+      - name: Commit VERSION / notes if changed
+        shell: pwsh
+        run: |
+          git add VERSION CURRENT_RELEASE_NOTES.md CHANGELOG.md 2>$null
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "chore(release): ${{ steps.ver.outputs.tag }}"
+            git push origin "HEAD:${{ inputs.branch }}"
+          } else {
+            Write-Host 'No version/notes commit needed'
+          }
+
+      - name: Create and push tag
+        if: ${{ inputs.create_tag }}
+        shell: pwsh
+        run: |
+          $tag = '${{ steps.ver.outputs.tag }}'
+          if (git rev-parse "$tag" 2>$null) {
+            throw "Tag $tag already exists. Bump VERSION or delete the tag first."
+          }
+          git tag -a $tag -m "Release $tag"
+          git push origin $tag
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+        with:
+          vs-version: '[17.0,18.0)'
+
+      - name: Build Zip Release|x64
+        shell: pwsh
+        run: |
+          msbuild EDHM_2DMigoto.sln `
+            -property:Configuration="Zip Release" `
+            -property:Platform=x64 `
+            -target:Rebuild `
+            -verbosity:minimal `
+            -restore:false
+
+      - name: Package artifacts
+        id: pkg
+        shell: pwsh
+        run: |
+          $tag = '${{ steps.ver.outputs.tag }}'
+          $outDir = 'x64\Zip Release'
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+
+          $dll = Join-Path $outDir 'd3d11.dll'
+          if (-not (Test-Path $dll)) { throw "Build did not produce $dll" }
+
+          Copy-Item $dll "dist\d3d11.dll" -Force
+
+          # Prefer SDK/redist copy next to build if post-build placed it; else Dependencies
+          $compilerCandidates = @(
+            (Join-Path $outDir 'd3dcompiler_47.dll'),
+            'Dependencies\d3dcompiler_47.dll'
+          )
+          $compiler = $compilerCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          $zipFiles = @("dist\d3d11.dll")
+          if ($compiler) {
+            Copy-Item $compiler "dist\d3dcompiler_47.dll" -Force
+            $zipFiles += "dist\d3dcompiler_47.dll"
+          } else {
+            Write-Warning 'd3dcompiler_47.dll not found; packaging d3d11.dll only'
+          }
+
+          $zipName = "EDHM_2DMigoto-$tag-x64.zip"
+          $zipPath = Join-Path 'dist' $zipName
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+          Compress-Archive -Path $zipFiles -DestinationPath $zipPath -Force
+
+          # Checksums
+          Get-FileHash $zipPath -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $zipName" } |
+            Set-Content "dist\$zipName.sha256" -Encoding ascii
+          Get-FileHash "dist\d3d11.dll" -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  d3d11.dll" } |
+            Set-Content "dist\d3d11.dll.sha256" -Encoding ascii
+
+          "zip=$zipPath" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "zip_name=$zipName" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: EDHM_2DMigoto ${{ steps.ver.outputs.tag }}
+          body_path: CURRENT_RELEASE_NOTES.md
+          draft: ${{ inputs.draft }}
+          prerelease: ${{ steps.channel.outputs.is_prerelease }}
+          files: |
+            dist/d3d11.dll
+            dist/*.zip
+            dist/*.sha256
+          fail_on_unmatched_files: false
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
