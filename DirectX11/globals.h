@@ -506,6 +506,14 @@ struct Globals
 	int gSettingsAutoSaveInterval;
 	int gConfigInitializationDelay;
 	bool gSkipEarlyIncludesLoad;
+	// When true, fuzzy TextureOverride matches also run after hash matches
+	// (XXMI AGMG behaviour). Default false restores classic 3Dmigoto / EDHM.
+	bool fuzzy_match_alongside_hash;
+	// EDHM ships auto_refresh_file_to_monitor=... as a signal file for theme
+	// reloads (mtime change triggers ReloadConfig). Relative to DLL directory.
+	wchar_t auto_refresh_file_to_monitor[MAX_PATH];
+	FILETIME auto_refresh_last_write;
+	bool auto_refresh_have_last_write;
 	int gFallbackScreenWidth;
 	int gFallbackScreenHeight;
 
@@ -725,7 +733,12 @@ struct Globals
 		gDllInitializationDelay(0),
 		gSettingsAutoSaveInterval(0),
 		gConfigInitializationDelay(0),
-		gSkipEarlyIncludesLoad(true),
+		// Classic 3Dmigoto / EDHM: load [Include] files on first parse.
+		// XXMI defaulted this to true for launcher boot; that leaves EDHM's
+		// EDHM-ini/* TextureOverrides and Constants unloaded until a delayed reload.
+		gSkipEarlyIncludesLoad(false),
+		fuzzy_match_alongside_hash(false),
+		auto_refresh_have_last_write(false),
 		gFallbackScreenWidth(0),
 		gFallbackScreenHeight(0),
 		dump_all_profiles(false),
@@ -736,6 +749,8 @@ struct Globals
 		SHADER_PATH[0] = 0;
 		SHADER_CACHE_PATH[0] = 0;
 		CHAIN_DLL_PATH[0] = 0;
+		auto_refresh_file_to_monitor[0] = 0;
+		memset(&auto_refresh_last_write, 0, sizeof(auto_refresh_last_write));
 
 		ANALYSIS_PATH[0] = 0;
 

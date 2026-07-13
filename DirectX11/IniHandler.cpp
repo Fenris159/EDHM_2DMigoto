@@ -4292,8 +4292,10 @@ void LoadConfigFile()
 	G->gDllInitializationDelay = GetIniInt(L"System", L"dll_initialization_delay", 0, NULL);
 
 	// [Include]
-	// If enabled, prevents loading of includes during initialization
-	G->gSkipEarlyIncludesLoad = GetIniBool(L"System", L"skip_early_includes_load", true, NULL);
+	// If enabled, prevents loading of includes during initialization.
+	// Default false = classic 3Dmigoto / EDHM (load includes immediately).
+	// XXMI launcher may set skip_early_includes_load=true for deferred boot.
+	G->gSkipEarlyIncludesLoad = GetIniBool(L"System", L"skip_early_includes_load", false, NULL);
 
 	// Allows to delay initial config reload (any negative number disables it)
 	G->gConfigInitializationDelay = GetIniInt(L"System", L"config_initialization_delay", 0, NULL);
@@ -4323,6 +4325,28 @@ void LoadConfigFile()
 	G->enable_platform_update = GetIniBool(L"System", L"allow_platform_update", false, NULL);
 	// TODO: Enable this by default if wider testing goes well:
 	G->check_foreground_window = GetIniBool(L"System", L"check_foreground_window", false, NULL);
+
+	// EDHM: auto_refresh_file_to_monitor=EDHM-ini/ThemeSettings.json
+	// When the file's mtime changes, schedule ReloadConfig (theme apply without F11).
+	if (GetIniStringAndLog(L"System", L"auto_refresh_file_to_monitor", 0, setting, MAX_PATH))
+	{
+		wchar_t migoto_path[MAX_PATH];
+		if (GetModuleFileName(migoto_handle, migoto_path, MAX_PATH)) {
+			wcsrchr(migoto_path, L'\\')[1] = 0;
+			if (setting[0] && setting[1] == L':') {
+				// Absolute path
+				wcsncpy_s(G->auto_refresh_file_to_monitor, MAX_PATH, setting, _TRUNCATE);
+			} else {
+				_snwprintf_s(G->auto_refresh_file_to_monitor, MAX_PATH, _TRUNCATE, L"%s%s", migoto_path, setting);
+			}
+			G->auto_refresh_have_last_write = false;
+			LogInfo("  auto_refresh_file_to_monitor resolved to %S\n", G->auto_refresh_file_to_monitor);
+		}
+	}
+	else {
+		G->auto_refresh_file_to_monitor[0] = 0;
+		G->auto_refresh_have_last_write = false;
+	}
 
 	// Allows to change interval between persistent vars autosaving to d3dx_user.ini (any negative number to disables it)
 	G->gSettingsAutoSaveInterval = GetIniInt(L"System", L"settings_auto_save_interval", 60, NULL);
@@ -4406,6 +4430,9 @@ void LoadConfigFile()
 	G->track_texture_updates = GetIniBoolOrInt(L"Rendering", L"track_texture_updates", 0, NULL);
 	G->track_region_hashes = GetIniBool(L"Rendering", L"track_region_hashes", false, NULL);
 	G->track_implicit_index_buffers = GetIniBool(L"Rendering", L"track_implicit_index_buffers", false, NULL);
+	// Default false = classic 3Dmigoto / EDHM: hash TextureOverride wins alone.
+	// Set true to restore XXMI dual hash+fuzzy matching for AGMG-style mods.
+	G->fuzzy_match_alongside_hash = GetIniBool(L"Rendering", L"fuzzy_match_alongside_hash", false, NULL);
 	G->allow_buffer_resize = GetIniBool(L"Rendering", L"allow_buffer_resize", true, NULL);
 	G->assemble_signature_comments = GetIniBool(L"Rendering", L"assemble_signature_comments", false, NULL);
 	G->disassemble_undecipherable_custom_data = GetIniBool(L"Rendering", L"disassemble_undecipherable_custom_data", false, NULL);

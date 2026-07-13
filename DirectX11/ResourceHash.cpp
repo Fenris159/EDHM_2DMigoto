@@ -1789,12 +1789,15 @@ void find_texture_overrides_for_resource(ID3D11Resource *resource, TextureOverri
 {
 	find_texture_overrides_for_resource_by_hash(resource, matches, call_info);
 
-	// Allow fuzzy matches to be processed even when exact matches exist
-	//if (!matches->empty()) {
-	//	// If we got a result it was matched by hash - that's an exact
-	//	// match and we don't process any fuzzy matches
-	//	return;
-	//}
+	// Classic 3Dmigoto / EDHM behaviour: a hash match is authoritative.
+	// XXMI previously allowed fuzzy matches to also run when hash matches
+	// existed (for AGMG-style mods). That can change which filter_index wins
+	// when a hashed texture also matches a fuzzy RT size rule — which breaks
+	// EDHM HUD colour selection. Keep dual-match opt-in for XXMI use cases.
+	if (!matches->empty() && !G->fuzzy_match_alongside_hash) {
+		// Exact hash match(es) only — do not process fuzzy matches
+		return;
+	}
 
 	find_texture_overrides_for_resource_desc(resource, matches, call_info);
 }
