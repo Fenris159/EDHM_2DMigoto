@@ -514,6 +514,7 @@ struct Globals
 	wchar_t auto_refresh_file_to_monitor[MAX_PATH];
 	FILETIME auto_refresh_last_write;
 	bool auto_refresh_have_last_write;
+	float auto_refresh_last_check_time;
 	int gFallbackScreenWidth;
 	int gFallbackScreenHeight;
 
@@ -739,6 +740,7 @@ struct Globals
 		gSkipEarlyIncludesLoad(false),
 		fuzzy_match_alongside_hash(false),
 		auto_refresh_have_last_write(false),
+		auto_refresh_last_check_time(0.0f),
 		gFallbackScreenWidth(0),
 		gFallbackScreenHeight(0),
 		dump_all_profiles(false),

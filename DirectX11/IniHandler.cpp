@@ -4340,12 +4340,14 @@ void LoadConfigFile()
 				_snwprintf_s(G->auto_refresh_file_to_monitor, MAX_PATH, _TRUNCATE, L"%s%s", migoto_path, setting);
 			}
 			G->auto_refresh_have_last_write = false;
+			G->auto_refresh_last_check_time = 0.0f;
 			LogInfo("  auto_refresh_file_to_monitor resolved to %S\n", G->auto_refresh_file_to_monitor);
 		}
 	}
 	else {
 		G->auto_refresh_file_to_monitor[0] = 0;
 		G->auto_refresh_have_last_write = false;
+		G->auto_refresh_last_check_time = 0.0f;
 	}
 
 	// Allows to change interval between persistent vars autosaving to d3dx_user.ini (any negative number to disables it)

@@ -247,23 +247,21 @@ void HackerSwapChain::RunFrameActions()
 
 	// EDHM auto_refresh_file_to_monitor: if the signal file's mtime changes,
 	// schedule a config reload (theme apply without requiring F11).
-	if (G->auto_refresh_file_to_monitor[0]) {
-		HANDLE h = CreateFileW(G->auto_refresh_file_to_monitor, GENERIC_READ,
-			FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-			NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-		if (h != INVALID_HANDLE_VALUE) {
-			FILETIME write_time = {};
-			if (GetFileTime(h, NULL, NULL, &write_time)) {
-				if (!G->auto_refresh_have_last_write) {
-					G->auto_refresh_last_write = write_time;
-					G->auto_refresh_have_last_write = true;
-				} else if (CompareFileTime(&write_time, &G->auto_refresh_last_write) != 0) {
-					G->auto_refresh_last_write = write_time;
-					LogInfo("auto_refresh_file_to_monitor changed — scheduling ReloadConfig\n");
-					G->gReloadConfigPending = true;
-				}
+	// Poll at most ~4 Hz so Present is not doing a filesystem open every frame.
+	if (G->auto_refresh_file_to_monitor[0] &&
+	    (G->gTime - G->auto_refresh_last_check_time) >= 0.25f) {
+		G->auto_refresh_last_check_time = G->gTime;
+		WIN32_FILE_ATTRIBUTE_DATA fad = {};
+		if (GetFileAttributesExW(G->auto_refresh_file_to_monitor, GetFileExInfoStandard, &fad)) {
+			FILETIME write_time = fad.ftLastWriteTime;
+			if (!G->auto_refresh_have_last_write) {
+				G->auto_refresh_last_write = write_time;
+				G->auto_refresh_have_last_write = true;
+			} else if (CompareFileTime(&write_time, &G->auto_refresh_last_write) != 0) {
+				G->auto_refresh_last_write = write_time;
+				LogInfo("auto_refresh_file_to_monitor changed - scheduling ReloadConfig\n");
+				G->gReloadConfigPending = true;
 			}
-			CloseHandle(h);
 		}
 	}
 

@@ -50,6 +50,11 @@ HackerInputLayout* HackerInputLayout::FromLayout(ID3D11InputLayout* layout)
 
 HackerInputLayout::~HackerInputLayout()
 {
+	// Drop the reverse pointer so a lingering original layout cannot
+	// resolve to a freed wrapper via FromLayout().
+	if (mOrigLayout) {
+		mOrigLayout->SetPrivateData(GUID_HackerInputLayout, 0, nullptr);
+	}
 }
 
 ID3D11InputLayout* HackerInputLayout::GetOrigInputLayout() const
