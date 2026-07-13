@@ -19,7 +19,7 @@ jobs:
     name: Meta checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Required files
         run: |
@@ -45,7 +45,7 @@ jobs:
     name: MSBuild (Windows)
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Detect solution
         id: sol
@@ -86,7 +86,7 @@ jobs:
 
       - name: Upload build artifact
         if: steps.sol.outputs.exists == 'true'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: d3d11-release-x64-${{ github.sha }}
           path: x64/Release/d3d11.dll
