@@ -7,12 +7,13 @@
 [![GitHub downloads](https://img.shields.io/github/downloads/Fenris159/EDHM_2DMigoto/total)](https://github.com/Fenris159/EDHM_2DMigoto/releases)
 [![GitHub stars](https://img.shields.io/github/stars/Fenris159/EDHM_2DMigoto?style=social)](https://github.com/Fenris159/EDHM_2DMigoto/stargazers)
 [![GitHub issues](https://img.shields.io/github/issues/Fenris159/EDHM_2DMigoto)](https://github.com/Fenris159/EDHM_2DMigoto/issues)
-[![GitHub license](https://img.shields.io/github/license/Fenris159/EDHM_2DMigoto)](LICENSE.GPL.txt)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.GPL.txt)
 [![Language](https://img.shields.io/github/languages/top/Fenris159/EDHM_2DMigoto)](https://github.com/Fenris159/EDHM_2DMigoto)
 [![Languages count](https://img.shields.io/github/languages/count/Fenris159/EDHM_2DMigoto)](https://github.com/Fenris159/EDHM_2DMigoto)
 [![Built for EDHM](https://img.shields.io/badge/Built%20for-EDHM-1f6feb)](https://github.com/psychicEgg/EDHM)
 [![2Dmigoto](https://img.shields.io/badge/Runtime-2Dmigoto%20(XXMI)-6f42c1)](https://github.com/SpectrumQT/XXMI-Libs-Package)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20x64-0078d4)](docs/building.md)
+[![Linux](https://img.shields.io/badge/Linux-Proton%20%2F%20Wine-FCC624?logo=linux&logoColor=black)](docs/building.md)
 [![MSBuild](https://img.shields.io/badge/Build-VS2022%20%7C%20MSVC-5c2d91)](docs/building.md)
 
 Independent **XXMI / 2Dmigoto** libraries tailored for **[EDHM](https://github.com/psychicEgg/EDHM)** (Elite Dangerous HUD Mod) workflows.
