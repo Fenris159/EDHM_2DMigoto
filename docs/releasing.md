@@ -42,6 +42,7 @@ Before a cut, update **CHANGELOG** (move Unreleased items into a version section
    - **version_action**: `use-current` or a bump
    - **pre_label**: `beta` / `rc` / `alpha` (develop)
    - **create_tag**: usually `true`
+   - **update_vendor_cache**: usually `true` (skips on draft)
 4. Workflow will:
    - Optionally bump `VERSION`
    - Refresh `CURRENT_RELEASE_NOTES.md` from `CHANGELOG.md`
@@ -49,6 +50,7 @@ Before a cut, update **CHANGELOG** (move Unreleased items into a version section
    - Create annotated tag
    - Build **Zip Release | x64**
    - Publish GitHub Release with `d3d11.dll`, zip, and SHA256 files
+   - Commit **`vendor/edhm-runtime/`** (DLL via Git LFS + metadata) on the same branch
 
 ## CI
 
@@ -59,6 +61,33 @@ Before a cut, update **CHANGELOG** (move Unreleased items into a version section
 - Uploads `d3d11.dll` as a workflow artifact (14 days)
 
 Scaffold-only `main` skips compile but still runs meta checks.
+
+## Vendor cache (`vendor/edhm-runtime`)
+
+After a **non-draft** Release succeeds, the same workflow (when `update_vendor_cache` is true, default) commits:
+
+| Path | Contents |
+|------|----------|
+| `vendor/edhm-runtime/d3d11.dll` | Built DLL (**Git LFS**) |
+| `vendor/edhm-runtime/d3d11.dll.sha256` | Checksum |
+| `vendor/edhm-runtime/VERSION` | SemVer without `v` |
+| `vendor/edhm-runtime/SOURCE_TAG` | e.g. `v0.1.0-beta.1` |
+| `vendor/edhm-runtime/CHANNEL` | `release` or `prerelease` |
+| `vendor/edhm-runtime/RELEASE_URL` | GitHub Release URL |
+
+- Pre-releases update the cache on **`develop`**
+- Stable releases update the cache on **`main`**
+- GitHub **Release assets** remain the distribution source of truth; vendor is a convenience mirror
+
+Local helper (after a manual build):
+
+```powershell
+.\scripts\update-vendor-cache.ps1 `
+  -DllPath 'x64\Zip Release\d3d11.dll' `
+  -Version 0.1.0-beta.1 `
+  -Tag v0.1.0-beta.1 `
+  -Channel prerelease
+```
 
 ## Local helpers
 

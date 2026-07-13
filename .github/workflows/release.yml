@@ -43,6 +43,11 @@ on:
         required: false
         type: boolean
         default: false
+      update_vendor_cache:
+        description: 'Commit built d3d11.dll into vendor/edhm-runtime on the release branch'
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -61,6 +66,7 @@ jobs:
         with:
           ref: ${{ inputs.branch }}
           fetch-depth: 0
+          lfs: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Require solution (not scaffold-only)
@@ -243,3 +249,39 @@ jobs:
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Vendor cache: same workflow as release so tag/assets/folder stay in lockstep.
+      # Skipped for draft releases (no published URL) and when update_vendor_cache=false.
+      - name: Update vendor/edhm-runtime cache
+        if: ${{ inputs.update_vendor_cache && !inputs.draft }}
+        shell: pwsh
+        run: |
+          git lfs install
+          & .\scripts\update-vendor-cache.ps1 `
+            -DllPath 'dist\d3d11.dll' `
+            -Version '${{ steps.ver.outputs.version }}' `
+            -Tag '${{ steps.ver.outputs.tag }}' `
+            -Channel '${{ steps.channel.outputs.channel }}' `
+            -ReleaseUrl "https://github.com/${{ github.repository }}/releases/tag/${{ steps.ver.outputs.tag }}"
+
+      - name: Commit and push vendor cache
+        if: ${{ inputs.update_vendor_cache && !inputs.draft }}
+        shell: pwsh
+        run: |
+          git add vendor/edhm-runtime/ .gitattributes
+          git status
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host 'Vendor cache unchanged; nothing to commit'
+            exit 0
+          }
+          git commit -m "chore(vendor): edhm-runtime ${{ steps.ver.outputs.tag }}"
+          # Retry push in case of concurrent updates
+          $ok = $false
+          for ($i = 0; $i -lt 3; $i++) {
+            git pull --rebase origin ${{ inputs.branch }}
+            git push origin "HEAD:${{ inputs.branch }}"
+            if ($LASTEXITCODE -eq 0) { $ok = $true; break }
+            Start-Sleep -Seconds 3
+          }
+          if (-not $ok) { throw 'Failed to push vendor cache commit' }
