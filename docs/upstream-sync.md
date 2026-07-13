@@ -6,9 +6,9 @@ This repo is independent of [XXMI-Libs-Package](https://github.com/SpectrumQT/XX
 
 | Branch | Purpose | What belongs here |
 |--------|---------|-------------------|
-| `xxmi-base` | Clean XXMI import | Only fast-forwards / merges from `xxmi/master`. No EDHM patches. |
-| `develop` | Integration + EDHM work | Cherry-picks from `xxmi-base`, EDHM compatibility fixes, docs that help day-to-day work. |
-| `main` | EDHM release | Stable snapshots of `develop` ready to ship for EDHM. |
+| `xxmi-base` | Clean **full** XXMI import | Only fast-forwards from `xxmi/master`. No EDHM patches. Background cherry-pick source. |
+| `develop` | Slim EDHM working tree | Minimum graph for `d3d11.dll` + EDHM patches. Not the full XXMI tree. |
+| `main` | EDHM release | Scaffold + stable merges from `develop` ready to ship. |
 
 ```text
   xxmi (remote)
@@ -104,6 +104,8 @@ git cherry-pick --continue
 ```
 
 If a commit does not apply cleanly, prefer a manual port of the change over force-fitting a large merge.
+
+`develop` is a **subset** of XXMI. Commits that only touch Injector, D3DCompiler proxies, full DirectXTK platforms, etc. usually do **not** apply and usually do **not** matter for EDHM — skip them or re-check `docs/layout.md` if you think EDHM needs that path.
 
 ### Merge a small range (only when low-risk)
 

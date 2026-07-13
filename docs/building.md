@@ -3,23 +3,44 @@
 ## Requirements
 
 - Windows
-- Visual Studio 2022 (MSVC toolset; solution targets match XXMI modernization)
-- Windows SDK components as required by the DirectX11 project
+- Visual Studio 2022 (toolset **v143**)
+- Windows 10/11 SDK (for headers and `d3dcompiler_47.dll` redist)
 
-## Steps
+## Build `d3d11.dll`
 
-1. Clone this repository.
-2. Open `StereovisionHacks.sln` in Visual Studio.
-3. Select configuration (`Release` recommended for testing with EDHM).
-4. Build the solution or the primary DirectX11 / injector projects.
-5. Collect outputs into `dist/` for packaging (optional; `dist/*` is gitignored by default).
+1. Open **`EDHM_2DMigoto.sln`** (not the old XXMI `StereovisionHacks.sln` — that lives only on `xxmi-base`).
+2. Select configuration:
+   - **Release | x64** for normal testing
+   - **Zip Release | x64** for packaging-style output (if configured)
+3. Build project **DirectX11** (or the whole solution).
+4. Find `d3d11.dll` under the platform/config output directory (e.g. `x64\Release\` or `x64\Zip Release\`).
 
-## Notes
+Dependent static libraries (`BinaryDecompiler`, `DirectXTK_Desktop_2017`) build automatically via project references.
 
-- Solution and project names still reflect the historical 3Dmigoto “StereovisionHacks” naming even though stereo/3D features were stripped in XXMI.
-- First-time builds may need NuGet or SDK repairs depending on your VS install.
-- Do not commit intermediate `Debug/`, `Release/`, `.vs/`, or `*.pdb` artifacts; they are covered by `.gitignore`.
+## `d3dcompiler_47.dll`
 
-## EDHM testing
+This DLL is **not** produced by our C++ projects. DirectX11 post-build steps copy it from:
 
-Document your local deploy path and smoke-test checklist here as you establish a routine (game path, d3dx.ini layout, loader usage).
+```text
+$(WindowsSdkDir)redist\d3d\x64\d3dcompiler_47.dll
+```
+
+A copy is also committed under `Dependencies\d3dcompiler_47.dll` for EDHM packaging when the SDK path is inconvenient.
+
+## Packaging for EDHM smoke tests
+
+Typical game-folder pair:
+
+```text
+d3d11.dll
+d3dcompiler_47.dll
+d3dx.ini          (from Dependencies/ or your EDHM config tree)
+```
+
+Copy finished artifacts into `dist/` locally if useful (`dist/*` is gitignored except README).
+
+## What not to expect
+
+- No XXMI Launcher injector build on `develop`
+- No `D3DCompiler_46` proxy project on `develop`
+- Full upstream tree remains on `xxmi-base` for reference and cherry-picks

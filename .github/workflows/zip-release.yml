@@ -18,21 +18,28 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v5
 
     - name: Add MSBuild for VS2022 to PATH
       uses: microsoft/setup-msbuild@v2
       with:
         vs-version: '[17.0,18.0)'
-        
-    - name: Build solution
-      run: msbuild StereoVisionHacks.sln -property:Configuration="Zip Release" -property:Platform=x64 -target:rebuild -verbosity:minimal
 
-    - name: Zip DLLs
+    - name: Build solution
+      run: msbuild EDHM_2DMigoto.sln -property:Configuration="Zip Release" -property:Platform=x64 -target:rebuild -verbosity:minimal
+
+    - name: Zip EDHM DLLs
+      shell: pwsh
       run: |
-        $dll_files = Get-ChildItem -Path './x64/Zip Release' -Filter '*.dll'
-        Compress-Archive -Path $dll_files.FullName -DestinationPath './LibrariesTemp.zip'
-        
+        $out = './x64/Zip Release'
+        $dlls = @('d3d11.dll', 'd3dcompiler_47.dll') | ForEach-Object {
+          Join-Path $out $_
+        } | Where-Object { Test-Path $_ }
+        if (-not $dlls) {
+          throw "No d3d11.dll / d3dcompiler_47.dll found under $out"
+        }
+        Compress-Archive -Path $dlls -DestinationPath './LibrariesTemp.zip' -Force
+
     - name: Create GitHub Release
       id: create_release
       uses: actions/create-release@v1
@@ -48,7 +55,7 @@ jobs:
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: './LibrariesTemp.zip'
-        asset_name: XXMI-PACKAGE-${{ github.ref_name }}.zip
+        asset_name: EDHM-2DMigoto-${{ github.ref_name }}.zip
         asset_content_type: application/zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
