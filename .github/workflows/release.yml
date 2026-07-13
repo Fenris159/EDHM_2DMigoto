@@ -67,10 +67,8 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Test-Path 'EDHM_2DMigoto.sln')) {
-            throw @"
-EDHM_2DMigoto.sln is missing on branch '${{ inputs.branch }}'.
-Release builds require the slim source tree (typically develop, or main after merging develop).
-"@
+            $branch = '${{ inputs.branch }}'
+            throw "EDHM_2DMigoto.sln is missing on branch '$branch'. Release builds need the slim source tree (develop, or main after merging develop)."
           }
 
       - name: Configure git identity
