@@ -1,26 +1,23 @@
-## EDHM_2DMigoto 0.1.0
+## EDHM_2DMigoto 0.1.1
 
-Package build for Elite Dangerous HUD Mod (EDHM).
-Built from this repository's automated release workflow.
-## [0.1.0] - 2026-07-13
+Patch release: fix Elite Dangerous crash on location load caused by XXMI-style
+InputLayout COM wrapping. EDHM HUD shaders and classic TextureOverride behaviour
+from 0.1.0 are retained.
 
-### Added
+### Fixed
 
-- Independent repository based on SpectrumQT XXMI-Libs-Package (2Dmigoto), not a GitHub fork
-- Tracking remotes for `xxmi` and `3dmigoto`; `xxmi-base` mirror branch + update Action
-- Slim `develop` tree focused on building `d3d11.dll` for EDHM
-- EDHM compatibility bridge (classic include load, hash TextureOverride precedence,
-  `auto_refresh_file_to_monitor`, safer InputLayout unwrap)
-- Scaffold `main` for release merges; docs for build, layout, upstream sync
-- Release / pre-release GitHub Actions, CI build, changelog, and release notes pipeline
-
-### Changed
-
-- Product identity in `version.h`: EDHM_2DMigoto 1.4.5 (file version; package version is `VERSION`)
+- Crash during open-world / location load (`ACCESS_VIOLATION` in system `d3d11.dll`):
+  game now always receives real `ID3D11InputLayout` objects; layout metadata is a
+  private-data side-car only
+- `CreateRasterizerState1` respects `rasterizer_disable_scissor` (parity with the
+  legacy CreateRasterizerState path)
+- Release workflow false positive “Tag already exists” on Windows runners
 
 ### Notes
 
-- `d3dcompiler_47.dll` remains the Microsoft redistributable (SDK / EDHM package)
-- Stereo features remain stripped (2Dmigoto); XXMI performance-oriented code paths retained
----
+- DLL file version remains **1.4.5** (`version.h`) for EDHM tooling familiarity;
+  package tag is **v0.1.1**
+- For in-game cursor only (no OS pointer): set `hide_cursor=1` under `[Device]`
+- Keep EDHM’s own `d3dcompiler_47.dll` unless you intentionally replace it
+
 Full project history: [CHANGELOG.md](https://github.com/Fenris159/EDHM_2DMigoto/blob/HEAD/CHANGELOG.md)
