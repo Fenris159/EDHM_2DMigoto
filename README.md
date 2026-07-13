@@ -1,27 +1,106 @@
-![image](https://cloud.githubusercontent.com/assets/6544511/22624161/934dba64-eb27-11e6-8f78-46c902e96e1b.png)
-========
+# EDHM_2DMigoto
 
-**XXMI DLL** is a fork of [3dmigoto](https://github.com/bo3b/3Dmigoto/), a Direct3D modding tool. Developed as part of the **XXMI Project** by the [AGMG Community](https://discord.gg/agmg), it serves as a core component of the [XXMI Launcher](https://github.com/SpectrumQT/XXMI-Launcher). This fork focuses on streamlining the original, enhances compatibility and introduces performance and usability improvements.
+Independent **XXMI / 2Dmigoto** library tree tailored for **[EDHM](https://github.com/bluelettr/EDHM)** (Elite Dangerous HUD Mod) workflows.
 
-## Key differences
+This repository starts from [SpectrumQT/XXMI-Libs-Package](https://github.com/SpectrumQT/XXMI-Libs-Package) (itself a streamlined fork of [bo3b/3Dmigoto](https://github.com/bo3b/3Dmigoto/)) but is **not** a GitHub fork of either project. You own this tree completely; useful upstream fixes can still be pulled in selectively.
 
-* Legacy projects have been removed from the solution.
-* All stereoscopic (3D) features have been stripped, making this fork effectively a "2Dmigoto".
-* Codebase has been updated for compatibility with **Visual Studio 2022**.
+## Why this exists
 
-## New features
+EDHM historically relied on classic 3Dmigoto-era runtime behavior. XXMI (often called “2Dmigoto”) modernizes and strips stereo features, which is great for many games but can break EDHM expectations. This repo is the place to:
 
-* Micro-optimizations to reduce config reload times and main loop FPS impact.
-* UTF-8 support for file paths and namespaces.
-* Configurable buffers resizing support, also known as "vertex limit raise" (backward-compatible with GIMI `.dll` implementation).
-* GPU-to-INI scope data transfer support via `store` command (backward-compatible with GIMI `.dll` implementation).
-* Periodic auto-saving of mod settings (persistent vars are saved to `d3dx_user.ini` every 1 minute by default).
-* Support for remote DLL loading (allows the loader `.exe` to reside in a separate directory).
+- Keep a clean, buildable XXMI-based codebase under your control
+- Apply EDHM-specific patches without fighting an upstream fork relationship
+- Cherry-pick only the XXMI / 3Dmigoto changes that help EDHM
 
-## Special Thanks
+## Credits
 
-- Chiri, [Bo3b](https://github.com/bo3b), [DarkStarSword](https://github.com/DarkStarSword) — for the monumental work behind the original 3dmigoto.
-- [SilentNightSound](https://github.com/SilentNightSound) — for pioneering AGMG D3D modding and introducing foundational GIMI DLL features.
-- [SinsOfSeven](https://github.com/SinsOfSeven) — for input on architecture decisions and original source analysis.
-- [Nurarihyon](https://github.com/NurarihyonMaou), [Scyll](https://gamebanana.com/members/2644630) — for contributions and optimization insights.
-- [Leotorrez](https://github.com/leotorrez) & [Gustav0](https://github.com/Seris0/Gustav0) — for extensive testing and tireless listening to community feedback.
+Original and upstream work — thank you:
+
+| Project | Authors / maintainers |
+|--------|------------------------|
+| [3Dmigoto](https://github.com/bo3b/3Dmigoto/) | Chiri, [Bo3b](https://github.com/bo3b), [DarkStarSword](https://github.com/DarkStarSword), and contributors |
+| [XXMI-Libs-Package](https://github.com/SpectrumQT/XXMI-Libs-Package) | [SpectrumQT](https://github.com/SpectrumQT) and the [AGMG Community](https://discord.gg/agmg) |
+| Deviare-InProcess | Nektra (GPLv3; used by the inherited 3Dmigoto codebase) |
+
+See `AUTHORS.txt` and `COPYING.txt` for fuller attribution.
+
+## License
+
+Library source in this repository is released under the **GNU General Public License version 3**. See `LICENSE.GPL.txt` and `COPYING.txt`.
+
+Game-specific shaders, configs, and mod assets are **not** automatically covered by that license; they remain owned by their respective authors.
+
+## Repository layout
+
+| Path | Purpose |
+|------|---------|
+| `DirectX11/`, `Injector/`, … | XXMI / 2Dmigoto source (imported base) |
+| `patches/` | EDHM-specific patch notes, diffs, and design notes |
+| `docs/` | Build notes, upstream-sync workflow, EDHM compatibility notes |
+| `scripts/` | Helper scripts (fetch upstream, package builds, etc.) |
+| `dist/` | Built DLLs / release packages (artifacts ignored by default) |
+
+## Branches
+
+| Branch | Role |
+|--------|------|
+| `main` | Stable base + accepted EDHM work |
+| `develop` | Day-to-day experimentation and EDHM patches |
+
+## Building
+
+Same general requirements as XXMI / 3Dmigoto:
+
+1. **Visual Studio 2022** (or compatible MSVC toolset)
+2. Open `StereovisionHacks.sln` (historical solution name from 3Dmigoto/XXMI)
+3. Build the DirectX11 / injector targets you need
+4. Copy outputs into `dist/` when packaging for EDHM testing
+
+See `docs/building.md` for more detail as it is filled in.
+
+## Tracking upstream without depending on it
+
+Remotes are configured for **fetch-only awareness** (you push only to `origin`):
+
+```text
+origin     https://github.com/Fenris159/EDHM_2DMigoto.git
+xxmi       https://github.com/SpectrumQT/XXMI-Libs-Package.git
+3dmigoto   https://github.com/bo3b/3Dmigoto.git
+```
+
+Typical update workflow:
+
+```powershell
+# 1. Fetch latest from XXMI (and optionally classic 3Dmigoto)
+git fetch xxmi --tags
+git fetch 3dmigoto master
+
+# 2. Review what is new
+git log --oneline HEAD..xxmi/master
+git log -p --reverse HEAD..xxmi/master -- DirectX11/
+
+# 3. Selectively integrate
+git cherry-pick <commit>          # preferred for one-off fixes
+# or careful merge of a small range after review
+```
+
+More detail: `docs/upstream-sync.md`.
+
+Helper script (optional):
+
+```powershell
+.\scripts\fetch-upstream.ps1
+.\scripts\fetch-upstream.ps1 -ShowNew
+```
+
+## How this differs from stock XXMI
+
+| Stock XXMI | This repository |
+|------------|-----------------|
+| Oriented toward XXMI Launcher / AGMG game stacks | Oriented toward **EDHM / Elite Dangerous** |
+| GitHub fork of 3Dmigoto lineage | **Independent** repo; remotes only for tracking |
+| Upstream-driven feature set | Selective integration + EDHM compatibility patches |
+
+## Status
+
+Initial import of XXMI-Libs-Package history is complete. EDHM-specific runtime patches live on `develop` as they are developed.
