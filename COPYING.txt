@@ -11,11 +11,19 @@ License version 3. See LICENSE.GPL.txt for the full license text.
 
 This project is derived from and should preserve attribution to:
 
-- 3Dmigoto, originally maintained by the 3Dmigoto project contributors.
+- 3Dmigoto, originally maintained by the 3Dmigoto project contributors
+  (Chiri, Bo3b, Ian Munsie / DarkStarSword, and others).
 - XXMI-Libs-Package by SpectrumQT and contributors, itself forked from
-  3Dmigoto.
+  3Dmigoto and developed as part of the XXMI Project by the AGMG Community.
 - Deviare-InProcess from Nektra where used by the inherited 3Dmigoto codebase,
   which is also licensed under the GNU General Public License version 3.
+
+Original 3Dmigoto licensing intent (from upstream COPYING.txt): the source
+code of 3Dmigoto is released under the GPLv3. Contributors are encouraged,
+but not strictly required, to contribute enhancements back upstream. Any
+shaders distributed along with 3Dmigoto as part of game fixes are not covered
+by the license of 3Dmigoto, and are owned by their respective copyright
+holders.
 
 Changes made in this repository are intended to restore or preserve EDHM
 compatibility, including shader/config behavior expected by Elite Dangerous HUD
