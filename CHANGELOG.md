@@ -8,15 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Package / release tags use this file and the root `VERSION` file
 (`vMAJOR.MINOR.PATCH` for releases, `vMAJOR.MINOR.PATCH-beta.N` / `-rc.N` for pre-releases).
 
-DLL file properties (`version.h`) may still report a classic 3Dmigoto-compatible
-file version (e.g. 1.4.5) for identity with EDHM tooling; that is separate from
-the package version below.
+DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH as
+`VERSION`). Behaviour still targets classic 3Dmigoto / EDHM compatibility.
 
 ## [Unreleased]
 
 ### Planned
 
-- Further EDHM smoke validation and polish against stock 1.4.5 behaviour
+- Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
 
 ## [0.1.1] - 2026-07-13
 
@@ -36,6 +35,8 @@ the package version below.
 
 - Frame analysis resolves layout cache via `FromLayout` after `IAGetInputLayout`
   (compatible with real layout pointers).
+- **`version.h` file/product version aligned with package SemVer** (`0.1.1`)
+  instead of classic 3Dmigoto `1.4.5` labeling.
 
 ### Notes
 
@@ -61,7 +62,8 @@ the package version below.
 
 ### Changed
 
-- Product identity in `version.h`: EDHM_2DMigoto 1.4.5 (file version; package version is `VERSION`)
+- Product name in `version.h`: **EDHM_2DMigoto** (file version was still labeled
+  1.4.5 for tooling familiarity; package SemVer is `VERSION`)
 
 ### Notes
 

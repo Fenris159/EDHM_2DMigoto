@@ -5,7 +5,7 @@
 | Location | Purpose |
 |----------|---------|
 | **`VERSION`** | Package / GitHub Release SemVer (`0.1.1`, `0.1.1-beta.1`) |
-| **`version.h`** | DLL *file* properties (may stay `1.4.5` for EDHM tooling familiarity) |
+| **`version.h`** | DLL *file* properties (keep in sync with `VERSION`: MAJOR.MINOR.PATCH) |
 | **Tags** | `v0.1.1` (release) · `v0.1.1-beta.1` / `v0.1.1-rc.1` (pre-release) |
 
 Follow [Semantic Versioning](https://semver.org/) and [Keep a Changelog](https://keepachangelog.com/).

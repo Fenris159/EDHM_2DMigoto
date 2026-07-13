@@ -86,9 +86,10 @@ location entry). Stock 3Dmigoto 1.4.5 / EDHM never exposed a layout COM wrapper.
 
 ### 5. Version identity
 
-`version.h` still said 1.3.16 / “3Dmigoto”. EDHM ships 1.4.5. Updated product
-identity to **EDHM_2DMigoto 1.4.5** for clearer comparison (not a claim of binary
-identity with bo3b 1.4.5). Package SemVer is separate (`VERSION` / tags).
+`version.h` originally said 1.3.16 / “3Dmigoto” (XXMI). Product name is
+**EDHM_2DMigoto**. From package **0.1.1** onward, `VERSION_MAJOR/MINOR/REVISION`
+match the package SemVer in root `VERSION` (e.g. `0.1.1`), not classic 3Dmigoto
+`1.4.5` labeling — DLL Properties and `vX.Y.Z` tags stay aligned.
 
 ### 6. `CreateRasterizerState1` scissor flag (0.1.1)
 
