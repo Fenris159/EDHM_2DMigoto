@@ -100,12 +100,14 @@ git merge --no-ff develop
 
 More detail: `docs/upstream-sync.md`.
 
-Helper script:
+Helper script (local):
 
 ```powershell
 .\scripts\fetch-upstream.ps1
-.\scripts\fetch-upstream.ps1 -UpdateBase -ShowNew
+.\scripts\fetch-upstream.ps1 -UpdateBase -PushBase -ShowNew
 ```
+
+From GitHub: **Actions → Update xxmi-base → Run workflow** (also runs Mon/Thu on a schedule). See `docs/upstream-sync.md`.
 
 ## How this differs from stock XXMI
 

@@ -40,20 +40,37 @@ Never push to `xxmi` or `3dmigoto`. Treat them as read-only (`push` URL is `no_p
 
 ## Keep `xxmi-base` current
 
+### From GitHub (recommended for hands-off updates)
+
+Workflow: [`.github/workflows/update-xxmi-base.yml`](../.github/workflows/update-xxmi-base.yml)
+
+| Trigger | When |
+|---------|------|
+| Schedule | Mondays and Thursdays at 12:00 UTC |
+| Manual | **Actions → Update xxmi-base → Run workflow** |
+
+The job fetches [SpectrumQT/XXMI-Libs-Package](https://github.com/SpectrumQT/XXMI-Libs-Package) `master` and fast-forwards `xxmi-base` on this repo. It does **not** touch `develop` or `main`.
+
+- If already current, the job exits cleanly.
+- If `xxmi-base` has non-upstream commits, the job fails (protects the mirror). Re-run with **force** only if you mean to reset the branch to pure XXMI.
+
+Scheduled workflows only run from the repo **default branch** (`main`), so keep this workflow file on `main`.
+
+### From local CLI
+
 ```powershell
-.\scripts\fetch-upstream.ps1 -UpdateBase -ShowNew
+.\scripts\fetch-upstream.ps1 -UpdateBase -PushBase -ShowNew
 ```
 
 Manual equivalent:
 
 ```powershell
 git fetch xxmi --tags
-git switch xxmi-base
-git merge --ff-only xxmi/master
+git fetch . xxmi/master:xxmi-base   # ff-only; does not check out the branch
 git push origin xxmi-base
 ```
 
-Use `--ff-only` so `xxmi-base` never gains unrelated local commits by accident. If fast-forward fails, someone committed on `xxmi-base` who should not have — fix that before continuing.
+Use fast-forward only so `xxmi-base` never gains unrelated local commits by accident. If that fails, someone committed on `xxmi-base` who should not have — fix that before continuing.
 
 ## Review what is new for develop
 

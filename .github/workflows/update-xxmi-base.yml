@@ -1,0 +1,121 @@
+# Mirror SpectrumQT/XXMI-Libs-Package master onto the xxmi-base branch.
+# Scheduled runs only fire from the repository default branch (main).
+name: Update xxmi-base
+
+on:
+  schedule:
+    # Mondays and Thursdays at 12:00 UTC
+    - cron: '0 12 * * 1,4'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force-update xxmi-base even if not a fast-forward (use if the branch was polluted or upstream rewrote history)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-xxmi-base
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Fast-forward xxmi-base from XXMI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Need full history for meaningful SHAs / ancestry checks
+          fetch-depth: 0
+          # Ensure GITHUB_TOKEN can push to xxmi-base
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream XXMI and origin
+        run: |
+          set -euo pipefail
+          git remote add xxmi https://github.com/SpectrumQT/XXMI-Libs-Package.git
+          git fetch xxmi master
+          git fetch origin xxmi-base || true
+
+      - name: Update xxmi-base
+        id: update
+        env:
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force || false }}
+        run: |
+          set -euo pipefail
+
+          NEW=$(git rev-parse xxmi/master)
+          NEW_SHORT=$(git rev-parse --short xxmi/master)
+
+          if git rev-parse --verify origin/xxmi-base >/dev/null 2>&1; then
+            OLD=$(git rev-parse origin/xxmi-base)
+            OLD_SHORT=$(git rev-parse --short origin/xxmi-base)
+          else
+            OLD=""
+            OLD_SHORT="(missing)"
+          fi
+
+          echo "upstream xxmi/master : ${NEW_SHORT} (${NEW})"
+          echo "origin/xxmi-base     : ${OLD_SHORT}${OLD:+ ($OLD)}"
+
+          if [ -n "$OLD" ] && [ "$OLD" = "$NEW" ]; then
+            echo "status=up_to_date" >> "$GITHUB_OUTPUT"
+            echo "new_sha=$NEW" >> "$GITHUB_OUTPUT"
+            echo "old_sha=$OLD" >> "$GITHUB_OUTPUT"
+            echo "xxmi-base is already up to date with XXMI master."
+            exit 0
+          fi
+
+          if [ "$FORCE" = "true" ]; then
+            echo "Force update requested; pushing xxmi/master -> xxmi-base"
+            git push --force origin "xxmi/master:refs/heads/xxmi-base"
+          else
+            # Fast-forward only: fails if xxmi-base has non-upstream commits
+            if [ -n "$OLD" ] && ! git merge-base --is-ancestor "$OLD" "$NEW"; then
+              echo "::error::origin/xxmi-base is not an ancestor of xxmi/master."
+              echo "xxmi-base may contain local commits. Re-run with force=true only if you intend to reset the mirror."
+              echo "status=diverged" >> "$GITHUB_OUTPUT"
+              exit 1
+            fi
+            git push origin "xxmi/master:refs/heads/xxmi-base"
+          fi
+
+          echo "status=updated" >> "$GITHUB_OUTPUT"
+          echo "new_sha=$NEW" >> "$GITHUB_OUTPUT"
+          echo "old_sha=${OLD:-}" >> "$GITHUB_OUTPUT"
+          echo "Updated xxmi-base: ${OLD_SHORT} -> ${NEW_SHORT}"
+
+      - name: Job summary
+        if: always()
+        env:
+          STATUS: ${{ steps.update.outputs.status }}
+          OLD_SHA: ${{ steps.update.outputs.old_sha }}
+          NEW_SHA: ${{ steps.update.outputs.new_sha }}
+        run: |
+          {
+            echo "## Update xxmi-base"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Status | \`${STATUS:-unknown}\` |"
+            echo "| Previous | \`${OLD_SHA:-n/a}\` |"
+            echo "| XXMI master | \`${NEW_SHA:-n/a}\` |"
+            echo "| Upstream | [SpectrumQT/XXMI-Libs-Package](https://github.com/SpectrumQT/XXMI-Libs-Package) |"
+            echo ""
+            if [ "${STATUS:-}" = "updated" ]; then
+              echo "Next: on \`develop\`, review with:"
+              echo '```'
+              echo "git fetch origin"
+              echo "git log --oneline develop..origin/xxmi-base"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
