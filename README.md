@@ -28,6 +28,7 @@ Independent **XXMI / 2Dmigoto** libraries tailored for **[EDHM](https://github.c
 | Install / use with EDHM | [Getting Started](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Getting-Started) |
 | Build from source | [Building](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Building) |
 | Shader hunting | [Shader Hunting](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Shader-Hunting) |
+| Advanced dumps (`export_hlsl=3`, …) | [Advanced Hunting & Export](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Advanced-Hunting-and-Export) *(optional)* |
 | Config / overrides | [Configuration Reference](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Configuration-Reference), [ShaderFixes & Overrides](https://github.com/Fenris159/EDHM_2DMigoto/wiki/ShaderFixes-and-Overrides) |
 | Releases & vendor cache | [Releasing & CI](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Releasing-and-CI), [Vendor Cache](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Vendor-Cache-and-Releases) |
 
