@@ -29,15 +29,18 @@ A copy is also committed under `Dependencies\d3dcompiler_47.dll` for EDHM packag
 
 ## Packaging for EDHM smoke tests
 
-Typical game-folder pair (match stock EDHM layout):
+Typical Odyssey **product root** (next to `EliteDangerous64.exe`, not only the Steam library root):
 
 ```text
-d3d11.dll              ← build this project
+d3d11.dll              ← build this project (do not replace dxgi.dll if ReShade owns it)
 d3dcompiler_47.dll     ← keep EDHM’s MS redistributable (or Dependencies/)
-d3dx.ini + EDHM-ini/ + ShaderFixes/   ← from psychicEgg/EDHM package unchanged
+d3dx.ini + EDHM-ini/ + ShaderFixes/   ← from EDHM; folders may be junctions (EDHM_UI)
+ShaderCache/           ← created at runtime when hunting/export is active
 ```
 
-Drop your built `d3d11.dll` over EDHM’s without modifying EDHM inis/shaders. Compatibility notes: `patches/0001-edhm-xxmi-compat.md`.
+Drop your built `d3d11.dll` over EDHM’s without modifying EDHM inis/shaders.  
+Live installs may run stock **3Dmigoto 1.4.5 or 1.4.9** (check file properties).  
+Canonical docs: [Wiki](https://github.com/Fenris159/EDHM_2DMigoto/wiki). Compatibility notes: `patches/0001-edhm-xxmi-compat.md`.
 
 Copy finished artifacts into `dist/` locally if useful (`dist/*` is gitignored except README).
 
