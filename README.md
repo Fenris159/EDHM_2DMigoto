@@ -96,8 +96,8 @@ xxmi/master  ──ff──►  xxmi-base  ──selective port──►  develo
 
 | Channel | Tag example | GitHub Release |
 |---------|-------------|----------------|
-| `main` | `v0.1.0` | Latest release |
-| `develop` | `v0.1.0-beta.1` | Pre-release |
+| `main` | `v0.1.1` | Latest release |
+| `develop` | `v0.1.1-beta.1` | Pre-release |
 
 ```text
 Actions → Release → Run workflow

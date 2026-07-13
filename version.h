@@ -24,13 +24,12 @@
 
 // Actual version, name, copyright information that is built into the dlls.
 // This is what an end-user will see when they look at dll properties.
-// The VERSION_MAJOR and VERSION_MINOR are hand edited when versions are to change.
-// The VERSION_REVISION is automatically incremented for every Publish build.
+// Keep in sync with the package SemVer in the root VERSION file (MAJOR.MINOR.PATCH).
 
-// EDHM_2DMigoto: XXMI-based build aimed at classic 3Dmigoto 1.4.x / EDHM behaviour.
-#define VERSION_MAJOR               1
-#define VERSION_MINOR               4
-#define VERSION_REVISION            5
+// EDHM_2DMigoto: XXMI-based build aimed at classic 3Dmigoto / EDHM behaviour.
+#define VERSION_MAJOR               0
+#define VERSION_MINOR               1
+#define VERSION_REVISION            1
  
 #define STRINGIZE2(s) #s
 #define STRINGIZE(s) STRINGIZE2(s)

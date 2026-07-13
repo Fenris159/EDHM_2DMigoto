@@ -1468,17 +1468,25 @@ STDMETHODIMP_(void) HackerContext::IASetInputLayout(THIS_
 	/* [annotation] */
 	__in_opt ID3D11InputLayout *pInputLayout)
 {
-	if (mCurrentInputLayout)
+	// Track side-car cache for hunting / frame analysis only. Always bind the
+	// real D3D layout pointer to the original context — never a HackerInputLayout
+	// COM wrapper (game is given only real layouts from CreateInputLayout).
+	if (mCurrentInputLayout) {
 		mCurrentInputLayout->Release();
+		mCurrentInputLayout = nullptr;
+	}
 
-	// Safe unwrap — never static_cast a possibly-foreign COM pointer.
 	mCurrentInputLayout = HackerInputLayout::FromLayout(pInputLayout);
-
 	if (mCurrentInputLayout)
 		mCurrentInputLayout->AddRef();
 
-	mOrigContext1->IASetInputLayout(
-		mCurrentInputLayout ? mCurrentInputLayout->GetOrigInputLayout() : pInputLayout);
+	// If a wrapper ever appears (legacy / foreign mod), unwrap it; otherwise
+	// pass the pointer through (real layout or null).
+	ID3D11InputLayout *orig = pInputLayout;
+	if (mCurrentInputLayout)
+		orig = mCurrentInputLayout->GetOrigInputLayout();
+
+	mOrigContext1->IASetInputLayout(orig);
 }
 
 STDMETHODIMP_(void) HackerContext::IASetVertexBuffers(THIS_
@@ -2444,13 +2452,9 @@ STDMETHODIMP_(void) HackerContext::IAGetInputLayout(THIS_
 	/* [annotation] */
 	__out  ID3D11InputLayout **ppInputLayout)
 {
-	if (!ppInputLayout)
-		return;
-
-	*ppInputLayout = mCurrentInputLayout;
-
-	if (mCurrentInputLayout)
-		mCurrentInputLayout->AddRef();
+	// Return the real D3D layout (not our side-car). Frame analysis resolves
+	// the cache via HackerInputLayout::FromLayout on this pointer.
+	mOrigContext1->IAGetInputLayout(ppInputLayout);
 }
 
 STDMETHODIMP_(void) HackerContext::IAGetVertexBuffers(THIS_

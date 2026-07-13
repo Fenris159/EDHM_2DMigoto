@@ -1643,11 +1643,18 @@ STDMETHODIMP HackerDevice::CreateInputLayout(THIS_
 	ret = mOrigDevice1->CreateInputLayout(pInputElementDescs, NumElements, pShaderBytecodeWithInputSignature,
 		BytecodeLength, ppInputLayout);
 
+	// Side-car only: attach layout cache via private data on the *original* COM
+	// object. Do NOT replace *ppInputLayout with HackerInputLayout — handing a
+	// C++ wrapper to the game as ID3D11InputLayout causes access violations in
+	// System32\d3d11.dll when any code path reaches the real device/context
+	// without unwrapping (seen as AV read @ 0x18 in d3d11.dll+0x4D9A during
+	// location load). Classic 3Dmigoto / EDHM 1.4.5 never exposed a layout COM
+	// wrapper; XXMI's full wrap is unsafe for Elite + EDHM.
 	if (SUCCEEDED(ret) && ppInputLayout && *ppInputLayout) {
-		ID3D11InputLayout* orig_input_layout = *ppInputLayout;
-		HackerInputLayout* layout = new HackerInputLayout(orig_input_layout, pInputElementDescs, NumElements);
-		*ppInputLayout = layout;
-		LogDebug("  Layout handle = %p, hash = %08lx\n", layout, layout->GetLayoutHash());
+		HackerInputLayout* layout = new HackerInputLayout(*ppInputLayout, pInputElementDescs, NumElements);
+		// Private data already set in ctor on the original layout.
+		// Intentionally keep *ppInputLayout as the real D3D layout.
+		LogDebug("  Layout cache %p for orig %p, hash = %08lx\n", layout, *ppInputLayout, layout->GetLayoutHash());
 	}
 
 	return ret;
@@ -2835,6 +2842,15 @@ STDMETHODIMP HackerDevice::CreateRasterizerState1(
 	/* [annotation] */
 	_Out_opt_  ID3D11RasterizerState1 **ppRasterizerState)
 {
+	// Match CreateRasterizerState: honour rasterizer_disable_scissor. Elite may
+	// create RS via the DESC1 path; previously only the legacy DESC path
+	// applied this flag, which can leave UI scissor clips active and look like
+	// a letterboxed "frame" around full-screen menus (e.g. carrier management).
+	if (G->SCISSOR_DISABLE && pRasterizerDesc && pRasterizerDesc->ScissorEnable)
+	{
+		LogDebug("CreateRasterizerState1: disabling scissor mode.\n");
+		const_cast<D3D11_RASTERIZER_DESC1*>(pRasterizerDesc)->ScissorEnable = FALSE;
+	}
 	return mOrigDevice1->CreateRasterizerState1(pRasterizerDesc, ppRasterizerState);
 }
 
