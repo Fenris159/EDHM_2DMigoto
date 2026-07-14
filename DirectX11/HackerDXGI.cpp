@@ -196,11 +196,18 @@ void HackerSwapChain::RunFrameActions()
 {
 	LogDebug("Running frame actions.  Device: %p\n", mHackerDevice);
 
-	// Regardless of log settings, since this runs every frame, let's flush the log
-	// so that the most lost will be one frame worth.  Tradeoff of performance to accuracy
-	if (LogFile) fflush(LogFile);
-
 	G->gTime = (GetTickCount() - G->ticks_at_launch) / 1000.0f;
+
+	// Avoid fflush every Present — that undoes OS write buffering and costs
+	// measurable time when enabled=1. Debug mode keeps per-frame accuracy;
+	// otherwise flush about once a second so a crash still loses little.
+	if (LogFile) {
+		static float last_log_flush_time = -1000.0f;
+		if (gLogDebug || (G->gTime - last_log_flush_time) >= 1.0f) {
+			fflush(LogFile);
+			last_log_flush_time = G->gTime;
+		}
+	}
 
 	// Run the command list here, before drawing the overlay so that a
 	// custom shader on the present call won't remove the overlay. Also,
