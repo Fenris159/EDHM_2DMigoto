@@ -1652,9 +1652,13 @@ STDMETHODIMP HackerDevice::CreateInputLayout(THIS_
 	// wrapper; XXMI's full wrap is unsafe for Elite + EDHM.
 	if (SUCCEEDED(ret) && ppInputLayout && *ppInputLayout) {
 		HackerInputLayout* layout = new HackerInputLayout(*ppInputLayout, pInputElementDescs, NumElements);
-		// Private data already set in ctor on the original layout.
+		HRESULT attach_result = layout->GetAttachResult();
+		uint32_t layout_hash = layout->GetLayoutHash();
+		if (FAILED(attach_result))
+			LogInfo("  failed to attach layout cache %p for orig %p: 0x%08x\n", layout, *ppInputLayout, attach_result);
 		// Intentionally keep *ppInputLayout as the real D3D layout.
-		LogDebug("  Layout cache %p for orig %p, hash = %08lx\n", layout, *ppInputLayout, layout->GetLayoutHash());
+		LogDebug("  Layout cache %p for orig %p, hash = %08lx\n", layout, *ppInputLayout, layout_hash);
+		layout->Release();
 	}
 
 	return ret;

@@ -53,8 +53,9 @@ public:
 		v |= v >> 4;
 		v |= v >> 8;
 		v |= v >> 16;
-		if constexpr (sizeof(size_t) == 8)
+#if SIZE_MAX > UINT32_MAX
 			v |= v >> 32;
+#endif
 		v++;
 		return v;
 	}

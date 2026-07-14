@@ -597,7 +597,7 @@ static LONG WINAPI migoto_exception_filter(_In_ struct _EXCEPTION_POINTERS *Exce
 	wchar_t path[MAX_PATH];
 	tm timestruct;
 	time_t ltime;
-	LONG ret = EXCEPTION_CONTINUE_EXECUTION;
+	LONG ret = EXCEPTION_EXECUTE_HANDLER;
 
 	DWORD code = ExceptionInfo && ExceptionInfo->ExceptionRecord
 		? ExceptionInfo->ExceptionRecord->ExceptionCode
