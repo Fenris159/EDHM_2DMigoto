@@ -29,7 +29,7 @@
 // EDHM_2DMigoto: XXMI-based build aimed at classic 3Dmigoto / EDHM behaviour.
 #define VERSION_MAJOR               0
 #define VERSION_MINOR               1
-#define VERSION_REVISION            2
+#define VERSION_REVISION            3
  
 #define STRINGIZE2(s) #s
 #define STRINGIZE(s) STRINGIZE2(s)

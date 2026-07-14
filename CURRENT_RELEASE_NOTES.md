@@ -1,37 +1,35 @@
-## EDHM_2DMigoto 0.1.2
+## EDHM_2DMigoto 0.1.3-alpha.1
 
-Patch release: live-play hardening for Elite Dangerous / EDHM inject DLL —
-logging that can stay on without multi-GB spam, EDHM-matched theme poll
-interval, safer crash handler, and quieter hot paths. InputLayout side-car fix
-from 0.1.1 is retained.
-
-### Added
-
-- `[Logging] enabled=` opens `d3d11_log.txt` without requiring `calls=1`
-- `[Logging] max_size_mb=` rotates oversized logs on open (default 32)
-- Branch ahead/behind Shields badges (`main`/`develop`/`xxmi-base`)
-- `upstream-xxmi` review-queue issue when the XXMI mirror advances
+Alpha release candidate for validating the audit hardening pass in live Elite
+Dangerous / EDHM sessions.
 
 ### Fixed
 
-- `auto_refresh_file_to_monitor` polls every **2.0s** (EDHM shipped DLL parity;
-  was 250ms)
-- Crash handler ignores non-fatal **0x87A** (D3D debug layer) and similar codes
-  (no SOS/dump storms with `crash=1` + Debug runtime)
-- Safer unbuffered default when crash handling is enabled
+- `Present1` no longer force-enables global debug logging every frame.
+- Shader hunting now guards empty visited-buffer sets before selecting the
+  previous index/vertex buffer.
+- `crash=1` now executes the exception handler after writing diagnostics
+  instead of resuming the same faulting instruction.
+- InputLayout side-car metadata is owned through D3D private `IUnknown` data
+  while still returning the real `ID3D11InputLayout*` to the game.
+- Cached input-layout metadata is released on `ClearState`, command-list state
+  clear paths, and context teardown.
 
 ### Changed
 
-- Hot-path TextureOverride / Create*Shader logging is debug-only; Present log
-  flush ~1 Hz unless `debug=1`
-- Play-oriented `Dependencies/d3dx.ini` logging defaults
-- Package / DLL file version **0.1.2**
+- `Dependencies\d3dx.ini` keeps `skip_early_includes_load = 0` for EDHM/classic
+  include loading.
+- Audit-targeted warning cleanup for hunting buffer selection, resource-hash
+  log format strings, and C++17-only syntax.
+- Package version **0.1.3-alpha.1**; DLL file/product version **0.1.3**.
 
-### Notes
+### Validation Needed
 
-- Recommended play config: `enabled=1`, `calls=0`, `debug=0`, `unbuffered=0`,
-  `crash=0`, `export_hlsl=0`, `dump_usage=0`
-- Do not deploy a **Debug** build of this DLL for normal play
-- Keep EDHM's own `d3dcompiler_47.dll` unless you intentionally replace it
+- Cold start to main menu.
+- Supercruise to station approach/dock to recheck the old InputLayout
+  location-load crash class.
+- Confirm F11/theme reload or `auto_refresh_file_to_monitor` behavior.
+- Confirm `debug=0` logging remains quiet.
+- Keep normal play configs at `export_hlsl=0` and `dump_usage=0`.
 
 Full project history: [CHANGELOG.md](https://github.com/Fenris159/EDHM_2DMigoto/blob/HEAD/CHANGELOG.md)
