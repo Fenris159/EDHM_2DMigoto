@@ -18,6 +18,23 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 - Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
 - Optional: gate remaining chatty LogInfo behind debug / a dedicated log level
 
+## [0.1.3-alpha.2] - 2026-07-14
+
+### Changed
+
+- DX11 type-safety / resource-management hardening (context, device, resource
+  hash, ini paths) on top of the alpha.1 audit fixes.
+- Package pre-release version is **0.1.3-alpha.2**; DLL file/product version
+  remains **0.1.3**.
+
+### Notes
+
+- Includes all **0.1.3-alpha.1** fixes (Present1 logging, hunting empty-set
+  guards, crash-handler resume, InputLayout `SetPrivateDataInterface` ownership,
+  `skip_early_includes_load=0` sample, warning cleanup).
+- Alpha train for live Elite smoke testing. Prefer Release DLL; keep
+  `export_hlsl=0` and `dump_usage=0` for normal play.
+
 ## [0.1.3-alpha.1] - 2026-07-14
 
 ### Fixed
@@ -149,7 +166,8 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 - `d3dcompiler_47.dll` remains the Microsoft redistributable (SDK / EDHM package)
 - Stereo features remain stripped (2Dmigoto); XXMI performance-oriented code paths retained
 
-[Unreleased]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.3-alpha.1...HEAD
+[Unreleased]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.3-alpha.2...HEAD
+[0.1.3-alpha.2]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.3-alpha.2
 [0.1.3-alpha.1]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.3-alpha.1
 [0.1.2]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.2
 [0.1.1]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.1
