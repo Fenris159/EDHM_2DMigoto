@@ -247,9 +247,9 @@ void HackerSwapChain::RunFrameActions()
 
 	// EDHM auto_refresh_file_to_monitor: if the signal file's mtime changes,
 	// schedule a config reload (theme apply without requiring F11).
-	// Poll at most ~4 Hz so Present is not doing a filesystem open every frame.
+	// Match EDHM's shipped d3d11.dll: poll at most every 2.0s (not every frame).
 	if (G->auto_refresh_file_to_monitor[0] &&
-	    (G->gTime - G->auto_refresh_last_check_time) >= 0.25f) {
+	    (G->gTime - G->auto_refresh_last_check_time) >= 2.0f) {
 		G->auto_refresh_last_check_time = G->gTime;
 		WIN32_FILE_ATTRIBUTE_DATA fad = {};
 		if (GetFileAttributesExW(G->auto_refresh_file_to_monitor, GetFileExInfoStandard, &fad)) {

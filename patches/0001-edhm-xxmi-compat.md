@@ -62,7 +62,7 @@ auto_refresh_file_to_monitor=EDHM-ini/ThemeSettings.json
 
 Stock bo3b / XXMI source did not implement this key. EDHM_UI uses it as a **signal** to re-read config when themes change.
 
-**Fix:** watch file mtime each Present; on change, set `gReloadConfigPending`.
+**Fix:** watch file mtime from Present; on change, set `gReloadConfigPending`. Poll interval is **2.0s** (hardcoded, matching EDHM’s shipped `d3d11.dll`; not an ini key).
 
 ### 4. Unsafe / exposed `HackerInputLayout` COM wrapper
 
