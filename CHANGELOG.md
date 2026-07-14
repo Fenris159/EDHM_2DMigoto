@@ -13,6 +13,13 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 ## [Unreleased]
 
+### Planned
+
+- Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
+- Optional: gate remaining chatty LogInfo behind debug / a dedicated log level
+
+## [0.1.2] - 2026-07-13
+
 ### Added
 
 - `[Logging] enabled=` opens `d3d11_log.txt` for startup / errors / reloads without
@@ -43,6 +50,7 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
   `debug=0`, `export_hlsl` / hunting notes, `crash=0` for normal sessions
 - Docs: `docs/upstream-sync.md` review-queue issue + badge semantics; patch notes
   for auto_refresh interval
+- Package / DLL file version **0.1.2**
 
 ### Notes
 
@@ -51,11 +59,8 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
   diagnostic sessions (with Release DLL).
 - Do not deploy a **Debug** build of this DLL to the live game folder: Debug
   enables the D3D debug layer and threading opts that tank performance.
-
-### Planned
-
-- Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
-- Optional: gate remaining chatty LogInfo behind debug / a dedicated log level
+- InputLayout side-car fix from **0.1.1** is unchanged; this release focuses on
+  live-play logging, EDHM theme poll parity, and crash-handler safety.
 
 ## [0.1.1] - 2026-07-13
 
@@ -110,6 +115,7 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 - `d3dcompiler_47.dll` remains the Microsoft redistributable (SDK / EDHM package)
 - Stereo features remain stripped (2Dmigoto); XXMI performance-oriented code paths retained
 
-[Unreleased]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.2
 [0.1.1]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.0
