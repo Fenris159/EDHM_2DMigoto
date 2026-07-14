@@ -75,6 +75,21 @@ This is the “sync fork” inbox without auto-merging into `develop`. Close the
 
 Local CLI updates of `xxmi-base` do **not** open issues — only the GitHub Action does.
 
+## Ahead / behind badges (Shields)
+
+The README shows two [Shields.io endpoint](https://shields.io/badges/endpoint-badge) badges fed by JSON on `main`:
+
+| File | Semantics |
+|------|-----------|
+| [`.github/badges/main-vs-develop.json`](../.github/badges/main-vs-develop.json) | `main` **ahead** / **behind** `develop` |
+| [`.github/badges/develop-vs-xxmi-base.json`](../.github/badges/develop-vs-xxmi-base.json) | `develop` **ahead** / **behind** `xxmi-base` |
+
+Workflow: [`.github/workflows/branch-status-badges.yml`](../.github/workflows/branch-status-badges.yml) (every 6 hours, on push to those branches, or manual). It rewrites the JSON and commits to `main` only when the counts change.
+
+Colors: green = in sync · blue = only ahead · yellow = only behind · orange = both.
+
+These are **not** a GitHub fork relationship; they are the same `git rev-list --left-right --count A...B` numbers you’d get locally.
+
 ### From local CLI
 
 ```powershell

@@ -1,0 +1,156 @@
+# Refresh Shields.io endpoint JSON for branch ahead/behind badges.
+# Commits only under .github/badges/ on main when values change.
+name: Branch status badges
+
+on:
+  schedule:
+    # Every 6 hours (UTC)
+    - cron: '15 */6 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main, develop, xxmi-base]
+    paths-ignore:
+      # Avoid loops when this job commits badge JSON to main
+      - '.github/badges/**'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: branch-status-badges
+  cancel-in-progress: true
+
+jobs:
+  update:
+    name: Update ahead/behind badge JSON
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch compared branches
+        run: |
+          set -euo pipefail
+          git fetch origin main develop xxmi-base
+
+      - name: Write badge JSON
+        id: badges
+        run: |
+          set -euo pipefail
+          mkdir -p .github/badges
+
+          python3 <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          def left_right(a: str, b: str) -> tuple[int, int]:
+              """Return (only_in_a, only_in_b) for a...b three-dot range."""
+              out = subprocess.check_output(
+                  ["git", "rev-list", "--left-right", "--count", f"{a}...{b}"],
+                  text=True,
+              ).strip()
+              left, right = out.split()
+              return int(left), int(right)
+
+          def color(ahead: int, behind: int) -> str:
+              if ahead == 0 and behind == 0:
+                  return "brightgreen"
+              if behind > 0 and ahead > 0:
+                  return "orange"
+              if behind > 0:
+                  return "yellow"
+              return "blue"
+
+          def message(ahead: int, behind: int) -> str:
+              if ahead == 0 and behind == 0:
+                  return "in sync"
+              return f"{ahead} ahead · {behind} behind"
+
+          def write_badge(path: Path, label: str, ahead: int, behind: int) -> None:
+              payload = {
+                  "schemaVersion": 1,
+                  "label": label,
+                  "message": message(ahead, behind),
+                  "color": color(ahead, behind),
+                  "cacheSeconds": 3600,
+              }
+              path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+              print(f"{path.name}: {payload['message']} ({payload['color']})")
+
+          badges = Path(".github/badges")
+
+          # main compared to develop:
+          #   ahead  = commits on main not in develop
+          #   behind = commits on develop not in main
+          dev_only, main_only = left_right("origin/develop", "origin/main")
+          write_badge(
+              badges / "main-vs-develop.json",
+              "main vs develop",
+              ahead=main_only,
+              behind=dev_only,
+          )
+
+          # develop compared to xxmi-base:
+          #   ahead  = commits on develop not in xxmi-base
+          #   behind = commits on xxmi-base not in develop
+          xxmi_only, dev_only2 = left_right("origin/xxmi-base", "origin/develop")
+          write_badge(
+              badges / "develop-vs-xxmi-base.json",
+              "develop vs xxmi-base",
+              ahead=dev_only2,
+              behind=xxmi_only,
+          )
+
+          # Expose for summary
+          with open(Path.cwd() / "badge-summary.env", "w", encoding="utf-8") as fh:
+              fh.write(f"MAIN_AHEAD={main_only}\n")
+              fh.write(f"MAIN_BEHIND={dev_only}\n")
+              fh.write(f"DEV_AHEAD={dev_only2}\n")
+              fh.write(f"DEV_BEHIND={xxmi_only}\n")
+          PY
+
+          # shellcheck: load for summary step
+          cat badge-summary.env >> "$GITHUB_ENV"
+
+      - name: Commit and push if changed
+        id: commit
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .github/badges/main-vs-develop.json .github/badges/develop-vs-xxmi-base.json
+          if git diff --staged --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Badge JSON already up to date."
+            exit 0
+          fi
+
+          git commit -m "chore(badges): refresh branch ahead/behind status"
+          git push origin HEAD:main
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Job summary
+        if: always()
+        env:
+          CHANGED: ${{ steps.commit.outputs.changed }}
+        run: |
+          {
+            echo "## Branch status badges"
+            echo ""
+            echo "| Pair | Ahead | Behind |"
+            echo "|------|------:|-------:|"
+            echo "| main vs develop | ${MAIN_AHEAD:-?} | ${MAIN_BEHIND:-?} |"
+            echo "| develop vs xxmi-base | ${DEV_AHEAD:-?} | ${DEV_BEHIND:-?} |"
+            echo ""
+            echo "Committed to main: \`${CHANGED:-unknown}\`"
+            echo ""
+            echo "Shields endpoints (via raw main):"
+            echo "- \`.github/badges/main-vs-develop.json\`"
+            echo "- \`.github/badges/develop-vs-xxmi-base.json\`"
+          } >> "$GITHUB_STEP_SUMMARY"

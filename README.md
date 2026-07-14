@@ -15,6 +15,8 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20x64-0078d4)](docs/building.md)
 [![Linux](https://img.shields.io/badge/Linux-Proton%20%2F%20Wine-FCC624?logo=linux&logoColor=black)](docs/building.md)
 [![MSBuild](https://img.shields.io/badge/Build-VS2022%20%7C%20MSVC-5c2d91)](docs/building.md)
+[![main vs develop](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFenris159%2FEDHM_2DMigoto%2Fmain%2F.github%2Fbadges%2Fmain-vs-develop.json)](https://github.com/Fenris159/EDHM_2DMigoto/compare/develop...main)
+[![develop vs xxmi-base](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFenris159%2FEDHM_2DMigoto%2Fmain%2F.github%2Fbadges%2Fdevelop-vs-xxmi-base.json)](https://github.com/Fenris159/EDHM_2DMigoto/compare/xxmi-base...develop)
 
 Independent **XXMI / 2Dmigoto** libraries tailored for **[EDHM](https://github.com/psychicEgg/EDHM)** (Elite Dangerous HUD Mod) workflows.
 
@@ -84,6 +86,15 @@ xxmi/master  ──ff──►  xxmi-base  ──selective port──►  develo
                       (full XXMI)                      (slim EDHM)          (ship)
 ```
 
+**Ahead / behind badges** (Shields endpoint; refreshed by [Branch status badges](.github/workflows/branch-status-badges.yml)):
+
+| Badge | Meaning |
+|-------|---------|
+| `main vs develop` | How `main` sits vs `develop` (ahead = release-only commits; behind = unreleased develop work) |
+| `develop vs xxmi-base` | How `develop` sits vs the XXMI mirror (ahead = EDHM/local work; behind = XXMI commits not yet ported) |
+
+Click a badge for the GitHub compare view. Counts are approximate history divergence (not a formal fork relationship).
+
 ## Releases and CI
 
 | Workflow | Purpose |
@@ -91,6 +102,7 @@ xxmi/master  ──ff──►  xxmi-base  ──selective port──►  develo
 | [**CI**](.github/workflows/ci.yml) | On every push/PR to `main` / `develop`: meta checks + MSBuild when the solution exists |
 | [**Release**](.github/workflows/release.yml) | Manual: build from `main` (release) or `develop` (pre-release), optional SemVer tag, publish assets |
 | [**Update xxmi-base**](.github/workflows/update-xxmi-base.yml) | Keep the XXMI mirror current; open/refresh an `upstream-xxmi` review issue when it advances |
+| [**Branch status badges**](.github/workflows/branch-status-badges.yml) | Refresh Shields ahead/behind JSON for `main`↔`develop` and `develop`↔`xxmi-base` |
 
 **Versioning:** see root `VERSION`, `CHANGELOG.md`, and `CURRENT_RELEASE_NOTES.md` (used as GitHub Release body). Details: [`docs/releasing.md`](docs/releasing.md).
 
