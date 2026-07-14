@@ -1,17 +1,19 @@
 # Refresh Shields.io endpoint JSON for branch ahead/behind badges.
-# Commits only under .github/badges/ on main when values change.
+# Writes to a dedicated `badges` branch only (force-push single tip) so main/develop
+# history is never polluted with chore(badges) commits.
 name: Branch status badges
 
 on:
   schedule:
-    # Every 6 hours (UTC)
-    - cron: '15 */6 * * *'
+    # Once a day (UTC) — not every push
+    - cron: '30 12 * * *'
   workflow_dispatch:
+  # Refresh once after work lands on main (merge from develop)
   push:
-    branches: [main, develop, xxmi-base]
+    branches: [main]
     paths-ignore:
-      # Avoid loops when this job commits badge JSON to main
       - '.github/badges/**'
+      - '**.md'
 
 permissions:
   contents: write
@@ -25,7 +27,7 @@ jobs:
     name: Update ahead/behind badge JSON
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout main
+      - name: Checkout main (for history / refs)
         uses: actions/checkout@v7
         with:
           ref: main
@@ -36,6 +38,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin main develop xxmi-base
+          git fetch origin badges || true
 
       - name: Write badge JSON
         id: badges
@@ -84,9 +87,6 @@ jobs:
 
           badges = Path(".github/badges")
 
-          # main compared to develop:
-          #   ahead  = commits on main not in develop
-          #   behind = commits on develop not in main
           dev_only, main_only = left_right("origin/develop", "origin/main")
           write_badge(
               badges / "main-vs-develop.json",
@@ -95,9 +95,6 @@ jobs:
               behind=dev_only,
           )
 
-          # develop compared to xxmi-base:
-          #   ahead  = commits on develop not in xxmi-base
-          #   behind = commits on xxmi-base not in develop
           xxmi_only, dev_only2 = left_right("origin/xxmi-base", "origin/develop")
           write_badge(
               badges / "develop-vs-xxmi-base.json",
@@ -106,7 +103,6 @@ jobs:
               behind=xxmi_only,
           )
 
-          # Expose for summary
           with open(Path.cwd() / "badge-summary.env", "w", encoding="utf-8") as fh:
               fh.write(f"MAIN_AHEAD={main_only}\n")
               fh.write(f"MAIN_BEHIND={dev_only}\n")
@@ -114,26 +110,34 @@ jobs:
               fh.write(f"DEV_BEHIND={xxmi_only}\n")
           PY
 
-          # shellcheck: load for summary step
           cat badge-summary.env >> "$GITHUB_ENV"
 
-      - name: Commit and push if changed
+      - name: Publish to badges branch (no main history)
         id: commit
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add .github/badges/main-vs-develop.json .github/badges/develop-vs-xxmi-base.json
-          if git diff --staged --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "Badge JSON already up to date."
-            exit 0
-          fi
+          # Isolated orphan tip: only badge files, force-pushed each run.
+          WORK=$(mktemp -d)
+          mkdir -p "$WORK/.github/badges"
+          cp .github/badges/main-vs-develop.json "$WORK/.github/badges/"
+          cp .github/badges/develop-vs-xxmi-base.json "$WORK/.github/badges/"
+          printf '%s\n' '# Branch status badge JSON (generated). Do not merge into main.' > "$WORK/README.md"
 
-          git commit -m "chore(badges): refresh branch ahead/behind status"
-          git push origin HEAD:main
+          git -C "$WORK" init -q
+          git -C "$WORK" checkout -q -b badges
+          git -C "$WORK" config user.name "github-actions[bot]"
+          git -C "$WORK" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$WORK" add -A
+          git -C "$WORK" commit -q -m "chore(badges): refresh branch ahead/behind status"
+          git -C "$WORK" remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git -C "$WORK" push -q --force origin badges
           echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "Published tip of badges branch (force-push, no main commits)."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Job summary
         if: always()
@@ -148,9 +152,7 @@ jobs:
             echo "| main vs develop | ${MAIN_AHEAD:-?} | ${MAIN_BEHIND:-?} |"
             echo "| develop vs xxmi-base | ${DEV_AHEAD:-?} | ${DEV_BEHIND:-?} |"
             echo ""
-            echo "Committed to main: \`${CHANGED:-unknown}\`"
+            echo "Published to branch \`badges\` (force-push tip): \`${CHANGED:-unknown}\`"
             echo ""
-            echo "Shields endpoints (via raw main):"
-            echo "- \`.github/badges/main-vs-develop.json\`"
-            echo "- \`.github/badges/develop-vs-xxmi-base.json\`"
+            echo "Shields raw URLs use branch **badges**, not main."
           } >> "$GITHUB_STEP_SUMMARY"

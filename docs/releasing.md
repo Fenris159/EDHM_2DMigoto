@@ -54,11 +54,13 @@ Before a cut, update **CHANGELOG** (move Unreleased items into a version section
 
 ## CI
 
-**Actions → CI** runs on every push/PR to `main` and `develop`:
+**Actions → CI** runs when work lands on **`main`** (push or PR targeting `main`, typically after merging `develop`), plus **workflow_dispatch**:
 
 - Meta checks (`VERSION`, changelog, release notes)
 - Windows MSBuild **Release | x64** when the solution exists
 - Uploads `d3d11.dll` as a workflow artifact (14 days)
+
+It does **not** run on every commit to `develop`. Use **Actions → CI → Run workflow** if you need a build before merge.
 
 Scaffold-only `main` skips compile but still runs meta checks.
 

@@ -77,14 +77,14 @@ Local CLI updates of `xxmi-base` do **not** open issues — only the GitHub Acti
 
 ## Ahead / behind badges (Shields)
 
-The README shows two [Shields.io endpoint](https://shields.io/badges/endpoint-badge) badges fed by JSON on `main`:
+The README shows two [Shields.io endpoint](https://shields.io/badges/endpoint-badge) badges. JSON is published on the dedicated **`badges`** branch (force-pushed tip), **not** committed to `main`/`develop` history:
 
-| File | Semantics |
-|------|-----------|
-| [`.github/badges/main-vs-develop.json`](../.github/badges/main-vs-develop.json) | `main` **ahead** / **behind** `develop` |
-| [`.github/badges/develop-vs-xxmi-base.json`](../.github/badges/develop-vs-xxmi-base.json) | `develop` **ahead** / **behind** `xxmi-base` |
+| Path on `badges` branch | Semantics |
+|-------------------------|-----------|
+| `.github/badges/main-vs-develop.json` | `main` **ahead** / **behind** `develop` |
+| `.github/badges/develop-vs-xxmi-base.json` | `develop` **ahead** / **behind** `xxmi-base` |
 
-Workflow: [`.github/workflows/branch-status-badges.yml`](../.github/workflows/branch-status-badges.yml) (every 6 hours, on push to those branches, or manual). It rewrites the JSON and commits to `main` only when the counts change.
+Workflow: [`.github/workflows/branch-status-badges.yml`](../.github/workflows/branch-status-badges.yml) (daily, after push to `main`, or manual).
 
 Colors: green = in sync · blue = only ahead · yellow = only behind · orange = both.
 

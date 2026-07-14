@@ -1,11 +1,13 @@
-# Continuous integration: validate tree and build d3d11.dll when the solution exists.
+# Validate tree and build d3d11.dll when the solution exists.
+# Runs when work lands on main (develop → main merge / push), not on every develop commit.
 name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
