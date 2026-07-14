@@ -58,3 +58,8 @@
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
 vendor/edhm-runtime/*.dll filter=lfs diff=lfs merge=lfs -text
+vendor/edhm-runtime/CHANNEL text eol=lf
+vendor/edhm-runtime/RELEASE_URL text eol=lf
+vendor/edhm-runtime/SOURCE_TAG text eol=lf
+vendor/edhm-runtime/VERSION text eol=lf
+vendor/edhm-runtime/*.sha256 text eol=lf

@@ -1579,16 +1579,20 @@ STDMETHODIMP HackerDevice::CreateUnorderedAccessView(THIS_
 
 		if (!matches.empty()) {
 			TextureOverride* textureOverride = NULL;
-			int override_num_elements = -1;
+			UINT override_num_elements = 0;
 
 			for (unsigned i = 0; i < matches.size(); i++) {
 				textureOverride = matches[i];
-				if (textureOverride->override_num_elements > override_num_elements) {
-					override_num_elements = textureOverride->override_num_elements - pDesc->Buffer.FirstElement;
+				if (textureOverride->override_num_elements > 0) {
+					UINT requested_num_elements = static_cast<UINT>(textureOverride->override_num_elements);
+					if (requested_num_elements > pDesc->Buffer.FirstElement &&
+							requested_num_elements - pDesc->Buffer.FirstElement > override_num_elements) {
+						override_num_elements = requested_num_elements - pDesc->Buffer.FirstElement;
+					}
 				}
 			}
 
-			if (override_num_elements != -1 && pDesc->Buffer.NumElements < override_num_elements) {
+			if (override_num_elements && pDesc->Buffer.NumElements < override_num_elements) {
 				D3D11_UNORDERED_ACCESS_VIEW_DESC pNewDesc = *pDesc;
 				pNewDesc.Buffer.NumElements = override_num_elements;
 				//LogOverlayW(LOG_INFO, L"UAV resized: %d->%d\n", pDesc->Buffer.NumElements, override_num_elements);
@@ -1929,11 +1933,12 @@ static void override_resource_desc_common_2d_3d(DescType *desc, TextureOverride 
 }
 
 static void override_resource_desc(D3D11_BUFFER_DESC *desc, TextureOverride *textureOverride) {
-	if (textureOverride->override_byte_width != -1) {
-		if (desc->ByteWidth < textureOverride->override_byte_width) {
-			LogInfo("  resizing buffer: %d->%d\n", desc->ByteWidth, textureOverride->override_byte_width);
-			//LogOverlayW(LOG_WARNING, L"Buffer resized: %d->%d\n - [%s]\n", desc->ByteWidth, textureOverride->override_byte_width, textureOverride->ini_section.c_str());
-			desc->ByteWidth = textureOverride->override_byte_width;
+	if (textureOverride->override_byte_width > 0) {
+		UINT override_byte_width = static_cast<UINT>(textureOverride->override_byte_width);
+		if (desc->ByteWidth < override_byte_width) {
+			LogInfo("  resizing buffer: %u->%u\n", desc->ByteWidth, override_byte_width);
+			//LogOverlayW(LOG_WARNING, L"Buffer resized: %u->%u\n - [%s]\n", desc->ByteWidth, override_byte_width, textureOverride->ini_section.c_str());
+			desc->ByteWidth = override_byte_width;
 		}
 	}
 }
