@@ -1,4 +1,5 @@
 # Mirror SpectrumQT/XXMI-Libs-Package master onto the xxmi-base branch.
+# When the mirror advances, upsert a review-queue issue (label: upstream-xxmi).
 # Scheduled runs only fire from the repository default branch (main).
 name: Update xxmi-base
 
@@ -16,6 +17,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: update-xxmi-base
@@ -45,6 +47,8 @@ jobs:
           git remote add xxmi https://github.com/SpectrumQT/XXMI-Libs-Package.git
           git fetch xxmi master
           git fetch origin xxmi-base || true
+          git fetch origin develop || true
+          git fetch origin main || true
 
       - name: Update xxmi-base
         id: update
@@ -94,12 +98,176 @@ jobs:
           echo "old_sha=${OLD:-}" >> "$GITHUB_OUTPUT"
           echo "Updated xxmi-base: ${OLD_SHORT} -> ${NEW_SHORT}"
 
+      - name: Upsert upstream review issue
+        id: notify
+        if: steps.update.outputs.status == 'updated'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OLD_SHA: ${{ steps.update.outputs.old_sha }}
+          NEW_SHA: ${{ steps.update.outputs.new_sha }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force || false }}
+        run: |
+          set -euo pipefail
+
+          LABEL="upstream-xxmi"
+          TITLE="Upstream XXMI: commits not yet in develop"
+          NEW_SHORT=$(git rev-parse --short "$NEW_SHA")
+          if [ -n "${OLD_SHA:-}" ]; then
+            OLD_SHORT=$(git rev-parse --short "$OLD_SHA")
+          else
+            OLD_SHORT="(none)"
+          fi
+
+          # Compare against develop when present; otherwise main.
+          COMPARE_REF=""
+          COMPARE_NAME=""
+          if git rev-parse --verify origin/develop >/dev/null 2>&1; then
+            COMPARE_REF="origin/develop"
+            COMPARE_NAME="develop"
+          elif git rev-parse --verify origin/main >/dev/null 2>&1; then
+            COMPARE_REF="origin/main"
+            COMPARE_NAME="main"
+          fi
+
+          COUNT="n/a"
+          LOG_FULL="_(could not compute commit range)_"
+          LOG_EDHM="_(could not compute commit range)_"
+
+          if [ -n "$COMPARE_REF" ]; then
+            if git merge-base --is-ancestor "$COMPARE_REF" "$NEW_SHA" 2>/dev/null \
+              || git merge-base "$COMPARE_REF" "$NEW_SHA" >/dev/null 2>&1; then
+              COUNT=$(git rev-list --count "${COMPARE_REF}..${NEW_SHA}" || echo "n/a")
+              LOG_FULL=$(git log --oneline "${COMPARE_REF}..${NEW_SHA}" 2>/dev/null | head -n 80 || true)
+              LOG_EDHM=$(git log --oneline "${COMPARE_REF}..${NEW_SHA}" -- DirectX11/ Injector/ 2>/dev/null | head -n 40 || true)
+              if [ -z "$LOG_FULL" ]; then
+                LOG_FULL="_(none — ${COMPARE_NAME} already contains these commits)_"
+                COUNT=0
+              fi
+              if [ -z "$LOG_EDHM" ]; then
+                LOG_EDHM="_(none in DirectX11/ or Injector/)_"
+              fi
+              # Note if truncated
+              TOTAL=$(git rev-list --count "${COMPARE_REF}..${NEW_SHA}" 2>/dev/null || echo 0)
+              if [ "${TOTAL:-0}" -gt 80 ] 2>/dev/null; then
+                LOG_FULL="${LOG_FULL}"$'\n'"… (${TOTAL} total; showing first 80)"
+              fi
+            else
+              LOG_FULL="_(no shared history with ${COMPARE_NAME}; inspect xxmi-base directly)_"
+              LOG_EDHM="$LOG_FULL"
+            fi
+          else
+            COMPARE_NAME="(missing)"
+            LOG_FULL="_(neither origin/develop nor origin/main found)_"
+            LOG_EDHM="$LOG_FULL"
+          fi
+
+          FORCE_NOTE=""
+          if [ "$FORCE" = "true" ]; then
+            FORCE_NOTE=$'\n> **Note:** this run used **force** update of `xxmi-base`.\n'
+          fi
+
+          BODY_FILE=$(mktemp)
+          {
+            echo "## Status"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| \`xxmi-base\` / XXMI \`master\` | \`${NEW_SHORT}\` (\`${NEW_SHA}\`) |"
+            echo "| Previous \`xxmi-base\` | \`${OLD_SHORT}\`${OLD_SHA:+ (\`${OLD_SHA}\`)} |"
+            echo "| Compared to | \`${COMPARE_NAME}\` (\`${COMPARE_REF:-n/a}\`) |"
+            echo "| Commits pending | **${COUNT}** |"
+            echo "| Upstream | [SpectrumQT/XXMI-Libs-Package](https://github.com/SpectrumQT/XXMI-Libs-Package) |"
+            echo "| Workflow run | ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} |"
+            echo ""
+            echo "$FORCE_NOTE"
+            echo "This issue is maintained by the **Update xxmi-base** workflow. Prefer **cherry-pick / selective port** into \`develop\` — do not merge full \`xxmi-base\` blindly."
+            echo ""
+            echo "## Pending commits (\`${COMPARE_NAME}..xxmi-base\`)"
+            echo ""
+            echo '```'
+            echo "$LOG_FULL"
+            echo '```'
+            echo ""
+            echo "## Paths that usually matter for EDHM"
+            echo ""
+            echo '```'
+            echo "$LOG_EDHM"
+            echo '```'
+            echo ""
+            echo "## Suggested next steps"
+            echo ""
+            echo "1. \`git fetch origin\`"
+            echo "2. Inspect: \`git show <sha>\` / \`git log --oneline develop..origin/xxmi-base\`"
+            echo "3. On \`develop\`: \`git cherry-pick <sha>\` (or manual port)"
+            echo "4. Build and smoke-test against EDHM"
+            echo "5. Close this issue when caught up (or leave open — the bot reopens on the next mirror advance)"
+            echo ""
+            echo "Details: [\`docs/upstream-sync.md\`](${{ github.server_url }}/${{ github.repository }}/blob/main/docs/upstream-sync.md)."
+          } > "$BODY_FILE"
+
+          COMMENT_FILE=$(mktemp)
+          {
+            echo "\`xxmi-base\` advanced: \`${OLD_SHORT}\` → \`${NEW_SHORT}\`."
+            if [ "$COUNT" != "n/a" ]; then
+              echo "Pending vs \`${COMPARE_NAME}\`: **${COUNT}** commit(s)."
+            fi
+            echo "Issue body refreshed with current \`${COMPARE_NAME}..xxmi-base\` list."
+          } > "$COMMENT_FILE"
+
+          # Prefer an open evergreen issue; otherwise reopen the most recent closed one.
+          ISSUE_NUMBER=$(gh issue list \
+            --label "$LABEL" \
+            --state open \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [ -z "${ISSUE_NUMBER:-}" ]; then
+            ISSUE_NUMBER=$(gh issue list \
+              --label "$LABEL" \
+              --state closed \
+              --limit 1 \
+              --json number \
+              --jq '.[0].number // empty')
+          fi
+
+          if [ -n "${ISSUE_NUMBER:-}" ]; then
+            echo "Updating issue #${ISSUE_NUMBER}"
+            gh issue reopen "$ISSUE_NUMBER" 2>/dev/null || true
+            gh issue edit "$ISSUE_NUMBER" --title "$TITLE" --body-file "$BODY_FILE"
+            # Ensure label stays applied (do not strip other labels).
+            gh issue edit "$ISSUE_NUMBER" --add-label "$LABEL" 2>/dev/null || true
+            gh issue comment "$ISSUE_NUMBER" --body-file "$COMMENT_FILE"
+            ISSUE_URL=$(gh issue view "$ISSUE_NUMBER" --json url --jq .url)
+          else
+            echo "Creating new review-queue issue"
+            ISSUE_URL=$(gh issue create \
+              --title "$TITLE" \
+              --body-file "$BODY_FILE" \
+              --label "$LABEL")
+            # gh issue create prints the URL; also add timeline comment for consistency
+            ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -oE '[0-9]+$')
+            gh issue comment "$ISSUE_NUMBER" --body-file "$COMMENT_FILE"
+          fi
+
+          echo "issue_number=${ISSUE_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "issue_url=${ISSUE_URL}" >> "$GITHUB_OUTPUT"
+          echo "pending_count=${COUNT}" >> "$GITHUB_OUTPUT"
+          echo "compare_name=${COMPARE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "Review issue: ${ISSUE_URL}"
+
       - name: Job summary
         if: always()
         env:
           STATUS: ${{ steps.update.outputs.status }}
           OLD_SHA: ${{ steps.update.outputs.old_sha }}
           NEW_SHA: ${{ steps.update.outputs.new_sha }}
+          ISSUE_URL: ${{ steps.notify.outputs.issue_url }}
+          ISSUE_NUMBER: ${{ steps.notify.outputs.issue_number }}
+          PENDING: ${{ steps.notify.outputs.pending_count }}
+          COMPARE_NAME: ${{ steps.notify.outputs.compare_name }}
+          NOTIFY_OUTCOME: ${{ steps.notify.outcome }}
         run: |
           {
             echo "## Update xxmi-base"
@@ -110,6 +278,12 @@ jobs:
             echo "| Previous | \`${OLD_SHA:-n/a}\` |"
             echo "| XXMI master | \`${NEW_SHA:-n/a}\` |"
             echo "| Upstream | [SpectrumQT/XXMI-Libs-Package](https://github.com/SpectrumQT/XXMI-Libs-Package) |"
+            if [ -n "${ISSUE_URL:-}" ]; then
+              echo "| Review issue | [#${ISSUE_NUMBER}](${ISSUE_URL}) |"
+              echo "| Pending vs ${COMPARE_NAME:-develop} | \`${PENDING:-n/a}\` |"
+            elif [ "${STATUS:-}" = "updated" ]; then
+              echo "| Review issue | _(notify step: ${NOTIFY_OUTCOME:-skipped})_ |"
+            fi
             echo ""
             if [ "${STATUS:-}" = "updated" ]; then
               echo "Next: on \`develop\`, review with:"

@@ -53,8 +53,27 @@ The job fetches [SpectrumQT/XXMI-Libs-Package](https://github.com/SpectrumQT/XXM
 
 - If already current, the job exits cleanly.
 - If `xxmi-base` has non-upstream commits, the job fails (protects the mirror). Re-run with **force** only if you mean to reset the branch to pure XXMI.
+- When the mirror **does** advance, the job upserts a review-queue **issue** (see below).
 
 Scheduled workflows only run from the repo **default branch** (`main`), so keep this workflow file on `main`.
+
+### Review-queue issue (label `upstream-xxmi`)
+
+After a successful mirror update, the same workflow maintains one evergreen issue:
+
+| Behavior | Detail |
+|----------|--------|
+| Label | `upstream-xxmi` (create once in the repo; bot only applies it) |
+| Title | `Upstream XXMI: commits not yet in develop` |
+| Body | Pending commit list for `develop..xxmi-base` (plus EDHM-relevant paths) |
+| On each advance | Refresh body, comment with old→new SHAs, **reopen** if closed |
+| If notify fails | Mirror update still succeeds (`continue-on-error` on the issue step) |
+
+Filter: `is:issue label:upstream-xxmi`.
+
+This is the “sync fork” inbox without auto-merging into `develop`. Close the issue when you have cherry-picked or deliberately skipped the pending set; the next mirror advance will reopen and refresh it.
+
+Local CLI updates of `xxmi-base` do **not** open issues — only the GitHub Action does.
 
 ### From local CLI
 

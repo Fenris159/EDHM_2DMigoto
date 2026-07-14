@@ -90,7 +90,7 @@ xxmi/master  ──ff──►  xxmi-base  ──selective port──►  develo
 |----------|---------|
 | [**CI**](.github/workflows/ci.yml) | On every push/PR to `main` / `develop`: meta checks + MSBuild when the solution exists |
 | [**Release**](.github/workflows/release.yml) | Manual: build from `main` (release) or `develop` (pre-release), optional SemVer tag, publish assets |
-| [**Update xxmi-base**](.github/workflows/update-xxmi-base.yml) | Keep the XXMI mirror current |
+| [**Update xxmi-base**](.github/workflows/update-xxmi-base.yml) | Keep the XXMI mirror current; open/refresh an `upstream-xxmi` review issue when it advances |
 
 **Versioning:** see root `VERSION`, `CHANGELOG.md`, and `CURRENT_RELEASE_NOTES.md` (used as GitHub Release body). Details: [`docs/releasing.md`](docs/releasing.md).
 
@@ -150,7 +150,7 @@ git switch develop
 git cherry-pick <sha>
 ```
 
-From GitHub: **Actions → Update xxmi-base → Run workflow**. Details: `docs/upstream-sync.md`.
+From GitHub: **Actions → Update xxmi-base → Run workflow**. When the mirror advances, an issue labeled `upstream-xxmi` lists commits not yet in `develop`. Details: `docs/upstream-sync.md`.
 
 ## Status
 
