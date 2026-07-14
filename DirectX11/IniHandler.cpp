@@ -4224,9 +4224,32 @@ void LoadConfigFile()
 	// so that there is no question what settings we are using.
 
 	// [Logging]
-	// Not using the helper function for this one since logging isn't enabled yet
-	if (GetPrivateProfileInt(L"Logging", L"calls", 1, iniFile))
+	// Historically LogFile only opened when calls=1, so EDHM's calls=0 meant
+	// *no* log at all (LogInfo became a no-op), while calls=1 + debug=1 could
+	// grow multi‑GB. Split: enabled opens the file for startup/errors; calls
+	// is only a legacy "also open" switch (still leave calls=0 for normal play).
+	// Not using the helper function for this one since logging isn't enabled yet.
+	int log_enabled = GetPrivateProfileInt(L"Logging", L"enabled", 1, iniFile);
+	int log_calls = GetPrivateProfileInt(L"Logging", L"calls", 0, iniFile);
+	int log_max_mb = GetPrivateProfileInt(L"Logging", L"max_size_mb", 32, iniFile);
+	int log_crash = GetPrivateProfileInt(L"Logging", L"crash", 0, iniFile);
+	// Crash handler needs a log handle to flush useful state on fault.
+	if (log_enabled || log_calls || log_crash)
 	{
+		if (log_max_mb > 0) {
+			WIN32_FILE_ATTRIBUTE_DATA fad = {};
+			if (GetFileAttributesExW(logFilename, GetFileExInfoStandard, &fad)) {
+				ULARGE_INTEGER sz;
+				sz.LowPart = fad.nFileSizeLow;
+				sz.HighPart = fad.nFileSizeHigh;
+				if (sz.QuadPart >= (ULONGLONG)log_max_mb * 1024ull * 1024ull) {
+					wchar_t bak[MAX_PATH];
+					_snwprintf_s(bak, MAX_PATH, _TRUNCATE, L"%s.prev", logFilename);
+					DeleteFileW(bak);
+					MoveFileW(logFilename, bak);
+				}
+			}
+		}
 		if (!LogFile)
 			LogFile = _wfsopen(logFilename, L"w", _SH_DENYNO);
 		LogInfo("\nD3D11 DLL starting init - v %s - %s\n", VER_FILE_VERSION_STR, LogTime().c_str());
@@ -4241,17 +4264,24 @@ void LoadConfigFile()
 		LogInfoW(L"----------- " INI_FILENAME L" settings -----------\n");
 	}
 	LogInfo("[Logging]\n");
-	LogInfo("  calls=1\n");
+	LogInfo("  enabled=%d\n", log_enabled);
+	LogInfo("  calls=%d\n", log_calls);
+	LogInfo("  max_size_mb=%d\n", log_max_mb);
 
 	ParseIniFile(iniFile);
 	InsertBuiltInIniSections();
 
 	G->gLogInput = GetIniBool(L"Logging", L"input", false, NULL);
 	gLogDebug = GetIniBool(L"Logging", L"debug", false, NULL);
+	if (gLogDebug)
+		LogInfo("  debug=1 (VERBOSE: FrameAnalysis/context spam — do not leave on for long sessions)\n");
+	if (log_calls)
+		LogInfo("  calls=1 (legacy full open; keep debug=0 unless hunting)\n");
 
 	// Unbuffered logging to remove need for fflush calls, and r/w access to make it easy
-	// to open active files.
-	if (LogFile && GetIniBool(L"Logging", L"unbuffered", false, NULL))
+	// to open active files. Default on when crash handler is enabled so last lines survive.
+	bool want_unbuffered = GetIniBool(L"Logging", L"unbuffered", log_crash != 0, NULL);
+	if (LogFile && want_unbuffered)
 	{
 		int unbuffered = setvbuf(LogFile, NULL, _IONBF, 0);
 		LogInfo("    unbuffered return: %d\n", unbuffered);
@@ -4654,9 +4684,10 @@ void LoadProfileManagerConfig(const wchar_t *config_dir)
 	wcscat(iniFile, INI_FILENAME);
 	wcscat(logFilename, L"d3d11_profile_log.txt");
 
-	// [Logging]
-	// Not using the helper function for this one since logging isn't enabled yet
-	if (GetPrivateProfileInt(L"Logging", L"calls", 1, iniFile))
+	// [Logging] — same enabled/calls split as LoadConfigFile()
+	int log_enabled = GetPrivateProfileInt(L"Logging", L"enabled", 1, iniFile);
+	int log_calls = GetPrivateProfileInt(L"Logging", L"calls", 0, iniFile);
+	if (log_enabled || log_calls)
 	{
 		if (!LogFile)
 			LogFile = _wfsopen(logFilename, L"w", _SH_DENYNO);
@@ -4664,7 +4695,8 @@ void LoadProfileManagerConfig(const wchar_t *config_dir)
 		LogInfoW(L"----------- " INI_FILENAME L" settings -----------\n");
 	}
 	LogInfo("[Logging]\n");
-	LogInfo("  calls=1\n");
+	LogInfo("  enabled=%d\n", log_enabled);
+	LogInfo("  calls=%d\n", log_calls);
 
 	ParseIniFile(iniFile);
 
