@@ -6,6 +6,8 @@
 **Scope:** The EDHM-specific delta applied on top of XXMI — i.e. the changes that
 implement this repo's stated goal. The large inherited 3Dmigoto/XXMI/DirectXTK/pcre2
 codebase was *not* re-audited except where the delta touches it.
+**Build evidence:** §7 adds analysis of Release run `29330186199` (`553f39c`,
+`v0.1.3-alpha.2`) MSBuild warnings.
 
 ---
 
@@ -154,3 +156,70 @@ was compiled or run in this Linux audit environment — validation relied on sou
 against the documented XXMI base and COM/SEH contracts. Live confirmation should follow the
 `patches/0001-edhm-xxmi-compat.md` test plan (cold start, station dock, F11/theme reload,
 carrier management, quiet `debug=0` logging).
+
+---
+
+## 7. Build-log analysis — Release run #10 (`553f39c`, `v0.1.3-alpha.2`)
+
+Source: GitHub Actions *Release* run `29330186199`, job "Build and release (develop)"
+(windows-2022, MSVC v143). **Conclusion: success, 2m 06s.** Warnings are not treated as
+errors (no `/WX`), so none blocked the build. MSBuild emitted ~394 warning lines. Tally by
+code:
+
+| Code | Count | Meaning | Where |
+|------|-------|---------|-------|
+| C5045 | 324 | Spectre mitigation would be inserted (`/Qspectre`) — *informational* | **DirectXTK only** (`/Wall`) |
+| C5219 | 30 | implicit `size_t`/`int`/`LONG` → `float` | DirectXTK |
+| C4244 | 10 | conversion, possible loss of data | 6 in product `CommandList.cpp`; rest DirectXTK/WinSDK |
+| C5267 | 8 | deprecated implicit copy ctor | DirectXTK `SimpleMath.h` |
+| C5220 | 4 | volatile member / non-trivial special members | WinSDK `wrl/implements.h` |
+| C4388 | 4 | signed/unsigned mismatch | DirectXTK |
+| C4250 | 4 | inherits via dominance | product `Override.h` + DirectXTK |
+| C5259/C5246/C5204 | 6 | explicit-specialization / brace-init / non-virtual dtor | DirectXTK/WinSDK |
+| C4018 | 2 | signed/unsigned mismatch | product `CommandList.cpp` |
+| C4267 | 1 | `size_t` → `int` | product `CommandList.cpp` |
+
+### B1 (positive) — The EDHM delta is warning-clean
+**No warning of any code originates from any file changed by the develop delta**
+(`ResourceHash.*`, `IniHandler.cpp`, `HackerDXGI.cpp`, `HackerInputLayout.*`,
+`HackerContext.*`, `HackerDevice.cpp`, `util.cpp`, `Hunting.cpp`, `FrameAnalysis.cpp`,
+`globals.h`). This confirms the `c6d8d41d` "audit-targeted warning cleanup" held and the
+alpha.2 type-safety pass introduced no new warnings — a good corroboration of §2.
+
+### B2 — All 10 product-DLL warnings are pre-existing inherited XXMI code (benign)
+The `DirectX11` project builds at **WarningLevel `Level3`** and emits only:
+
+- **C4244 ×6** — `CommandList.cpp:3384–3421`: the command-list expression evaluator is
+  entirely `float`-based; bitwise/shift operators cast to `int32_t` then implicitly return
+  `float` (`~`, `<<`, `>>`, `&`, `^`, `|`). This is 3Dmigoto's intended design, not a bug.
+- **C4018 ×2** — `CommandList.cpp:5798,5814`: `slot < t.max_slot_count`, where `slot` is
+  `unsigned` (CommandList.h:738) and `max_slot_count` is `int`. **Safe:** the counts are
+  small positive constants (e.g. `D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT`), so the int→unsigned
+  promotion keeps them positive, and this is ini parse-time code, not a hot path.
+- **C4267 ×1** — `CommandList.cpp:4852`: `pool_index` (`size_t`) → `int` field. Values are
+  tiny pool indices; no practical truncation.
+- **C4250 ×1** — `Override.h:130`: `KeyOverride` inherits `ParseIniSection` via dominance —
+  expected/benign diamond-inheritance diagnostic.
+
+None of these are in the EDHM delta and none indicate a functional defect. They are noted
+only to document that the product project's own warnings were reviewed and cleared.
+
+### B3 (process finding, low) — Third-party warning noise buries product signal in CI
+~380 of the ~394 warning lines come from **vendored DirectXTK** (compiled with `/Wall`,
+hence the 324 Spectre `C5045`) and Windows SDK headers. In the CI log these drown the 10
+genuine product-project warnings, so a real new warning in `d3d11.dll` code could pass
+unnoticed. Because warnings are not errors, regressions here are silent.
+
+**Suggestions (optional, CI hygiene — not blocking):**
+1. Quiet the vendored noise so product warnings stand out: e.g. add `/wd5045` (and/or lower
+   the warning level) to the **DirectXTK** project, or post-filter the MSBuild log in the
+   workflow to surface only `DirectX11.vcxproj` warnings.
+2. Once the 10 inherited `CommandList.cpp`/`Override.h` warnings are suppressed or annotated,
+   consider enabling `/WX` **on the `DirectX11` project only** so future regressions in the
+   product DLL fail the build rather than scrolling past.
+
+### Net effect on the audit
+The build result strengthens the §6 recommendation: the delta compiles cleanly with no
+new diagnostics, and the only product warnings are long-standing, benign inherited ones.
+No new *code* defect surfaced from the warning analysis; the single new item is the B3
+CI-hygiene observation (low severity).
