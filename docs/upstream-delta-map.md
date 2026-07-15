@@ -39,6 +39,10 @@ time `xxmi-base` advances.
 | `DirectX11/HackerDevice.cpp` | `CreateRasterizerState1()` | Applies the same scissor-disable behavior already used by `CreateRasterizerState()`. |
 | `DirectX11/ResourceHash.cpp` / `HackerContext.cpp` | Region hash cache paths | Keeps bounds and size conversions explicit where EDHM region-copy stress exposed unsafe truncation. |
 | `DirectX11/globals.h` | Global state | Adds state for EDHM theme auto-refresh and the fuzzy/hash matching opt-in. |
+| `DirectX11/WineCompat.*` | *(new)* | Wine/Proton detection, `wine_compat` profile, host compatibility log report. |
+| `DirectX11/IniHandler.cpp` | `LoadConfigFile()` / `[System]` | Parses `wine_compat` and applies Linux-safe System defaults under Wine. |
+| `DirectX11/D3D11Wrapper.cpp` | `InitD311()` | Wine local DXVK-style chain fallbacks, chained-module logging, compat report. |
+| `Dependencies/d3dx.ini` | `[System]` | Documents `wine_compat` and Wine/Proton load notes. |
 
 ## Review command
 
