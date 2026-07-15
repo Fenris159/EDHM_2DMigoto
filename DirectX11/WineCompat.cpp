@@ -78,3 +78,45 @@ const char* GetHostPlatformLabel()
 	EnsureWineDetection();
 	return g_platform_label;
 }
+
+bool ApplyWineCompatProfile(
+	int wine_compat_ini,
+	bool dll_initialization_delay_key_present,
+	int* load_library_redirect,
+	bool* check_foreground_window,
+	int* dll_initialization_delay)
+{
+	if (!load_library_redirect || !check_foreground_window || !dll_initialization_delay)
+		return false;
+
+	const bool wine = DetectWineEnvironment();
+	bool apply = false;
+
+	if (wine_compat_ini == 1)
+		apply = true;
+	else if (wine_compat_ini == 0)
+		apply = false;
+	else
+		apply = wine; // auto
+
+	if (!apply) {
+		LogInfo("WineCompat: profile not applied (wine_compat=%d, platform=%s)\n",
+			wine_compat_ini, GetHostPlatformLabel());
+		return false;
+	}
+
+	// Force DXVK-friendly load behaviour. Redirect=2 pulls system d3d11 back
+	// into the game folder and often breaks the EDHM -> DXVK chain under Wine.
+	*load_library_redirect = 0;
+	*check_foreground_window = false;
+
+	// Small settle delay when the user did not set one; helps early DXVK init.
+	if (!dll_initialization_delay_key_present && *dll_initialization_delay <= 0)
+		*dll_initialization_delay = 250;
+
+	LogInfo("WineCompat: applying Linux-safe profile (platform=%s)\n", GetHostPlatformLabel());
+	LogInfo("  load_library_redirect = %d\n", *load_library_redirect);
+	LogInfo("  check_foreground_window = %d\n", *check_foreground_window ? 1 : 0);
+	LogInfo("  dll_initialization_delay = %d\n", *dll_initialization_delay);
+	return true;
+}

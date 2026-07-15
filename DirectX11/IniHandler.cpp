@@ -16,6 +16,7 @@
 #include "Hunting.h"
 #include "ShaderRegex.h"
 #include "cursor.h"
+#include "WineCompat.h"
 #include <chrono>
 
 #include "vector"
@@ -4319,7 +4320,8 @@ void LoadConfigFile()
 	G->gShowWarnings = GetIniBool(L"Logging", L"show_warnings", true, NULL);
 
 	// Allows to delay DLL initialization by given ms count
-	G->gDllInitializationDelay = GetIniInt(L"System", L"dll_initialization_delay", 0, NULL);
+	bool dll_initialization_delay_key_present = false;
+	G->gDllInitializationDelay = GetIniInt(L"System", L"dll_initialization_delay", 0, &dll_initialization_delay_key_present);
 
 	// [Include]
 	// If enabled, prevents loading of includes during initialization.
@@ -4355,6 +4357,22 @@ void LoadConfigFile()
 	G->enable_platform_update = GetIniBool(L"System", L"allow_platform_update", false, NULL);
 	// TODO: Enable this by default if wider testing goes well:
 	G->check_foreground_window = GetIniBool(L"System", L"check_foreground_window", false, NULL);
+
+	// wine_compat: -1 auto (default), 0 off, 1 force on. Under Wine/Proton the
+	// auto profile disables load_library_redirect and foreground checks that
+	// commonly break EDHM -> DXVK chaining and key/reload handling.
+	G->running_under_wine = DetectWineEnvironment();
+	G->wine_compat = GetIniInt(L"System", L"wine_compat", -1, NULL);
+	if (G->wine_compat < -1)
+		G->wine_compat = -1;
+	if (G->wine_compat > 1)
+		G->wine_compat = 1;
+	G->wine_compat_profile_applied = ApplyWineCompatProfile(
+		G->wine_compat,
+		dll_initialization_delay_key_present,
+		&G->load_library_redirect,
+		&G->check_foreground_window,
+		&G->gDllInitializationDelay);
 
 	// EDHM: auto_refresh_file_to_monitor=EDHM-ini/ThemeSettings.json
 	// When the file's mtime changes, schedule ReloadConfig (theme apply without F11).
