@@ -1,4 +1,4 @@
-## EDHM_2DMigoto 0.1.3-alpha.3
+﻿## EDHM_2DMigoto 0.1.3-alpha.3
 
 Package build for Elite Dangerous HUD Mod (EDHM).
 Built from this repository's automated release workflow.
