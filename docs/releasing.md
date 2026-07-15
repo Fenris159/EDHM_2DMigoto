@@ -64,6 +64,21 @@ It does **not** run on every commit to `develop`. Use **Actions → CI → Run w
 
 Scaffold-only `main` skips compile but still runs meta checks.
 
+## Branch protection (GitHub)
+
+Configured for the four long-lived branches (`main`, `develop`, `xxmi-base`, `badges`):
+
+| Branch | Delete | Force-push | How to update |
+|--------|--------|------------|----------------|
+| **main** | Blocked | Blocked | **PR required** (0 approvals for solo); CI checks **Meta checks** + **MSBuild (Windows)** |
+| **develop** | Blocked | Blocked | Direct push OK (daily work); Release Action may commit with admin/token as needed |
+| **xxmi-base** | Blocked | Allowed | **Mirror only** — advance via **Update xxmi-base** Action; no feature PRs (see protect-xxmi-base workflow) |
+| **badges** | Blocked | Allowed | Bot tip for Shields JSON only; do not merge into main |
+
+`enforce_admins` is on, so these rules apply even to the repo owner (prevents accidental branch delete). To force-push `develop`/`main` in an emergency, temporarily disable that branch’s protection in **Settings → Branches**, then re-enable.
+
+**xxmi-base:** GitHub personal repos cannot restrict pushes to “Actions only” the way org rulesets can. Protection blocks **deletion** and a workflow **fails any PR targeting `xxmi-base`**. Treat the branch as read-only comparison code: never land EDHM features there.
+
 ## Vendor cache (`vendor/edhm-runtime`)
 
 After a **non-draft** Release succeeds, the same workflow (when `update_vendor_cache` is true, default) commits:

@@ -6,7 +6,7 @@ This repo is independent of [XXMI-Libs-Package](https://github.com/SpectrumQT/XX
 
 | Branch | Purpose | What belongs here |
 |--------|---------|-------------------|
-| `xxmi-base` | Clean **full** XXMI import | Only fast-forwards from `xxmi/master`. No EDHM patches. Background cherry-pick source. |
+| `xxmi-base` | Clean **full** XXMI import | Only advanced by **Update xxmi-base** (or admin recovery). **Not** a feature branch — do not develop or open PRs into it. |
 | `develop` | Slim EDHM working tree | Minimum graph for `d3d11.dll` + EDHM patches. Not the full XXMI tree. |
 | `main` | EDHM release | Scaffold + stable merges from `develop` ready to ship. |
 
