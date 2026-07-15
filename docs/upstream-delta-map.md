@@ -1,4 +1,4 @@
-# EDHM delta map for upstream comparison
+# Upstream Delta Map
 
 **Date:** 2026-07-15  
 **Local branch:** `develop`  
