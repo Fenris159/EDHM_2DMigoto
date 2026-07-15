@@ -1,0 +1,120 @@
+# After work lands on main (usually a develop → main PR merge), fast-forward
+# develop to main so merge commits do not leave develop "behind" forever.
+# When main is a strict descendant of develop, this is a pure fast-forward.
+name: Sync main into develop
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-main-to-develop
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Fast-forward develop to main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync develop
+        id: sync
+        run: |
+          set -euo pipefail
+          git fetch origin main develop
+
+          MAIN=$(git rev-parse origin/main)
+          DEV=$(git rev-parse origin/develop)
+          MAIN_SHORT=$(git rev-parse --short origin/main)
+          DEV_SHORT=$(git rev-parse --short origin/develop)
+
+          echo "origin/main    : ${MAIN_SHORT} (${MAIN})"
+          echo "origin/develop : ${DEV_SHORT} (${DEV})"
+
+          if [ "$MAIN" = "$DEV" ]; then
+            echo "status=already_in_sync" >> "$GITHUB_OUTPUT"
+            echo "main_sha=$MAIN" >> "$GITHUB_OUTPUT"
+            echo "develop_sha=$DEV" >> "$GITHUB_OUTPUT"
+            echo "Already in sync."
+            exit 0
+          fi
+
+          # Expected case after a PR merge: develop is an ancestor of main → FF.
+          if git merge-base --is-ancestor origin/develop origin/main; then
+            git checkout -B develop origin/develop
+            git merge --ff-only origin/main
+            git push origin develop
+            NEW=$(git rev-parse HEAD)
+            echo "status=fast_forwarded" >> "$GITHUB_OUTPUT"
+            echo "main_sha=$MAIN" >> "$GITHUB_OUTPUT"
+            echo "develop_sha=$NEW" >> "$GITHUB_OUTPUT"
+            echo "Fast-forwarded develop: ${DEV_SHORT} -> $(git rev-parse --short HEAD)"
+            exit 0
+          fi
+
+          # Diverged histories (e.g. hotfixes on main only): real merge.
+          if git merge-base --is-ancestor origin/main origin/develop; then
+            echo "status=develop_ahead" >> "$GITHUB_OUTPUT"
+            echo "main_sha=$MAIN" >> "$GITHUB_OUTPUT"
+            echo "develop_sha=$DEV" >> "$GITHUB_OUTPUT"
+            echo "develop is strictly ahead of main; nothing to sync."
+            exit 0
+          fi
+
+          git checkout -B develop origin/develop
+          if git merge --no-ff origin/main -m "chore: sync main into develop after release merge"; then
+            git push origin develop
+            NEW=$(git rev-parse HEAD)
+            echo "status=merged" >> "$GITHUB_OUTPUT"
+            echo "main_sha=$MAIN" >> "$GITHUB_OUTPUT"
+            echo "develop_sha=$NEW" >> "$GITHUB_OUTPUT"
+            echo "Merged main into develop: ${DEV_SHORT} -> $(git rev-parse --short HEAD)"
+            exit 0
+          fi
+
+          echo "status=conflict" >> "$GITHUB_OUTPUT"
+          echo "main_sha=$MAIN" >> "$GITHUB_OUTPUT"
+          echo "develop_sha=$DEV" >> "$GITHUB_OUTPUT"
+          echo "::error::main and develop have diverged with conflicts. Resolve manually: checkout develop, merge origin/main, push."
+          git merge --abort || true
+          exit 1
+
+      - name: Job summary
+        if: always()
+        env:
+          STATUS: ${{ steps.sync.outputs.status }}
+          MAIN_SHA: ${{ steps.sync.outputs.main_sha }}
+          DEV_SHA: ${{ steps.sync.outputs.develop_sha }}
+        run: |
+          {
+            echo "## Sync main → develop"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Status | \`${STATUS:-unknown}\` |"
+            echo "| main | \`${MAIN_SHA:-n/a}\` |"
+            echo "| develop | \`${DEV_SHA:-n/a}\` |"
+            echo ""
+            case "${STATUS:-}" in
+              already_in_sync) echo "Tips already matched; no push." ;;
+              fast_forwarded) echo "develop fast-forwarded to main (typical after a merge PR)." ;;
+              develop_ahead) echo "develop is ahead of main; no sync needed." ;;
+              merged) echo "Non-FF merge of main into develop completed." ;;
+              conflict) echo "Conflict — resolve main into develop locally and push." ;;
+              *) echo "See job logs." ;;
+            esac
+          } >> "$GITHUB_STEP_SUMMARY"
