@@ -1828,8 +1828,9 @@ void RegionHashesCache::Initialize(size_t buffer_size)
 {
 	if (data_size != buffer_size) {
 		//LogInfo("RegionHashesCache::Initialize buffer_size=%d \n", buffer_size);
-		UINT num_pages = (UINT)((buffer_size + PAGE_SIZE - 1) / PAGE_SIZE);
+		size_t num_pages = (buffer_size + PAGE_SIZE - 1) / PAGE_SIZE;
 		page_versions.assign(num_pages, 0);
+		data_size = buffer_size;
 		if (cache)
 			cache->clear();
 	}
@@ -1847,7 +1848,7 @@ void RegionHashesCache::Add(const RegionHashKeyL2& key, uint32_t hash)
 		cache = std::make_unique<FlatHashMap<RegionHashKeyL2, RegionCacheEntry, RegionHashKeyHasherL2>>(page_versions.size() / (PAGE_SIZE / HASHES_PER_PAGE));
 
 	// Compute page index for this offset.
-	UINT page = key.offset / PAGE_SIZE;
+	size_t page = key.offset / PAGE_SIZE;
 	if (page >= page_versions.size())
 		return;
 
@@ -1863,7 +1864,7 @@ uint32_t RegionHashesCache::Get(const RegionHashKeyL2& key)
 	if (!cache)
 		return 0;
 
-	UINT page = key.offset / PAGE_SIZE;
+	size_t page = key.offset / PAGE_SIZE;
 	if (page >= page_versions.size())
 		return 0;
 
@@ -1892,19 +1893,23 @@ void RegionHashesCache::Invalidate(UINT start, UINT end)
 	if (page_versions.empty())
 		return;
 
-	UINT start_page = start / PAGE_SIZE;
+	if (end <= start)
+		return;
+
+	size_t start_page = start / PAGE_SIZE;
 	if (start_page >= page_versions.size())
 		return;
 
-	UINT end_page = (end - 1) / PAGE_SIZE;
-	end_page = min(end_page, page_versions.size() - 1);
+	size_t end_page = (end - 1) / PAGE_SIZE;
+	if (end_page >= page_versions.size())
+		end_page = page_versions.size() - 1;
 
 	if (start_page > end_page)
 		return;
 
 	// Incrementing version invalidates ALL entries mapped to that page.
 	// This is O(pages), not O(entries), very important for performance.
-	for (UINT p = start_page; p <= end_page; ++p) {
+	for (size_t p = start_page; p <= end_page; ++p) {
 		++page_versions[p];
 	}
 
@@ -1959,12 +1964,12 @@ void ResourceHandleInfo::SetDataCacheRegion(const void* src, size_t region_size,
 
 	// Cannot write partial region if cache not initialized.
 	if (!cached_data_size) {
-		LogInfo("SetDataCacheRegion Failed (not initialized): offset=%d, region_size=%d!\n", offset, region_size);
+		LogInfo("SetDataCacheRegion Failed (not initialized): offset=%u, region_size=%zu!\n", offset, region_size);
 		return;
 	}
 
 	if (offset > cached_data_size || region_size > cached_data_size - offset){
-		LogInfo("SetDataCacheRegion Failed (out of bounds): offset=%d, region_size=%d, dst_size=%d!\n", offset, region_size, cached_data_size);
+		LogInfo("SetDataCacheRegion Failed (out of bounds): offset=%u, region_size=%zu, dst_size=%zu!\n", offset, region_size, cached_data_size);
 		return;
 	}
 
@@ -1980,8 +1985,11 @@ void ResourceHandleInfo::SetDataCacheRegion(const void* src, size_t region_size,
 	memcpy(GetCachedData() + offset, src, region_size);
 
 	// Invalidate only affected pages (cheap, avoids clearing the whole cache).
-	if (region_hashes_cache)
-		region_hashes_cache->Invalidate(offset, offset + (UINT)region_size);
+	if (region_hashes_cache) {
+		size_t invalidation_end = static_cast<size_t>(offset) + region_size;
+		region_hashes_cache->Invalidate(offset,
+				invalidation_end > UINT_MAX ? UINT_MAX : static_cast<UINT>(invalidation_end));
+	}
 
 	//cached_data_hash = crc32c_hw(0, cached_data, cached_data_size);
 }
@@ -2204,9 +2212,9 @@ uint32_t GetRegionHash(ID3D11DeviceContext* context, ID3D11Buffer* buffer, UINT 
 	}
 
 	// Upper bound of requested region must stay within the buffer size.
-	UINT max_region_size = handle_info->cached_data_size - offset;
+	size_t max_region_size = handle_info->cached_data_size - offset;
 	if (size > max_region_size) {
-		size = max_region_size;
+		size = static_cast<UINT>(max_region_size);
 	}
 
 	// Make pointer for given offset in L1 cache (raw data).

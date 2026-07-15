@@ -53,8 +53,9 @@ public:
 		v |= v >> 4;
 		v |= v >> 8;
 		v |= v >> 16;
-		if constexpr (sizeof(size_t) == 8)
+#if SIZE_MAX > UINT32_MAX
 			v |= v >> 32;
+#endif
 		v++;
 		return v;
 	}
@@ -306,7 +307,7 @@ private:
 	// Avoids recomputing hashes for the same draw-call regions.
 	std::unique_ptr <FlatHashMap<RegionHashKeyL2, RegionCacheEntry, RegionHashKeyHasherL2>> cache;
 	std::vector<UINT> page_versions;
-	size_t data_size;
+	size_t data_size = 0;
 };
 
 // Tracks info about specific resource instances:
