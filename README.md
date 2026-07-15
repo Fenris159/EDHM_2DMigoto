@@ -103,6 +103,7 @@ Click a badge for the GitHub compare view. Counts are approximate history diverg
 | [**Release**](.github/workflows/release.yml) | Manual: build from `main` (release) or `develop` (pre-release), optional SemVer tag, publish assets |
 | [**Update xxmi-base**](.github/workflows/update-xxmi-base.yml) | Keep the XXMI mirror current; open/refresh an `upstream-xxmi` review issue when it advances |
 | [**Branch status badges**](.github/workflows/branch-status-badges.yml) | Daily / after `main` push: refresh Shields JSON on the **`badges`** branch only |
+| [**Sync main → develop**](.github/workflows/sync-main-to-develop.yml) | After push to `main`: FF `develop` to include merge commits so tips stay aligned |
 
 **Versioning:** see root `VERSION`, `CHANGELOG.md`, and `CURRENT_RELEASE_NOTES.md` (used as GitHub Release body). Details: [`docs/releasing.md`](docs/releasing.md).
 

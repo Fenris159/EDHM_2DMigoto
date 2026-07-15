@@ -64,6 +64,22 @@ It does **not** run on every commit to `develop`. Use **Actions → CI → Run w
 
 Scaffold-only `main` skips compile but still runs meta checks.
 
+## Sync main → develop (after PR merges)
+
+Workflow: **Sync main into develop** (`.github/workflows/sync-main-to-develop.yml`)
+
+GitHub merge commits live only on `main`, so after a develop → main PR the three-dot
+count shows **main ahead / develop behind** even when all feature work is merged.
+This workflow runs on **push to `main`** (and manual dispatch) and:
+
+1. If tips match → no-op  
+2. If `develop` is an ancestor of `main` → **fast-forward** `develop` to `main`  
+3. If histories diverged cleanly → merge `main` into `develop`  
+4. On conflict → fail (resolve locally)
+
+That keeps the branch-status badges and GitHub’s “behind” UI honest without
+polluting `main` with badge-bot commits.
+
 ## Branch protection (GitHub)
 
 Configured for the four long-lived branches (`main`, `develop`, `xxmi-base`, `badges`):
