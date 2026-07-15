@@ -2808,8 +2808,8 @@ STDMETHODIMP_(void) HackerContext::CSGetConstantBuffers(THIS_
 
 STDMETHODIMP_(void) HackerContext::ClearState(THIS)
 {
-	 ClearCurrentInputLayout();
-	 mOrigContext1->ClearState();
+	ClearCurrentInputLayout();
+	mOrigContext1->ClearState();
 
 	 // ClearState() will unbind StereoParams and IniParams, so we need to
 	 // rebind them now:
