@@ -4,6 +4,7 @@
 #include "Globals.h"
 #include "IniHandler.h"
 #include "HookedDXGI.h"
+#include "WineCompat.h"
 
 #include <locale>
 #include <chrono>
@@ -367,7 +368,42 @@ PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN _D3D11CreateDeviceAndSwapChain;
 PFN_D3D11ON12_CREATE_DEVICE _D3D11On12CreateDevice;
 #endif
 
+// Load a DLL sitting next to this EDHM d3d11.dll (game folder under normal installs).
+static HMODULE LoadLibraryBesideMigoto(const wchar_t *file_name)
+{
+	wchar_t path[MAX_PATH] = {};
 
+	if (!file_name || !file_name[0])
+		return NULL;
+	if (!GetModuleFileNameW(migoto_handle, path, MAX_PATH))
+		return NULL;
+
+	wchar_t *slash = wcsrchr(path, L'\\');
+	if (!slash)
+		return NULL;
+	slash[1] = 0;
+	if (wcscat_s(path, MAX_PATH, file_name) != 0)
+		return NULL;
+
+	LogInfoW(L"  Trying beside EDHM DLL: %ls\n", path);
+	HMODULE module = LoadLibraryExW(path, NULL, 0);
+	if (!module)
+		LogInfo("  -> failed (GetLastError=%lu)\n", GetLastError());
+	return module;
+}
+
+static void LogChainedD3D11Module(HMODULE module, const char *via)
+{
+	wchar_t path[MAX_PATH] = {};
+	if (!module) {
+		LogInfo("Chained d3d11: (null) via %s\n", via ? via : "?");
+		return;
+	}
+	if (GetModuleFileNameW(module, path, MAX_PATH))
+		LogInfoW(L"Chained d3d11 loaded via %hs: %ls\n", via ? via : "?", path);
+	else
+		LogInfo("Chained d3d11 loaded via %s: (path unknown) handle=%p\n", via ? via : "?", module);
+}
 
 void InitD311()
 {
@@ -387,6 +423,8 @@ void InitD311()
 	// In the proxy load case, the load_library_redirect flag must be set to
 	// zero, otherwise the proxy d3d11.dll will call back into us, and create
 	// an infinite loop.
+
+	const char *chain_via = nullptr;
 
 	if (G->CHAIN_DLL_PATH[0])
 	{
@@ -417,16 +455,37 @@ void InitD311()
 			}
 			hD3D11 = LoadLibrary(G->CHAIN_DLL_PATH);
 		}
+		if (hD3D11)
+			chain_via = "proxy_d3d11";
 		LogInfo("Proxy loading result: %p\n", hD3D11);
 	}
 	else
 	{
-		// We'll look for this in DLLMainHook to avoid callback to self.		
+		// We'll look for this in DLLMainHook to avoid callback to self.
 		// Must remain all lower case to be matched in DLLMainHook.
 		// We need the system d3d11 in order to find the original proc addresses.
 		// We hook LoadLibraryExW, so we need to use that here.
 		LogInfo("Trying to load original_d3d11.dll\n");
 		hD3D11 = LoadLibraryEx(L"original_d3d11.dll", NULL, 0);
+		if (hD3D11)
+			chain_via = "original_d3d11.dll";
+
+		// Wine/Proton: optional DXVK-style d3d11 next to EDHM (does not replace EDHM's d3d11.dll).
+		if (!hD3D11 && (G->running_under_wine || G->wine_compat_profile_applied || G->wine_compat == 1)) {
+			LogInfo("Wine/Proton chain: trying local DXVK-style fallbacks next to EDHM\n");
+			static const wchar_t *const kWineLocalFallbacks[] = {
+				L"dxvk_d3d11.dll",
+				L"d3d11_dxvk.dll",
+			};
+			for (const wchar_t *name : kWineLocalFallbacks) {
+				hD3D11 = LoadLibraryBesideMigoto(name);
+				if (hD3D11) {
+					chain_via = "wine local fallback";
+					break;
+				}
+			}
+		}
+
 		if (hD3D11 == NULL)
 		{
 			wchar_t libPath[MAX_PATH];
@@ -444,14 +503,21 @@ void InitD311()
 				wcscat_s(libPath, MAX_PATH, L"\\d3d11.dll");
 				LogInfoW(L"Trying to load %ls\n", libPath);
 				hD3D11 = LoadLibraryEx(libPath, NULL, 0);
+				if (hD3D11)
+					chain_via = "system32 d3d11.dll";
 			}
 		}
 	}
 	if (hD3D11 == NULL)
 	{
 		LogInfo("*** LoadLibrary on original or chained d3d11.dll failed.\n");
+		LogInfo("*** If this is Wine/Proton, ensure EDHM d3d11.dll is next to EliteDangerous64.exe\n");
+		LogInfo("*** and set WINEDLLOVERRIDES=d3d11=n,b so the game loads the native (EDHM) wrapper.\n");
+		LogInfo("*** Do not overwrite EDHM's d3d11.dll with DXVK's; chain via system32 or proxy_d3d11 / dxvk_d3d11.dll.\n");
 		DoubleBeepExit();
 	}
+
+	LogChainedD3D11Module(hD3D11, chain_via);
 
 	_D3DKMTQueryAdapterInfo = (tD3DKMTQueryAdapterInfo)GetProcAddress(hD3D11, "D3DKMTQueryAdapterInfo");
 	_OpenAdapter10 = (tOpenAdapter10)GetProcAddress(hD3D11, "OpenAdapter10");
@@ -472,6 +538,14 @@ void InitD311()
 #ifdef NTDDI_WIN10
 	_D3D11On12CreateDevice = (PFN_D3D11ON12_CREATE_DEVICE)GetProcAddress(hD3D11, "D3D11On12CreateDevice");
 #endif
+
+	if (!_D3D11CreateDevice || !_D3D11CreateDeviceAndSwapChain) {
+		LogInfo("*** Chained d3d11 is missing D3D11CreateDevice exports (CreateDevice=%p CreateDeviceAndSwapChain=%p)\n",
+			_D3D11CreateDevice, _D3D11CreateDeviceAndSwapChain);
+		LogInfo("*** Under Wine/Proton this usually means the wrong d3d11 was loaded (self-loop or incomplete DLL).\n");
+	} else {
+		LogInfo("Chained d3d11 exports OK (D3D11CreateDevice present)\n");
+	}
 }
 
 HRESULT WINAPI D3D11On12CreateDevice(
