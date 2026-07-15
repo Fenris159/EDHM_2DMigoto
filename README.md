@@ -109,7 +109,7 @@ Click a badge for the GitHub compare view. Counts are approximate history diverg
 | Channel | Tag example | GitHub Release |
 |---------|-------------|----------------|
 | `main` | `v0.1.2` | Latest stable release |
-| `develop` | `v0.1.3-alpha.1` | Alpha release candidate |
+| `develop` | `v0.1.3-alpha.3` | Alpha release candidate |
 
 ```text
 Actions → Release → Run workflow
