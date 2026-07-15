@@ -25,3 +25,6 @@ bool ApplyWineCompatProfile(
 	int* load_library_redirect,
 	bool* check_foreground_window,
 	int* dll_initialization_delay);
+
+// One-shot summary for d3d11_log.txt so Linux users can self-diagnose load issues.
+void LogHostCompatReport();

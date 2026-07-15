@@ -1,6 +1,7 @@
 #include "WineCompat.h"
 
 #include "log.h"
+#include "Globals.h"
 
 #include <windows.h>
 
@@ -119,4 +120,34 @@ bool ApplyWineCompatProfile(
 	LogInfo("  check_foreground_window = %d\n", *check_foreground_window ? 1 : 0);
 	LogInfo("  dll_initialization_delay = %d\n", *dll_initialization_delay);
 	return true;
+}
+
+void LogHostCompatReport()
+{
+	wchar_t migoto_path[MAX_PATH] = {};
+	wchar_t exe_path[MAX_PATH] = {};
+
+	if (GetModuleFileNameW(migoto_handle, migoto_path, MAX_PATH) == 0)
+		wcscpy_s(migoto_path, L"(unknown)");
+	if (GetModuleFileNameW(NULL, exe_path, MAX_PATH) == 0)
+		wcscpy_s(exe_path, L"(unknown)");
+
+	LogInfo("\n=== EDHM_2DMigoto host compatibility report ===\n");
+	LogInfo("  Platform: %s\n", GetHostPlatformLabel());
+	LogInfo("  wine_compat ini: %d (-1=auto 0=off 1=on)\n", G ? G->wine_compat : -1);
+	LogInfo("  wine_compat profile applied: %s\n",
+		(G && G->wine_compat_profile_applied) ? "yes" : "no");
+	if (G) {
+		LogInfo("  load_library_redirect = %d\n", G->load_library_redirect);
+		LogInfo("  check_foreground_window = %d\n", G->check_foreground_window ? 1 : 0);
+		LogInfo("  dll_initialization_delay = %d\n", G->gDllInitializationDelay);
+		LogInfo("  proxy_d3d11 set: %s\n", G->CHAIN_DLL_PATH[0] ? "yes" : "no");
+	}
+	LogInfoW(L"  EDHM d3d11.dll: %ls\n", migoto_path);
+	LogInfoW(L"  Process: %ls\n", exe_path);
+	LogInfo("  If this log file never appears under Wine/Proton:\n");
+	LogInfo("    1) Place EDHM files next to EliteDangerous64.exe (not only the launcher)\n");
+	LogInfo("    2) Set WINEDLLOVERRIDES=d3d11=n,b (and d3dcompiler_47=n,b if needed)\n");
+	LogInfo("    3) Do not replace EDHM's d3d11.dll with DXVK's d3d11.dll\n");
+	LogInfo("=== end host compatibility report ===\n\n");
 }

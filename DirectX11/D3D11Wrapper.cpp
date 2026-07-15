@@ -546,6 +546,8 @@ void InitD311()
 	} else {
 		LogInfo("Chained d3d11 exports OK (D3D11CreateDevice present)\n");
 	}
+
+	LogHostCompatReport();
 }
 
 HRESULT WINAPI D3D11On12CreateDevice(
