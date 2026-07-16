@@ -344,6 +344,12 @@ BOOL WINAPI DllMain(
 			if (!verify_intended_target(hinstDLL))
 				return false;
 
+			// Hooks can call get_tls() as soon as they are installed, so the
+			// TLS slot must exist before any hook becomes active.
+			tls_idx = TlsAlloc();
+			if (tls_idx == TLS_OUT_OF_INDEXES)
+				return false;
+
 			// Hook d3d11.dll if we are loaded via injection either
 			// under a different name, or just not as the primary
 			// d3d11.dll. I'm not positive if this is the "best"
@@ -351,14 +357,18 @@ BOOL WINAPI DllMain(
 			if (hinstDLL != GetModuleHandleA("d3d11.dll"))
 				HookD3D11(hinstDLL);
 
-			if (FAILED(HookLoadLibraryExW()))
+			if (FAILED(HookLoadLibraryExW())) {
+				RemoveHooks();
+				TlsFree(tls_idx);
+				tls_idx = TLS_OUT_OF_INDEXES;
 				return false;
-			if (FAILED(HookDXGIFactories()))
+			}
+			if (FAILED(HookDXGIFactories())) {
+				RemoveHooks();
+				TlsFree(tls_idx);
+				tls_idx = TLS_OUT_OF_INDEXES;
 				return false;
-
-			tls_idx = TlsAlloc();
-			if (tls_idx == TLS_OUT_OF_INDEXES)
-				return false;
+			}
 
 			break;
 
@@ -392,7 +402,8 @@ BOOL WINAPI DllMain(
 
 		case DLL_THREAD_DETACH:
 			// Do thread-specific cleanup.
-			delete TlsGetValue(tls_idx);
+			if (tls_idx != TLS_OUT_OF_INDEXES)
+				delete TlsGetValue(tls_idx);
 			break;
 	}
 

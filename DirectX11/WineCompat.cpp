@@ -96,6 +96,21 @@ void LogDllOverrides()
 	LogInfo("  WINEDLLOVERRIDES: %s\n", value);
 }
 
+void LogFlatpakEnvironment()
+{
+	char flatpak_id[256] = {};
+	DWORD length = GetEnvironmentVariableA("FLATPAK_ID", flatpak_id, ARRAYSIZE(flatpak_id));
+	if (!length) {
+		LogInfo("  Flatpak sandbox: not detected in process environment\n");
+		return;
+	}
+	if (length >= ARRAYSIZE(flatpak_id)) {
+		LogInfo("  Flatpak sandbox: detected (FLATPAK_ID too long to print safely)\n");
+		return;
+	}
+	LogInfo("  Flatpak sandbox: detected (%s)\n", flatpak_id);
+}
+
 } // namespace
 
 bool DetectWineEnvironment()
@@ -156,9 +171,11 @@ void LogHostCompatReport()
 	wchar_t migoto_path[MAX_PATH] = {};
 	wchar_t exe_path[MAX_PATH] = {};
 
-	if (GetModuleFileNameW(migoto_handle, migoto_path, MAX_PATH) == 0)
+	DWORD migoto_path_len = GetModuleFileNameW(migoto_handle, migoto_path, MAX_PATH);
+	DWORD exe_path_len = GetModuleFileNameW(NULL, exe_path, MAX_PATH);
+	if (!migoto_path_len || migoto_path_len >= MAX_PATH)
 		wcscpy_s(migoto_path, L"(unknown)");
-	if (GetModuleFileNameW(NULL, exe_path, MAX_PATH) == 0)
+	if (!exe_path_len || exe_path_len >= MAX_PATH)
 		wcscpy_s(exe_path, L"(unknown)");
 
 	LogInfo("\n=== EDHM_2DMigoto host compatibility report ===\n");
@@ -173,6 +190,7 @@ void LogHostCompatReport()
 		LogInfo("  legacy proxy_d3d11 configured: %s\n", G->CHAIN_DLL_PATH[0] ? "yes" : "no");
 	}
 	LogDllOverrides();
+	LogFlatpakEnvironment();
 	if (EnvironmentOptionEnabled("PROTON_USE_WINED3D"))
 		LogInfo("  WARNING: PROTON_USE_WINED3D is enabled; Proton will use OpenGL wined3d instead of DXVK.\n");
 	if (EnvironmentOptionEnabled("PROTON_NO_D3D11"))
