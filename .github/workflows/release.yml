@@ -231,6 +231,9 @@ jobs:
             Write-Warning 'd3dcompiler_47.dll not found; packaging d3d11.dll only'
           }
 
+          Copy-Item 'docs\linux-wine-compat.md' 'dist\Linux-Proton-Wine-README.md' -Force
+          $zipFiles += 'dist\Linux-Proton-Wine-README.md'
+
           $zipName = "EDHM_2DMigoto-$tag-x64.zip"
           $zipPath = Join-Path 'dist' $zipName
           if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
