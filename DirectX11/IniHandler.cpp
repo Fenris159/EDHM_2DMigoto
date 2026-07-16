@@ -4320,8 +4320,7 @@ void LoadConfigFile()
 	G->gShowWarnings = GetIniBool(L"Logging", L"show_warnings", true, NULL);
 
 	// Allows to delay DLL initialization by given ms count
-	bool dll_initialization_delay_key_present = false;
-	G->gDllInitializationDelay = GetIniInt(L"System", L"dll_initialization_delay", 0, &dll_initialization_delay_key_present);
+	G->gDllInitializationDelay = GetIniInt(L"System", L"dll_initialization_delay", 0, NULL);
 
 	// [Include]
 	// If enabled, prevents loading of includes during initialization.
@@ -4369,10 +4368,8 @@ void LoadConfigFile()
 		G->wine_compat = 1;
 	G->wine_compat_profile_applied = ApplyWineCompatProfile(
 		G->wine_compat,
-		dll_initialization_delay_key_present,
 		&G->load_library_redirect,
-		&G->check_foreground_window,
-		&G->gDllInitializationDelay);
+		&G->check_foreground_window);
 
 	// EDHM: auto_refresh_file_to_monitor=EDHM-ini/ThemeSettings.json
 	// When the file's mtime changes, schedule ReloadConfig (theme apply without F11).

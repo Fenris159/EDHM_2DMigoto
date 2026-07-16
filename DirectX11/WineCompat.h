@@ -17,14 +17,11 @@ const char* GetHostPlatformLabel();
 // When the profile is applied:
 //   load_library_redirect -> 0  (do not fight DXVK system32 d3d11)
 //   check_foreground_window -> false  (Wine focus is unreliable)
-//   dll_initialization_delay -> at least 250ms if the key was omitted
 // Explicit wine_compat=0 leaves Windows-oriented values alone even under Wine.
 bool ApplyWineCompatProfile(
 	int wine_compat_ini,
-	bool dll_initialization_delay_key_present,
 	int* load_library_redirect,
-	bool* check_foreground_window,
-	int* dll_initialization_delay);
+	bool* check_foreground_window);
 
 // One-shot summary for d3d11_log.txt so Linux users can self-diagnose load issues.
 void LogHostCompatReport();
