@@ -3,7 +3,9 @@
 #include <string>
 #include <sstream>
 #include <D3Dcompiler.h>
+#include <algorithm>
 #include <codecvt>
+#include <strsafe.h>
 
 #include "ScreenGrab.h"
 #include "wincodec.h"
@@ -241,15 +243,22 @@ static void DumpShaderUsageInfo(HANDLE f, std::map<UINT64, ShaderInfoData> *info
 void DumpUsage(wchar_t *dir)
 {
 	wchar_t path[MAX_PATH];
+	wchar_t *filename;
 	if (dir) {
-		wcscpy(path, dir);
-		wcscat(path, L"\\");
-	} else {
-		if (!GetModuleFileName(migoto_handle, path, MAX_PATH))
+		if (FAILED(StringCchCopyW(path, MAX_PATH, dir))
+				|| FAILED(StringCchCatW(path, MAX_PATH, L"\\")))
 			return;
-		wcsrchr(path, L'\\')[1] = 0;
+	} else {
+		DWORD len = GetModuleFileName(migoto_handle, path, MAX_PATH);
+		if (!len || len >= MAX_PATH)
+			return;
+		filename = wcsrchr(path, L'\\');
+		if (!filename)
+			return;
+		filename[1] = 0;
 	}
-	wcscat(path, L"ShaderUsage.txt");
+	if (FAILED(StringCchCatW(path, MAX_PATH, L"ShaderUsage.txt")))
+		return;
 	HANDLE f = CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (f == INVALID_HANDLE_VALUE) {
 		LogInfo("Error dumping ShaderUsage.txt\n");
@@ -496,9 +505,13 @@ STDMETHODIMP MigotoIncludeHandler::Close(LPCVOID pData)
 
 static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const char *shaderModel, 
 	UINT64 hash, wstring shaderType, ID3DBlob *origByteCode,
-	__out FILETIME* timeStamp, __out wstring &headerLine, _Outptr_ ID3DBlob** pCode, string *errText)
+	_Inout_ FILETIME* timeStamp, __out wstring &headerLine,
+	_Outptr_result_maybenull_ ID3DBlob** pCode, string *errText)
 {
+	if (!timeStamp || !pCode)
+		return true;
 	*pCode = nullptr;
+	headerLine.clear();
 	wchar_t fullName[MAX_PATH];
 	char apath[MAX_PATH];
 	swprintf_s(fullName, MAX_PATH, L"%s\\%s", shaderFixPath, fileName);
@@ -515,6 +528,12 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 
 
 	DWORD srcDataSize = GetFileSize(f, 0);
+	if (!srcDataSize || srcDataSize == INVALID_FILE_SIZE)
+	{
+		LogInfo("    Invalid shader source file size.\n");
+		CloseHandle(f);
+		return true;
+	}
 	vector<char> srcData(srcDataSize);
 	DWORD readSize;
 	FILETIME curFileTime;
@@ -554,7 +573,10 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 		// #include will work with a relative path from the shader itself.
 		// Later we could add a custom include handler to track dependencies so
 		// that we can make reloading work better when using includes:
-		wcstombs(apath, fullName, MAX_PATH);
+		if (!WideCharToMultiByte(CP_UTF8, 0, fullName, -1, apath, MAX_PATH, NULL, NULL)) {
+			LogInfo("    error converting shader path to UTF-8: %lu\n", GetLastError());
+			return true;
+		}
 		MigotoIncludeHandler include_handler(apath);
 		HRESULT ret = D3DCompile(srcData.data(), srcDataSize, apath, 0,
 				G->recursive_include == -1 ? D3D_COMPILE_STANDARD_FILE_INCLUDE : &include_handler,
@@ -637,7 +659,9 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 	// For success, let's add the first line of text from the file to the OriginalShaderInfo,
 	// so the ShaderHacker can edit the line and reload and have it live.
 	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf8_to_utf16;
-	headerLine = utf8_to_utf16.from_bytes(srcData.data(), strchr(srcData.data(), '\n'));
+	vector<char>::iterator newline = find(srcData.begin(), srcData.end(), '\n');
+	headerLine = utf8_to_utf16.from_bytes(srcData.data(),
+		newline == srcData.end() ? srcData.data() + srcData.size() : &*newline);
 
 	// pCode on return == NULL for error cases, valid if made it this far.
 	*pCode = pByteCode;
