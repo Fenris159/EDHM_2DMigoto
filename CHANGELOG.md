@@ -37,6 +37,9 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
   troubleshooting settings.
 - Moved remaining successful shader and Texture3D creation messages behind
   `debug=1` and made recursive include patterns and ini values UTF-8 safe.
+- Re-aligned `Dependencies/d3dx.ini` with the `xxmi-base` section order and
+  examples, restored standard recursive exclusions, and added concise guidance
+  for choosing EDHM, Windows, Wine/Proton, proxy, hashing, and logging settings.
 - Enabled compiler stack-cookie protection for all Release and Zip Release
   runtime, decompiler, and bundled DirectXTK configurations.
 - Added the Linux compatibility guide to repository navigation and release ZIPs.

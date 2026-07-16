@@ -15,7 +15,7 @@ time `xxmi-base` advances.
 | Local file | Upstream context | EDHM delta |
 |------------|------------------|------------|
 | `Dependencies/d3dx.ini` | `[Loader]` | Target `EliteDangerous64.exe`; leave external loader disabled for normal local `d3d11.dll` installs. |
-| `Dependencies/d3dx.ini` | `[Include]` | Load EDHM's shipped ini tree instead of the generic `Mods` include directory. |
+| `Dependencies/d3dx.ini` | `[Include]` | Load EDHM's shipped ini tree instead of the generic `Mods` directory while retaining upstream `DISABLED*` and `desktop.ini` recursive exclusions. |
 | `Dependencies/d3dx.ini` | `[Constants]` | Keep upstream examples; EDHM live HUD state belongs in included EDHM ini files. |
 | `Dependencies/d3dx.ini` | `[System] skip_early_includes_load` | Default to `0` so included TextureOverrides are available before first frame, matching classic 3Dmigoto behavior. |
 | `Dependencies/d3dx.ini` | `[System] auto_refresh_file_to_monitor` | EDHM_UI touches `EDHM-ini/ThemeSettings.json`; runtime schedules `ReloadConfig` when it changes. |
