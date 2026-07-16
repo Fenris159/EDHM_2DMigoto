@@ -34,9 +34,14 @@ Typical Odyssey **product root** (next to `EliteDangerous64.exe`, not only the S
 ```text
 d3d11.dll              ← build this project (do not replace dxgi.dll if ReShade owns it)
 d3dcompiler_47.dll     ← keep EDHM’s MS redistributable (or Dependencies/)
-d3dx.ini + EDHM-ini/ + ShaderFixes/   ← from EDHM; folders may be junctions (EDHM_UI)
+d3dx.ini + EDHM-ini/ + ShaderFixes/   ← from EDHM
 ShaderCache/           ← created at runtime when hunting/export is active
 ```
+
+Regular Windows installs may use EDHM-UI junctions. Flatpak Steam users should
+prefer physical `EDHM-ini/` and `ShaderFixes/` directories in the product root;
+symlink targets outside the game directory require an explicit sandbox
+permission. See [Linux / Wine / Proton compatibility](linux-wine-compat.md#flatpak-steam).
 
 Drop your built `d3d11.dll` over EDHM’s without modifying EDHM inis/shaders.  
 Live installs may run stock **3Dmigoto 1.4.5 or 1.4.9** (check file properties).  
