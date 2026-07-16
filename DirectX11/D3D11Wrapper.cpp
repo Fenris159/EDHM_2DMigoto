@@ -363,34 +363,11 @@ static tD3DKMTQueryResourceInfo _D3DKMTQueryResourceInfo;
 
 PFN_D3D11_CREATE_DEVICE _D3D11CreateDevice;
 PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN _D3D11CreateDeviceAndSwapChain;
+static INIT_ONCE d3d11_init_once = INIT_ONCE_STATIC_INIT;
 
 #ifdef NTDDI_WIN10
 PFN_D3D11ON12_CREATE_DEVICE _D3D11On12CreateDevice;
 #endif
-
-// Load a DLL sitting next to this EDHM d3d11.dll (game folder under normal installs).
-static HMODULE LoadLibraryBesideMigoto(const wchar_t *file_name)
-{
-	wchar_t path[MAX_PATH] = {};
-
-	if (!file_name || !file_name[0])
-		return NULL;
-	if (!GetModuleFileNameW(migoto_handle, path, MAX_PATH))
-		return NULL;
-
-	wchar_t *slash = wcsrchr(path, L'\\');
-	if (!slash)
-		return NULL;
-	slash[1] = 0;
-	if (wcscat_s(path, MAX_PATH, file_name) != 0)
-		return NULL;
-
-	LogInfoW(L"  Trying beside EDHM DLL: %ls\n", path);
-	HMODULE module = LoadLibraryExW(path, NULL, 0);
-	if (!module)
-		LogInfo("  -> failed (GetLastError=%lu)\n", GetLastError());
-	return module;
-}
 
 static void LogChainedD3D11Module(HMODULE module, const char *via)
 {
@@ -405,11 +382,48 @@ static void LogChainedD3D11Module(HMODULE module, const char *via)
 		LogInfo("Chained d3d11 loaded via %s: (path unknown) handle=%p\n", via ? via : "?", module);
 }
 
-void InitD311()
+static HMODULE ValidateChainedD3D11Module(HMODULE module, const char *via)
+{
+	if (!module)
+		return NULL;
+
+	if (module == migoto_handle) {
+		LogInfo("*** Rejected chained d3d11 via %s because it resolved back to EDHM itself.\n",
+			via ? via : "?");
+		FreeLibrary(module);
+		return NULL;
+	}
+	if (GetProcAddress(module, "CBTProc")) {
+		LogInfo("*** Rejected chained d3d11 via %s because it is another 3DMigoto wrapper.\n",
+			via ? via : "?");
+		FreeLibrary(module);
+		return NULL;
+	}
+
+	PFN_D3D11_CREATE_DEVICE create_device =
+		(PFN_D3D11_CREATE_DEVICE)GetProcAddress(module, "D3D11CreateDevice");
+	PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN create_device_and_swap_chain =
+		(PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN)GetProcAddress(module, "D3D11CreateDeviceAndSwapChain");
+
+	if (!create_device || !create_device_and_swap_chain) {
+		LogChainedD3D11Module(module, via);
+		LogInfo("*** Rejected chained d3d11: required exports are missing "
+			"(CreateDevice=%p CreateDeviceAndSwapChain=%p)\n",
+			create_device, create_device_and_swap_chain);
+		FreeLibrary(module);
+		return NULL;
+	}
+
+	_D3D11CreateDevice = create_device;
+	_D3D11CreateDeviceAndSwapChain = create_device_and_swap_chain;
+	LogChainedD3D11Module(module, via);
+	LogInfo("Chained d3d11 exports OK\n");
+	return module;
+}
+
+static BOOL CALLBACK InitD311Once(PINIT_ONCE, PVOID, PVOID*)
 {
 	UINT ret;
-
-	if (hD3D11) return;
 
 	InitializeCriticalSectionPretty(&G->mCriticalSection);
 	InitializeCriticalSectionPretty(&G->mResourcesLock);
@@ -424,72 +438,57 @@ void InitD311()
 	// zero, otherwise the proxy d3d11.dll will call back into us, and create
 	// an infinite loop.
 
-	const char *chain_via = nullptr;
+	HMODULE candidate = NULL;
+	bool tried_original_d3d11 = false;
 
 	if (G->CHAIN_DLL_PATH[0])
 	{
 		LogInfo("Proxy loading active, Forcing load_library_redirect=0\n");
 		G->load_library_redirect = 0;
 
-		wchar_t sysDir[MAX_PATH] = {0};
-		if (!GetModuleFileName(migoto_handle, sysDir, MAX_PATH)) {
+		wchar_t proxy_path[MAX_PATH] = {0};
+		if (!GetModuleFileNameW(migoto_handle, proxy_path, MAX_PATH)) {
 			LogInfo("GetModuleFileName failed\n");
 			DoubleBeepExit();
 		}
-		wcsrchr(sysDir, L'\\')[1] = 0;
-		wcscat(sysDir, G->CHAIN_DLL_PATH);
-		if (LogFile)
-		{
-			char path[MAX_PATH];
-			wcstombs(path, sysDir, MAX_PATH);
-			LogInfo("trying to chain load %s\n", path);
-		}
-		hD3D11 = LoadLibrary(sysDir);
-		if (!hD3D11)
-		{
-			if (LogFile)
-			{
-				char path[MAX_PATH];
-				wcstombs(path, G->CHAIN_DLL_PATH, MAX_PATH);
-				LogInfo("load failed. Trying to chain load %s\n", path);
+		wchar_t *slash = wcsrchr(proxy_path, L'\\');
+		if (slash) {
+			slash[1] = 0;
+			if (wcscat_s(proxy_path, MAX_PATH, G->CHAIN_DLL_PATH) == 0) {
+				LogInfoW(L"Trying configured proxy beside EDHM: %ls\n", proxy_path);
+				candidate = LoadLibraryExW(proxy_path, NULL, 0);
 			}
-			hD3D11 = LoadLibrary(G->CHAIN_DLL_PATH);
 		}
-		if (hD3D11)
-			chain_via = "proxy_d3d11";
-		LogInfo("Proxy loading result: %p\n", hD3D11);
+		if (!candidate) {
+			LogInfoW(L"Configured proxy was not found beside EDHM; trying configured path: %ls\n",
+				G->CHAIN_DLL_PATH);
+			candidate = LoadLibraryExW(G->CHAIN_DLL_PATH, NULL, 0);
+		}
+		hD3D11 = ValidateChainedD3D11Module(candidate, "proxy_d3d11");
+		if (!hD3D11)
+			LogInfo("Configured proxy_d3d11 was unavailable or invalid; falling back to standard D3D11.\n");
 	}
-	else
+
+	if (!hD3D11)
 	{
 		// We'll look for this in DLLMainHook to avoid callback to self.
 		// Must remain all lower case to be matched in DLLMainHook.
 		// We need the system d3d11 in order to find the original proc addresses.
 		// We hook LoadLibraryExW, so we need to use that here.
-		LogInfo("Trying to load original_d3d11.dll\n");
-		hD3D11 = LoadLibraryEx(L"original_d3d11.dll", NULL, 0);
-		if (hD3D11)
-			chain_via = "original_d3d11.dll";
-
-		// Wine/Proton: optional DXVK-style d3d11 next to EDHM (does not replace EDHM's d3d11.dll).
-		if (!hD3D11 && (G->running_under_wine || G->wine_compat_profile_applied || G->wine_compat == 1)) {
-			LogInfo("Wine/Proton chain: trying local DXVK-style fallbacks next to EDHM\n");
-			static const wchar_t *const kWineLocalFallbacks[] = {
-				L"dxvk_d3d11.dll",
-				L"d3d11_dxvk.dll",
-			};
-			for (const wchar_t *name : kWineLocalFallbacks) {
-				hD3D11 = LoadLibraryBesideMigoto(name);
-				if (hD3D11) {
-					chain_via = "wine local fallback";
-					break;
-				}
-			}
+		if (!G->wine_compat_profile_applied) {
+			LogInfo("Trying to load original_d3d11.dll\n");
+			tried_original_d3d11 = true;
+			candidate = LoadLibraryExW(L"original_d3d11.dll", NULL, 0);
+			hD3D11 = ValidateChainedD3D11Module(candidate, "original_d3d11.dll");
+		} else {
+			LogInfo("WineCompat: skipping legacy original_d3d11.dll and using prefix/system D3D11\n");
 		}
 
 		if (hD3D11 == NULL)
 		{
 			wchar_t libPath[MAX_PATH];
-			LogInfo("*** LoadLibrary on original_d3d11.dll failed.\n");
+			if (tried_original_d3d11)
+				LogInfo("original_d3d11.dll was unavailable or invalid; trying system D3D11.\n");
 
 			// Redirected load failed. Something (like Origin's IGO32.dll
 			// hook in ntdll.dll LdrLoadDll) is interfering with our hook.
@@ -502,9 +501,8 @@ void InitD311()
 			if (ret != 0 && ret < ARRAYSIZE(libPath)) {
 				wcscat_s(libPath, MAX_PATH, L"\\d3d11.dll");
 				LogInfoW(L"Trying to load %ls\n", libPath);
-				hD3D11 = LoadLibraryEx(libPath, NULL, 0);
-				if (hD3D11)
-					chain_via = "system32 d3d11.dll";
+				candidate = LoadLibraryExW(libPath, NULL, 0);
+				hD3D11 = ValidateChainedD3D11Module(candidate, "system32 d3d11.dll");
 			}
 		}
 	}
@@ -513,11 +511,9 @@ void InitD311()
 		LogInfo("*** LoadLibrary on original or chained d3d11.dll failed.\n");
 		LogInfo("*** If this is Wine/Proton, ensure EDHM d3d11.dll is next to EliteDangerous64.exe\n");
 		LogInfo("*** and set WINEDLLOVERRIDES=d3d11=n,b so the game loads the native (EDHM) wrapper.\n");
-		LogInfo("*** Do not overwrite EDHM's d3d11.dll with DXVK's; chain via system32 or proxy_d3d11 / dxvk_d3d11.dll.\n");
+		LogInfo("*** Do not overwrite EDHM's d3d11.dll with DXVK's; Proton/Wine should provide D3D11 from its prefix.\n");
 		DoubleBeepExit();
 	}
-
-	LogChainedD3D11Module(hD3D11, chain_via);
 
 	_D3DKMTQueryAdapterInfo = (tD3DKMTQueryAdapterInfo)GetProcAddress(hD3D11, "D3DKMTQueryAdapterInfo");
 	_OpenAdapter10 = (tOpenAdapter10)GetProcAddress(hD3D11, "OpenAdapter10");
@@ -526,10 +522,6 @@ void InitD311()
 	_D3D11CoreCreateLayeredDevice = (tD3D11CoreCreateLayeredDevice)GetProcAddress(hD3D11, "D3D11CoreCreateLayeredDevice");
 	_D3D11CoreGetLayeredDeviceSize = (tD3D11CoreGetLayeredDeviceSize)GetProcAddress(hD3D11, "D3D11CoreGetLayeredDeviceSize");
 	_D3D11CoreRegisterLayers = (tD3D11CoreRegisterLayers)GetProcAddress(hD3D11, "D3D11CoreRegisterLayers");
-	if (!_D3D11CreateDevice)
-		_D3D11CreateDevice = (PFN_D3D11_CREATE_DEVICE)GetProcAddress(hD3D11, "D3D11CreateDevice");
-	if (!_D3D11CreateDeviceAndSwapChain)
-		_D3D11CreateDeviceAndSwapChain = (PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN)GetProcAddress(hD3D11, "D3D11CreateDeviceAndSwapChain");
 	_D3DKMTGetDeviceState = (tD3DKMTGetDeviceState)GetProcAddress(hD3D11, "D3DKMTGetDeviceState");
 	_D3DKMTOpenAdapterFromHdc = (tD3DKMTOpenAdapterFromHdc)GetProcAddress(hD3D11, "D3DKMTOpenAdapterFromHdc");
 	_D3DKMTOpenResource = (tD3DKMTOpenResource)GetProcAddress(hD3D11, "D3DKMTOpenResource");
@@ -539,15 +531,16 @@ void InitD311()
 	_D3D11On12CreateDevice = (PFN_D3D11ON12_CREATE_DEVICE)GetProcAddress(hD3D11, "D3D11On12CreateDevice");
 #endif
 
-	if (!_D3D11CreateDevice || !_D3D11CreateDeviceAndSwapChain) {
-		LogInfo("*** Chained d3d11 is missing D3D11CreateDevice exports (CreateDevice=%p CreateDeviceAndSwapChain=%p)\n",
-			_D3D11CreateDevice, _D3D11CreateDeviceAndSwapChain);
-		LogInfo("*** Under Wine/Proton this usually means the wrong d3d11 was loaded (self-loop or incomplete DLL).\n");
-	} else {
-		LogInfo("Chained d3d11 exports OK (D3D11CreateDevice present)\n");
-	}
-
 	LogHostCompatReport();
+	return TRUE;
+}
+
+void InitD311()
+{
+	if (!InitOnceExecuteOnce(&d3d11_init_once, InitD311Once, NULL, NULL)) {
+		LogInfo("*** One-time D3D11 initialization failed (GetLastError=%lu).\n", GetLastError());
+		DoubleBeepExit();
+	}
 }
 
 HRESULT WINAPI D3D11On12CreateDevice(
@@ -1233,9 +1226,8 @@ HMODULE __stdcall Hooked_LoadLibraryExW(_In_ LPCWSTR lpLibFileName, _Reserved_ H
 	}
 
 	// Only do these overrides if they are specified in the d3dx.ini file.
-	//  load_library_redirect=0 for off, allowing all through unchanged.
-	//  load_library_redirect=1 for nvapi.dll override only, forced to game folder.
-	//  load_library_redirect=2 for both d3d11.dll and nvapi.dll forced to game folder.
+	//  load_library_redirect=0 or 1 allows all loads through unchanged.
+	//  load_library_redirect=2 redirects d3d11.dll to the game folder.
 	// This flag can be set by the proxy loading, because it must be off in that case.
 	if (hook_enabled) {
 
