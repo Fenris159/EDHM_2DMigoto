@@ -7,6 +7,7 @@
 #include <DDSTextureLoader.h>
 #include <WICTextureLoader.h>
 #include <algorithm>
+#include <limits>
 #include <sstream>
 #include "HackerDevice.h"
 #include "HackerContext.h"
@@ -3375,7 +3376,7 @@ public: \
 		) : CommandListOperator(lhs, t, rhs) \
 	{} \
 	static const wchar_t* pattern() { return L##operator_pattern; } \
-	float evaluate(float lhs, float rhs) override { return (fn); } \
+	float evaluate(float lhs, float rhs) override { return static_cast<float>(fn); } \
 }; \
 static CommandListOperatorFactory<name##T> name;
 
@@ -4357,12 +4358,24 @@ void CustomResource::SetHandleInfo(ID3D11Resource* source, size_t offset, size_t
 		LeaveCriticalSection(&G->mCriticalSection);
 		return;
 	}
+	if (offset > src_handle_info->cached_data_size ||
+			offset > (std::numeric_limits<size_t>::max)() - src_handle_info->cached_data_offset) {
+		LeaveCriticalSection(&G->mCriticalSection);
+		return;
+	}
+
+	size_t available_size = src_handle_info->cached_data_size - offset;
+	size_t view_size = data_size ? data_size : available_size;
+	if (!view_size || view_size > available_size) {
+		LeaveCriticalSection(&G->mCriticalSection);
+		return;
+	}
 
 	if (!handle_info)
 		handle_info = std::make_unique<ResourceHandleInfo>();
 
 	// Initialize cache and store view metadata (offset and size) relative to the shared cache.
-	handle_info->InitializeDataCache(data_size ? data_size : src_handle_info->cached_data_size, src_handle_info->cached_data_offset + offset);
+	handle_info->InitializeDataCache(view_size, src_handle_info->cached_data_offset + offset);
 
 	// Share ownership of the cached buffer to ensure it remains alive independently of the source.
 	handle_info->cached_data = src_handle_info->cached_data;
@@ -4843,13 +4856,16 @@ bool CustomResourcePool::PropagateFlags(D3D11_BIND_FLAG bind_flags, D3D11_RESOUR
 
 CustomResource* CustomResourcePool::InitializeResource(size_t pool_index)
 {
+	if (pool_index > static_cast<size_t>((std::numeric_limits<int>::max)()))
+		return nullptr;
+
 	wstring resource_id = wstring(name) + L"_" + std::to_wstring(pool_index);
 
 	CustomResource* custom_resource = &customResources[resource_id];
 	custom_resource->name = resource_id;
 
 	custom_resource->pool = this;
-	custom_resource->pool_index = pool_index;
+	custom_resource->pool_index = static_cast<int>(pool_index);
 
 	custom_resource->max_copies_per_frame = resource_template->max_copies_per_frame;
 
@@ -5748,7 +5764,7 @@ IniParserResult ResourceCopyTarget::ParseTargetPipelineSlot(const wchar_t*& targ
 		ResourceCopyTargetType type;
 		bool source_only;
 		bool parse_shader = false;
-		int max_slot_count = 0;
+		unsigned max_slot_count = 0;
 	};
 
 	static constexpr TargetInfo targets[] = {
@@ -5795,7 +5811,7 @@ IniParserResult ResourceCopyTarget::ParseTargetPipelineSlot(const wchar_t*& targ
 		// Match token against pattern with shader type and slot id.
 		if (t.parse_shader) {
 			ret = swscanf_s(target, t.keyword, &shader_type, 1, &slot, &len);
-			if (ret == 2 && len == length && slot < t.max_slot_count) {
+			if (ret == 2 && len >= 0 && static_cast<size_t>(len) == length && slot < t.max_slot_count) {
 				type = t.type;
 				if (type == ResourceCopyTargetType::UNORDERED_ACCESS_VIEW) {
 					// These views are only valid for pixel and compute shaders:
@@ -5811,7 +5827,7 @@ IniParserResult ResourceCopyTarget::ParseTargetPipelineSlot(const wchar_t*& targ
 		else if (t.max_slot_count) 
 		{
 			ret = swscanf_s(target, t.keyword, &slot, &len);
-			if (ret == 1 && len == length && slot < t.max_slot_count) {
+			if (ret == 1 && len >= 0 && static_cast<size_t>(len) == length && slot < t.max_slot_count) {
 				type = t.type;
 				//LogInfo("ParseTargetPipelineSlot: TOKEN_FOUND target=%ls, slot=%d\n", t.keyword, slot);
 				return IniParserResult::TOKEN_FOUND;
@@ -6935,8 +6951,8 @@ void ResourceCopyTarget::FindTextureOverrides(CommandListState *state, bool *res
 
 	// For vertex and index buffers the game may pack multiple meshes into
 	// one buffer and bind them at different offsets. In that case the base
-	// resource hash alone is not enough – we must use the same region data hash 
-	// that IASetVertexBuffers / IASetIndexBuffer computed and stored in 
+	// resource hash alone is not enough - we must use the same region data hash
+	// that IASetVertexBuffers / IASetIndexBuffer computed and stored in
 	// mCurrentVertexBuffers[] /mCurrentIndexBuffer, and that the hunting overlay displays.
 	// That way the hash the user copies from the overlay matches the one looked up
 	// here, and ini `CheckTextureOverride` triggers [TextureOverride] sections correctly.
