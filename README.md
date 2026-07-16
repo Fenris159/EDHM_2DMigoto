@@ -79,6 +79,7 @@ Game-specific shaders, configs, and mod assets are **not** automatically covered
 |--------|------|
 | `main` | **Stable releases** (after first merge from develop) |
 | `develop` | Day-to-day work + **pre-release** builds |
+| `linux-compatibility` | Wine/Proton compatibility work + optional **pre-release** builds |
 | `xxmi-base` | Clean full XXMI mirror (no EDHM patches) |
 
 ```text
@@ -100,7 +101,7 @@ Click a badge for the GitHub compare view. Counts are approximate history diverg
 | Workflow | Purpose |
 |----------|---------|
 | [**CI**](.github/workflows/ci.yml) | On push/PR to **`main` only** (e.g. develop→main merge) + manual: meta checks + MSBuild |
-| [**Release**](.github/workflows/release.yml) | Manual: build from `main` (release) or `develop` (pre-release), optional SemVer tag, publish assets |
+| [**Release**](.github/workflows/release.yml) | Manual: build from `main` (release), `develop`, or `linux-compatibility` (pre-release), optional SemVer tag, publish assets |
 | [**Update xxmi-base**](.github/workflows/update-xxmi-base.yml) | Keep the XXMI mirror current; open/refresh an `upstream-xxmi` review issue when it advances |
 | [**Branch status badges**](.github/workflows/branch-status-badges.yml) | Daily / after `main` push: refresh Shields JSON on the **`badges`** branch only |
 | [**Sync main → develop**](.github/workflows/sync-main-to-develop.yml) | After push to `main`: FF `develop` to include merge commits so tips stay aligned |
@@ -111,10 +112,11 @@ Click a badge for the GitHub compare view. Counts are approximate history diverg
 |---------|-------------|----------------|
 | `main` | `v0.1.2` | Latest stable release |
 | `develop` | `v0.1.3-alpha.4` | Alpha release candidate |
+| `linux-compatibility` | `v0.1.3-alpha.5` | Wine/Proton compatibility pre-release |
 
 ```text
 Actions → Release → Run workflow
-  branch: main | develop
+  branch: main | develop | linux-compatibility
   version_action: use-current | bump-patch | bump-minor | bump-major | bump-prerelease
   create_tag: true
   update_vendor_cache: true   # also commits vendor/edhm-runtime/d3d11.dll (LFS)

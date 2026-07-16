@@ -1,4 +1,5 @@
-# Build and publish GitHub Releases from main (stable) or develop (pre-release).
+# Build and publish GitHub Releases from main (stable), develop (pre-release),
+# or linux-compatibility (pre-release).
 # Optionally create / push a SemVer tag derived from VERSION (+ bump inputs).
 name: Release
 
@@ -12,6 +13,7 @@ on:
         options:
           - main
           - develop
+          - linux-compatibility
         default: develop
       version_action:
         description: 'How to treat VERSION before tagging'
@@ -25,7 +27,7 @@ on:
           - bump-prerelease
         default: use-current
       pre_label:
-        description: 'Pre-release label (develop only): alpha | beta | rc'
+        description: 'Pre-release label (develop/linux-compatibility): alpha | beta | rc'
         required: true
         type: choice
         options:
@@ -74,7 +76,7 @@ jobs:
         run: |
           if (-not (Test-Path 'EDHM_2DMigoto.sln')) {
             $branch = '${{ inputs.branch }}'
-            throw "EDHM_2DMigoto.sln is missing on branch '$branch'. Release builds need the slim source tree (develop, or main after merging develop)."
+            throw "EDHM_2DMigoto.sln is missing on branch '$branch'. Release builds require main, develop, or linux-compatibility with the slim source tree."
           }
 
       - name: Configure git identity
@@ -87,14 +89,27 @@ jobs:
         id: channel
         shell: pwsh
         run: |
-          if ('${{ inputs.branch }}' -eq 'main') {
-            'channel=release' | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
-            'is_prerelease=false' | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
-          } else {
-            'channel=prerelease' | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
-            'is_prerelease=true' | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $branch = '${{ inputs.branch }}'
+          switch ($branch) {
+            'main' {
+              $channel = 'release'
+              $isPrerelease = 'false'
+            }
+            'develop' {
+              $channel = 'prerelease'
+              $isPrerelease = 'true'
+            }
+            'linux-compatibility' {
+              $channel = 'prerelease'
+              $isPrerelease = 'true'
+            }
+            default {
+              throw "Unsupported release branch: $branch"
+            }
           }
-          Write-Host "Channel: $((Get-Content $env:GITHUB_OUTPUT | Select-String channel).Line)"
+          "channel=$channel" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "is_prerelease=$isPrerelease" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Branch: $branch  Channel: $channel  Pre-release: $isPrerelease"
 
       - name: Bump or read VERSION
         id: ver
@@ -118,7 +133,7 @@ jobs:
             }
           }
 
-          # For develop pre-releases, ensure VERSION has a pre-release suffix if still clean
+          # For pre-release branches, ensure VERSION has a pre-release suffix if still clean
           $raw = (Get-Content VERSION -Raw).Trim()
           if ($channel -eq 'prerelease' -and $raw -notmatch '-') {
             & .\scripts\version.ps1 -Action bump-prerelease -PreLabel $preLabel | Out-Null

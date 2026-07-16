@@ -40,6 +40,8 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 - Re-aligned `Dependencies/d3dx.ini` with the `xxmi-base` section order and
   examples, restored standard recursive exclusions, and added concise guidance
   for choosing EDHM, Windows, Wine/Proton, proxy, hashing, and logging settings.
+- Added `linux-compatibility` as an explicit pre-release source in the manual
+  GitHub Actions release workflow.
 - Enabled compiler stack-cookie protection for all Release and Zip Release
   runtime, decompiler, and bundled DirectXTK configurations.
 - Added the Linux compatibility guide to repository navigation and release ZIPs.

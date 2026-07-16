@@ -32,15 +32,23 @@ Before a cut, update **CHANGELOG** (move Unreleased items into a version section
 |--------|-----------------|-----------|
 | **`main`** | **Release** (stable) | `vMAJOR.MINOR.PATCH` |
 | **`develop`** | **Pre-release** | `vMAJOR.MINOR.PATCH-beta.N` (or `-rc.N` / `-alpha.N`) |
+| **`linux-compatibility`** | **Pre-release** | `vMAJOR.MINOR.PATCH-alpha.N` (or `-beta.N` / `-rc.N`) |
 
 ## Manual release (GitHub UI)
 
 1. Ensure the branch has `EDHM_2DMigoto.sln` (not scaffold-only `main`).
 2. **Actions → Release → Run workflow**
+   - GitHub's **Use workflow from** selector chooses the revision of
+     `release.yml` to run.
+   - The workflow's **branch** input chooses the source branch to check out,
+     tag, build, and update.
+   - Until this workflow update reaches `main`, choose `linux-compatibility`
+     in both places for a Linux compatibility release. Afterward, **Use
+     workflow from** may remain on `main`.
 3. Choose:
-   - **branch**: `main` or `develop`
+   - **branch**: `main`, `develop`, or `linux-compatibility`
    - **version_action**: `use-current` or a bump
-   - **pre_label**: `beta` / `rc` / `alpha` (develop)
+   - **pre_label**: `beta` / `rc` / `alpha` (`develop` or `linux-compatibility`)
    - **create_tag**: usually `true`
    - **update_vendor_cache**: usually `true` (skips on draft)
 4. Workflow will:
@@ -51,6 +59,10 @@ Before a cut, update **CHANGELOG** (move Unreleased items into a version section
    - Build **Zip Release | x64**
    - Publish GitHub Release with `d3d11.dll`, zip, and SHA256 files
    - Commit **`vendor/edhm-runtime/`** (DLL via Git LFS + metadata) on the same branch
+
+Tags are repository-wide. If a pre-release tag was already published from
+`develop`, bump the pre-release number before publishing from
+`linux-compatibility`.
 
 ## CI
 
@@ -108,7 +120,8 @@ After a **non-draft** Release succeeds, the same workflow (when `update_vendor_c
 | `vendor/edhm-runtime/CHANNEL` | `release` or `prerelease` |
 | `vendor/edhm-runtime/RELEASE_URL` | GitHub Release URL |
 
-- Pre-releases update the cache on **`develop`**
+- Pre-releases update the cache on the selected pre-release branch
+  (**`develop`** or **`linux-compatibility`**)
 - Stable releases update the cache on **`main`**
 - GitHub **Release assets** remain the distribution source of truth; vendor is a convenience mirror
 
