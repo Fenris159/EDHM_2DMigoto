@@ -20,8 +20,7 @@ When Wine/Proton is detected (`ntdll!wine_get_version`, plus light env checks):
 | `wine_compat` auto | On under Wine unless `wine_compat=0` |
 | `load_library_redirect` | Forced to `0` (avoids fighting DXVK) |
 | `check_foreground_window` | Forced off (Wine focus is flaky) |
-| `dll_initialization_delay` | `250` ms if the key was omitted |
-| Chain load | Tries `original_d3d11.dll`, then local `dxvk_d3d11.dll` / `d3d11_dxvk.dll`, then `system32\d3d11.dll` |
+| Chain load | Uses the D3D11 implementation supplied by the Proton/Wine prefix |
 | Log | Writes a **host compatibility report** to `d3d11_log.txt` |
 
 Force the profile on any host with:
@@ -31,7 +30,7 @@ Force the profile on any host with:
 wine_compat = 1
 ```
 
-Disable all of the above even under Wine:
+Disable the automatic System-setting profile even under Wine:
 
 ```ini
 [System]
@@ -58,9 +57,12 @@ export WINEDLLOVERRIDES="d3d11=n,b;d3dcompiler_47=n,b"
 wine /path/to/EDLaunch.exe
 ```
 
-Install DXVK **into the prefix**. Do **not** drop DXVK’s `d3d11.dll` on top of
-EDHM’s game-folder `d3d11.dll`. Optional: put DXVK’s DLL beside the game as
-`dxvk_d3d11.dll` and/or set `proxy_d3d11=dxvk_d3d11.dll`.
+For Proton, let Steam manage DXVK. For standalone Wine, install DXVK into the
+same Wine prefix used to run Elite. Do **not** copy or rename DXVK's `d3d11.dll`
+or `dxgi.dll` into the game folder; that folder's `d3d11.dll` is EDHM.
+
+`proxy_d3d11` is a legacy custom-wrapper option and is not part of the standard
+EDHM Linux setup.
 
 ## Files must be next to the game
 
@@ -70,12 +72,14 @@ Place EDHM next to `EliteDangerous64.exe`, not only next to the FDev launcher.
 
 After a launch (even a crash), open `d3d11_log.txt` in the game folder.
 
-- **No log file** → Wine never loaded EDHM’s `d3d11.dll` (overrides / path).
-- **Log exists** → read the `host compatibility report` and chained d3d11 path.
+- **No log file** -> first confirm `[Logging] enabled=1` and that the game folder
+  is writable. Otherwise Wine probably did not load EDHM's `d3d11.dll`.
+- **Log exists** -> read the `host compatibility report` and chained D3D11 path.
 
-## Related guides
+The report also warns about `PROTON_USE_WINED3D=1` (OpenGL instead of DXVK) and
+`PROTON_NO_D3D11=1` (incompatible with Elite and EDHM).
 
-Plain-language handouts for players:
+## Keep the setup minimal
 
-- `.codex/LinuxTroubleshooting/EDHM_Proton_Linux_Setup.txt`
-- `.codex/LinuxTroubleshooting/EDHM_Wine_FDev_Launcher_Setup.txt`
+Do not add initialization delays, local DXVK copies, proxy DLLs, or extra
+graphics overrides unless a specific diagnostic result calls for them.

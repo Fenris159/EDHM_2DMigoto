@@ -13,7 +13,7 @@
 [![Built for EDHM](https://img.shields.io/badge/Built%20for-EDHM-1f6feb)](https://github.com/psychicEgg/EDHM)
 [![2Dmigoto](https://img.shields.io/badge/Runtime-2Dmigoto%20(XXMI)-6f42c1)](https://github.com/SpectrumQT/XXMI-Libs-Package)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20x64-0078d4)](docs/building.md)
-[![Linux](https://img.shields.io/badge/Linux-Proton%20%2F%20Wine-FCC624?logo=linux&logoColor=black)](docs/building.md)
+[![Linux](https://img.shields.io/badge/Linux-Proton%20%2F%20Wine-FCC624?logo=linux&logoColor=black)](docs/linux-wine-compat.md)
 [![MSBuild](https://img.shields.io/badge/Build-VS2022%20%7C%20MSVC-5c2d91)](docs/building.md)
 [![main vs develop](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFenris159%2FEDHM_2DMigoto%2Fbadges%2F.github%2Fbadges%2Fmain-vs-develop.json)](https://github.com/Fenris159/EDHM_2DMigoto/compare/develop...main)
 [![develop vs xxmi-base](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFenris159%2FEDHM_2DMigoto%2Fbadges%2F.github%2Fbadges%2Fdevelop-vs-xxmi-base.json)](https://github.com/Fenris159/EDHM_2DMigoto/compare/xxmi-base...develop)

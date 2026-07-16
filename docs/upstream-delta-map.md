@@ -41,7 +41,7 @@ time `xxmi-base` advances.
 | `DirectX11/globals.h` | Global state | Adds state for EDHM theme auto-refresh and the fuzzy/hash matching opt-in. |
 | `DirectX11/WineCompat.*` | *(new)* | Wine/Proton detection, `wine_compat` profile, host compatibility log report. |
 | `DirectX11/IniHandler.cpp` | `LoadConfigFile()` / `[System]` | Parses `wine_compat` and applies Linux-safe System defaults under Wine. |
-| `DirectX11/D3D11Wrapper.cpp` | `InitD311()` | Wine local DXVK-style chain fallbacks, chained-module logging, compat report. |
+| `DirectX11/D3D11Wrapper.cpp` | `InitD311()` | Thread-safe initialization, validated standard D3D11 chaining, and compatibility reporting. |
 | `Dependencies/d3dx.ini` | `[System]` | Documents `wine_compat` and Wine/Proton load notes. |
 
 ## Review command

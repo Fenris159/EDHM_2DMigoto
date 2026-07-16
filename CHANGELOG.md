@@ -14,6 +14,27 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 ## [Unreleased]
 
+### Added
+
+- Added Wine/Proton host detection and a startup compatibility report containing
+  effective System settings, DLL paths, DLL overrides, and conflicting Proton
+  renderer options.
+
+### Changed
+
+- Wine compatibility now uses the standard Proton/Wine-prefix D3D11 chain with
+  no renamed local DXVK DLLs or `proxy_d3d11` configuration.
+- The automatic Wine profile is limited to `load_library_redirect=0` and
+  `check_foreground_window=0`; initialization delays remain explicit opt-in
+  troubleshooting settings.
+- Added the Linux compatibility guide to repository navigation and release ZIPs.
+
+### Fixed
+
+- Reject invalid chained D3D11 modules before their missing exports can be
+  called, then continue to the standard system implementation.
+- Guard D3D11 and Wine detection initialization against concurrent startup calls.
+
 ### Planned
 
 - Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
