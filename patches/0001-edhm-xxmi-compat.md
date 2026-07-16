@@ -95,7 +95,8 @@ match the package SemVer in root `VERSION` (e.g. `0.1.1`), not classic 3Dmigoto
 
 `rasterizer_disable_scissor` was only applied on `CreateRasterizerState`. Elite
 may create RS via **DESC1**. **Fix:** apply the same scissor-disable on
-`CreateRasterizerState1`.
+`CreateRasterizerState1`. Both paths modify a local descriptor copy rather than
+writing through the caller's `const` pointer.
 
 ## Files touched
 
