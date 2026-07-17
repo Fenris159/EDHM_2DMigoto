@@ -2504,7 +2504,11 @@ void FrameAnalysisContext::DumpVBs(DrawCallInfo *call_info, ID3D11Buffer *staged
 	// Rather, it is available in the input layout assigned to the
 	// pipeline, and there is no API to get the layout description, so
 	// HackerInputLayout caches the original descriptors when the layout is created.
-	IAGetInputLayout(reinterpret_cast<ID3D11InputLayout**>(&layout));
+	ID3D11InputLayout* raw_layout = nullptr;
+	IAGetInputLayout(&raw_layout);
+	layout = HackerInputLayout::FromLayout(raw_layout);
+	if (raw_layout)
+		raw_layout->Release();
 
 	GetPassThroughOrigContext1()->IAGetVertexBuffers(0, D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT, buffers, strides, offsets);
 	GetPassThroughOrigContext1()->IAGetPrimitiveTopology(&topology);

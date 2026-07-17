@@ -510,6 +510,7 @@ struct Globals
 	// (XXMI AGMG behaviour). Default false restores classic 3Dmigoto / EDHM.
 	bool fuzzy_match_alongside_hash;
 	// EDHM ships auto_refresh_file_to_monitor=... as a signal file for theme
+	// apply; mtime is polled every 2.0s (EDHM d3d11.dll parity), not every frame.
 	// reloads (mtime change triggers ReloadConfig). Relative to DLL directory.
 	wchar_t auto_refresh_file_to_monitor[MAX_PATH];
 	FILETIME auto_refresh_last_write;
