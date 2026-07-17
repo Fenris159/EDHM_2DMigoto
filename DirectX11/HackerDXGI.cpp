@@ -579,12 +579,12 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
 		if (G->hunting == HUNTING_MODE_ENABLED) {
 			if (G->overlay_buffer_hash_lifetime >= 0)
 				PurgeStaleVisitedBufferHashes(mHackerDevice);
-			if (G->mSelectedIndexBufferPos == INT_MAX) {
-				G->mSelectedIndexBufferPos = G->mVisitedIndexBuffers.size() - 1;
+			if (G->mSelectedIndexBufferPos == INT_MAX && !G->mVisitedIndexBuffers.empty()) {
+				G->mSelectedIndexBufferPos = static_cast<int>(G->mVisitedIndexBuffers.size() - 1);
 				G->mSelectedIndexBuffer = *std::prev(G->mVisitedIndexBuffers.end());
 			}
-			if (G->mSelectedVertexBufferPos == INT_MAX) {
-				G->mSelectedVertexBufferPos = G->mVisitedVertexBuffers.size() - 1;
+			if (G->mSelectedVertexBufferPos == INT_MAX && !G->mVisitedVertexBuffers.empty()) {
+				G->mSelectedVertexBufferPos = static_cast<int>(G->mVisitedVertexBuffers.size() - 1);
 				G->mSelectedVertexBuffer = *std::prev(G->mVisitedVertexBuffers.end());
 			}
 			if (G->gResetSelectedVertexBufferSlotId) {
@@ -879,9 +879,8 @@ STDMETHODIMP HackerSwapChain::GetCoreWindow(THIS_
 // IDXGISwapChain1 requires the platform update, but will be the default
 // swap chain we build whenever possible.
 //
-// ToDo: never seen this in action.  Setting to always log.  Once we see
-// it in action and works OK, remove the gLogDebug sets, because debug log
-// is too chatty for Present calls.
+// Keep logging on the normal debug path only; Present1 can be called every
+// frame on newer swap chains.
 
 STDMETHODIMP HackerSwapChain::Present1(THIS_
 	/* [in] */ UINT SyncInterval,
@@ -890,7 +889,6 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 	_In_  const DXGI_PRESENT_PARAMETERS *pPresentParameters)
 {
 	Profiling::State profiling_state = {0};
-	gLogDebug = true;
 	bool profiling = false;
 
 	LogDebug("HackerSwapChain::Present1(%s@%p) called\n", type_name(this), this);
@@ -932,7 +930,6 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 
 	LogDebug("  returns %x\n", hr);
 
-	gLogDebug = false;
 	return hr;
 }
 

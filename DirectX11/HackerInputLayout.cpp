@@ -26,11 +26,9 @@ HackerInputLayout::HackerInputLayout(ID3D11InputLayout* orig, const D3D11_INPUT_
 
 	// Side-car only: game keeps the real ID3D11InputLayout. Mark the original
 	// so FromLayout() can recover this cache for hunting / frame analysis.
-	// We do not take ownership of `orig` (Create's ref stays with the game).
-	if (mOrigLayout) {
-		HackerInputLayout* self = this;
-		mOrigLayout->SetPrivateData(GUID_HackerInputLayout, sizeof(self), &self);
-	}
+	// The original layout owns this side-car through SetPrivateDataInterface.
+	if (mOrigLayout)
+		mAttachResult = mOrigLayout->SetPrivateDataInterface(GUID_HackerInputLayout, this);
 }
 
 HackerInputLayout* HackerInputLayout::FromLayout(ID3D11InputLayout* layout)
@@ -38,28 +36,33 @@ HackerInputLayout* HackerInputLayout::FromLayout(ID3D11InputLayout* layout)
 	if (!layout)
 		return nullptr;
 
-	HackerInputLayout* hacker = nullptr;
-	UINT size = sizeof(hacker);
+	IUnknown* private_data = nullptr;
+	UINT size = sizeof(private_data);
 	// Works whether `layout` is our wrapper (GetPrivateData forwards to orig)
 	// or the original layout we created (private data set in constructor).
-	if (SUCCEEDED(layout->GetPrivateData(GUID_HackerInputLayout, &size, &hacker)) && hacker)
-		return hacker;
+	if (SUCCEEDED(layout->GetPrivateData(GUID_HackerInputLayout, &size, &private_data)) && private_data) {
+		HackerInputLayout* hacker = nullptr;
+		HRESULT hr = private_data->QueryInterface(GUID_HackerInputLayout, reinterpret_cast<void**>(&hacker));
+		private_data->Release();
+		if (SUCCEEDED(hr))
+			return hacker;
+	}
 
 	return nullptr;
 }
 
 HackerInputLayout::~HackerInputLayout()
 {
-	// Drop the reverse pointer so a lingering original layout cannot
-	// resolve to a freed wrapper via FromLayout().
-	if (mOrigLayout) {
-		mOrigLayout->SetPrivateData(GUID_HackerInputLayout, 0, nullptr);
-	}
 }
 
 ID3D11InputLayout* HackerInputLayout::GetOrigInputLayout() const
 {
 	return mOrigLayout;
+}
+
+HRESULT HackerInputLayout::GetAttachResult() const
+{
+	return mAttachResult;
 }
 
 UINT HackerInputLayout::GetElementCount() const
@@ -103,15 +106,20 @@ uint32_t HackerInputLayout::CalculateLayoutHash() const
 #pragma region IUnknown
 HRESULT STDMETHODCALLTYPE HackerInputLayout::QueryInterface(REFIID riid, void** ppvObject)
 {
+	if (!ppvObject)
+		return E_POINTER;
+
 	if (riid == __uuidof(ID3D11InputLayout) ||
 		riid == __uuidof(ID3D11DeviceChild) ||
-		riid == __uuidof(IUnknown))
+		riid == __uuidof(IUnknown) ||
+		IsEqualIID(riid, GUID_HackerInputLayout))
 	{
 		*ppvObject = this;
 		AddRef();
 		return S_OK;
 	}
 
+	*ppvObject = nullptr;
 	return mOrigLayout->QueryInterface(riid, ppvObject);
 }
 

@@ -92,6 +92,18 @@ HackerContext::HackerContext(ID3D11Device1 *pDevice1, ID3D11DeviceContext1 *pCon
 	mCurrentInputLayout = nullptr;
 }
 
+HackerContext::~HackerContext()
+{
+	ClearCurrentInputLayout();
+}
+
+void HackerContext::ClearCurrentInputLayout()
+{
+	if (mCurrentInputLayout) {
+		mCurrentInputLayout->Release();
+		mCurrentInputLayout = nullptr;
+	}
+}
 
 // Save the corresponding HackerDevice, as we need to use it periodically to get
 // access to the StereoParams.
@@ -1471,14 +1483,9 @@ STDMETHODIMP_(void) HackerContext::IASetInputLayout(THIS_
 	// Track side-car cache for hunting / frame analysis only. Always bind the
 	// real D3D layout pointer to the original context — never a HackerInputLayout
 	// COM wrapper (game is given only real layouts from CreateInputLayout).
-	if (mCurrentInputLayout) {
-		mCurrentInputLayout->Release();
-		mCurrentInputLayout = nullptr;
-	}
+	ClearCurrentInputLayout();
 
 	mCurrentInputLayout = HackerInputLayout::FromLayout(pInputLayout);
-	if (mCurrentInputLayout)
-		mCurrentInputLayout->AddRef();
 
 	// If a wrapper ever appears (legacy / foreign mod), unwrap it; otherwise
 	// pass the pointer through (real layout or null).
@@ -1865,8 +1872,15 @@ void CopySubresourceRegionCache(ID3D11Resource* pSrcResource, ID3D11Resource* pD
 	}
 
 	// If range is not specified, we must copy the entire src buffer.
-	if (!region_size)
-		region_size = src_info->cached_data_size;
+	if (!region_size) {
+		if (src_info->cached_data_size > UINT_MAX) {
+			dst_info->ClearDataCache();
+			LeaveCriticalSection(&G->mCriticalSection);
+			return;
+		}
+
+		region_size = static_cast<UINT>(src_info->cached_data_size);
+	}
 
 	// Initialize new cache of dst size.
 	if (!dst_info->cached_data_size) {
@@ -2119,6 +2133,7 @@ STDMETHODIMP_(void) HackerContext::ExecuteCommandList(THIS_
 		// This is equivalent to calling ClearState() afterwards, so we
 		// need to rebind the 3DMigoto resources now. See also
 		// FinishCommandList's RestoreDeferredContextState:
+		ClearCurrentInputLayout();
 		Bind3DMigotoResources();
 	}
 }
@@ -2793,7 +2808,8 @@ STDMETHODIMP_(void) HackerContext::CSGetConstantBuffers(THIS_
 
 STDMETHODIMP_(void) HackerContext::ClearState(THIS)
 {
-	 mOrigContext1->ClearState();
+	ClearCurrentInputLayout();
+	mOrigContext1->ClearState();
 
 	 // ClearState() will unbind StereoParams and IniParams, so we need to
 	 // rebind them now:
@@ -2826,6 +2842,7 @@ STDMETHODIMP HackerContext::FinishCommandList(THIS_
 		// This is equivalent to calling ClearState() afterwards, so we
 		// need to rebind the 3DMigoto resources now. See also
 		// ExecuteCommandList's RestoreContextState:
+		ClearCurrentInputLayout();
 		Bind3DMigotoResources();
 	}
 

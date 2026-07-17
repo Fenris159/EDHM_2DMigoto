@@ -2936,7 +2936,7 @@ static void parse_texture_override_common(const wchar_t *id, TextureOverride *ov
 	if (G->allow_buffer_resize) 
 	{
 		// Handle buffer resize aka vertex limit raise feature.
-		int override_vertex_count = GetIniInt(id, L"override_vertex_count", -1.0f, &found);
+		int override_vertex_count = GetIniInt(id, L"override_vertex_count", -1, &found);
 		if (override_vertex_count > 0) {
 			// Ensure that stride is specified.
 			int override_byte_stride = GetIniInt(id, L"override_byte_stride", -1, NULL);
@@ -2948,7 +2948,7 @@ static void parse_texture_override_common(const wchar_t *id, TextureOverride *ov
 			override->override_byte_width = override_byte_stride * override_vertex_count;
 
 			// Handle UAV resize
-			int uav_byte_stride = GetIniInt(id, L"uav_byte_stride", -1.0f, &found);
+			int uav_byte_stride = GetIniInt(id, L"uav_byte_stride", -1, &found);
 			if (uav_byte_stride > 0) {
 				// Use StructureByteStride override (useful when actual buffer stride is different from the one declared by a game)
 				override->override_num_elements = override_vertex_count * override_byte_stride / uav_byte_stride;
@@ -4226,7 +4226,7 @@ void LoadConfigFile()
 	// [Logging]
 	// Historically LogFile only opened when calls=1, so EDHM's calls=0 meant
 	// *no* log at all (LogInfo became a no-op), while calls=1 + debug=1 could
-	// grow multi‑GB. Split: enabled opens the file for startup/errors; calls
+	// grow multi-GB. Split: enabled opens the file for startup/errors; calls
 	// is only a legacy "also open" switch (still leave calls=0 for normal play).
 	// Not using the helper function for this one since logging isn't enabled yet.
 	int log_enabled = GetPrivateProfileInt(L"Logging", L"enabled", 1, iniFile);
@@ -4274,7 +4274,7 @@ void LoadConfigFile()
 	G->gLogInput = GetIniBool(L"Logging", L"input", false, NULL);
 	gLogDebug = GetIniBool(L"Logging", L"debug", false, NULL);
 	if (gLogDebug)
-		LogInfo("  debug=1 (VERBOSE: FrameAnalysis/context spam — do not leave on for long sessions)\n");
+		LogInfo("  debug=1 (VERBOSE: FrameAnalysis/context spam - do not leave on for long sessions)\n");
 	if (log_calls)
 		LogInfo("  calls=1 (legacy full open; keep debug=0 unless hunting)\n");
 
@@ -4360,17 +4360,27 @@ void LoadConfigFile()
 	// When the file's mtime changes, schedule ReloadConfig (theme apply without F11).
 	if (GetIniStringAndLog(L"System", L"auto_refresh_file_to_monitor", 0, setting, MAX_PATH))
 	{
-		wchar_t migoto_path[MAX_PATH];
-		if (GetModuleFileName(migoto_handle, migoto_path, MAX_PATH)) {
-			wcsrchr(migoto_path, L'\\')[1] = 0;
-			if (setting[0] && setting[1] == L':') {
-				// Absolute path
-				wcsncpy_s(G->auto_refresh_file_to_monitor, MAX_PATH, setting, _TRUNCATE);
-			} else {
+		bool absolute_path = (setting[0] && setting[1] == L':') || setting[0] == L'\\' || setting[0] == L'/';
+		G->auto_refresh_file_to_monitor[0] = 0;
+		G->auto_refresh_have_last_write = false;
+		G->auto_refresh_last_check_time = 0.0f;
+
+		if (absolute_path) {
+			wcsncpy_s(G->auto_refresh_file_to_monitor, MAX_PATH, setting, _TRUNCATE);
+		} else {
+			wchar_t migoto_path[MAX_PATH];
+			DWORD migoto_path_len = GetModuleFileName(migoto_handle, migoto_path, MAX_PATH);
+			wchar_t *migoto_dir_end = (migoto_path_len && migoto_path_len < MAX_PATH) ? wcsrchr(migoto_path, L'\\') : NULL;
+
+			if (migoto_dir_end) {
+				migoto_dir_end[1] = 0;
 				_snwprintf_s(G->auto_refresh_file_to_monitor, MAX_PATH, _TRUNCATE, L"%s%s", migoto_path, setting);
+			} else {
+				LogInfo("  auto_refresh_file_to_monitor disabled: failed to resolve DLL-relative path %S\n", setting);
 			}
-			G->auto_refresh_have_last_write = false;
-			G->auto_refresh_last_check_time = 0.0f;
+		}
+
+		if (G->auto_refresh_file_to_monitor[0]) {
 			LogInfo("  auto_refresh_file_to_monitor resolved to %S\n", G->auto_refresh_file_to_monitor);
 		}
 	}
@@ -4482,6 +4492,11 @@ void LoadConfigFile()
 	if (G->IniParamsReg >= D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT) {
 		IniWarningW(L"Option ini_params=%i out of range\n - [%ls]\n", G->IniParamsReg, INI_FILENAME);
 		G->IniParamsReg = -1;
+	}
+	G->decompiler_settings.StereoParamsReg = GetIniInt(L"Rendering", L"stereo_params", -1, NULL);
+	if (G->decompiler_settings.StereoParamsReg >= D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT) {
+		IniWarningW(L"Option stereo_params=%i out of range\n - [%ls]\n", G->decompiler_settings.StereoParamsReg, INI_FILENAME);
+		G->decompiler_settings.StereoParamsReg = -1;
 	}
 
 	// Automatic section
@@ -4684,7 +4699,7 @@ void LoadProfileManagerConfig(const wchar_t *config_dir)
 	wcscat(iniFile, INI_FILENAME);
 	wcscat(logFilename, L"d3d11_profile_log.txt");
 
-	// [Logging] — same enabled/calls split as LoadConfigFile()
+	// [Logging] - same enabled/calls split as LoadConfigFile()
 	int log_enabled = GetPrivateProfileInt(L"Logging", L"enabled", 1, iniFile);
 	int log_calls = GetPrivateProfileInt(L"Logging", L"calls", 0, iniFile);
 	if (log_enabled || log_calls)
