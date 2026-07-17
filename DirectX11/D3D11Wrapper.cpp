@@ -821,6 +821,15 @@ static HackerDevice* wrap_d3d11_device_and_context(ID3D11Device **ppDevice, ID3D
 	// Optional parameters means these might be null.
 	ID3D11Device *retDevice = ppDevice ? *ppDevice : nullptr;
 	ID3D11DeviceContext *retContext = ppImmediateContext ? *ppImmediateContext : nullptr;
+	bool contextOwnsDeviceReference = false;
+
+	// D3D11CreateDevice permits callers to request an immediate context without
+	// requesting the device. The context still needs its HackerDevice, so obtain
+	// the device reference that the context owns on the caller's behalf.
+	if (retDevice == nullptr && retContext != nullptr) {
+		retContext->GetDevice(&retDevice);
+		contextOwnsDeviceReference = retDevice != nullptr;
+	}
 
 	// We now want to always upconvert to ID3D11Device1 and ID3D11DeviceContext1,
 	// and will only use the downlevel objects if we get an error on QueryInterface.
@@ -854,7 +863,7 @@ static HackerDevice* wrap_d3d11_device_and_context(ID3D11Device **ppDevice, ID3D
 
 		if (G->enable_hooks & EnableHooks::DEVICE)
 			deviceWrap->HookDevice();
-		else
+		else if (ppDevice)
 			*ppDevice = deviceWrap;
 		LogInfo("  HackerDevice %p created to wrap %p\n", deviceWrap, origDevice1);
 
@@ -887,7 +896,7 @@ static HackerDevice* wrap_d3d11_device_and_context(ID3D11Device **ppDevice, ID3D
 	if (deviceWrap != nullptr)
 		deviceWrap->SetHackerContext(contextWrap);
 	if (contextWrap != nullptr)
-		contextWrap->SetHackerDevice(deviceWrap);
+		contextWrap->SetHackerDevice(deviceWrap, contextOwnsDeviceReference);
 
 	// With all the interacting objects set up, we can now safely finish the HackerDevice init.
 	if (deviceWrap != nullptr)

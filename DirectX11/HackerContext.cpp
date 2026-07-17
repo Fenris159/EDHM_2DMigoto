@@ -69,6 +69,7 @@ HackerContext::HackerContext(ID3D11Device1 *pDevice1, ID3D11DeviceContext1 *pCon
 	mOrigContext1 = pContext1;
 	mRealOrigContext1 = pContext1;
 	mHackerDevice = NULL;
+	mOwnsHackerDeviceReference = false;
 
 	memset(mCurrentVertexBuffers, 0, sizeof(mCurrentVertexBuffers));
 	mCurrentIndexBuffer = 0;
@@ -108,9 +109,10 @@ void HackerContext::ClearCurrentInputLayout()
 // Save the corresponding HackerDevice, as we need to use it periodically to get
 // access to the StereoParams.
 
-void HackerContext::SetHackerDevice(HackerDevice *pDevice)
+void HackerContext::SetHackerDevice(HackerDevice *pDevice, bool ownsReference)
 {
 	mHackerDevice = pDevice;
+	mOwnsHackerDeviceReference = ownsReference;
 }
 
 HackerDevice* HackerContext::GetHackerDevice()
@@ -1042,6 +1044,9 @@ STDMETHODIMP_(ULONG) HackerContext::Release(THIS)
 				LogInfo("  clearing mHackerDevice->mHackerContext\n");
 				mHackerDevice->SetHackerContext(nullptr);
 			}
+			if (mOwnsHackerDeviceReference)
+				mHackerDevice->Release();
+			mHackerDevice = nullptr;
 		} else
 			LogInfo("HackerContext::Release - mHackerDevice is NULL\n");
 
