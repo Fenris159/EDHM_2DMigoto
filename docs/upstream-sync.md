@@ -6,7 +6,7 @@ This repo is independent of [XXMI-Libs-Package](https://github.com/SpectrumQT/XX
 
 | Branch | Purpose | What belongs here |
 |--------|---------|-------------------|
-| `xxmi-base` | Clean **full** XXMI import | Only fast-forwards from `xxmi/master`. No EDHM patches. Background cherry-pick source. |
+| `xxmi-base` | Clean **full** XXMI import | Only advanced by **Update xxmi-base** (or admin recovery). **Not** a feature branch — do not develop or open PRs into it. |
 | `develop` | Slim EDHM working tree | Minimum graph for `d3d11.dll` + EDHM patches. Not the full XXMI tree. |
 | `main` | EDHM release | Scaffold + stable merges from `develop` ready to ship. |
 
@@ -53,8 +53,42 @@ The job fetches [SpectrumQT/XXMI-Libs-Package](https://github.com/SpectrumQT/XXM
 
 - If already current, the job exits cleanly.
 - If `xxmi-base` has non-upstream commits, the job fails (protects the mirror). Re-run with **force** only if you mean to reset the branch to pure XXMI.
+- When the mirror **does** advance, the job upserts a review-queue **issue** (see below).
 
 Scheduled workflows only run from the repo **default branch** (`main`), so keep this workflow file on `main`.
+
+### Review-queue issue (label `upstream-xxmi`)
+
+After a successful mirror update, the same workflow maintains one evergreen issue:
+
+| Behavior | Detail |
+|----------|--------|
+| Label | `upstream-xxmi` (create once in the repo; bot only applies it) |
+| Title | `Upstream XXMI: commits not yet in develop` |
+| Body | Pending commit list for `develop..xxmi-base` (plus EDHM-relevant paths) |
+| On each advance | Refresh body, comment with old→new SHAs, **reopen** if closed |
+| If notify fails | Mirror update still succeeds (`continue-on-error` on the issue step) |
+
+Filter: `is:issue label:upstream-xxmi`.
+
+This is the “sync fork” inbox without auto-merging into `develop`. Close the issue when you have cherry-picked or deliberately skipped the pending set; the next mirror advance will reopen and refresh it.
+
+Local CLI updates of `xxmi-base` do **not** open issues — only the GitHub Action does.
+
+## Ahead / behind badges (Shields)
+
+The README shows two [Shields.io endpoint](https://shields.io/badges/endpoint-badge) badges. JSON is published on the dedicated **`badges`** branch (force-pushed tip), **not** committed to `main`/`develop` history:
+
+| Path on `badges` branch | Semantics |
+|-------------------------|-----------|
+| `.github/badges/main-vs-develop.json` | `main` **ahead** / **behind** `develop` |
+| `.github/badges/develop-vs-xxmi-base.json` | `develop` **ahead** / **behind** `xxmi-base` |
+
+Workflow: [`.github/workflows/branch-status-badges.yml`](../.github/workflows/branch-status-badges.yml) (daily, after push to `main`, or manual).
+
+Colors: green = in sync · blue = only ahead · yellow = only behind · orange = both.
+
+These are **not** a GitHub fork relationship; they are the same `git rev-list --left-right --count A...B` numbers you’d get locally.
 
 ### From local CLI
 
