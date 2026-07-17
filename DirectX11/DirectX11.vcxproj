@@ -65,6 +65,7 @@
     <ClCompile Include="profiling.cpp" />
     <ClCompile Include="ResourceHash.cpp" />
     <ClCompile Include="ShaderRegex.cpp" />
+    <ClCompile Include="WineCompat.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="d3d11Wrapper.def" />
@@ -78,6 +79,7 @@
     <ClInclude Include="..\version.h" />
     <ClInclude Include="cursor.h" />
     <ClInclude Include="D3D11Wrapper.h" />
+    <ClInclude Include="WineCompat.h" />
     <ClInclude Include="DLLMainHook.h" />
     <ClInclude Include="FrameAnalysis.h" />
     <ClInclude Include="Globals.h" />

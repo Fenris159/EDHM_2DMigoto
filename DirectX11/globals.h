@@ -505,6 +505,10 @@ struct Globals
 	int gDllInitializationDelay;
 	int gSettingsAutoSaveInterval;
 	int gConfigInitializationDelay;
+	// Wine/Proton: -1 auto, 0 off, 1 force on (see WineCompat.h).
+	int wine_compat;
+	bool wine_compat_profile_applied;
+	bool running_under_wine;
 	bool gSkipEarlyIncludesLoad;
 	// When true, fuzzy TextureOverride matches also run after hash matches
 	// (XXMI AGMG behaviour). Default false restores classic 3Dmigoto / EDHM.
@@ -701,6 +705,9 @@ struct Globals
 		hide_cursor(false),
 		cursor_upscaling_bypass(true),
 		check_foreground_window(false),
+		wine_compat(-1),
+		wine_compat_profile_applied(false),
+		running_under_wine(false),
 
 		GAME_INTERNAL_WIDTH(1), // it gonna be used by mouse pos hook in case of softwaremouse is on and it can be called before
 		GAME_INTERNAL_HEIGHT(1),//  the swap chain is created and the proper data set to avoid errors in the hooked winapi functions
