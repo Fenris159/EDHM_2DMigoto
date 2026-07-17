@@ -127,186 +127,6 @@ void DestroyDLL()
 	}
 }
 
-int WINAPI D3DKMTCloseAdapter()
-{
-	LogDebug("D3DKMTCloseAdapter called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTDestroyAllocation()
-{
-	LogDebug("D3DKMTDestroyAllocation called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTDestroyContext()
-{
-	LogDebug("D3DKMTDestroyContext called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTDestroyDevice()
-{
-	LogDebug("D3DKMTDestroyDevice called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTDestroySynchronizationObject()
-{
-	LogDebug("D3DKMTDestroySynchronizationObject called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTSetDisplayPrivateDriverFormat()
-{
-	LogDebug("D3DKMTSetDisplayPrivateDriverFormat called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTSignalSynchronizationObject()
-{
-	LogDebug("D3DKMTSignalSynchronizationObject called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTUnlock()
-{
-	LogDebug("D3DKMTUnlock called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTWaitForSynchronizationObject()
-{
-	LogDebug("D3DKMTWaitForSynchronizationObject called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTCreateAllocation()
-{
-	LogDebug("D3DKMTCreateAllocation called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTCreateContext()
-{
-	LogDebug("D3DKMTCreateContext called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTCreateDevice()
-{
-	LogDebug("D3DKMTCreateDevice called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTCreateSynchronizationObject()
-{
-	LogDebug("D3DKMTCreateSynchronizationObject called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTEscape()
-{
-	LogDebug("D3DKMTEscape called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTGetContextSchedulingPriority()
-{
-	LogDebug("D3DKMTGetContextSchedulingPriority called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTGetDisplayModeList()
-{
-	LogDebug("D3DKMTGetDisplayModeList called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTGetMultisampleMethodList()
-{
-	LogDebug("D3DKMTGetMultisampleMethodList called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTGetRuntimeData()
-{
-	LogDebug("D3DKMTGetRuntimeData called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTGetSharedPrimaryHandle()
-{
-	LogDebug("D3DKMTGetRuntimeData called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTLock()
-{
-	LogDebug("D3DKMTLock called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTPresent()
-{
-	LogDebug("D3DKMTPresent called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTQueryAllocationResidency()
-{
-	LogDebug("D3DKMTQueryAllocationResidency called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTRender()
-{
-	LogDebug("D3DKMTRender called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTSetAllocationPriority()
-{
-	LogDebug("D3DKMTSetAllocationPriority called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTSetContextSchedulingPriority()
-{
-	LogDebug("D3DKMTSetContextSchedulingPriority called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTSetDisplayMode()
-{
-	LogDebug("D3DKMTSetDisplayMode called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTSetGammaRamp()
-{
-	LogDebug("D3DKMTSetGammaRamp called.\n");
-
-	return 0;
-}
-int WINAPI D3DKMTSetVidPnSourceOwner()
-{
-	LogDebug("D3DKMTSetVidPnSourceOwner called.\n");
-
-	return 0;
-}
-
-typedef ULONG 	D3DKMT_HANDLE;
-typedef int		KMTQUERYADAPTERINFOTYPE;
-
-typedef struct _D3DKMT_QUERYADAPTERINFO
-{
-	D3DKMT_HANDLE           hAdapter;
-	KMTQUERYADAPTERINFOTYPE Type;
-	VOID                    *pPrivateDriverData;
-	UINT                    PrivateDriverDataSize;
-} D3DKMT_QUERYADAPTERINFO;
-
 typedef void *D3D10DDI_HRTADAPTER;
 typedef void *D3D10DDI_HADAPTER;
 typedef void D3DDDI_ADAPTERCALLBACKS;
@@ -328,9 +148,6 @@ typedef struct D3D10DDIARG_OPENADAPTER
 
 static HMODULE hD3D11 = 0;
 
-typedef int (WINAPI *tD3DKMTQueryAdapterInfo)(_D3DKMT_QUERYADAPTERINFO *);
-static tD3DKMTQueryAdapterInfo _D3DKMTQueryAdapterInfo;
-
 typedef int (WINAPI *tOpenAdapter10)(D3D10DDIARG_OPENADAPTER *adapter);
 static tOpenAdapter10 _OpenAdapter10;
 
@@ -348,18 +165,6 @@ static tD3D11CoreGetLayeredDeviceSize _D3D11CoreGetLayeredDeviceSize;
 
 typedef HRESULT(WINAPI *tD3D11CoreRegisterLayers)(const void *unknown0, DWORD unknown1);
 static tD3D11CoreRegisterLayers _D3D11CoreRegisterLayers;
-
-typedef int (WINAPI *tD3DKMTGetDeviceState)(int a);
-static tD3DKMTGetDeviceState _D3DKMTGetDeviceState;
-
-typedef int (WINAPI *tD3DKMTOpenAdapterFromHdc)(int a);
-static tD3DKMTOpenAdapterFromHdc _D3DKMTOpenAdapterFromHdc;
-
-typedef int (WINAPI *tD3DKMTOpenResource)(int a);
-static tD3DKMTOpenResource _D3DKMTOpenResource;
-
-typedef int (WINAPI *tD3DKMTQueryResourceInfo)(int a);
-static tD3DKMTQueryResourceInfo _D3DKMTQueryResourceInfo;
 
 PFN_D3D11_CREATE_DEVICE _D3D11CreateDevice;
 PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN _D3D11CreateDeviceAndSwapChain;
@@ -515,18 +320,12 @@ static BOOL CALLBACK InitD311Once(PINIT_ONCE, PVOID, PVOID*)
 		DoubleBeepExit();
 	}
 
-	_D3DKMTQueryAdapterInfo = (tD3DKMTQueryAdapterInfo)GetProcAddress(hD3D11, "D3DKMTQueryAdapterInfo");
 	_OpenAdapter10 = (tOpenAdapter10)GetProcAddress(hD3D11, "OpenAdapter10");
 	_OpenAdapter10_2 = (tOpenAdapter10_2)GetProcAddress(hD3D11, "OpenAdapter10_2");
 	_D3D11CoreCreateDevice = (tD3D11CoreCreateDevice)GetProcAddress(hD3D11, "D3D11CoreCreateDevice");
 	_D3D11CoreCreateLayeredDevice = (tD3D11CoreCreateLayeredDevice)GetProcAddress(hD3D11, "D3D11CoreCreateLayeredDevice");
 	_D3D11CoreGetLayeredDeviceSize = (tD3D11CoreGetLayeredDeviceSize)GetProcAddress(hD3D11, "D3D11CoreGetLayeredDeviceSize");
 	_D3D11CoreRegisterLayers = (tD3D11CoreRegisterLayers)GetProcAddress(hD3D11, "D3D11CoreRegisterLayers");
-	_D3DKMTGetDeviceState = (tD3DKMTGetDeviceState)GetProcAddress(hD3D11, "D3DKMTGetDeviceState");
-	_D3DKMTOpenAdapterFromHdc = (tD3DKMTOpenAdapterFromHdc)GetProcAddress(hD3D11, "D3DKMTOpenAdapterFromHdc");
-	_D3DKMTOpenResource = (tD3DKMTOpenResource)GetProcAddress(hD3D11, "D3DKMTOpenResource");
-	_D3DKMTQueryResourceInfo = (tD3DKMTQueryResourceInfo)GetProcAddress(hD3D11, "D3DKMTQueryResourceInfo");
-
 #ifdef NTDDI_WIN10
 	_D3D11On12CreateDevice = (PFN_D3D11ON12_CREATE_DEVICE)GetProcAddress(hD3D11, "D3D11On12CreateDevice");
 #endif
@@ -569,18 +368,6 @@ HRESULT WINAPI D3D11On12CreateDevice(
 	}
 
 	return (*_D3D11On12CreateDevice)(pDevice, Flags, pFeatureLevels, FeatureLevels, ppCommandQueues, NumQueues, NodeMask, ppDevice, ppImmediateContext, pChosenFeatureLevel);
-}
-
-int WINAPI D3DKMTQueryAdapterInfo(_D3DKMT_QUERYADAPTERINFO *info)
-{
-	InitD311();
-	LogInfo("D3DKMTQueryAdapterInfo called.\n");
-	if (!_D3DKMTQueryAdapterInfo) {
-		LogInfo("*** Chained d3d11 does not export D3DKMTQueryAdapterInfo.\n");
-		return E_NOTIMPL;
-	}
-
-	return (*_D3DKMTQueryAdapterInfo)(info);
 }
 
 int WINAPI OpenAdapter10(struct D3D10DDIARG_OPENADAPTER *adapter)
@@ -655,55 +442,6 @@ HRESULT WINAPI D3D11CoreRegisterLayers(const void *unknown0, DWORD unknown1)
 
 	return (*_D3D11CoreRegisterLayers)(unknown0, unknown1);
 }
-
-int WINAPI D3DKMTGetDeviceState(int a)
-{
-	InitD311();
-	LogInfo("D3DKMTGetDeviceState called.\n");
-	if (!_D3DKMTGetDeviceState) {
-		LogInfo("*** Chained d3d11 does not export D3DKMTGetDeviceState.\n");
-		return E_NOTIMPL;
-	}
-
-	return (*_D3DKMTGetDeviceState)(a);
-}
-
-int WINAPI D3DKMTOpenAdapterFromHdc(int a)
-{
-	InitD311();
-	LogInfo("D3DKMTOpenAdapterFromHdc called.\n");
-	if (!_D3DKMTOpenAdapterFromHdc) {
-		LogInfo("*** Chained d3d11 does not export D3DKMTOpenAdapterFromHdc.\n");
-		return E_NOTIMPL;
-	}
-
-	return (*_D3DKMTOpenAdapterFromHdc)(a);
-}
-
-int WINAPI D3DKMTOpenResource(int a)
-{
-	InitD311();
-	LogInfo("D3DKMTOpenResource called.\n");
-	if (!_D3DKMTOpenResource) {
-		LogInfo("*** Chained d3d11 does not export D3DKMTOpenResource.\n");
-		return E_NOTIMPL;
-	}
-
-	return (*_D3DKMTOpenResource)(a);
-}
-
-int WINAPI D3DKMTQueryResourceInfo(int a)
-{
-	InitD311();
-	LogInfo("D3DKMTQueryResourceInfo called.\n");
-	if (!_D3DKMTQueryResourceInfo) {
-		LogInfo("*** Chained d3d11 does not export D3DKMTQueryResourceInfo.\n");
-		return E_NOTIMPL;
-	}
-
-	return (*_D3DKMTQueryResourceInfo)(a);
-}
-
 
 // -----------------------------------------------------------------------------------------------
 
