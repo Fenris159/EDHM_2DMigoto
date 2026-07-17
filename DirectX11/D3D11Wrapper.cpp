@@ -9,6 +9,7 @@
 #include <locale>
 #include <chrono>
 #include <thread>
+#include <windows.graphics.directx.direct3d11.interop.h>
 
 //#include <Shlobj.h>
 //#include <Winuser.h>
@@ -165,6 +166,12 @@ static tD3D11CoreGetLayeredDeviceSize _D3D11CoreGetLayeredDeviceSize;
 
 typedef HRESULT(WINAPI *tD3D11CoreRegisterLayers)(const void *unknown0, DWORD unknown1);
 static tD3D11CoreRegisterLayers _D3D11CoreRegisterLayers;
+
+typedef HRESULT(WINAPI *tCreateDirect3D11DeviceFromDXGIDevice)(IDXGIDevice *dxgiDevice, IInspectable **graphicsDevice);
+static tCreateDirect3D11DeviceFromDXGIDevice _CreateDirect3D11DeviceFromDXGIDevice;
+
+typedef HRESULT(WINAPI *tCreateDirect3D11SurfaceFromDXGISurface)(IDXGISurface *dxgiSurface, IInspectable **graphicsSurface);
+static tCreateDirect3D11SurfaceFromDXGISurface _CreateDirect3D11SurfaceFromDXGISurface;
 
 PFN_D3D11_CREATE_DEVICE _D3D11CreateDevice;
 PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN _D3D11CreateDeviceAndSwapChain;
@@ -326,6 +333,8 @@ static BOOL CALLBACK InitD311Once(PINIT_ONCE, PVOID, PVOID*)
 	_D3D11CoreCreateLayeredDevice = (tD3D11CoreCreateLayeredDevice)GetProcAddress(hD3D11, "D3D11CoreCreateLayeredDevice");
 	_D3D11CoreGetLayeredDeviceSize = (tD3D11CoreGetLayeredDeviceSize)GetProcAddress(hD3D11, "D3D11CoreGetLayeredDeviceSize");
 	_D3D11CoreRegisterLayers = (tD3D11CoreRegisterLayers)GetProcAddress(hD3D11, "D3D11CoreRegisterLayers");
+	_CreateDirect3D11DeviceFromDXGIDevice = (tCreateDirect3D11DeviceFromDXGIDevice)GetProcAddress(hD3D11, "CreateDirect3D11DeviceFromDXGIDevice");
+	_CreateDirect3D11SurfaceFromDXGISurface = (tCreateDirect3D11SurfaceFromDXGISurface)GetProcAddress(hD3D11, "CreateDirect3D11SurfaceFromDXGISurface");
 #ifdef NTDDI_WIN10
 	_D3D11On12CreateDevice = (PFN_D3D11ON12_CREATE_DEVICE)GetProcAddress(hD3D11, "D3D11On12CreateDevice");
 #endif
@@ -368,6 +377,34 @@ HRESULT WINAPI D3D11On12CreateDevice(
 	}
 
 	return (*_D3D11On12CreateDevice)(pDevice, Flags, pFeatureLevels, FeatureLevels, ppCommandQueues, NumQueues, NodeMask, ppDevice, ppImmediateContext, pChosenFeatureLevel);
+}
+
+HRESULT WINAPI CreateDirect3D11DeviceFromDXGIDevice(
+	IDXGIDevice *dxgiDevice,
+	IInspectable **graphicsDevice)
+{
+	InitD311();
+	if (!_CreateDirect3D11DeviceFromDXGIDevice) {
+		if (graphicsDevice)
+			*graphicsDevice = NULL;
+		return E_NOTIMPL;
+	}
+
+	return (*_CreateDirect3D11DeviceFromDXGIDevice)(dxgiDevice, graphicsDevice);
+}
+
+HRESULT WINAPI CreateDirect3D11SurfaceFromDXGISurface(
+	IDXGISurface *dxgiSurface,
+	IInspectable **graphicsSurface)
+{
+	InitD311();
+	if (!_CreateDirect3D11SurfaceFromDXGISurface) {
+		if (graphicsSurface)
+			*graphicsSurface = NULL;
+		return E_NOTIMPL;
+	}
+
+	return (*_CreateDirect3D11SurfaceFromDXGISurface)(dxgiSurface, graphicsSurface);
 }
 
 int WINAPI OpenAdapter10(struct D3D10DDIARG_OPENADAPTER *adapter)
