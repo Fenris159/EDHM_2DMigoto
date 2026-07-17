@@ -2688,7 +2688,9 @@ STDMETHODIMP HackerDevice::CreateDeferredContext(THIS_
 		analyse_iunknown(*ppDeferredContext);
 		ID3D11DeviceContext1 *origContext1;
 		HRESULT res = (*ppDeferredContext)->QueryInterface(IID_PPV_ARGS(&origContext1));
-		if (FAILED(res))
+		if (SUCCEEDED(res))
+			(*ppDeferredContext)->Release();
+		else
 			origContext1 = static_cast<ID3D11DeviceContext1*>(*ppDeferredContext);
 		HackerContext *hackerContext = HackerContextFactory(mRealOrigDevice1, origContext1);
 		hackerContext->SetHackerDevice(this);
