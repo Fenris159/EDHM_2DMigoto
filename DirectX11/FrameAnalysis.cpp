@@ -362,11 +362,14 @@ void FrameAnalysisContext::FrameAnalysisLogAsyncQuery(ID3D11Asynchronous *async)
 		return;
 	}
 
-	try {
-		type = G->mQueryTypes.at(async);
-	} catch (std::out_of_range) {
+	EnterCriticalSectionPretty(&G->mCriticalSection);
+	auto query_type = G->mQueryTypes.find(async);
+	if (query_type == G->mQueryTypes.end()) {
+		LeaveCriticalSection(&G->mCriticalSection);
 		return;
 	}
+	type = query_type->second;
+	LeaveCriticalSection(&G->mCriticalSection);
 
 	switch (type) {
 		case AsyncQueryType::QUERY:

@@ -1776,8 +1776,11 @@ STDMETHODIMP HackerDevice::CreateQuery(THIS_
 	__out_opt  ID3D11Query **ppQuery)
 {
 	HRESULT hr = mOrigDevice1->CreateQuery(pQueryDesc, ppQuery);
-	if (G->hunting && SUCCEEDED(hr) && ppQuery && *ppQuery)
+	if (G->hunting && SUCCEEDED(hr) && ppQuery && *ppQuery) {
+		EnterCriticalSectionPretty(&G->mCriticalSection);
 		G->mQueryTypes[*ppQuery] = AsyncQueryType::QUERY;
+		LeaveCriticalSection(&G->mCriticalSection);
+	}
 	return hr;
 }
 
@@ -1788,8 +1791,11 @@ STDMETHODIMP HackerDevice::CreatePredicate(THIS_
 	__out_opt  ID3D11Predicate **ppPredicate)
 {
 	HRESULT hr = mOrigDevice1->CreatePredicate(pPredicateDesc, ppPredicate);
-	if (G->hunting && SUCCEEDED(hr) && ppPredicate && *ppPredicate)
+	if (G->hunting && SUCCEEDED(hr) && ppPredicate && *ppPredicate) {
+		EnterCriticalSectionPretty(&G->mCriticalSection);
 		G->mQueryTypes[*ppPredicate] = AsyncQueryType::PREDICATE;
+		LeaveCriticalSection(&G->mCriticalSection);
+	}
 	return hr;
 }
 
@@ -1800,8 +1806,11 @@ STDMETHODIMP HackerDevice::CreateCounter(THIS_
 	__out_opt  ID3D11Counter **ppCounter)
 {
 	HRESULT hr = mOrigDevice1->CreateCounter(pCounterDesc, ppCounter);
-	if (G->hunting && SUCCEEDED(hr) && ppCounter && *ppCounter)
+	if (G->hunting && SUCCEEDED(hr) && ppCounter && *ppCounter) {
+		EnterCriticalSectionPretty(&G->mCriticalSection);
 		G->mQueryTypes[*ppCounter] = AsyncQueryType::COUNTER;
+		LeaveCriticalSection(&G->mCriticalSection);
+	}
 	return hr;
 }
 
