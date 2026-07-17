@@ -17,6 +17,7 @@
 #include "FrameAnalysis.h"
 
 #include <D3Dcompiler.h>
+#include <algorithm>
 #include <codecvt>
 
 #include "log.h"
@@ -153,7 +154,7 @@ HackerDevice* lookup_hacker_device(IUnknown *unknown)
 		// the above device_map lookup which relies on the COM identity
 		// rule in favour of this, since we expect this to always work:
 		if (SUCCEEDED(unknown->QueryInterface(IID_IDXGIObject, (void**)&dxgi_obj))) {
-			UINT size;
+			UINT size = sizeof(ret);
 			if (SUCCEEDED(dxgi_obj->GetPrivateData(IID_HackerDevice, &size, &ret))) {
 				LogInfo("Notice: Unwrapped device and COM Identity violation, Found HackerDevice via GetPrivateData strategy\n");
 				ret->AddRef();
@@ -543,14 +544,15 @@ static void ExportOrigBinary(UINT64 hash, const wchar_t *pShaderType, const void
 static bool GetFileLastWriteTime(wchar_t *path, FILETIME *ftWrite)
 {
 	HANDLE f;
+	bool ret;
 
 	f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (f == INVALID_HANDLE_VALUE)
 		return false;
 
-	GetFileTime(f, NULL, NULL, ftWrite);
+	ret = !!GetFileTime(f, NULL, NULL, ftWrite);
 	CloseHandle(f);
-	return true;
+	return ret;
 }
 
 static bool CheckCacheTimestamp(HANDLE binHandle, wchar_t *binPath, FILETIME &pTimeStamp)
@@ -560,7 +562,11 @@ static bool CheckCacheTimestamp(HANDLE binHandle, wchar_t *binPath, FILETIME &pT
 
 	wcscpy_s(txtPath, MAX_PATH, binPath);
 	end = wcsstr(txtPath, L".bin");
-	wcscpy_s(end, sizeof(L".bin"), L".txt");
+	if (!end) {
+		LogInfoW(L"    WARNING: Cached shader path has no .bin extension: %s\n", binPath);
+		return false;
+	}
+	wcscpy_s(end, _countof(txtPath) - (end - txtPath), L".txt");
 	if (GetFileLastWriteTime(txtPath, &txtTime) && GetFileTime(binHandle, NULL, NULL, &binTime)) {
 		// We need to compare the timestamp on the .bin and .txt files.
 		// This needs to be an exact match to ensure that the .bin file
@@ -606,6 +612,10 @@ static bool LoadCachedShader(wchar_t *binPath, const wchar_t *pShaderType,
 	HANDLE f;
 	DWORD codeSize, readSize;
 
+	pCode = NULL;
+	pCodeSize = 0;
+	pTimeStamp = {};
+
 	f = CreateFile(binPath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (f == INVALID_HANDLE_VALUE)
 		return false;
@@ -619,6 +629,10 @@ static bool LoadCachedShader(wchar_t *binPath, const wchar_t *pShaderType,
 	WarnIfConflictingShaderExists(binPath, end_user_conflicting_shader_msg);
 
 	codeSize = GetFileSize(f, 0);
+	if (!codeSize || codeSize == INVALID_FILE_SIZE) {
+		LogInfo("    Invalid binary shader file size.\n");
+		goto bail_close_handle;
+	}
 	pCode = new char[codeSize];
 	if (!ReadFile(f, pCode, codeSize, &readSize, 0)
 		|| codeSize != readSize)
@@ -803,6 +817,9 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 	HANDLE f;
 	string shaderModel;
 
+	pCode = NULL;
+	pCodeSize = 0;
+
 	swprintf_s(path, MAX_PATH, L"%ls\\%016llx-%ls.txt", G->SHADER_PATH, hash, pShaderType);
 	f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (f != INVALID_HANDLE_VALUE)
@@ -811,13 +828,21 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 		WarnIfConflictingShaderExists(path, end_user_conflicting_shader_msg);
 
 		DWORD srcDataSize = GetFileSize(f, 0);
+		if (!srcDataSize || srcDataSize == INVALID_FILE_SIZE) {
+			LogInfo("    Invalid ASM shader file size.\n");
+			CloseHandle(f);
+			return false;
+		}
 		vector<char> asmTextBytes(srcDataSize);
 		DWORD readSize;
-		FILETIME ftWrite;
+		FILETIME ftWrite = {};
 		if (!ReadFile(f, asmTextBytes.data(), srcDataSize, &readSize, 0)
 			|| !GetFileTime(f, NULL, NULL, &ftWrite)
-			|| srcDataSize != readSize)
+			|| srcDataSize != readSize) {
 			LogInfo("    Error reading file.\n");
+			CloseHandle(f);
+			return false;
+		}
 		CloseHandle(f);
 		LogInfo("    Asm source code loaded. Size = %d\n", srcDataSize);
 
@@ -833,7 +858,9 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 			pShaderModel = shaderModel;
 			pTimeStamp = ftWrite;
 			std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf8_to_utf16;
-			pHeaderLine = utf8_to_utf16.from_bytes(asmTextBytes.data(), strchr(asmTextBytes.data(), '\n'));
+			vector<char>::iterator newline = find(asmTextBytes.begin(), asmTextBytes.end(), '\n');
+			pHeaderLine = utf8_to_utf16.from_bytes(asmTextBytes.data(),
+				newline == asmTextBytes.end() ? asmTextBytes.data() + asmTextBytes.size() : &*newline);
 
 			vector<byte> byteCode(pBytecodeLength);
 			memcpy(byteCode.data(), pShaderBytecode, pBytecodeLength);
@@ -913,6 +940,9 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 	bool patched = false;
 	bool errorOccurred = false;
 	HRESULT hr;
+
+	pCode = NULL;
+	pCodeSize = 0;
 
 	if (!G->EXPORT_HLSL && !G->decompiler_settings.fixSvPosition && !G->decompiler_settings.recompileVs)
 		return NULL;
@@ -1000,13 +1030,18 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 
 	// TODO: Add #defines for StereoParams and IniParams
 
-	ID3DBlob *pErrorMsgs;
+	ID3DBlob *pErrorMsgs = NULL;
 	ID3DBlob *pCompiledOutput = NULL;
 	// Probably unecessary here since this shader is one we freshly decompiled,
 	// but for consistency pass the path here as well so that the standard
 	// include handler can correctly handle includes with paths relative to the
 	// shader itself:
-	wcstombs(apath, val, MAX_PATH);
+	if (!WideCharToMultiByte(CP_UTF8, 0, val, -1, apath, MAX_PATH, NULL, NULL)) {
+		LogInfo("    error converting shader path to UTF-8: %lu\n", GetLastError());
+		if (fw)
+			fclose(fw);
+		return NULL;
+	}
 	hr = D3DCompile(decompiledCode.c_str(), decompiledCode.size(), apath, 0, D3D_COMPILE_STANDARD_FILE_INCLUDE,
 		"main", tmpShaderModel, D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &pCompiledOutput, &pErrorMsgs);
 	LogInfo("    compile result of fixed HLSL shader: %x\n", hr);
@@ -1022,16 +1057,18 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 		LogInfo("\n---------------------------------------------- END ----------------------------------------------\n");
 
 		// And write the errors to the HLSL file as comments too, as a more convenient spot to see them.
-		fprintf_s(fw, "\n\n/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~ HLSL errors ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
-		fwrite(errMsg, 1, errSize - 1, fw);
-		fprintf_s(fw, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/\n");
+		if (fw) {
+			fprintf_s(fw, "\n\n/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~ HLSL errors ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+			fwrite(errMsg, 1, errSize - 1, fw);
+			fprintf_s(fw, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/\n");
+		}
 	}
 	if (pErrorMsgs)
 		pErrorMsgs->Release();
 
 	// If requested by .ini, also write the newly re-compiled assembly code to the file.  This gives a direct
 	// comparison between original ASM, and recompiled ASM.
-	if ((G->EXPORT_HLSL >= 3) && pCompiledOutput)
+	if ((G->EXPORT_HLSL >= 3) && pCompiledOutput && fw)
 	{
 		asmText = BinaryToAsmText(pCompiledOutput->GetBufferPointer(), pCompiledOutput->GetBufferSize(), G->patch_cb_offsets);
 		if (asmText.empty())
@@ -1063,12 +1100,11 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 	if (fw)
 	{
 		// Any HLSL compiled shaders are reloading candidates, if moved to ShaderFixes
-		FILETIME ftWrite;
-		GetFileTime(fw, NULL, NULL, &ftWrite);
-		foundShaderModel = shaderModel;
-		timeStamp = ftWrite;
-
 		fclose(fw);
+		if (GetFileLastWriteTime(val, &timeStamp))
+			foundShaderModel = shaderModel;
+		else
+			LogInfoW(L"    WARNING: Unable to read timestamp for %s\n", val);
 	}
 
 	return !!pCode;
@@ -2288,7 +2324,7 @@ STDMETHODIMP HackerDevice::CreateTexture3D(THIS_
 		LeaveCriticalSection(&G->mCriticalSection);
 	}
 
-	LogInfo("  returns result = %x\n", hr);
+	LogDebug("  returns result = %x\n", hr);
 
 	return hr;
 }
@@ -2463,7 +2499,7 @@ STDMETHODIMP HackerDevice::CreateShader(THIS_
 		LeaveCriticalSection(&G->mCriticalSection);
 	}
 
-	LogInfo("  returns result = %x, handle = %p\n", hr, *ppShader);
+	LogDebug("  returns result = %x, handle = %p\n", hr, *ppShader);
 
 	return hr;
 }
@@ -2603,6 +2639,7 @@ STDMETHODIMP HackerDevice::CreateRasterizerState(THIS_
 	__out_opt  ID3D11RasterizerState **ppRasterizerState)
 {
 	HRESULT hr;
+	D3D11_RASTERIZER_DESC newDesc;
 
 	if (pRasterizerDesc) LogDebug("HackerDevice::CreateRasterizerState called with\n"
 		"  FillMode = %d, CullMode = %d, DepthBias = %d, DepthBiasClamp = %f, SlopeScaledDepthBias = %f,\n"
@@ -2614,7 +2651,9 @@ STDMETHODIMP HackerDevice::CreateRasterizerState(THIS_
 	if (G->SCISSOR_DISABLE && pRasterizerDesc && pRasterizerDesc->ScissorEnable)
 	{
 		LogDebug("  disabling scissor mode.\n");
-		const_cast<D3D11_RASTERIZER_DESC*>(pRasterizerDesc)->ScissorEnable = FALSE;
+		newDesc = *pRasterizerDesc;
+		newDesc.ScissorEnable = FALSE;
+		pRasterizerDesc = &newDesc;
 	}
 
 	hr = mOrigDevice1->CreateRasterizerState(pRasterizerDesc, ppRasterizerState);
@@ -2663,7 +2702,7 @@ STDMETHODIMP HackerDevice::CreateDeferredContext(THIS_
 		LogInfo("  created HackerContext(%s@%p) wrapper of %p\n", type_name(hackerContext), hackerContext, origContext1);
 	}
 
-	LogInfo("  returns result = %x for %p\n", hr, *ppDeferredContext);
+	LogInfo("  returns result = %x for %p\n", hr, ppDeferredContext ? *ppDeferredContext : NULL);
 	return hr;
 }
 
@@ -2834,7 +2873,7 @@ STDMETHODIMP HackerDevice::CreateDeferredContext1(
 		LogInfo("  created HackerContext(%s@%p) wrapper of %p\n", type_name(hackerContext), hackerContext, *ppDeferredContext);
 	}
 
-	LogInfo("  returns result = %x for %p\n", hr, *ppDeferredContext);
+	LogInfo("  returns result = %x for %p\n", hr, ppDeferredContext ? *ppDeferredContext : NULL);
 	return hr;
 }
 
@@ -2853,6 +2892,8 @@ STDMETHODIMP HackerDevice::CreateRasterizerState1(
 	/* [annotation] */
 	_Out_opt_  ID3D11RasterizerState1 **ppRasterizerState)
 {
+	D3D11_RASTERIZER_DESC1 newDesc;
+
 	// Match CreateRasterizerState: honour rasterizer_disable_scissor. Elite may
 	// create RS via the DESC1 path; previously only the legacy DESC path
 	// applied this flag, which can leave UI scissor clips active and look like
@@ -2860,7 +2901,9 @@ STDMETHODIMP HackerDevice::CreateRasterizerState1(
 	if (G->SCISSOR_DISABLE && pRasterizerDesc && pRasterizerDesc->ScissorEnable)
 	{
 		LogDebug("CreateRasterizerState1: disabling scissor mode.\n");
-		const_cast<D3D11_RASTERIZER_DESC1*>(pRasterizerDesc)->ScissorEnable = FALSE;
+		newDesc = *pRasterizerDesc;
+		newDesc.ScissorEnable = FALSE;
+		pRasterizerDesc = &newDesc;
 	}
 	return mOrigDevice1->CreateRasterizerState1(pRasterizerDesc, ppRasterizerState);
 }
