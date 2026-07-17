@@ -256,7 +256,9 @@ struct RegionHashKeyHasherL2
 {
 	size_t operator()(const RegionHashKeyL2& k) const
 	{
-		return (static_cast<uint64_t>(k.offset) << 32) | k.size;
+		uint64_t h = (static_cast<uint64_t>(k.offset) << 32) | k.size;
+		h ^= h >> 32;
+		return static_cast<size_t>(h);
 	}
 };
 
@@ -280,7 +282,7 @@ struct RegionHashKeyHasherL3
 		h ^= (uint64_t)k.offset << 32; // XOR offset with upper bits
 		h ^= (uint64_t)k.size;         // XOR size with lower bits
 		h ^= h >> 32;                  // XOR ptr+size entropy with lower bits
-		return h;
+		return static_cast<size_t>(h);
 	}
 };
 
@@ -288,13 +290,14 @@ struct RegionHashesCache
 {
 	struct RegionCacheEntry {
 		uint32_t hash;
-		uint32_t version;
+		uint64_t version;
 	};
 public:
 	// Data cache invalidation step size in bytes.
 	// So, for page size of 256 and buffer size of 16MB we'll get 16MB/256=65536 page count.
 	// Page size of 256 looks like a good balance between invalidation precision and memory usage.
 	static constexpr UINT PAGE_SIZE = 256;
+	static constexpr UINT PAGES_PER_VERSION_BLOCK = 64;
 	// How many region hashes we expect to use per page.
 	// Controls initial L2 cache size.
 	// So, for 2 hashes per page, page size of 256 and 65536 pages we'll get 65536/(256/2)=512 size.
@@ -309,11 +312,15 @@ public:
 	void Clear();
 
 private:
+	bool GetRegionVersion(const RegionHashKeyL2& key, uint64_t *version) const;
+
 	// Cache of per-region hashes for given buffer.
 	// Key = region offset, Value = CRC32 hash of that region.
 	// Avoids recomputing hashes for the same draw-call regions.
 	std::unique_ptr <FlatHashMap<RegionHashKeyL2, RegionCacheEntry, RegionHashKeyHasherL2>> cache;
-	std::vector<UINT> page_versions;
+	std::vector<uint64_t> page_versions;
+	std::vector<uint64_t> block_versions;
+	uint64_t next_version = 0;
 	size_t data_size = 0;
 };
 

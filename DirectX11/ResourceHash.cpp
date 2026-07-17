@@ -1825,15 +1825,18 @@ bool FuzzyMatchResourceDescLess::operator() (const std::shared_ptr<FuzzyMatchRes
 }
 
 // Initialize page versioning used for fast invalidation.
-// Each page tracks a monotonically increasing "version" that invalidates
-// all cached entries (offsets) that belong to that page.
+// Each page tracks the latest invalidation version that touched it. Version
+// blocks accelerate finding the newest version across multi-page regions.
 // NOTE: Pages do NOT store hashes; they only invalidate offset-based entries.
 void RegionHashesCache::Initialize(size_t buffer_size)
 {
 	if (data_size != buffer_size) {
 		//LogInfo("RegionHashesCache::Initialize buffer_size=%d \n", buffer_size);
-		size_t num_pages = (buffer_size + PAGE_SIZE - 1) / PAGE_SIZE;
+		size_t num_pages = buffer_size / PAGE_SIZE + !!(buffer_size % PAGE_SIZE);
+		size_t num_blocks = num_pages / PAGES_PER_VERSION_BLOCK + !!(num_pages % PAGES_PER_VERSION_BLOCK);
 		page_versions.assign(num_pages, 0);
+		block_versions.assign(num_blocks, 0);
+		next_version = 0;
 		data_size = buffer_size;
 		if (cache)
 			cache->clear();
@@ -1844,32 +1847,65 @@ void RegionHashesCache::Initialize(size_t buffer_size)
 	}
 }
 
-// Store hash together with the current page version.
-// This allows fast invalidation by comparing stored version vs current page version.
+bool RegionHashesCache::GetRegionVersion(const RegionHashKeyL2& key, uint64_t *version) const
+{
+	size_t offset = key.offset;
+	size_t size = key.size;
+	size_t page;
+	size_t end_page;
+	uint64_t region_version = 0;
+
+	if (!version || !size || offset >= data_size || size > data_size - offset)
+		return false;
+
+	page = offset / PAGE_SIZE;
+	end_page = (offset + size - 1) / PAGE_SIZE;
+
+	while (page <= end_page && page % PAGES_PER_VERSION_BLOCK) {
+		if (page_versions[page] > region_version)
+			region_version = page_versions[page];
+		++page;
+	}
+	while (page <= end_page && end_page - page + 1 >= PAGES_PER_VERSION_BLOCK) {
+		uint64_t block_version = block_versions[page / PAGES_PER_VERSION_BLOCK];
+		if (block_version > region_version)
+			region_version = block_version;
+		page += PAGES_PER_VERSION_BLOCK;
+	}
+	while (page <= end_page) {
+		if (page_versions[page] > region_version)
+			region_version = page_versions[page];
+		++page;
+	}
+
+	*version = region_version;
+	return true;
+}
+
+// Store the hash together with the latest invalidation affecting any page in
+// the region.
 void RegionHashesCache::Add(const RegionHashKeyL2& key, uint32_t hash)
 {
+	uint64_t version;
+
+	if (!GetRegionVersion(key, &version))
+		return;
+
 	if (!cache)
 		cache = std::make_unique<FlatHashMap<RegionHashKeyL2, RegionCacheEntry, RegionHashKeyHasherL2>>(page_versions.size() / (PAGE_SIZE / HASHES_PER_PAGE));
 
-	// Compute page index for this offset.
-	size_t page = key.offset / PAGE_SIZE;
-	if (page >= page_versions.size())
-		return;
-
 	RegionCacheEntry entry;
 	entry.hash = hash;
-	entry.version = page_versions[page];
+	entry.version = version;
 
 	cache->insert(key, entry);
 }
 
 uint32_t RegionHashesCache::Get(const RegionHashKeyL2& key)
 {
-	if (!cache)
-		return 0;
+	uint64_t version;
 
-	size_t page = key.offset / PAGE_SIZE;
-	if (page >= page_versions.size())
+	if (!cache)
 		return 0;
 
 	// Lookup exact offset (hot path, performance critical).
@@ -1877,9 +1913,10 @@ uint32_t RegionHashesCache::Get(const RegionHashKeyL2& key)
 	if (!entry)
 		return 0;
 
-	// Validate against page version
-	// If page version changed, this entry is stale.
-	if (entry->version != page_versions[page])
+	if (!GetRegionVersion(key, &version))
+		return 0;
+
+	if (entry->version != version)
 		return 0;
 
 	return entry->hash;
@@ -1911,11 +1948,17 @@ void RegionHashesCache::Invalidate(size_t start, size_t end)
 	if (start_page > end_page)
 		return;
 
-	// Incrementing version invalidates ALL entries mapped to that page.
-	// This is O(pages), not O(entries), very important for performance.
-	for (size_t p = start_page; p <= end_page; ++p) {
-		++page_versions[p];
+	if (++next_version == 0) {
+		Clear();
+		next_version = 1;
 	}
+
+	// A single monotonically increasing version lets cached regions compare
+	// the newest invalidation across all pages they span.
+	std::fill(page_versions.begin() + start_page, page_versions.begin() + end_page + 1, next_version);
+	size_t start_block = start_page / PAGES_PER_VERSION_BLOCK;
+	size_t end_block = end_page / PAGES_PER_VERSION_BLOCK;
+	std::fill(block_versions.begin() + start_block, block_versions.begin() + end_block + 1, next_version);
 
 	//LogInfo("RegionHashesCache::Invalidate start=%d, end=%d, start_page=%d, end_page=%d\n", start, end, start_page, end_page);
 }
@@ -1929,6 +1972,8 @@ void RegionHashesCache::Clear()
 		cache->clear();
 	// Reset all versions so existing entries (if any reused) become invalid.
 	std::fill(page_versions.begin(), page_versions.end(), 0);
+	std::fill(block_versions.begin(), block_versions.end(), 0);
+	next_version = 0;
 }
 
 // Initializes CPU-side snapshot buffer.
