@@ -20,6 +20,10 @@
 
 Independent **XXMI / 2Dmigoto** libraries tailored for **[EDHM](https://github.com/psychicEgg/EDHM)** (Elite Dangerous HUD Mod) workflows.
 
+<p align="center">
+  <img src="docs/images/edhm-2dmigoto-benefits.png" alt="Comparison of traditional 3Dmigoto and the focused EDHM_2DMigoto shader-loader approach" width="900">
+</p>
+
 ## Documentation (start here)
 
 **Developer documentation lives on the [project Wiki](https://github.com/Fenris159/EDHM_2DMigoto/wiki):**
