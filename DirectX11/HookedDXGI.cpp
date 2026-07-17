@@ -491,13 +491,13 @@ void wrap_swap_chain(HackerDevice *hackerDevice,
 
 static void wrap_factory2_swap_chain(
 		_In_ HackerDevice *hackerDevice,
-		_Out_ IDXGISwapChain1 **ppSwapChain)
+		_Inout_ IDXGISwapChain1 **ppSwapChain)
 {
 	HackerContext *hackerContext = NULL;
 	HackerSwapChain *hackerSwapChain = NULL;
 	IDXGISwapChain1 *origSwapChain = NULL;
 
-	if (!hackerDevice)
+	if (!hackerDevice || !ppSwapChain || !*ppSwapChain)
 		return;
 
 	origSwapChain = *ppSwapChain;
@@ -556,6 +556,9 @@ HRESULT __stdcall Hooked_CreateSwapChainForHwnd(
 	/* [annotation][out] */
 	_Out_  IDXGISwapChain1 **ppSwapChain)
 {
+	if (ppSwapChain)
+		*ppSwapChain = NULL;
+
 	if (get_tls()->hooking_quirk_protection) {
 		LogInfo("Hooking Quirk: Unexpected call back into IDXGIFactory2::CreateSwapChainForHwnd, passing through\n");
 		// No known cases
@@ -593,6 +596,15 @@ HRESULT __stdcall Hooked_CreateSwapChainForHwnd(
 	if (FAILED(hr))
 	{
 		LogInfo("->Failed result %#x\n\n", hr);
+		if (ppSwapChain && *ppSwapChain) {
+			(*ppSwapChain)->Release();
+			*ppSwapChain = NULL;
+		}
+		goto out_release;
+	}
+	if (!ppSwapChain || !*ppSwapChain) {
+		LogInfo("->CreateSwapChainForHwnd returned success without a swap chain\n\n");
+		hr = E_UNEXPECTED;
 		goto out_release;
 	}
 
@@ -633,6 +645,9 @@ HRESULT __stdcall Hooked_CreateSwapChainForCoreWindow(
 	/* [annotation][out] */
 	_COM_Outptr_  IDXGISwapChain1 **ppSwapChain)
 {
+	if (ppSwapChain)
+		*ppSwapChain = NULL;
+
 	if (get_tls()->hooking_quirk_protection) {
 		LogInfo("Hooking Quirk: Unexpected call back into IDXGIFactory2::CreateSwapChainForCoreWindow, passing through\n");
 		// No known cases
@@ -659,6 +674,15 @@ HRESULT __stdcall Hooked_CreateSwapChainForCoreWindow(
 	if (FAILED(hr))
 	{
 		LogInfo("->Failed result %#x\n\n", hr);
+		if (ppSwapChain && *ppSwapChain) {
+			(*ppSwapChain)->Release();
+			*ppSwapChain = NULL;
+		}
+		goto out_release;
+	}
+	if (!ppSwapChain || !*ppSwapChain) {
+		LogInfo("->CreateSwapChainForCoreWindow returned success without a swap chain\n\n");
+		hr = E_UNEXPECTED;
 		goto out_release;
 	}
 
@@ -697,6 +721,9 @@ HRESULT __stdcall Hooked_CreateSwapChainForComposition(
 	/* [annotation][out] */
 	_COM_Outptr_  IDXGISwapChain1 **ppSwapChain)
 {
+	if (ppSwapChain)
+		*ppSwapChain = NULL;
+
 	if (get_tls()->hooking_quirk_protection) {
 		LogInfo("Hooking Quirk: Unexpected call back into IDXGIFactory2::CreateSwapChainForComposition, passing through\n");
 		// No known cases
@@ -723,6 +750,15 @@ HRESULT __stdcall Hooked_CreateSwapChainForComposition(
 	if (FAILED(hr))
 	{
 		LogInfo("->Failed result %#x\n\n", hr);
+		if (ppSwapChain && *ppSwapChain) {
+			(*ppSwapChain)->Release();
+			*ppSwapChain = NULL;
+		}
+		goto out_release;
+	}
+	if (!ppSwapChain || !*ppSwapChain) {
+		LogInfo("->CreateSwapChainForComposition returned success without a swap chain\n\n");
+		hr = E_UNEXPECTED;
 		goto out_release;
 	}
 

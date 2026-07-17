@@ -65,7 +65,9 @@ public:
 	// - Larger initial capacity reduces need for rehashing
 	FlatHashMap(size_t capacity = 1024)
 	{
-		capacity = NextPow2(capacity);
+		// Keep at least one empty slot so a missing-key lookup always
+		// terminates, including caches initialized with capacity zero.
+		capacity = NextPow2(capacity < 2 ? 2 : capacity);
 		table.resize(capacity);
 		mask = capacity - 1;
 		count = 0;
@@ -122,8 +124,9 @@ public:
 	{
 		size_t idx = hasher(key) & mask;
 
-		// Probe sequence
-		while (true)
+		// Probe sequence. The load-factor invariant guarantees an empty
+		// slot, while the bound prevents a corrupt/full table from hanging.
+		for (size_t probes = 0; probes < table.size(); ++probes)
 		{
 			const Entry& e = table[idx];
 
@@ -139,6 +142,8 @@ public:
 
 			idx = (idx + 1) & mask;
 		}
+
+		return false;
 	}
 
 	// Finds value by key (no copy, faster)
@@ -146,7 +151,7 @@ public:
 	{
 		size_t idx = hasher(key) & mask;
 
-		while (true)
+		for (size_t probes = 0; probes < table.size(); ++probes)
 		{
 			Entry& e = table[idx];
 
@@ -158,6 +163,8 @@ public:
 
 			idx = (idx + 1) & mask;
 		}
+
+		return nullptr;
 	}
 
 	// Clears the hash map.
@@ -298,7 +305,7 @@ public:
 	void Add(const RegionHashKeyL2& key, uint32_t hash);
 	uint32_t Get(const RegionHashKeyL2& key);
 	size_t GetSize();
-	void Invalidate(UINT start, UINT end);
+	void Invalidate(size_t start, size_t end);
 	void Clear();
 
 private:

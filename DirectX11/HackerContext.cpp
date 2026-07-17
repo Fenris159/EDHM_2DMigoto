@@ -1864,7 +1864,8 @@ void CopySubresourceRegionCache(ID3D11Resource* pSrcResource, ID3D11Resource* pD
 		return;
 	}
 
-	if (!src_info->cached_data_size || src_offset + region_size > src_info->cached_data_size) {
+	if (!src_info->cached_data || src_offset > src_info->cached_data_size ||
+			(region_size && region_size > src_info->cached_data_size - src_offset)) {
 		// Copy is happening from uncached data -> reset dst cache and leave it to slow fallback path.
 		dst_info->ClearDataCache();
 		LeaveCriticalSection(&G->mCriticalSection);
@@ -1879,7 +1880,7 @@ void CopySubresourceRegionCache(ID3D11Resource* pSrcResource, ID3D11Resource* pD
 			return;
 		}
 
-		region_size = static_cast<UINT>(src_info->cached_data_size);
+		region_size = static_cast<UINT>(src_info->cached_data_size - src_offset);
 	}
 
 	// Initialize new cache of dst size.
@@ -2836,7 +2837,7 @@ STDMETHODIMP HackerContext::FinishCommandList(THIS_
 	/* [annotation] */
 	__out_opt  ID3D11CommandList **ppCommandList)
 {
-	BOOL ret = mOrigContext1->FinishCommandList(RestoreDeferredContextState, ppCommandList);
+	HRESULT ret = mOrigContext1->FinishCommandList(RestoreDeferredContextState, ppCommandList);
 
 	if (!RestoreDeferredContextState) {
 		// This is equivalent to calling ClearState() afterwards, so we

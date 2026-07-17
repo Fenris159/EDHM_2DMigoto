@@ -739,7 +739,7 @@ static void copy_until_extension(wchar_t *txt_filename, const wchar_t *bin_filen
 	else
 		ext_pos = wcslen(bin_filename);
 
-	StringCchPrintfExW(txt_filename, size, pos, rem, NULL, L"%.*s", ext_pos, bin_filename);
+	StringCchPrintfExW(txt_filename, size, pos, rem, NULL, L"%.*s", (int)ext_pos, bin_filename);
 }
 
 void FrameAnalysisContext::dedupe_buf_filename_txt(const wchar_t *bin_filename,
@@ -1372,7 +1372,7 @@ void FrameAnalysisContext::DumpVBTxt(wchar_t *filename, D3D11_MAPPED_SUBRESOURCE
 		fprintf(fd, "first vertex: %u\n", first);
 		fprintf(fd, "vertex count: %u\n", count);
 	}
-	if (call_info && call_info->FirstInstance || call_info->InstanceCount) {
+	if (call_info && (call_info->FirstInstance || call_info->InstanceCount)) {
 		fprintf(fd, "first instance: %u\n", call_info->FirstInstance);
 		fprintf(fd, "instance count: %u\n", call_info->InstanceCount);
 	}
@@ -2218,7 +2218,7 @@ void FrameAnalysisContext::rotate_deduped_file(const wchar_t *dedupe_filename)
 		ext = L"";
 	}
 
-	for (rotate = 1; rotate; rotate++) {
+	for (rotate = 1; rotate != UINT_MAX; rotate++) {
 		swprintf_s(rotated_filename, MAX_PATH,
 				L"%.*s.%d%s", (int)ext_pos, dedupe_filename, rotate, ext);
 
@@ -2238,6 +2238,8 @@ void FrameAnalysisContext::rotate_deduped_file(const wchar_t *dedupe_filename)
 			return;
 		}
 	}
+
+	FALogErr(L"Unable to rotate deduped file: exhausted filename suffixes\n");
 }
 
 void FrameAnalysisContext::rotate_when_nearing_hard_link_limit(const wchar_t *dedupe_filename)
