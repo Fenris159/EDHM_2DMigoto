@@ -465,7 +465,7 @@ void HackerDevice::HookDevice()
 static void RegisterForReload(ID3D11DeviceChild* ppShader, UINT64 hash, wstring shaderType, string shaderModel,
 	ID3D11ClassLinkage* pClassLinkage, ID3DBlob* byteCode, FILETIME timeStamp, wstring text, bool deferred_replacement_candidate)
 {
-	LogInfo("    shader registered for possible reloading: %016llx_%ls as %s - %ls\n", hash, shaderType.c_str(), shaderModel.c_str(), text.c_str());
+	LogDebug("    shader registered for possible reloading: %016llx_%ls as %s - %ls\n", hash, shaderType.c_str(), shaderModel.c_str(), text.c_str());
 
 	// Pretty sure we had a bug before since we would save a pointer to the
 	// class linkage object without bumping its refcount, but I don't know
@@ -941,8 +941,8 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 		return NULL;
 	}
 
-	// Decompile code.
-	LogInfo("    creating HLSL representation.\n");
+	// Decompile code (only when export/fix-sv-position paths requested).
+	LogDebug("    creating HLSL representation.\n");
 
 	ParseParameters p;
 	p.bytecode = pShaderBytecode;
@@ -1643,11 +1643,18 @@ STDMETHODIMP HackerDevice::CreateInputLayout(THIS_
 	ret = mOrigDevice1->CreateInputLayout(pInputElementDescs, NumElements, pShaderBytecodeWithInputSignature,
 		BytecodeLength, ppInputLayout);
 
+	// Side-car only: attach layout cache via private data on the *original* COM
+	// object. Do NOT replace *ppInputLayout with HackerInputLayout — handing a
+	// C++ wrapper to the game as ID3D11InputLayout causes access violations in
+	// System32\d3d11.dll when any code path reaches the real device/context
+	// without unwrapping (seen as AV read @ 0x18 in d3d11.dll+0x4D9A during
+	// location load). Classic 3Dmigoto / EDHM 1.4.5 never exposed a layout COM
+	// wrapper; XXMI's full wrap is unsafe for Elite + EDHM.
 	if (SUCCEEDED(ret) && ppInputLayout && *ppInputLayout) {
-		ID3D11InputLayout* orig_input_layout = *ppInputLayout;
-		HackerInputLayout* layout = new HackerInputLayout(orig_input_layout, pInputElementDescs, NumElements);
-		*ppInputLayout = layout;
-		LogDebug("  Layout handle = %p, hash = %08lx\n", layout, layout->GetLayoutHash());
+		HackerInputLayout* layout = new HackerInputLayout(*ppInputLayout, pInputElementDescs, NumElements);
+		// Private data already set in ctor on the original layout.
+		// Intentionally keep *ppInputLayout as the real D3D layout.
+		LogDebug("  Layout cache %p for orig %p, hash = %08lx\n", layout, *ppInputLayout, layout->GetLayoutHash());
 	}
 
 	return ret;
@@ -1963,10 +1970,12 @@ static const DescType* process_texture_override(uint32_t hash,
 		for (i = 0; i < matches.size(); i++) {
 			textureOverride = matches[i];
 
-			if (LogFile) {
+			// EDHM has many TextureOverrides that match the same hash; logging
+			// every match with LogInfo produces 100k+ lines/session. Gate on debug.
+			if (gLogDebug) {
 				char buf[256];
 				StrResourceDesc(buf, 256, origDesc);
-				LogInfo("  %S matched resource with hash=%08x %s\n",
+				LogDebug("  %S matched resource with hash=%08x %s\n",
 						textureOverride->ini_section.c_str(), hash, buf);
 			}
 
@@ -2215,11 +2224,11 @@ STDMETHODIMP HackerDevice::CreateTexture3D(THIS_
 	D3D11_TEXTURE3D_DESC newDesc;
 	const D3D11_TEXTURE3D_DESC *pNewDesc = NULL;
 
-	LogInfo("HackerDevice::CreateTexture3D called with parameters\n");
+	LogDebug("HackerDevice::CreateTexture3D called with parameters\n");
 	if (pDesc)
 		LogDebugResourceDesc(pDesc);
 	if (pInitialData && pInitialData->pSysMem) {
-		LogInfo("  pInitialData = %p->%p, SysMemPitch: %u, SysMemSlicePitch: %u\n",
+		LogDebug("  pInitialData = %p->%p, SysMemPitch: %u, SysMemSlicePitch: %u\n",
 			pInitialData, pInitialData->pSysMem, pInitialData->SysMemPitch, pInitialData->SysMemSlicePitch);
 	}
 
@@ -2240,7 +2249,7 @@ STDMETHODIMP HackerDevice::CreateTexture3D(THIS_
 	hash = data_hash = CalcTexture3DDataHash(pDesc, pInitialData);
 	if (pDesc)
 		hash = CalcTexture3DDescHash(hash, pDesc);
-	LogInfo("  InitialData = %p, hash = %08lx\n", pInitialData, hash);
+	LogDebug("  InitialData = %p, hash = %08lx\n", pInitialData, hash);
 
 	// Override custom settings?
 	pNewDesc = process_texture_override(hash, pDesc, &newDesc);
@@ -2460,7 +2469,7 @@ STDMETHODIMP HackerDevice::CreateVertexShader(THIS_
 	/* [annotation] */
 	__out_opt  ID3D11VertexShader **ppVertexShader)
 {
-	LogInfo("HackerDevice::CreateVertexShader called with BytecodeLength = %Iu, handle = %p, ClassLinkage = %p\n", BytecodeLength, pShaderBytecode, pClassLinkage);
+	LogDebug("HackerDevice::CreateVertexShader called with BytecodeLength = %Iu, handle = %p, ClassLinkage = %p\n", BytecodeLength, pShaderBytecode, pClassLinkage);
 
 	return CreateShader<ID3D11VertexShader, &ID3D11Device::CreateVertexShader>
 			(pShaderBytecode, BytecodeLength, pClassLinkage, ppVertexShader, L"vs");
@@ -2476,7 +2485,7 @@ STDMETHODIMP HackerDevice::CreateGeometryShader(THIS_
 	/* [annotation] */
 	__out_opt  ID3D11GeometryShader **ppGeometryShader)
 {
-	LogInfo("HackerDevice::CreateGeometryShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength, pShaderBytecode);
+	LogDebug("HackerDevice::CreateGeometryShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength, pShaderBytecode);
 
 	return CreateShader<ID3D11GeometryShader, &ID3D11Device::CreateGeometryShader>
 			(pShaderBytecode, BytecodeLength, pClassLinkage, ppGeometryShader, L"gs");
@@ -2502,14 +2511,14 @@ STDMETHODIMP HackerDevice::CreateGeometryShaderWithStreamOutput(THIS_
 	/* [annotation] */
 	__out_opt  ID3D11GeometryShader **ppGeometryShader)
 {
-	LogInfo("HackerDevice::CreateGeometryShaderWithStreamOutput called.\n");
+	LogDebug("HackerDevice::CreateGeometryShaderWithStreamOutput called.\n");
 
 	// TODO: This is another call that can create geometry and/or vertex
 	// shaders - hook them up and allow them to be overridden as well.
 
 	HRESULT hr = mOrigDevice1->CreateGeometryShaderWithStreamOutput(pShaderBytecode, BytecodeLength, pSODeclaration,
 		NumEntries, pBufferStrides, NumStrides, RasterizedStream, pClassLinkage, ppGeometryShader);
-	LogInfo("  returns result = %x, handle = %p\n", hr, (ppGeometryShader ? *ppGeometryShader : NULL));
+	LogDebug("  returns result = %x, handle = %p\n", hr, (ppGeometryShader ? *ppGeometryShader : NULL));
 
 	return hr;
 }
@@ -2524,7 +2533,7 @@ STDMETHODIMP HackerDevice::CreatePixelShader(THIS_
 	/* [annotation] */
 	__out_opt  ID3D11PixelShader **ppPixelShader)
 {
-	LogInfo("HackerDevice::CreatePixelShader called with BytecodeLength = %Iu, handle = %p, ClassLinkage = %p\n", BytecodeLength, pShaderBytecode, pClassLinkage);
+	LogDebug("HackerDevice::CreatePixelShader called with BytecodeLength = %Iu, handle = %p, ClassLinkage = %p\n", BytecodeLength, pShaderBytecode, pClassLinkage);
 
 	return CreateShader<ID3D11PixelShader, &ID3D11Device::CreatePixelShader>
 			(pShaderBytecode, BytecodeLength, pClassLinkage, ppPixelShader, L"ps");
@@ -2540,7 +2549,7 @@ STDMETHODIMP HackerDevice::CreateHullShader(THIS_
 	/* [annotation] */
 	__out_opt  ID3D11HullShader **ppHullShader)
 {
-	LogInfo("HackerDevice::CreateHullShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength, pShaderBytecode);
+	LogDebug("HackerDevice::CreateHullShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength, pShaderBytecode);
 
 	return CreateShader<ID3D11HullShader, &ID3D11Device::CreateHullShader>
 			(pShaderBytecode, BytecodeLength, pClassLinkage, ppHullShader, L"hs");
@@ -2556,7 +2565,7 @@ STDMETHODIMP HackerDevice::CreateDomainShader(THIS_
 	/* [annotation] */
 	__out_opt  ID3D11DomainShader **ppDomainShader)
 {
-	LogInfo("HackerDevice::CreateDomainShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength, pShaderBytecode);
+	LogDebug("HackerDevice::CreateDomainShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength, pShaderBytecode);
 
 	return CreateShader<ID3D11DomainShader, &ID3D11Device::CreateDomainShader>
 			(pShaderBytecode, BytecodeLength, pClassLinkage, ppDomainShader, L"ds");
@@ -2572,7 +2581,7 @@ STDMETHODIMP HackerDevice::CreateComputeShader(THIS_
 	/* [annotation] */
 	__out_opt  ID3D11ComputeShader **ppComputeShader)
 {
-	LogInfo("HackerDevice::CreateComputeShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength, pShaderBytecode);
+	LogDebug("HackerDevice::CreateComputeShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength, pShaderBytecode);
 
 	return CreateShader<ID3D11ComputeShader, &ID3D11Device::CreateComputeShader>
 			(pShaderBytecode, BytecodeLength, pClassLinkage, ppComputeShader, L"cs");
@@ -2835,6 +2844,15 @@ STDMETHODIMP HackerDevice::CreateRasterizerState1(
 	/* [annotation] */
 	_Out_opt_  ID3D11RasterizerState1 **ppRasterizerState)
 {
+	// Match CreateRasterizerState: honour rasterizer_disable_scissor. Elite may
+	// create RS via the DESC1 path; previously only the legacy DESC path
+	// applied this flag, which can leave UI scissor clips active and look like
+	// a letterboxed "frame" around full-screen menus (e.g. carrier management).
+	if (G->SCISSOR_DISABLE && pRasterizerDesc && pRasterizerDesc->ScissorEnable)
+	{
+		LogDebug("CreateRasterizerState1: disabling scissor mode.\n");
+		const_cast<D3D11_RASTERIZER_DESC1*>(pRasterizerDesc)->ScissorEnable = FALSE;
+	}
 	return mOrigDevice1->CreateRasterizerState1(pRasterizerDesc, ppRasterizerState);
 }
 

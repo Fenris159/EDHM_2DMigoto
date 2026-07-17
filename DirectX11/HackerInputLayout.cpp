@@ -24,9 +24,9 @@ HackerInputLayout::HackerInputLayout(ID3D11InputLayout* orig, const D3D11_INPUT_
 
 	mLayoutHash = CalculateLayoutHash();
 
-	// Mark the original layout so IASetInputLayout can safely recover this
-	// wrapper without an unchecked static_cast (game may pass our wrapper or
-	// occasionally an unwrapped/foreign layout).
+	// Side-car only: game keeps the real ID3D11InputLayout. Mark the original
+	// so FromLayout() can recover this cache for hunting / frame analysis.
+	// We do not take ownership of `orig` (Create's ref stays with the game).
 	if (mOrigLayout) {
 		HackerInputLayout* self = this;
 		mOrigLayout->SetPrivateData(GUID_HackerInputLayout, sizeof(self), &self);
@@ -126,7 +126,8 @@ ULONG STDMETHODCALLTYPE HackerInputLayout::Release()
 
 	if (ref == 0)
 	{
-		mOrigLayout->Release();
+		// Do not Release mOrigLayout — side-car never owned the game's Create ref.
+		// Releasing it here double-freed the real layout and corrupted D3D state.
 		delete this;
 	}
 

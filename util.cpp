@@ -575,12 +575,46 @@ static DWORD WINAPI crash_handler_switch_to_window(_In_ LPVOID lpParameter)
 	return 0;
 }
 
+// D3D debug runtime raises 0x87A when InfoQueue break-on-severity fires.
+// That is not a real process crash — with crash=1 + Debug/_DEBUG_LAYER builds it
+// produced rhythmic SOS beeps, lag, and a storm of minidumps every second.
+// Also ignore common non-fatal RaiseException codes used for thread naming / RPC.
+static bool is_ignorable_exception_code(DWORD code)
+{
+	switch (code) {
+	case 0x0000087A: // DXGI/D3D debug layer "break on message"
+	case 0x406D1388: // MSVC SetThreadName
+	case 0x40010006: // DBG_PRINTEXCEPTION_C
+	case 0x4001000A: // DBG_PRINTEXCEPTION_WIDE_C
+		return true;
+	default:
+		return false;
+	}
+}
+
 static LONG WINAPI migoto_exception_filter(_In_ struct _EXCEPTION_POINTERS *ExceptionInfo)
 {
 	wchar_t path[MAX_PATH];
 	tm timestruct;
 	time_t ltime;
 	LONG ret = EXCEPTION_CONTINUE_EXECUTION;
+
+	DWORD code = ExceptionInfo && ExceptionInfo->ExceptionRecord
+		? ExceptionInfo->ExceptionRecord->ExceptionCode
+		: 0;
+	if (is_ignorable_exception_code(code)) {
+		// Do not beep, do not write dumps — let the debugger/runtime handle it.
+		if (LogFile) {
+			static unsigned ignore_count = 0;
+			if (ignore_count < 20)
+				LogInfo("Crash handler: ignoring non-fatal exception 0x%08x (debug layer / thread name / OutputDebugString)\n", code);
+			else if (ignore_count == 20)
+				LogInfo("Crash handler: further non-fatal exception spam suppressed in log\n");
+			ignore_count++;
+			fflush(LogFile);
+		}
+		return EXCEPTION_CONTINUE_SEARCH;
+	}
 
 	// SOS
 	Beep(250, 100); Beep(250, 100); Beep(250, 100);

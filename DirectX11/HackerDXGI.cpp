@@ -196,11 +196,18 @@ void HackerSwapChain::RunFrameActions()
 {
 	LogDebug("Running frame actions.  Device: %p\n", mHackerDevice);
 
-	// Regardless of log settings, since this runs every frame, let's flush the log
-	// so that the most lost will be one frame worth.  Tradeoff of performance to accuracy
-	if (LogFile) fflush(LogFile);
-
 	G->gTime = (GetTickCount() - G->ticks_at_launch) / 1000.0f;
+
+	// Avoid fflush every Present — that undoes OS write buffering and costs
+	// measurable time when enabled=1. Debug mode keeps per-frame accuracy;
+	// otherwise flush about once a second so a crash still loses little.
+	if (LogFile) {
+		static float last_log_flush_time = -1000.0f;
+		if (gLogDebug || (G->gTime - last_log_flush_time) >= 1.0f) {
+			fflush(LogFile);
+			last_log_flush_time = G->gTime;
+		}
+	}
 
 	// Run the command list here, before drawing the overlay so that a
 	// custom shader on the present call won't remove the overlay. Also,
@@ -247,9 +254,9 @@ void HackerSwapChain::RunFrameActions()
 
 	// EDHM auto_refresh_file_to_monitor: if the signal file's mtime changes,
 	// schedule a config reload (theme apply without requiring F11).
-	// Poll at most ~4 Hz so Present is not doing a filesystem open every frame.
+	// Match EDHM's shipped d3d11.dll: poll at most every 2.0s (not every frame).
 	if (G->auto_refresh_file_to_monitor[0] &&
-	    (G->gTime - G->auto_refresh_last_check_time) >= 0.25f) {
+	    (G->gTime - G->auto_refresh_last_check_time) >= 2.0f) {
 		G->auto_refresh_last_check_time = G->gTime;
 		WIN32_FILE_ATTRIBUTE_DATA fad = {};
 		if (GetFileAttributesExW(G->auto_refresh_file_to_monitor, GetFileExInfoStandard, &fad)) {
