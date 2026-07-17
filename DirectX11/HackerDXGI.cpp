@@ -393,25 +393,31 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 	if (riid == __uuidof(IDXGISwapChain4))
 	{
 		LogInfo("***  returns E_NOINTERFACE as error for IDXGISwapChain4.\n");
+		reinterpret_cast<IUnknown*>(*ppvObject)->Release();
 		*ppvObject = NULL;
 		return E_NOINTERFACE;
 	}
 
-	IUnknown* unk_this;
+	IUnknown* unk_this = NULL;
 	HRESULT hr_this = mOrigSwapChain1->QueryInterface(__uuidof(IUnknown), (void**)&unk_this);
 
-	IUnknown* unk_ppvObject;
+	IUnknown* unk_ppvObject = NULL;
 	HRESULT hr_ppvObject = reinterpret_cast<IUnknown*>(*ppvObject)->QueryInterface(__uuidof(IUnknown), (void**)&unk_ppvObject);
+	bool identity_queries_succeeded = SUCCEEDED(hr_this) && SUCCEEDED(hr_ppvObject);
 
-	if (SUCCEEDED(hr_this) && SUCCEEDED(hr_ppvObject))
+	if (identity_queries_succeeded)
 	{
 		// For an actual case of this->QueryInterface(this), just return our HackerSwapChain object.
 		if (unk_this == unk_ppvObject)
 			*ppvObject = this;
-
+	}
+	if (unk_this)
 		unk_this->Release();
+	if (unk_ppvObject)
 		unk_ppvObject->Release();
 
+	if (identity_queries_succeeded)
+	{
 		LogInfo("  return HackerSwapChain(%s@%p) wrapper of %p\n", type_name(this), this, mOrigSwapChain1);
 		return hr;
 	}

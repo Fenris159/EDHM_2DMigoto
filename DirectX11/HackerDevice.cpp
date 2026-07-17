@@ -1578,6 +1578,7 @@ HRESULT STDMETHODCALLTYPE HackerDevice::QueryInterface(
 
 		if (!G->enable_platform_update) {
 			LogInfo("  returns E_NOINTERFACE as error for ID3D11Device1 (try allow_platform_update=1 if the game refuses to run).\n");
+			reinterpret_cast<IUnknown*>(*ppvObject)->Release();
 			*ppvObject = NULL;
 			return E_NOINTERFACE;
 		}
