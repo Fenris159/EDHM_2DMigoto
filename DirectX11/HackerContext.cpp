@@ -3062,11 +3062,16 @@ STDMETHODIMP_(void) HackerContext::PSSetShader(THIS_
 
 	if (pPixelShader) {
 		// Set custom depth texture.
-		if (mHackerDevice->mZBufferResourceView)
+		if (G->ZBufferHashToInject)
 		{
-			LogDebug("  adding Z buffer to shader resources in slot 126.\n");
+			ID3D11ShaderResourceView *z_buffer_view = mHackerDevice->GetZBufferResourceView();
+			if (z_buffer_view)
+			{
+				LogDebug("  adding Z buffer to shader resources in slot 126.\n");
 
-			mOrigContext1->PSSetShaderResources(126, 1, &mHackerDevice->mZBufferResourceView);
+				mOrigContext1->PSSetShaderResources(126, 1, &z_buffer_view);
+				z_buffer_view->Release();
+			}
 		}
 	}
 }

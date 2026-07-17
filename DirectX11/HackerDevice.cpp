@@ -251,6 +251,35 @@ HackerDevice::HackerDevice(ID3D11Device1 *pDevice1, ID3D11DeviceContext1 *pConte
 	mUnknown = register_hacker_device(this);
 }
 
+void HackerDevice::SetZBufferResourceView(ID3D11ShaderResourceView *view)
+{
+	ID3D11ShaderResourceView *old_view;
+
+	if (view)
+		view->AddRef();
+
+	EnterCriticalSectionPretty(&G->mCriticalSection);
+	old_view = mZBufferResourceView;
+	mZBufferResourceView = view;
+	LeaveCriticalSection(&G->mCriticalSection);
+
+	if (old_view)
+		old_view->Release();
+}
+
+ID3D11ShaderResourceView *HackerDevice::GetZBufferResourceView()
+{
+	ID3D11ShaderResourceView *view;
+
+	EnterCriticalSectionPretty(&G->mCriticalSection);
+	view = mZBufferResourceView;
+	if (view)
+		view->AddRef();
+	LeaveCriticalSection(&G->mCriticalSection);
+
+	return view;
+}
+
 HRESULT HackerDevice::CreateIniParamResources()
 {
 	// No longer making this conditional. We are pretty well dependent on
@@ -1478,6 +1507,7 @@ STDMETHODIMP_(ULONG) HackerDevice::Release(THIS)
 		LogInfo("  deleting self\n");
 
 		unregister_hacker_device(this);
+		SetZBufferResourceView(NULL);
 
 		if (mIniResourceView)
 		{
@@ -2345,15 +2375,19 @@ STDMETHODIMP HackerDevice::CreateShaderResourceView(THIS_
 	// Check for depth buffer view.
 	if (hr == S_OK && G->ZBufferHashToInject && ppSRView)
 	{
+		bool z_buffer_found = false;
+
 		EnterCriticalSectionPretty(&G->mResourcesLock);
 		unordered_map<ID3D11Resource *, ResourceHandleInfo>::iterator i = lookup_resource_handle_info(pResource);
 		if (i != G->mResources.end() && i->second.hash == G->ZBufferHashToInject)
 		{
 			LogInfo("  resource view of z buffer found: handle = %p, hash = %08lx\n", *ppSRView, i->second.hash);
-
-			mZBufferResourceView = *ppSRView;
+			z_buffer_found = true;
 		}
 		LeaveCriticalSection(&G->mResourcesLock);
+
+		if (z_buffer_found)
+			SetZBufferResourceView(*ppSRView);
 	}
 
 	LogDebug("  returns result = %x\n", hr);
