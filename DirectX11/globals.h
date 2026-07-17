@@ -515,7 +515,7 @@ struct Globals
 	bool fuzzy_match_alongside_hash;
 	// EDHM ships auto_refresh_file_to_monitor=... as a signal file for theme
 	// apply; mtime is polled every 2.0s (EDHM d3d11.dll parity), not every frame.
-	// reloads (mtime change triggers ReloadConfig). Relative to DLL directory.
+	// An mtime change schedules ReloadConfig. Relative to the DLL directory.
 	wchar_t auto_refresh_file_to_monitor[MAX_PATH];
 	FILETIME auto_refresh_last_write;
 	bool auto_refresh_have_last_write;
@@ -803,12 +803,17 @@ struct TLS
 	// as the unhookable UnhookableCreateDevice).
 	bool hooking_quirk_protection;
 
+	// Suppress the d3d11 redirect for one LoadLibraryExW call on this thread.
+	// A process-wide flag can suppress an unrelated concurrent load.
+	bool suppress_d3d11_redirect_once;
+
 	LockStack locks_held;
 
 	bool com_initialized;
 
 	TLS() :
 		hooking_quirk_protection(false),
+		suppress_d3d11_redirect_once(false),
 		com_initialized(false)
 	{}
 };

@@ -325,6 +325,10 @@ static void* parse_signature_section(char *section24, char *section28, char *sec
 		// they are initialised to ' ':
 		memset(mask, ' ', 8);
 		memset(used, ' ', 8);
+		semantic_name[0] = 0;
+		reg[0] = 0;
+		system_value[0] = 0;
+		format[0] = 0;
 
 		numRead = sscanf_s((line + "       ").c_str(),
 				"// %s %d%7c %s %s %s%7c",
@@ -344,6 +348,10 @@ static void* parse_signature_section(char *section24, char *section28, char *sec
 			// the section :(
 			break;
 		}
+		semantic_name[ARRAYSIZE(semantic_name) - 1] = 0;
+		reg[ARRAYSIZE(reg) - 1] = 0;
+		system_value[ARRAYSIZE(system_value) - 1] = 0;
+		format[ARRAYSIZE(format) - 1] = 0;
 
 		// Try parsing the semantic name with streams, and bump the
 		// section version if sucessful:
@@ -351,6 +359,7 @@ static void* parse_signature_section(char *section24, char *section28, char *sec
 				&entry.stream,
 				semantic_name2, (unsigned)ARRAYSIZE(semantic_name2));
 		if (numRead == 2) {
+			semantic_name2[ARRAYSIZE(semantic_name2) - 1] = 0;
 			entry_size = max(entry_size, 28);
 			entry.name = semantic_name2;
 		} else {
@@ -367,7 +376,7 @@ static void* parse_signature_section(char *section24, char *section28, char *sec
 
 		// Try parsing register as a decimal number. If it is not, it
 		// is a special purpose register, in which case we store -1:
-		if (numRead = sscanf_s(reg, "%d", &entry.common.reg) == 0)
+		if (sscanf_s(reg, "%d", &entry.common.reg) == 0)
 			entry.common.reg = 0xffffffff;
 
 		entry.common.system_value = parse_system_value(system_value);

@@ -1150,7 +1150,7 @@ public:
 				}
 			}
 			if (pos >= size - strlen(headerid)) return;
-			char name[256];
+			char name[256] = {};
 			int numRead = sscanf_s(c + pos, "// cbuffer %s", name, UCOUNTOF(name));
 			if (numRead != 1)
 			{
@@ -1666,8 +1666,8 @@ public:
 
 		size_t pos = 0;
 		size_t spos, fpos;
-		char bind_name[256];
-		char type_name_buf[256];
+		char bind_name[256] = {};
+		char type_name_buf[256] = {};
 		string type_name;
 		int n;
 		string hlsl;
@@ -2616,35 +2616,41 @@ public:
 
 	void convertHexToFloat(char *target)
 	{
-		char convert[opcodeSize];
+		string convert = "l(";
+		char literal[64];
 		int count;
 		float lit[4];
 		int ilit[4];
-		int printed;
 
 		if (target[0] == 'l')
 		{
-			printed = sprintf_s(convert, sizeof(convert), "l(");
-
 			count = sscanf_s(target, "l(%x,%x,%x,%x)", (unsigned int*)&lit[0], (unsigned int*)&lit[1], (unsigned int*)&lit[2], (unsigned int*)&lit[3]);
 			if (count != 0)
 			{
-				for (int i = 0; i < count; i++)
-					printed += sprintf_s(&convert[printed], sizeof(convert) - printed, "%f,", lit[i]);
+				for (int i = 0; i < count; i++) {
+					if (sprintf_s(literal, sizeof(literal), "%f,", lit[i]) < 0)
+						return;
+					convert += literal;
+				}
 			}
 			else 
 			{
 				count = sscanf_s(target, "l(%i,%i,%i,%i)", &ilit[0], &ilit[1], &ilit[2], &ilit[3]);
-				assert(count != 0);
-				for (int i = 0; i < count; i++)
-					printed += sprintf_s(&convert[printed], sizeof(convert) - printed, "%i,", ilit[i]);
+				if (!count)
+					return;
+				for (int i = 0; i < count; i++) {
+					if (sprintf_s(literal, sizeof(literal), "%i,", ilit[i]) < 0)
+						return;
+					convert += literal;
+				}
 			}
 
-
 			// Overwrite trailing comma to be closing paren, no matter how many literals were converted.
-			convert[printed - 1] = ')';
+			convert[convert.size() - 1] = ')';
 
-			strcpy_s(target, opcodeSize, convert);
+			if (convert.size() >= opcodeSize)
+				return;
+			strcpy_s(target, opcodeSize, convert.c_str());
 		}
 	}
 
@@ -3475,12 +3481,15 @@ public:
 	void CreateRawFormat(string texType, int bufIndex)
 	{
 		char buffer[128];
-		char format[16];
+		char format[16] = {};
 
 		sprintf(buffer, "t%d", bufIndex);
 		mTextureNames[bufIndex] = buffer;
 
-		sscanf_s(op1, "(%[^,]", format, 16);	// Match first xx of (xx,xx,xx,xx)
+		if (sscanf_s(op1, "(%[^,]", format, 16) != 1) { // Match first xx of (xx,xx,xx,xx)
+			logDecompileError("Error parsing resource format: " + string(op1));
+			return;
+		}
 		string form4 = string(format) + "4";	// Grim. Known to fail sometimes.
 		mTextureType[bufIndex] = texType + "<" + form4 + ">";
 
@@ -4389,8 +4398,11 @@ public:
 						sprintf(buffer, "t%d", bufIndex);
 						mTextureNames[bufIndex] = buffer;
 
-						char format[16];
-						sscanf_s(op1, "(%[^,]", format, 16);	// Match first xx of (xx,xx,xx,xx)
+						char format[16] = {};
+						if (sscanf_s(op1, "(%[^,]", format, 16) != 1) { // Match first xx of (xx,xx,xx,xx)
+							logDecompileError("Error parsing resource format: " + string(op1));
+							return;
+						}
 						string form4 = string(format) + "4";
 						mTextureType[bufIndex] = "Texture2DMS<" + form4 + ">";
 

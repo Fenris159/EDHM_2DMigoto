@@ -46,7 +46,7 @@ static void DecodeOperandDX9(const Shader* psShader,
     const uint32_t ui32WriteMask = DecodeDestWriteMaskDX9(ui32Token);
     const uint32_t ui32Swizzle = DecodeOperandSwizzleDX9(ui32Token);
 
-	SHADER_VARIABLE_TYPE ConstType;
+	SHADER_VARIABLE_TYPE ConstType = SVT_FLOAT;
 
     psOperand->ui32RegisterNumber = ui32RegNum;
 

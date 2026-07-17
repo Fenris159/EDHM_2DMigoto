@@ -557,6 +557,16 @@ HRESULT WINAPI D3D11On12CreateDevice(
 {
 	InitD311();
 	LogInfo("D3D11On12CreateDevice called.\n");
+	if (!_D3D11On12CreateDevice) {
+		LogInfo("*** Chained d3d11 does not export D3D11On12CreateDevice.\n");
+		if (ppDevice)
+			*ppDevice = NULL;
+		if (ppImmediateContext)
+			*ppImmediateContext = NULL;
+		if (pChosenFeatureLevel)
+			*pChosenFeatureLevel = (D3D_FEATURE_LEVEL)0;
+		return E_NOTIMPL;
+	}
 
 	return (*_D3D11On12CreateDevice)(pDevice, Flags, pFeatureLevels, FeatureLevels, ppCommandQueues, NumQueues, NodeMask, ppDevice, ppImmediateContext, pChosenFeatureLevel);
 }
@@ -565,6 +575,10 @@ int WINAPI D3DKMTQueryAdapterInfo(_D3DKMT_QUERYADAPTERINFO *info)
 {
 	InitD311();
 	LogInfo("D3DKMTQueryAdapterInfo called.\n");
+	if (!_D3DKMTQueryAdapterInfo) {
+		LogInfo("*** Chained d3d11 does not export D3DKMTQueryAdapterInfo.\n");
+		return E_NOTIMPL;
+	}
 
 	return (*_D3DKMTQueryAdapterInfo)(info);
 }
@@ -573,6 +587,10 @@ int WINAPI OpenAdapter10(struct D3D10DDIARG_OPENADAPTER *adapter)
 {
 	InitD311();
 	LogInfo("OpenAdapter10 called.\n");
+	if (!_OpenAdapter10) {
+		LogInfo("*** Chained d3d11 does not export OpenAdapter10.\n");
+		return E_NOTIMPL;
+	}
 
 	return (*_OpenAdapter10)(adapter);
 }
@@ -581,6 +599,10 @@ int WINAPI OpenAdapter10_2(struct D3D10DDIARG_OPENADAPTER *adapter)
 {
 	InitD311();
 	LogInfo("OpenAdapter10_2 called.\n");
+	if (!_OpenAdapter10_2) {
+		LogInfo("*** Chained d3d11 does not export OpenAdapter10_2.\n");
+		return E_NOTIMPL;
+	}
 
 	return (*_OpenAdapter10_2)(adapter);
 }
@@ -589,6 +611,10 @@ int WINAPI D3D11CoreCreateDevice(__int32 a, int b, int c, LPCSTR lpModuleName, i
 {
 	InitD311();
 	LogInfo("D3D11CoreCreateDevice called.\n");
+	if (!_D3D11CoreCreateDevice) {
+		LogInfo("*** Chained d3d11 does not export D3D11CoreCreateDevice.\n");
+		return E_NOTIMPL;
+	}
 
 	return (*_D3D11CoreCreateDevice)(a, b, c, lpModuleName, e, f, g, h, i, j);
 }
@@ -598,6 +624,10 @@ HRESULT WINAPI D3D11CoreCreateLayeredDevice(const void *unknown0, DWORD unknown1
 {
 	InitD311();
 	LogInfo("D3D11CoreCreateLayeredDevice called.\n");
+	if (!_D3D11CoreCreateLayeredDevice) {
+		LogInfo("*** Chained d3d11 does not export D3D11CoreCreateLayeredDevice.\n");
+		return E_NOTIMPL;
+	}
 
 	return (*_D3D11CoreCreateLayeredDevice)(unknown0, unknown1, unknown2, riid, ppvObj);
 }
@@ -606,6 +636,10 @@ SIZE_T WINAPI D3D11CoreGetLayeredDeviceSize(const void *unknown0, DWORD unknown1
 {
 	InitD311();
 	LogInfo("D3D11CoreGetLayeredDeviceSize called.\n");
+	if (!_D3D11CoreGetLayeredDeviceSize) {
+		LogInfo("*** Chained d3d11 does not export D3D11CoreGetLayeredDeviceSize.\n");
+		return 0;
+	}
 
 	return (*_D3D11CoreGetLayeredDeviceSize)(unknown0, unknown1);
 }
@@ -614,6 +648,10 @@ HRESULT WINAPI D3D11CoreRegisterLayers(const void *unknown0, DWORD unknown1)
 {
 	InitD311();
 	LogInfo("D3D11CoreRegisterLayers called.\n");
+	if (!_D3D11CoreRegisterLayers) {
+		LogInfo("*** Chained d3d11 does not export D3D11CoreRegisterLayers.\n");
+		return E_NOTIMPL;
+	}
 
 	return (*_D3D11CoreRegisterLayers)(unknown0, unknown1);
 }
@@ -622,6 +660,10 @@ int WINAPI D3DKMTGetDeviceState(int a)
 {
 	InitD311();
 	LogInfo("D3DKMTGetDeviceState called.\n");
+	if (!_D3DKMTGetDeviceState) {
+		LogInfo("*** Chained d3d11 does not export D3DKMTGetDeviceState.\n");
+		return E_NOTIMPL;
+	}
 
 	return (*_D3DKMTGetDeviceState)(a);
 }
@@ -630,6 +672,10 @@ int WINAPI D3DKMTOpenAdapterFromHdc(int a)
 {
 	InitD311();
 	LogInfo("D3DKMTOpenAdapterFromHdc called.\n");
+	if (!_D3DKMTOpenAdapterFromHdc) {
+		LogInfo("*** Chained d3d11 does not export D3DKMTOpenAdapterFromHdc.\n");
+		return E_NOTIMPL;
+	}
 
 	return (*_D3DKMTOpenAdapterFromHdc)(a);
 }
@@ -638,6 +684,10 @@ int WINAPI D3DKMTOpenResource(int a)
 {
 	InitD311();
 	LogInfo("D3DKMTOpenResource called.\n");
+	if (!_D3DKMTOpenResource) {
+		LogInfo("*** Chained d3d11 does not export D3DKMTOpenResource.\n");
+		return E_NOTIMPL;
+	}
 
 	return (*_D3DKMTOpenResource)(a);
 }
@@ -646,6 +696,10 @@ int WINAPI D3DKMTQueryResourceInfo(int a)
 {
 	InitD311();
 	LogInfo("D3DKMTQueryResourceInfo called.\n");
+	if (!_D3DKMTQueryResourceInfo) {
+		LogInfo("*** Chained d3d11 does not export D3DKMTQueryResourceInfo.\n");
+		return E_NOTIMPL;
+	}
 
 	return (*_D3DKMTQueryResourceInfo)(a);
 }
@@ -676,20 +730,19 @@ static UINT EnableDebugFlags(UINT flags)
 static void ShowDebugInfo(ID3D11Device *origDevice)
 {
 	ID3D11Debug *d3dDebug = nullptr;
-	if (origDevice != nullptr)
-	{
-		if (SUCCEEDED(origDevice->QueryInterface(__uuidof(ID3D11Debug), (void**)&d3dDebug)))
-		{
-			ID3D11InfoQueue *d3dInfoQueue = nullptr;
+	if (!origDevice || FAILED(origDevice->QueryInterface(__uuidof(ID3D11Debug), (void**)&d3dDebug)))
+		return;
 
-			if (SUCCEEDED(d3dDebug->QueryInterface(__uuidof(ID3D11InfoQueue), (void**)&d3dInfoQueue)))
-			{
-				d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, true);
-				d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, true);
-			}
-		}
-		d3dDebug->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL);
+	ID3D11InfoQueue *d3dInfoQueue = nullptr;
+	if (SUCCEEDED(d3dDebug->QueryInterface(__uuidof(ID3D11InfoQueue), (void**)&d3dInfoQueue)))
+	{
+		d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_CORRUPTION, true);
+		d3dInfoQueue->SetBreakOnSeverity(D3D11_MESSAGE_SEVERITY_ERROR, true);
+		d3dInfoQueue->Release();
 	}
+
+	d3dDebug->ReportLiveDeviceObjects(D3D11_RLDO_SUMMARY | D3D11_RLDO_DETAIL);
+	d3dDebug->Release();
 }
 
 
@@ -724,15 +777,15 @@ static void ShowDebugInfo(ID3D11Device *origDevice)
 // This will now make it a option in the d3dx.ini, default to force DX11, but can be
 // disabled, or forced to always use DX11.
 //
-// pFeatureLevels can be modified here because we have changed the signature from const.
 // If pFeatureLevels comes in null, that is OK, because the default behavior for
 // CreateDevice is to create a DX11 Device.
 // 
 // Returns true if we need to error out with E_INVALIDARG, which is default in d3dx.ini.
 
-static bool ForceDX11(D3D_FEATURE_LEVEL *featureLevels)
+static bool ForceDX11(const D3D_FEATURE_LEVEL **featureLevels, UINT *featureLevelCount,
+	D3D_FEATURE_LEVEL *forcedFeatureLevel)
 {
-	if (!featureLevels)
+	if (!*featureLevels || !*featureLevelCount)
 	{
 		LogInfo("->Feature level null, defaults to D3D_FEATURE_LEVEL_11_0.\n");
 		return false;
@@ -740,21 +793,23 @@ static bool ForceDX11(D3D_FEATURE_LEVEL *featureLevels)
 
 	if (G->enable_create_device == 1)
 	{
-		LogInfo("->Feature level allowed through unchanged: %#x\n", *featureLevels);
+		LogInfo("->Feature level allowed through unchanged: %#x\n", **featureLevels);
 		return false;
 	}
 	if (G->enable_create_device == 2)
 	{
-		*featureLevels = D3D_FEATURE_LEVEL_11_0;
+		*forcedFeatureLevel = D3D_FEATURE_LEVEL_11_0;
+		*featureLevels = forcedFeatureLevel;
+		*featureLevelCount = 1;
 
-		LogInfo("->Feature level forced to 11.0: %#x\n", *featureLevels);
+		LogInfo("->Feature level forced to 11.0: %#x\n", **featureLevels);
 		return false;
 	}
 
 	// Error out if we aren't looking for D3D_FEATURE_LEVEL_11_0.
-	if (*featureLevels != D3D_FEATURE_LEVEL_11_0)
+	if (**featureLevels != D3D_FEATURE_LEVEL_11_0)
 	{
-		LogInfo("->Feature level != 11.0: %#x, returning E_INVALIDARG\n", *featureLevels);
+		LogInfo("->Feature level != 11.0: %#x, returning E_INVALIDARG\n", **featureLevels);
 		return true;
 	}
 
@@ -898,6 +953,13 @@ HRESULT WINAPI D3D11CreateDevice(
 	_Out_opt_       D3D_FEATURE_LEVEL   *pFeatureLevel,
 	_Out_opt_       ID3D11DeviceContext **ppImmediateContext)
 {
+	if (ppDevice)
+		*ppDevice = NULL;
+	if (pFeatureLevel)
+		*pFeatureLevel = (D3D_FEATURE_LEVEL)0;
+	if (ppImmediateContext)
+		*ppImmediateContext = NULL;
+
 	if (get_tls()->hooking_quirk_protection) {
 		LogInfo("Hooking Quirk: Unexpected call back into D3D11CreateDevice, passing through\n");
 		// Known case: Present() may call D3D11CreateDevice in Optimus laptops,
@@ -916,10 +978,10 @@ HRESULT WINAPI D3D11CreateDevice(
 	LogInfo("\n\n *** D3D11CreateDevice called with\n");
 	LogInfo("    pAdapter = %p\n", pAdapter);
 	LogInfo("    Flags = %#x\n", Flags);
-	LogInfo("    pFeatureLevels = %#x\n", pFeatureLevels ? *pFeatureLevels : 0);
+	LogInfo("    pFeatureLevels = %#x\n", pFeatureLevels && FeatureLevels ? *pFeatureLevels : 0);
 	LogInfo("    FeatureLevels = %d\n", FeatureLevels);
 	LogInfo("    ppDevice = %p\n", ppDevice);
-	LogInfo("    pFeatureLevel = %#x\n", pFeatureLevel ? *pFeatureLevel : 0);
+	LogInfo("    pFeatureLevel = %p\n", pFeatureLevel);
 	LogInfo("    ppImmediateContext = %p\n", ppImmediateContext);
 
 	if (!G->bIntendedTargetExe) {
@@ -930,7 +992,8 @@ HRESULT WINAPI D3D11CreateDevice(
 			ppImmediateContext);
 	}
 
-	if (ForceDX11(const_cast<D3D_FEATURE_LEVEL*>(pFeatureLevels)))
+	D3D_FEATURE_LEVEL forcedFeatureLevel;
+	if (ForceDX11(&pFeatureLevels, &FeatureLevels, &forcedFeatureLevel))
 		return E_INVALIDARG;
 
 #if _DEBUG_LAYER
@@ -1020,6 +1083,15 @@ HRESULT WINAPI D3D11CreateDeviceAndSwapChain(
 	_Out_opt_			D3D_FEATURE_LEVEL    *pFeatureLevel,
 	_Out_opt_			ID3D11DeviceContext  **ppImmediateContext)
 {
+	if (ppSwapChain)
+		*ppSwapChain = NULL;
+	if (ppDevice)
+		*ppDevice = NULL;
+	if (pFeatureLevel)
+		*pFeatureLevel = (D3D_FEATURE_LEVEL)0;
+	if (ppImmediateContext)
+		*ppImmediateContext = NULL;
+
 	if (get_tls()->hooking_quirk_protection) {
 		LogInfo("Hooking Quirk: Unexpected call back into D3D11CreateDeviceAndSwapChain, passing through\n");
 		// Known case: DirectX implements D3D11CreateDevice by calling
@@ -1038,12 +1110,12 @@ HRESULT WINAPI D3D11CreateDeviceAndSwapChain(
 	LogInfo("\n\n *** D3D11CreateDeviceAndSwapChain called with\n");
 	LogInfo("    pAdapter = %p\n", pAdapter);
 	LogInfo("    Flags = %#x\n", Flags);
-	LogInfo("    pFeatureLevels = %#x\n", pFeatureLevels ?  *pFeatureLevels : 0);
+	LogInfo("    pFeatureLevels = %#x\n", pFeatureLevels && FeatureLevels ? *pFeatureLevels : 0);
 	LogInfo("    FeatureLevels = %d\n", FeatureLevels);
 	LogInfo("    pSwapChainDesc = %p\n", pSwapChainDesc);
 	LogInfo("    ppSwapChain = %p\n", ppSwapChain);
 	LogInfo("    ppDevice = %p\n", ppDevice);
-	LogInfo("    pFeatureLevel = %#x\n", pFeatureLevel ? *pFeatureLevel: 0);
+	LogInfo("    pFeatureLevel = %p\n", pFeatureLevel);
 	LogInfo("    ppImmediateContext = %p\n", ppImmediateContext);
 
 	if (!G->bIntendedTargetExe) {
@@ -1054,7 +1126,8 @@ HRESULT WINAPI D3D11CreateDeviceAndSwapChain(
 			ppDevice, pFeatureLevel, ppImmediateContext);
 	}
 
-	if (ForceDX11(const_cast<D3D_FEATURE_LEVEL*>(pFeatureLevels)))
+	D3D_FEATURE_LEVEL forcedFeatureLevel;
+	if (ForceDX11(&pFeatureLevels, &FeatureLevels, &forcedFeatureLevel))
 		return E_INVALIDARG;
 
 #if _DEBUG_LAYER
@@ -1210,7 +1283,10 @@ HMODULE(__stdcall *fnOrigLoadLibraryExW)(
 HMODULE __stdcall Hooked_LoadLibraryExW(_In_ LPCWSTR lpLibFileName, _Reserved_ HANDLE hFile, _In_ DWORD dwFlags)
 {
 	HMODULE module;
-	static bool hook_enabled = true;
+	TLS *tls = get_tls();
+
+	if (!lpLibFileName)
+		return fnOrigLoadLibraryExW(lpLibFileName, hFile, dwFlags);
 
 	LogDebugW(L"   Hooked_LoadLibraryExW load: %s.\n", lpLibFileName);
 
@@ -1221,7 +1297,7 @@ HMODULE __stdcall Hooked_LoadLibraryExW(_In_ LPCWSTR lpLibFileName, _Reserved_ H
 		// our redirect for the next call to make sure we don't give
 		// them a reference to themselves. Subsequent calls will be
 		// armed again in case we still need the redirect.
-		hook_enabled = false;
+		tls->suppress_d3d11_redirect_once = true;
 		return NULL;
 	}
 
@@ -1229,7 +1305,7 @@ HMODULE __stdcall Hooked_LoadLibraryExW(_In_ LPCWSTR lpLibFileName, _Reserved_ H
 	//  load_library_redirect=0 or 1 allows all loads through unchanged.
 	//  load_library_redirect=2 redirects d3d11.dll to the game folder.
 	// This flag can be set by the proxy loading, because it must be off in that case.
-	if (hook_enabled) {
+	if (!tls->suppress_d3d11_redirect_once) {
 
 		if (G->load_library_redirect > 1)
 		{
@@ -1237,8 +1313,9 @@ HMODULE __stdcall Hooked_LoadLibraryExW(_In_ LPCWSTR lpLibFileName, _Reserved_ H
 			if (module)
 				return module;
 		}
-	} else
-		hook_enabled = true;
+	} else {
+		tls->suppress_d3d11_redirect_once = false;
+	}
 
 	// Normal unchanged case.
 	return fnOrigLoadLibraryExW(lpLibFileName, hFile, dwFlags);

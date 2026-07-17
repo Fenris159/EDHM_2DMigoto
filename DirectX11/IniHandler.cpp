@@ -5,6 +5,7 @@
 #include <string>
 #include <strsafe.h>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <memory>
 #include <pcre2.h>
@@ -23,6 +24,47 @@
 #include <locale>
 
 #define INI_FILENAME L"d3dx.ini"
+
+static bool GetMigotoDirectory(wchar_t *path, size_t path_size)
+{
+	if (!path || path_size > MAXDWORD)
+		return false;
+
+	DWORD length = GetModuleFileNameW(migoto_handle, path, static_cast<DWORD>(path_size));
+	if (!length || length >= path_size)
+		return false;
+
+	wchar_t *slash = wcsrchr(path, L'\\');
+	if (!slash)
+		return false;
+
+	slash[1] = 0;
+	return true;
+}
+
+static void EnsureConfiguredDirectory(const char *label, const wchar_t *path)
+{
+	if (!path || !path[0]) {
+		LogOverlay(LOG_WARNING, "%s directory is not configured\n", label);
+		return;
+	}
+
+	if (!CreateDirectoryEnsuringAccess(path)) {
+		DWORD error = GetLastError();
+		if (error != ERROR_ALREADY_EXISTS)
+			LogInfo("  Unable to create %s directory %S (Win32 error %lu)\n", label, path, error);
+	}
+
+	DWORD attributes = GetFileAttributesW(path);
+	if (attributes == INVALID_FILE_ATTRIBUTES) {
+		LogOverlay(LOG_WARNING, "%s directory is inaccessible: %S (Win32 error %lu)\n",
+			label, path, GetLastError());
+	} else if (!(attributes & FILE_ATTRIBUTE_DIRECTORY)) {
+		LogOverlay(LOG_WARNING, "%s path is not a directory: %S\n", label, path);
+	} else {
+		LogInfo("  %s directory available: %S\n", label, path);
+	}
+}
 
 // List all the section prefixes which may contain a command list here and
 // whether they are a prefix or an exact match. Listing a section here will not
@@ -653,7 +695,9 @@ static void ParseNamespacedIniFile(const wchar_t *ini, const wstring *ini_namesp
 {
 	wifstream f(ini, ios::in, _SH_DENYNO);
 	if (!f) {
-		LogOverlay(LOG_WARNING, "  Error opening %S\n", ini);
+		DWORD attributes = GetFileAttributesW(ini);
+		DWORD error = attributes == INVALID_FILE_ATTRIBUTES ? GetLastError() : ERROR_OPEN_FAILED;
+		LogOverlay(LOG_WARNING, "  Error opening %S (Win32 error %lu)\n", ini, error);
 		return;
 	}
 	f.imbue(std::locale(f.getloc(), new std::codecvt_utf8<wchar_t, 0x10ffff, std::consume_header>));
@@ -697,12 +741,29 @@ static void InsertBuiltInIniSections()
 	ParseIniExcerpt(text);
 }
 
+static string to_utf8(const wstring& wstr)
+{
+	if (wstr.empty() || wstr.length() > static_cast<size_t>((std::numeric_limits<int>::max)()))
+		return string();
+
+	int wchar_count = static_cast<int>(wstr.length());
+	int len = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), wchar_count, NULL, 0, NULL, NULL);
+	if (!len)
+		return string();
+
+	string utf8_str(len, 0);
+	if (!WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), wchar_count, &utf8_str[0], len, NULL, NULL))
+		return string();
+
+	return utf8_str;
+}
+
 static pcre2_code* glob_to_regex(wstring &pattern)
 {
 	PCRE2_UCHAR *converted = NULL;
 	PCRE2_SIZE blength = 0;
 	pcre2_code *regex = NULL;
-	string apattern(pattern.begin(), pattern.end());
+	string apattern = to_utf8(pattern);
 	PCRE2_SIZE err_off;
 	int err;
 
@@ -738,17 +799,6 @@ static vector<pcre2_code*> globbing_vector_to_regex(vector<wstring> &globbing_pa
 static void free_globbing_vector(vector<pcre2_code*> &patterns) {
 	for (pcre2_code *regex : patterns)
 		pcre2_code_free(regex);
-}
-
-static string to_utf8(const wstring& wstr) {
-	if (wstr.empty())
-		return string();
-	int len = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, NULL, 0, NULL, NULL);
-	if (len == 0)
-		return string();
-	string utf8_str(len, 0);
-	WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &utf8_str[0], len, NULL, NULL);
-	return utf8_str;
 }
 
 static bool matches_globbing_vector(wchar_t *filename, vector<pcre2_code*> &patterns) {
@@ -791,11 +841,14 @@ static void ParseIniFilesRecursive(wchar_t *migoto_path, const wstring &rel_path
 
 	hFind = FindFirstFile(search_path.c_str(), &find_data);
 	if (hFind == INVALID_HANDLE_VALUE) {
-		LogInfo("    Recursive include path \"%S\" not found\n", search_path.c_str());
+		LogInfo("    Recursive include path \"%S\" unavailable (Win32 error %lu)\n",
+			search_path.c_str(), GetLastError());
 		return;
 	}
 
 	do {
+		size_t filename_len = wcslen(find_data.cFileName);
+
 		if (matches_globbing_vector(find_data.cFileName, exclude)) {
 			LogInfo("    Excluding \"%S\"\n", find_data.cFileName);
 			continue;
@@ -804,7 +857,8 @@ static void ParseIniFilesRecursive(wchar_t *migoto_path, const wstring &rel_path
 		if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
 			if (wcscmp(find_data.cFileName, L".") && wcscmp(find_data.cFileName, L".."))
 				directories.insert(wstring(find_data.cFileName));
-		} else if (!wcscmp(find_data.cFileName + wcslen(find_data.cFileName) - 4, L".ini")) {
+		} else if (filename_len >= 4 &&
+				!wcscmp(find_data.cFileName + filename_len - 4, L".ini")) {
 			ini_files.insert(wstring(find_data.cFileName));
 		} else {
 			LogDebug("    Not a directory or ini file: \"%S\"\n", find_data.cFileName);
@@ -944,7 +998,7 @@ bool GetIniString(const wchar_t *section, const wchar_t *key, const wchar_t *def
 
 	// TODO: Get rid of all the wide character strings that the old ini
 	// parsing API forced on us so we don't need this re-conversion:
-	*ret = std::string(wret.begin(), wret.end());
+	*ret = to_utf8(wret);
 	return found;
 }
 
@@ -1334,8 +1388,10 @@ static void GetUserConfigPath(const wchar_t *migoto_path)
 	wstring rel_path;
 
 	GetIniString(L"Include", L"user_config", L"d3dx_user.ini", &tmp);
+	if (tmp.empty())
+		tmp = "d3dx_user.ini";
 	rel_path = wstring(tmp.begin(), tmp.end()); // TODO: Sort out wide character mess
-	if (tmp[1] != ':' && tmp[0] != '\\')
+	if (!((tmp.length() >= 2 && tmp[1] == ':') || tmp[0] == '\\' || tmp[0] == '/'))
 		G->user_config = wstring(migoto_path) + rel_path;
 	else
 		G->user_config = rel_path;
@@ -1355,8 +1411,10 @@ static void ParseIncludedIniFiles()
 	vector<pcre2_code*> exclude;
 	DWORD attrib;
 
-	GetModuleFileName(migoto_handle, migoto_path, MAX_PATH);
-	wcsrchr(migoto_path, L'\\')[1] = 0;
+	if (!GetMigotoDirectory(migoto_path, ARRAYSIZE(migoto_path))) {
+		LogOverlay(LOG_WARNING, "Unable to resolve the EDHM DLL directory; skipping included ini files\n");
+		return;
+	}
 
 	// Grab the user_config path before the below code removes it from the
 	// ini_sections data structure:
@@ -1616,6 +1674,14 @@ static void ConstructInitialDataNorm(CustomResource *custom_resource, std::istri
 	float val;
 
 	vals = string_to_typed_array<float>(tokens);
+	if (bytes != 1 && bytes != 2) {
+		IniWarning("Unsupported normalized integer size: %d\n", bytes);
+		return;
+	}
+	if (vals.size() > (size_t)-1 / bytes) {
+		IniWarning("Initial data is too large\n");
+		return;
+	}
 
 	// We use malloc() here because the custom resource may realloc() the
 	// buffer to the correct size when substantiating:
@@ -2500,7 +2566,7 @@ static bool parse_shader_regex_section_pattern(const std::wstring *section_id, c
 		// place to fix that, which is a large and risky refactoring
 		// job for another day
 		wline = &entry->raw_line;
-		aline = std::string(wline->begin(), wline->end());
+		aline = to_utf8(*wline);
 		LogInfo("  %s\n", aline.c_str());
 		pattern.append(aline);
 	}
@@ -2545,7 +2611,7 @@ static bool parse_shader_regex_section_declarations(const std::wstring *section_
 		// place to fix that, which is a large and risky refactoring
 		// job for another day
 		wline = &entry->raw_line;
-		aline = std::string(wline->begin(), wline->end());
+		aline = to_utf8(*wline);
 		LogInfo("  %s\n", aline.c_str());
 		regex_group->declarations.push_back(aline);
 	}
@@ -2575,7 +2641,7 @@ static bool parse_shader_regex_section_replace(const std::wstring *section_id, c
 		// place to fix that, which is a large and risky refactoring
 		// job for another day
 		wline = &entry->raw_line;
-		aline = std::string(wline->begin(), wline->end());
+		aline = to_utf8(*wline);
 		LogInfo("  %s\n", aline.c_str());
 		regex_pattern->replace.append(aline);
 	}
@@ -4213,12 +4279,12 @@ void LoadConfigFile()
 
 	setlocale(LC_CTYPE, "en_US.UTF-8");
 
-	if (!GetModuleFileName(migoto_handle, iniFile, MAX_PATH))
+	if (!GetMigotoDirectory(iniFile, ARRAYSIZE(iniFile)))
 		DoubleBeepExit();
-	wcsrchr(iniFile, L'\\')[1] = 0;
-	wcscpy(logFilename, iniFile);
-	wcscat(iniFile, INI_FILENAME);
-	wcscat(logFilename, L"d3d11_log.txt");
+	if (FAILED(StringCchCopyW(logFilename, ARRAYSIZE(logFilename), iniFile)) ||
+			FAILED(StringCchCatW(iniFile, ARRAYSIZE(iniFile), INI_FILENAME)) ||
+			FAILED(StringCchCatW(logFilename, ARRAYSIZE(logFilename), L"d3d11_log.txt")))
+		DoubleBeepExit();
 	warn_of_conflicting_d3dx(iniFile);
 
 	// Log all settings that are _enabled_, in order, 
@@ -4384,12 +4450,9 @@ void LoadConfigFile()
 			wcsncpy_s(G->auto_refresh_file_to_monitor, MAX_PATH, setting, _TRUNCATE);
 		} else {
 			wchar_t migoto_path[MAX_PATH];
-			DWORD migoto_path_len = GetModuleFileName(migoto_handle, migoto_path, MAX_PATH);
-			wchar_t *migoto_dir_end = (migoto_path_len && migoto_path_len < MAX_PATH) ? wcsrchr(migoto_path, L'\\') : NULL;
-
-			if (migoto_dir_end) {
-				migoto_dir_end[1] = 0;
-				_snwprintf_s(G->auto_refresh_file_to_monitor, MAX_PATH, _TRUNCATE, L"%s%s", migoto_path, setting);
+			if (GetMigotoDirectory(migoto_path, ARRAYSIZE(migoto_path)) &&
+					SUCCEEDED(StringCchCatW(migoto_path, ARRAYSIZE(migoto_path), setting))) {
+				StringCchCopyW(G->auto_refresh_file_to_monitor, MAX_PATH, migoto_path);
 			} else {
 				LogInfo("  auto_refresh_file_to_monitor disabled: failed to resolve DLL-relative path %S\n", setting);
 			}
@@ -4459,13 +4522,15 @@ void LoadConfigFile()
 			G->SHADER_PATH[wcslen(G->SHADER_PATH) - 1] = 0;
 		if (G->SHADER_PATH[1] != ':' && G->SHADER_PATH[0] != '\\')
 		{
-			GetModuleFileName(migoto_handle, setting, MAX_PATH);
-			wcsrchr(setting, L'\\')[1] = 0;
-			wcscat(setting, G->SHADER_PATH);
-			wcscpy(G->SHADER_PATH, setting);
+			if (!GetMigotoDirectory(setting, ARRAYSIZE(setting)) ||
+					FAILED(StringCchCatW(setting, ARRAYSIZE(setting), G->SHADER_PATH))) {
+				LogOverlay(LOG_WARNING, "Shader override directory path is too long or invalid: %S\n", G->SHADER_PATH);
+				G->SHADER_PATH[0] = 0;
+			} else {
+				StringCchCopyW(G->SHADER_PATH, ARRAYSIZE(G->SHADER_PATH), setting);
+			}
 		}
-		// Create directory?
-		CreateDirectoryEnsuringAccess(G->SHADER_PATH);
+		EnsureConfiguredDirectory("Shader override", G->SHADER_PATH);
 	}
 	if (GetIniStringAndLog(L"Rendering", L"cache_directory", 0, G->SHADER_CACHE_PATH, MAX_PATH))
 	{
@@ -4473,13 +4538,15 @@ void LoadConfigFile()
 			G->SHADER_CACHE_PATH[wcslen(G->SHADER_CACHE_PATH) - 1] = 0;
 		if (G->SHADER_CACHE_PATH[1] != ':' && G->SHADER_CACHE_PATH[0] != '\\')
 		{
-			GetModuleFileName(migoto_handle, setting, MAX_PATH);
-			wcsrchr(setting, L'\\')[1] = 0;
-			wcscat(setting, G->SHADER_CACHE_PATH);
-			wcscpy(G->SHADER_CACHE_PATH, setting);
+			if (!GetMigotoDirectory(setting, ARRAYSIZE(setting)) ||
+					FAILED(StringCchCatW(setting, ARRAYSIZE(setting), G->SHADER_CACHE_PATH))) {
+				LogOverlay(LOG_WARNING, "Shader cache directory path is too long or invalid: %S\n", G->SHADER_CACHE_PATH);
+				G->SHADER_CACHE_PATH[0] = 0;
+			} else {
+				StringCchCopyW(G->SHADER_CACHE_PATH, ARRAYSIZE(G->SHADER_CACHE_PATH), setting);
+			}
 		}
-		// Create directory?
-		CreateDirectoryEnsuringAccess(G->SHADER_CACHE_PATH);
+		EnsureConfiguredDirectory("Shader cache", G->SHADER_CACHE_PATH);
 	}
 
 	G->CACHE_SHADERS = GetIniBool(L"Rendering", L"cache_shaders", false, NULL);
@@ -4704,15 +4771,20 @@ void LoadConfigFile()
 void LoadProfileManagerConfig(const wchar_t *config_dir)
 {
 	wchar_t iniFile[MAX_PATH], logFilename[MAX_PATH];
+	wchar_t *filename;
 
 	G->gInitialized = true;
 
-	if (wcscpy_s(iniFile, MAX_PATH, config_dir))
-		DoubleBeepExit();
-	wcsrchr(iniFile, L'\\')[1] = 0;
-	wcscpy(logFilename, iniFile);
-	wcscat(iniFile, INI_FILENAME);
-	wcscat(logFilename, L"d3d11_profile_log.txt");
+	if (!config_dir || FAILED(StringCchCopyW(iniFile, MAX_PATH, config_dir)))
+		return;
+	filename = wcsrchr(iniFile, L'\\');
+	if (!filename)
+		return;
+	filename[1] = 0;
+	if (FAILED(StringCchCopyW(logFilename, MAX_PATH, iniFile))
+			|| FAILED(StringCchCatW(iniFile, MAX_PATH, INI_FILENAME))
+			|| FAILED(StringCchCatW(logFilename, MAX_PATH, L"d3d11_profile_log.txt")))
+		return;
 
 	// [Logging] - same enabled/calls split as LoadConfigFile()
 	int log_enabled = GetPrivateProfileInt(L"Logging", L"enabled", 1, iniFile);
