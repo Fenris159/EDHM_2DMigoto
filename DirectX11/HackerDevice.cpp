@@ -2390,17 +2390,35 @@ static char* hash_whitelisted_sections[] = {
 
 static uint32_t hash_shader_bytecode(struct dxbc_header *header, SIZE_T BytecodeLength)
 {
-	uint32_t *offsets = (uint32_t*)((char*)header + sizeof(struct dxbc_header));
+	uint32_t *offsets;
 	struct section_header *section;
 	unsigned i, j;
 	uint32_t hash = 0;
+	SIZE_T offsets_size;
+	SIZE_T section_offset;
+	SIZE_T section_data_size;
 
-	if (BytecodeLength < sizeof(struct dxbc_header) + header->num_sections*sizeof(uint32_t))
+	if (BytecodeLength < sizeof(struct dxbc_header) || strncmp(header->signature, "DXBC", 4))
 		return 0;
 
+	if (header->size < sizeof(struct dxbc_header) || header->size > BytecodeLength)
+		return 0;
+
+	if (header->num_sections > (header->size - sizeof(struct dxbc_header)) / sizeof(uint32_t))
+		return 0;
+	offsets_size = header->num_sections * sizeof(uint32_t);
+	offsets = (uint32_t*)((char*)header + sizeof(struct dxbc_header));
+
 	for (i = 0; i < header->num_sections; i++) {
-		section = (struct section_header*)((char*)header + offsets[i]);
-		if (BytecodeLength < (char*)section - (char*)header + sizeof(struct section_header) + section->size)
+		section_offset = offsets[i];
+		if (section_offset < sizeof(struct dxbc_header) + offsets_size ||
+			section_offset > header->size ||
+			header->size - section_offset < sizeof(struct section_header))
+			return 0;
+
+		section = (struct section_header*)((char*)header + section_offset);
+		section_data_size = header->size - section_offset - sizeof(struct section_header);
+		if (section->size > section_data_size)
 			return 0;
 
 		for (j = 0; j < ARRAYSIZE(hash_whitelisted_sections); j++) {
