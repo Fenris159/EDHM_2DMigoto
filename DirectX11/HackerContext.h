@@ -143,6 +143,7 @@ private:
 
 	// These private methods are utility routines for HackerContext.
 	void ClearCurrentInputLayout();
+	void ResetTrackedState();
 	void BeforeDraw(DrawContext &data);
 	void AfterDraw(DrawContext &data);
 	bool BeforeDispatch(DispatchContext *context);

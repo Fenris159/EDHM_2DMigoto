@@ -70,32 +70,39 @@ HackerContext::HackerContext(ID3D11Device1 *pDevice1, ID3D11DeviceContext1 *pCon
 	mRealOrigContext1 = pContext1;
 	mHackerDevice = NULL;
 	mOwnsHackerDeviceReference = false;
-
-	memset(mCurrentVertexBuffers, 0, sizeof(mCurrentVertexBuffers));
-	mCurrentIndexBuffer = 0;
-	memset(mCurrentVertexBuffersBindings, 0, sizeof(mCurrentVertexBuffersBindings));
-	memset(&mCurrentIndexBufferBinding, 0, sizeof(mCurrentIndexBufferBinding));
-	mCurrentVertexShader = 0;
-	mCurrentVertexShaderHandle = NULL;
-	mCurrentPixelShader = 0;
-	mCurrentPixelShaderHandle = NULL;
-	mCurrentComputeShader = 0;
-	mCurrentComputeShaderHandle = NULL;
-	mCurrentGeometryShader = 0;
-	mCurrentGeometryShaderHandle = NULL;
-	mCurrentDomainShader = 0;
-	mCurrentDomainShaderHandle = NULL;
-	mCurrentHullShader = 0;
-	mCurrentHullShaderHandle = NULL;
-	mCurrentDepthTarget = NULL;
-	mCurrentPSUAVStartSlot = 0;
-	mCurrentPSNumUAVs = 0;
 	mCurrentInputLayout = nullptr;
+	ResetTrackedState();
 }
 
 HackerContext::~HackerContext()
 {
 	ClearCurrentInputLayout();
+}
+
+void HackerContext::ResetTrackedState()
+{
+	ClearCurrentInputLayout();
+	memset(mCurrentVertexBuffers, 0, sizeof(mCurrentVertexBuffers));
+	mCurrentIndexBuffer = 0;
+	memset(mCurrentVertexBuffersBindings, 0, sizeof(mCurrentVertexBuffersBindings));
+	memset(&mCurrentIndexBufferBinding, 0, sizeof(mCurrentIndexBufferBinding));
+	mCurrentRenderTargets.clear();
+	mCurrentDepthTarget = NULL;
+	mCurrentPSUAVStartSlot = 0;
+	mCurrentPSNumUAVs = 0;
+
+	mCurrentVertexShader = 0;
+	mCurrentVertexShaderHandle = NULL;
+	mCurrentHullShader = 0;
+	mCurrentHullShaderHandle = NULL;
+	mCurrentDomainShader = 0;
+	mCurrentDomainShaderHandle = NULL;
+	mCurrentGeometryShader = 0;
+	mCurrentGeometryShaderHandle = NULL;
+	mCurrentPixelShader = 0;
+	mCurrentPixelShaderHandle = NULL;
+	mCurrentComputeShader = 0;
+	mCurrentComputeShaderHandle = NULL;
 }
 
 void HackerContext::ClearCurrentInputLayout()
@@ -2133,14 +2140,16 @@ STDMETHODIMP_(void) HackerContext::ExecuteCommandList(THIS_
 	__in  ID3D11CommandList *pCommandList,
 	BOOL RestoreContextState)
 {
-	if (G->deferred_contexts_enabled)
-		mOrigContext1->ExecuteCommandList(pCommandList, RestoreContextState);
+	if (!G->deferred_contexts_enabled)
+		return;
+
+	mOrigContext1->ExecuteCommandList(pCommandList, RestoreContextState);
 
 	if (!RestoreContextState) {
 		// This is equivalent to calling ClearState() afterwards, so we
 		// need to rebind the 3DMigoto resources now. See also
 		// FinishCommandList's RestoreDeferredContextState:
-		ClearCurrentInputLayout();
+		ResetTrackedState();
 		Bind3DMigotoResources();
 	}
 }
@@ -2815,8 +2824,8 @@ STDMETHODIMP_(void) HackerContext::CSGetConstantBuffers(THIS_
 
 STDMETHODIMP_(void) HackerContext::ClearState(THIS)
 {
-	ClearCurrentInputLayout();
 	mOrigContext1->ClearState();
+	ResetTrackedState();
 
 	 // ClearState() will unbind StereoParams and IniParams, so we need to
 	 // rebind them now:
@@ -2845,11 +2854,11 @@ STDMETHODIMP HackerContext::FinishCommandList(THIS_
 {
 	HRESULT ret = mOrigContext1->FinishCommandList(RestoreDeferredContextState, ppCommandList);
 
-	if (!RestoreDeferredContextState) {
+	if (SUCCEEDED(ret) && !RestoreDeferredContextState) {
 		// This is equivalent to calling ClearState() afterwards, so we
 		// need to rebind the 3DMigoto resources now. See also
 		// ExecuteCommandList's RestoreContextState:
-		ClearCurrentInputLayout();
+		ResetTrackedState();
 		Bind3DMigotoResources();
 	}
 
