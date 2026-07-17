@@ -1471,12 +1471,14 @@ STDMETHODIMP_(void) HackerContext::IASetInputLayout(THIS_
 	if (mCurrentInputLayout)
 		mCurrentInputLayout->Release();
 
-	mCurrentInputLayout = pInputLayout ? static_cast<HackerInputLayout*>(pInputLayout) : nullptr;
+	// Safe unwrap — never static_cast a possibly-foreign COM pointer.
+	mCurrentInputLayout = HackerInputLayout::FromLayout(pInputLayout);
 
 	if (mCurrentInputLayout)
 		mCurrentInputLayout->AddRef();
 
-	mOrigContext1->IASetInputLayout(mCurrentInputLayout ? mCurrentInputLayout->GetOrigInputLayout() : nullptr);
+	mOrigContext1->IASetInputLayout(
+		mCurrentInputLayout ? mCurrentInputLayout->GetOrigInputLayout() : pInputLayout);
 }
 
 STDMETHODIMP_(void) HackerContext::IASetVertexBuffers(THIS_

@@ -27,9 +27,10 @@
 // The VERSION_MAJOR and VERSION_MINOR are hand edited when versions are to change.
 // The VERSION_REVISION is automatically incremented for every Publish build.
 
+// EDHM_2DMigoto: XXMI-based build aimed at classic 3Dmigoto 1.4.x / EDHM behaviour.
 #define VERSION_MAJOR               1
-#define VERSION_MINOR               3
-#define VERSION_REVISION            16
+#define VERSION_MINOR               4
+#define VERSION_REVISION            5
  
 #define STRINGIZE2(s) #s
 #define STRINGIZE(s) STRINGIZE2(s)
@@ -39,10 +40,10 @@
                                     "." STRINGIZE(VERSION_MINOR)    \
                                     "." STRINGIZE(VERSION_REVISION) \
  
-#define VER_PRODUCTNAME_STR         "3Dmigoto"
+#define VER_PRODUCTNAME_STR         "EDHM_2DMigoto"
 #define VER_PRODUCT_VERSION         VER_FILE_VERSION
 #define VER_PRODUCT_VERSION_STR     VER_FILE_VERSION_STR
-#define VER_COPYRIGHT_STR           "Copyright (C) 2014-2019"
+#define VER_COPYRIGHT_STR           "Copyright (C) 2014-2026"
  
 #ifdef _DEBUG
   #define VER_VER_DEBUG             VS_FF_DEBUG

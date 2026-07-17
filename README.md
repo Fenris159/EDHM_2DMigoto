@@ -107,6 +107,6 @@ Details: `docs/upstream-sync.md`.
 
 ## Status
 
-- `xxmi-base` — full XXMI mirror  
-- `develop` — slimmed to the EDHM DLL build graph  
-- `main` — project scaffold until the first release merge from `develop`
+- `xxmi-base` — full XXMI mirror (background)
+- `develop` — slimmed tree for building `d3d11.dll` (+ packaging `d3dcompiler_47.dll`)
+- `main` — **scaffold only** (licenses, docs, scripts, xxmi-base updater). Merge `develop` here for the first EDHM release.
