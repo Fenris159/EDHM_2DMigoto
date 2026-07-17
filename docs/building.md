@@ -29,13 +29,15 @@ A copy is also committed under `Dependencies\d3dcompiler_47.dll` for EDHM packag
 
 ## Packaging for EDHM smoke tests
 
-Typical game-folder pair:
+Typical game-folder pair (match stock EDHM layout):
 
 ```text
-d3d11.dll
-d3dcompiler_47.dll
-d3dx.ini          (from Dependencies/ or your EDHM config tree)
+d3d11.dll              ← build this project
+d3dcompiler_47.dll     ← keep EDHM’s MS redistributable (or Dependencies/)
+d3dx.ini + EDHM-ini/ + ShaderFixes/   ← from psychicEgg/EDHM package unchanged
 ```
+
+Drop your built `d3d11.dll` over EDHM’s without modifying EDHM inis/shaders. Compatibility notes: `patches/0001-edhm-xxmi-compat.md`.
 
 Copy finished artifacts into `dist/` locally if useful (`dist/*` is gitignored except README).
 

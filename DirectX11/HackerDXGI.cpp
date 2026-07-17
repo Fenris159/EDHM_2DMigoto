@@ -245,6 +245,26 @@ void HackerSwapChain::RunFrameActions()
 	if (G->gReloadConfigPending)
 		ReloadConfig(mHackerDevice);
 
+	// EDHM auto_refresh_file_to_monitor: if the signal file's mtime changes,
+	// schedule a config reload (theme apply without requiring F11).
+	// Poll at most ~4 Hz so Present is not doing a filesystem open every frame.
+	if (G->auto_refresh_file_to_monitor[0] &&
+	    (G->gTime - G->auto_refresh_last_check_time) >= 0.25f) {
+		G->auto_refresh_last_check_time = G->gTime;
+		WIN32_FILE_ATTRIBUTE_DATA fad = {};
+		if (GetFileAttributesExW(G->auto_refresh_file_to_monitor, GetFileExInfoStandard, &fad)) {
+			FILETIME write_time = fad.ftLastWriteTime;
+			if (!G->auto_refresh_have_last_write) {
+				G->auto_refresh_last_write = write_time;
+				G->auto_refresh_have_last_write = true;
+			} else if (CompareFileTime(&write_time, &G->auto_refresh_last_write) != 0) {
+				G->auto_refresh_last_write = write_time;
+				LogInfo("auto_refresh_file_to_monitor changed - scheduling ReloadConfig\n");
+				G->gReloadConfigPending = true;
+			}
+		}
+	}
+
 	// Regular LoadConfigFile() on startup fails to properly load all resources in some edge cases 
 	// So, as bandaid solution, it has some sense to force ReloadConfig() after DLL is fully initialized
 	// This way resources will be loaded properly before modded object appear on screen and cause crash
@@ -261,6 +281,10 @@ void HackerSwapChain::RunFrameActions()
 			ReloadConfig(mHackerDevice);
 		}
 	}
+
+	// Process auto-refresh reload after mtime check (same frame)
+	if (G->gReloadConfigPending)
+		ReloadConfig(mHackerDevice);
 
 	// Draw the on-screen overlay text with hunting and informational
 	// messages, before final Present. We now do this after the shader and

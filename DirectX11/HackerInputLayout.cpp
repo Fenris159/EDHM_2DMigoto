@@ -23,10 +23,38 @@ HackerInputLayout::HackerInputLayout(ID3D11InputLayout* orig, const D3D11_INPUT_
 	}
 
 	mLayoutHash = CalculateLayoutHash();
+
+	// Mark the original layout so IASetInputLayout can safely recover this
+	// wrapper without an unchecked static_cast (game may pass our wrapper or
+	// occasionally an unwrapped/foreign layout).
+	if (mOrigLayout) {
+		HackerInputLayout* self = this;
+		mOrigLayout->SetPrivateData(GUID_HackerInputLayout, sizeof(self), &self);
+	}
+}
+
+HackerInputLayout* HackerInputLayout::FromLayout(ID3D11InputLayout* layout)
+{
+	if (!layout)
+		return nullptr;
+
+	HackerInputLayout* hacker = nullptr;
+	UINT size = sizeof(hacker);
+	// Works whether `layout` is our wrapper (GetPrivateData forwards to orig)
+	// or the original layout we created (private data set in constructor).
+	if (SUCCEEDED(layout->GetPrivateData(GUID_HackerInputLayout, &size, &hacker)) && hacker)
+		return hacker;
+
+	return nullptr;
 }
 
 HackerInputLayout::~HackerInputLayout()
 {
+	// Drop the reverse pointer so a lingering original layout cannot
+	// resolve to a freed wrapper via FromLayout().
+	if (mOrigLayout) {
+		mOrigLayout->SetPrivateData(GUID_HackerInputLayout, 0, nullptr);
+	}
 }
 
 ID3D11InputLayout* HackerInputLayout::GetOrigInputLayout() const
