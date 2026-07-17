@@ -1282,8 +1282,12 @@ HRESULT STDMETHODCALLTYPE ResourceReleaseTracker::QueryInterface(REFIID riid, _C
 {
 	LogInfo("ResourceReleaseTracker::QueryInterface(%p:%p) called with IID: %s\n", this, resource, NameFromIID(riid).c_str());
 
+	if (!ppvObject)
+		return E_POINTER;
+	*ppvObject = NULL;
+
 	// The only interface we support is IUnknown
-	if (ppvObject && IsEqualIID(riid, IID_IUnknown)) {
+	if (IsEqualIID(riid, IID_IUnknown)) {
 		AddRef();
 		*ppvObject = this;
 		return S_OK;
@@ -1888,7 +1892,7 @@ size_t RegionHashesCache::GetSize()
 
 // Invalidate a byte range by bumping page versions.
 // This avoids iterating over cache entries.
-void RegionHashesCache::Invalidate(UINT start, UINT end)
+void RegionHashesCache::Invalidate(size_t start, size_t end)
 {
 	if (page_versions.empty())
 		return;
@@ -1987,15 +1991,14 @@ void ResourceHandleInfo::SetDataCacheRegion(const void* src, size_t region_size,
 	// Invalidate only affected pages (cheap, avoids clearing the whole cache).
 	if (region_hashes_cache) {
 		size_t invalidation_end = static_cast<size_t>(offset) + region_size;
-		region_hashes_cache->Invalidate(offset,
-				invalidation_end > UINT_MAX ? UINT_MAX : static_cast<UINT>(invalidation_end));
+		region_hashes_cache->Invalidate(offset, invalidation_end);
 	}
 
 	//cached_data_hash = crc32c_hw(0, cached_data, cached_data_size);
 }
 
 uint8_t* ResourceHandleInfo::GetCachedData() {
-	return cached_data.get() + cached_data_offset;
+	return cached_data ? cached_data.get() + cached_data_offset : nullptr;
 }
 
 // Clears all cached region hashes and invalidates the CPU-side buffer snapshot.
@@ -2190,7 +2193,7 @@ uint32_t GetRegionHash(ID3D11DeviceContext* context, ID3D11Buffer* buffer, UINT 
 	}
 
 	// Check if cached buffer snapshot exists in RAM
-	if (!handle_info->cached_data_size) {
+	if (!handle_info->cached_data || !handle_info->cached_data_size) {
 		LeaveCriticalSection(&G->mCriticalSection);
 		if (custom_resource == nullptr) {
 			// Stall GPU to fetch buffer data from VRAM.

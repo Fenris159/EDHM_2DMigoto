@@ -75,6 +75,23 @@ struct LogLevelParams log_levels[] = {
 // Max expected on-screen string size, used for buffer safe calls.
 const int maxstring = 1024;
 
+static const uint8_t *LoadEmbeddedFont(HMODULE handle, int resource_id, DWORD *font_size)
+{
+	HRSRC rc = FindResource(handle, MAKEINTRESOURCE(resource_id), MAKEINTRESOURCE(SPRITEFONT));
+	if (!rc)
+		throw std::runtime_error("FindResource for embedded font failed");
+
+	HGLOBAL rc_data = LoadResource(handle, rc);
+	if (!rc_data)
+		throw std::runtime_error("LoadResource for embedded font failed");
+	*font_size = SizeofResource(handle, rc);
+	const uint8_t *font_blob = static_cast<const uint8_t*>(LockResource(rc_data));
+	if (!*font_size || !font_blob)
+		throw std::runtime_error("Loading embedded font failed");
+
+	return font_blob;
+}
+
 
 Overlay::Overlay(HackerDevice *pDevice, HackerContext *pContext, IDXGISwapChain *pSwapChain)
 {
@@ -112,9 +129,6 @@ Overlay::Overlay(HackerDevice *pDevice, HackerContext *pContext, IDXGISwapChain 
 	// now, so this is technically unecessary, but since the overlay code
 	// still accesses these it is more safer to leave this in place (more
 	// resistant to code changes in the swap chain breaking this).
-	mHackerDevice->AddRef();
-	mHackerContext->AddRef();
-
 	// The courierbold.spritefont is now included as binary resource data attached
 	// to the d3d11.dll.  We can fetch that resource and pass it to new SpriteFont
 	// to avoid having to drag around the font file. We get the module
@@ -125,10 +139,8 @@ Overlay::Overlay(HackerDevice *pDevice, HackerContext *pContext, IDXGISwapChain 
 	GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
 			| GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
 			(LPCWSTR)LogOverlay, &handle);
-	HRSRC rc = FindResource(handle, MAKEINTRESOURCE(IDR_COURIERBOLD), MAKEINTRESOURCE(SPRITEFONT));
-	HGLOBAL rcData = LoadResource(handle, rc);
-	DWORD fontSize = SizeofResource(handle, rc);
-	uint8_t const* fontBlob = static_cast<const uint8_t*>(LockResource(rcData));
+	DWORD fontSize;
+	uint8_t const* fontBlob = LoadEmbeddedFont(handle, IDR_COURIERBOLD, &fontSize);
 
 	// We want to use the original device and original context here, because
 	// these will be used by DirectXTK to generate VertexShaders and PixelShaders
@@ -141,18 +153,12 @@ Overlay::Overlay(HackerDevice *pDevice, HackerContext *pContext, IDXGISwapChain 
 	// we want something a little smaller, and variable width. Liberation
 	// Sans has essentially the same metrics as Arial,
 	// but is not encumbered.
-	rc = FindResource(handle, MAKEINTRESOURCE(IDR_ARIAL), MAKEINTRESOURCE(SPRITEFONT));
-	rcData = LoadResource(handle, rc);
-	fontSize = SizeofResource(handle, rc);
-	fontBlob = static_cast<const uint8_t*>(LockResource(rcData));
+	fontBlob = LoadEmbeddedFont(handle, IDR_ARIAL, &fontSize);
 	mFontNotifications.reset(new DirectX::SpriteFont(mOrigDevice, fontBlob, fontSize));
 	mFontNotifications->SetDefaultCharacter(L'?');
 
 	// Smaller monospaced font for profiling text
-	rc = FindResource(handle, MAKEINTRESOURCE(IDR_COURIERSMALL), MAKEINTRESOURCE(SPRITEFONT));
-	rcData = LoadResource(handle, rc);
-	fontSize = SizeofResource(handle, rc);
-	fontBlob = static_cast<const uint8_t*>(LockResource(rcData));
+	fontBlob = LoadEmbeddedFont(handle, IDR_COURIERSMALL, &fontSize);
 	mFontProfiling.reset(new DirectX::SpriteFont(mOrigDevice, fontBlob, fontSize));
 	mFontProfiling->SetDefaultCharacter(L'?');
 
@@ -177,6 +183,10 @@ Overlay::Overlay(HackerDevice *pDevice, HackerContext *pContext, IDXGISwapChain 
 		throw std::runtime_error("CreateInputLayout failed");
 
 	mPrimitiveBatch.reset(new DirectX::PrimitiveBatch<DirectX::VertexPositionColor>(mOrigContext));
+
+	// Take references after setup so a failed resource allocation cannot leak them.
+	mHackerDevice->AddRef();
+	mHackerContext->AddRef();
 }
 
 Overlay::~Overlay()

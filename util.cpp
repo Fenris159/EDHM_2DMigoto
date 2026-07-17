@@ -298,15 +298,18 @@ std::string NameFromIID(IID id)
 	if (__uuidof(IDXGISwapChain4) == id)		// dxgi1_5 3D585D5A-BD4A-489E-B1F4-3DBCB6452FFB
 		return "IDXGISwapChain4";
 
-	// For unknown IIDs lets return the hex string.
-	// Converting from wchar_t to string using stackoverflow suggestion.
+	// For unknown IIDs lets return the hex string. GUID strings are ASCII, but
+	// use an explicit conversion so wchar_t truncation is never implicit.
 
 	std::string iidString;
 	wchar_t wiid[128];
 	if (SUCCEEDED(StringFromGUID2(id, wiid, 128)))
 	{
-		std::wstring convert = std::wstring(wiid);
-		iidString = std::string(convert.begin(), convert.end());
+		char iid[128];
+		if (WideCharToMultiByte(CP_UTF8, 0, wiid, -1, iid, ARRAYSIZE(iid), NULL, NULL))
+			iidString = iid;
+		else
+			iidString = "unknown";
 	}
 	else
 	{
@@ -515,7 +518,8 @@ void save_om_state(ID3D11DeviceContext *context, struct OMState *state)
 
 	// Finally get all the UAVs. Since we already retrieved the RTVs and
 	// DSV we can skip getting them:
-	context->OMGetRenderTargetsAndUnorderedAccessViews(0, NULL, NULL, state->UAVStartSlot, state->NumUAVs, state->uavs);
+	if (state->NumUAVs)
+		context->OMGetRenderTargetsAndUnorderedAccessViews(0, NULL, NULL, state->UAVStartSlot, state->NumUAVs, state->uavs);
 }
 
 void restore_om_state(ID3D11DeviceContext *context, struct OMState *state)
@@ -608,13 +612,13 @@ static LONG WINAPI migoto_exception_filter(_In_ struct _EXCEPTION_POINTERS *Exce
 
 		// Do not beep, do not write dumps — let the debugger/runtime handle it.
 		if (LogFile) {
-			static unsigned ignore_count = 0;
-			if (ignore_count < 20)
+			static volatile LONG ignore_count = 0;
+			LONG ignored = InterlockedIncrement(&ignore_count) - 1;
+			if (ignored < 20)
 				LogInfo("Crash handler: ignoring non-fatal exception 0x%08x (%s)\n",
 						code, continuable ? "continuing" : "non-continuable, searching");
-			else if (ignore_count == 20)
+			else if (ignored == 20)
 				LogInfo("Crash handler: further non-fatal exception spam suppressed in log\n");
-			ignore_count++;
 			fflush(LogFile);
 		}
 		return continuable ? EXCEPTION_CONTINUE_EXECUTION : EXCEPTION_CONTINUE_SEARCH;

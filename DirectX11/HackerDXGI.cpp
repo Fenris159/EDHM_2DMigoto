@@ -1283,21 +1283,21 @@ STDMETHODIMP HackerUpscalingSwapChain::ResizeTarget(THIS_
 {
 	LogInfo("HackerUpscalingSwapChain::ResizeTarget(%s@%p) called\n", type_name(this), this);
 
-	if (pNewTargetParameters != nullptr)
-	{
-		// TODO: not sure if it belongs here, in the resize buffers function or in both
-		// or maybe it is better to put it in the getviewport function?
-		// Require in case the software mouse and upscaling are on at the same time
-		G->GAME_INTERNAL_WIDTH = pNewTargetParameters->Width;
-		G->GAME_INTERNAL_HEIGHT = pNewTargetParameters->Height;
-	}
+	if (!pNewTargetParameters)
+		return DXGI_ERROR_INVALID_CALL;
+
+	// TODO: not sure if it belongs here, in the resize buffers function or in both
+	// or maybe it is better to put it in the getviewport function?
+	// Require in case the software mouse and upscaling are on at the same time
+	G->GAME_INTERNAL_WIDTH = pNewTargetParameters->Width;
+	G->GAME_INTERNAL_HEIGHT = pNewTargetParameters->Height;
 
 	// Some games like Witcher seems to drop fullscreen everytime the resizetarget is called (original one)
 	// Some other games seems to require the function 
 	// I did it the way the faked texture mode (upscale_mode == 1) dont call resize target
 	// the other mode does
 
-	HRESULT hr;
+	HRESULT hr = DXGI_ERROR_INVALID_CALL;
 
 	if (G->SCREEN_UPSCALING == 2)
 	{
