@@ -251,6 +251,35 @@ HackerDevice::HackerDevice(ID3D11Device1 *pDevice1, ID3D11DeviceContext1 *pConte
 	mUnknown = register_hacker_device(this);
 }
 
+void HackerDevice::SetZBufferResourceView(ID3D11ShaderResourceView *view)
+{
+	ID3D11ShaderResourceView *old_view;
+
+	if (view)
+		view->AddRef();
+
+	EnterCriticalSectionPretty(&G->mCriticalSection);
+	old_view = mZBufferResourceView;
+	mZBufferResourceView = view;
+	LeaveCriticalSection(&G->mCriticalSection);
+
+	if (old_view)
+		old_view->Release();
+}
+
+ID3D11ShaderResourceView *HackerDevice::GetZBufferResourceView()
+{
+	ID3D11ShaderResourceView *view;
+
+	EnterCriticalSectionPretty(&G->mCriticalSection);
+	view = mZBufferResourceView;
+	if (view)
+		view->AddRef();
+	LeaveCriticalSection(&G->mCriticalSection);
+
+	return view;
+}
+
 HRESULT HackerDevice::CreateIniParamResources()
 {
 	// No longer making this conditional. We are pretty well dependent on
@@ -1478,6 +1507,7 @@ STDMETHODIMP_(ULONG) HackerDevice::Release(THIS)
 		LogInfo("  deleting self\n");
 
 		unregister_hacker_device(this);
+		SetZBufferResourceView(NULL);
 
 		if (mIniResourceView)
 		{
@@ -1578,6 +1608,7 @@ HRESULT STDMETHODCALLTYPE HackerDevice::QueryInterface(
 
 		if (!G->enable_platform_update) {
 			LogInfo("  returns E_NOINTERFACE as error for ID3D11Device1 (try allow_platform_update=1 if the game refuses to run).\n");
+			reinterpret_cast<IUnknown*>(*ppvObject)->Release();
 			*ppvObject = NULL;
 			return E_NOINTERFACE;
 		}
@@ -1745,8 +1776,11 @@ STDMETHODIMP HackerDevice::CreateQuery(THIS_
 	__out_opt  ID3D11Query **ppQuery)
 {
 	HRESULT hr = mOrigDevice1->CreateQuery(pQueryDesc, ppQuery);
-	if (G->hunting && SUCCEEDED(hr) && ppQuery && *ppQuery)
+	if (G->hunting && SUCCEEDED(hr) && ppQuery && *ppQuery) {
+		EnterCriticalSectionPretty(&G->mCriticalSection);
 		G->mQueryTypes[*ppQuery] = AsyncQueryType::QUERY;
+		LeaveCriticalSection(&G->mCriticalSection);
+	}
 	return hr;
 }
 
@@ -1757,8 +1791,11 @@ STDMETHODIMP HackerDevice::CreatePredicate(THIS_
 	__out_opt  ID3D11Predicate **ppPredicate)
 {
 	HRESULT hr = mOrigDevice1->CreatePredicate(pPredicateDesc, ppPredicate);
-	if (G->hunting && SUCCEEDED(hr) && ppPredicate && *ppPredicate)
+	if (G->hunting && SUCCEEDED(hr) && ppPredicate && *ppPredicate) {
+		EnterCriticalSectionPretty(&G->mCriticalSection);
 		G->mQueryTypes[*ppPredicate] = AsyncQueryType::PREDICATE;
+		LeaveCriticalSection(&G->mCriticalSection);
+	}
 	return hr;
 }
 
@@ -1769,8 +1806,11 @@ STDMETHODIMP HackerDevice::CreateCounter(THIS_
 	__out_opt  ID3D11Counter **ppCounter)
 {
 	HRESULT hr = mOrigDevice1->CreateCounter(pCounterDesc, ppCounter);
-	if (G->hunting && SUCCEEDED(hr) && ppCounter && *ppCounter)
+	if (G->hunting && SUCCEEDED(hr) && ppCounter && *ppCounter) {
+		EnterCriticalSectionPretty(&G->mCriticalSection);
 		G->mQueryTypes[*ppCounter] = AsyncQueryType::COUNTER;
+		LeaveCriticalSection(&G->mCriticalSection);
+	}
 	return hr;
 }
 
@@ -2066,9 +2106,9 @@ STDMETHODIMP HackerDevice::CreateBuffer(THIS_
 
 	if (hr == S_OK && ppBuffer && *ppBuffer)
 	{
+		ResourceReleaseTracker::Attach(*ppBuffer);
 		EnterCriticalSectionPretty(&G->mResourcesLock);
 			ResourceHandleInfo *handle_info = &G->mResources[*ppBuffer];
-			new ResourceReleaseTracker(*ppBuffer);
 			handle_info->type = D3D11_RESOURCE_DIMENSION_BUFFER;
 			handle_info->hash = hash;
 			handle_info->orig_hash = hash;
@@ -2121,9 +2161,9 @@ STDMETHODIMP HackerDevice::CreateTexture1D(THIS_
 
 	if (hr == S_OK && ppTexture1D && *ppTexture1D)
 	{
+		ResourceReleaseTracker::Attach(*ppTexture1D);
 		EnterCriticalSectionPretty(&G->mResourcesLock);
 			ResourceHandleInfo *handle_info = &G->mResources[*ppTexture1D];
-			new ResourceReleaseTracker(*ppTexture1D);
 			handle_info->type = D3D11_RESOURCE_DIMENSION_TEXTURE1D;
 			handle_info->hash = hash;
 			handle_info->orig_hash = hash;
@@ -2235,11 +2275,11 @@ STDMETHODIMP HackerDevice::CreateTexture2D(THIS_
 	if (ppTexture2D) LogDebug("  returns result = %x, handle = %p\n", hr, *ppTexture2D);
 
 	// Register texture. Every one seen.
-	if (hr == S_OK && ppTexture2D)
+	if (hr == S_OK && ppTexture2D && *ppTexture2D)
 	{
+		ResourceReleaseTracker::Attach(*ppTexture2D);
 		EnterCriticalSectionPretty(&G->mResourcesLock);
 			ResourceHandleInfo *handle_info = &G->mResources[*ppTexture2D];
-			new ResourceReleaseTracker(*ppTexture2D);
 			handle_info->type = D3D11_RESOURCE_DIMENSION_TEXTURE2D;
 			handle_info->hash = hash;
 			handle_info->orig_hash = hash;
@@ -2304,11 +2344,11 @@ STDMETHODIMP HackerDevice::CreateTexture3D(THIS_
 	UnlockResourceCreationMode();
 
 	// Register texture.
-	if (hr == S_OK && ppTexture3D)
+	if (hr == S_OK && ppTexture3D && *ppTexture3D)
 	{
+		ResourceReleaseTracker::Attach(*ppTexture3D);
 		EnterCriticalSectionPretty(&G->mResourcesLock);
 			ResourceHandleInfo *handle_info = &G->mResources[*ppTexture3D];
-			new ResourceReleaseTracker(*ppTexture3D);
 			handle_info->type = D3D11_RESOURCE_DIMENSION_TEXTURE3D;
 			handle_info->hash = hash;
 			handle_info->orig_hash = hash;
@@ -2344,15 +2384,19 @@ STDMETHODIMP HackerDevice::CreateShaderResourceView(THIS_
 	// Check for depth buffer view.
 	if (hr == S_OK && G->ZBufferHashToInject && ppSRView)
 	{
+		bool z_buffer_found = false;
+
 		EnterCriticalSectionPretty(&G->mResourcesLock);
 		unordered_map<ID3D11Resource *, ResourceHandleInfo>::iterator i = lookup_resource_handle_info(pResource);
 		if (i != G->mResources.end() && i->second.hash == G->ZBufferHashToInject)
 		{
 			LogInfo("  resource view of z buffer found: handle = %p, hash = %08lx\n", *ppSRView, i->second.hash);
-
-			mZBufferResourceView = *ppSRView;
+			z_buffer_found = true;
 		}
 		LeaveCriticalSection(&G->mResourcesLock);
+
+		if (z_buffer_found)
+			SetZBufferResourceView(*ppSRView);
 	}
 
 	LogDebug("  returns result = %x\n", hr);
@@ -2389,17 +2433,35 @@ static char* hash_whitelisted_sections[] = {
 
 static uint32_t hash_shader_bytecode(struct dxbc_header *header, SIZE_T BytecodeLength)
 {
-	uint32_t *offsets = (uint32_t*)((char*)header + sizeof(struct dxbc_header));
+	uint32_t *offsets;
 	struct section_header *section;
 	unsigned i, j;
 	uint32_t hash = 0;
+	SIZE_T offsets_size;
+	SIZE_T section_offset;
+	SIZE_T section_data_size;
 
-	if (BytecodeLength < sizeof(struct dxbc_header) + header->num_sections*sizeof(uint32_t))
+	if (BytecodeLength < sizeof(struct dxbc_header) || strncmp(header->signature, "DXBC", 4))
 		return 0;
 
+	if (header->size < sizeof(struct dxbc_header) || header->size > BytecodeLength)
+		return 0;
+
+	if (header->num_sections > (header->size - sizeof(struct dxbc_header)) / sizeof(uint32_t))
+		return 0;
+	offsets_size = header->num_sections * sizeof(uint32_t);
+	offsets = (uint32_t*)((char*)header + sizeof(struct dxbc_header));
+
 	for (i = 0; i < header->num_sections; i++) {
-		section = (struct section_header*)((char*)header + offsets[i]);
-		if (BytecodeLength < (char*)section - (char*)header + sizeof(struct section_header) + section->size)
+		section_offset = offsets[i];
+		if (section_offset < sizeof(struct dxbc_header) + offsets_size ||
+			section_offset > header->size ||
+			header->size - section_offset < sizeof(struct section_header))
+			return 0;
+
+		section = (struct section_header*)((char*)header + section_offset);
+		section_data_size = header->size - section_offset - sizeof(struct section_header);
+		if (section->size > section_data_size)
 			return 0;
 
 		for (j = 0; j < ARRAYSIZE(hash_whitelisted_sections); j++) {
@@ -2688,7 +2750,9 @@ STDMETHODIMP HackerDevice::CreateDeferredContext(THIS_
 		analyse_iunknown(*ppDeferredContext);
 		ID3D11DeviceContext1 *origContext1;
 		HRESULT res = (*ppDeferredContext)->QueryInterface(IID_PPV_ARGS(&origContext1));
-		if (FAILED(res))
+		if (SUCCEEDED(res))
+			(*ppDeferredContext)->Release();
+		else
 			origContext1 = static_cast<ID3D11DeviceContext1*>(*ppDeferredContext);
 		HackerContext *hackerContext = HackerContextFactory(mRealOrigDevice1, origContext1);
 		hackerContext->SetHackerDevice(this);

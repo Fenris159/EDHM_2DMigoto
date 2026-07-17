@@ -373,19 +373,19 @@ BOOL WINAPI DllMain(
 			break;
 
 		case DLL_PROCESS_DETACH:
+			// During process termination Windows has already stopped the other
+			// threads and will reclaim process resources. Avoid hook removal,
+			// TLS cleanup, file I/O and settings writes under the loader lock.
+			if (lpvReserved != NULL)
+				break;
+
 			RemoveHooks();
 			if (tls_idx != TLS_OUT_OF_INDEXES) {
-				// FIXME: If we are being dynamically unloaded
-				// (lpvReserved == NULL), we should delete the
-				// TLS structure from all other threads, but we
-				// don't have an easy way to get that at the
-				// moment. On program termination (lpvReserved
-				// != NULL) we are not permitted to do that, so
-				// for now just release the TLS structure from
-				// the current thread (if allocated) and
-				// release the TLS index allocated for the DLL.
+				// On dynamic unload we do not have a safe way to visit other
+				// threads, so release the current thread's value and the slot.
 				delete TlsGetValue(tls_idx);
 				TlsFree(tls_idx);
+				tls_idx = TLS_OUT_OF_INDEXES;
 			}
 			DestroyDLL();
 			break;
