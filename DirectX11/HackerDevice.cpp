@@ -2106,9 +2106,9 @@ STDMETHODIMP HackerDevice::CreateBuffer(THIS_
 
 	if (hr == S_OK && ppBuffer && *ppBuffer)
 	{
+		ResourceReleaseTracker::Attach(*ppBuffer);
 		EnterCriticalSectionPretty(&G->mResourcesLock);
 			ResourceHandleInfo *handle_info = &G->mResources[*ppBuffer];
-			new ResourceReleaseTracker(*ppBuffer);
 			handle_info->type = D3D11_RESOURCE_DIMENSION_BUFFER;
 			handle_info->hash = hash;
 			handle_info->orig_hash = hash;
@@ -2161,9 +2161,9 @@ STDMETHODIMP HackerDevice::CreateTexture1D(THIS_
 
 	if (hr == S_OK && ppTexture1D && *ppTexture1D)
 	{
+		ResourceReleaseTracker::Attach(*ppTexture1D);
 		EnterCriticalSectionPretty(&G->mResourcesLock);
 			ResourceHandleInfo *handle_info = &G->mResources[*ppTexture1D];
-			new ResourceReleaseTracker(*ppTexture1D);
 			handle_info->type = D3D11_RESOURCE_DIMENSION_TEXTURE1D;
 			handle_info->hash = hash;
 			handle_info->orig_hash = hash;
@@ -2275,11 +2275,11 @@ STDMETHODIMP HackerDevice::CreateTexture2D(THIS_
 	if (ppTexture2D) LogDebug("  returns result = %x, handle = %p\n", hr, *ppTexture2D);
 
 	// Register texture. Every one seen.
-	if (hr == S_OK && ppTexture2D)
+	if (hr == S_OK && ppTexture2D && *ppTexture2D)
 	{
+		ResourceReleaseTracker::Attach(*ppTexture2D);
 		EnterCriticalSectionPretty(&G->mResourcesLock);
 			ResourceHandleInfo *handle_info = &G->mResources[*ppTexture2D];
-			new ResourceReleaseTracker(*ppTexture2D);
 			handle_info->type = D3D11_RESOURCE_DIMENSION_TEXTURE2D;
 			handle_info->hash = hash;
 			handle_info->orig_hash = hash;
@@ -2344,11 +2344,11 @@ STDMETHODIMP HackerDevice::CreateTexture3D(THIS_
 	UnlockResourceCreationMode();
 
 	// Register texture.
-	if (hr == S_OK && ppTexture3D)
+	if (hr == S_OK && ppTexture3D && *ppTexture3D)
 	{
+		ResourceReleaseTracker::Attach(*ppTexture3D);
 		EnterCriticalSectionPretty(&G->mResourcesLock);
 			ResourceHandleInfo *handle_info = &G->mResources[*ppTexture3D];
-			new ResourceReleaseTracker(*ppTexture3D);
 			handle_info->type = D3D11_RESOURCE_DIMENSION_TEXTURE3D;
 			handle_info->hash = hash;
 			handle_info->orig_hash = hash;

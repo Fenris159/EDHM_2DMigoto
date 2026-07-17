@@ -1,6 +1,7 @@
 #include "ResourceHash.h"
 
 #include <INITGUID.h>
+#include <new>
 #include "log.h"
 #include "util.h"
 #include "globals.h"
@@ -1273,9 +1274,22 @@ DEFINE_GUID(ResourceReleaseTrackerGuid,
 ResourceReleaseTracker::ResourceReleaseTracker(ID3D11Resource *resource) :
 	resource(resource)
 {
-	ref = 0;
-	HRESULT hr = resource->SetPrivateDataInterface(ResourceReleaseTrackerGuid, this);
-	// LogDebug("ResourceReleaseTracker %p tracking %p: 0x%x\n", this, resource, hr);
+	ref = 1;
+}
+
+HRESULT ResourceReleaseTracker::Attach(ID3D11Resource *resource)
+{
+	if (!resource)
+		return E_INVALIDARG;
+
+	ResourceReleaseTracker *tracker = new (std::nothrow) ResourceReleaseTracker(resource);
+	if (!tracker)
+		return E_OUTOFMEMORY;
+
+	HRESULT hr = resource->SetPrivateDataInterface(ResourceReleaseTrackerGuid, tracker);
+	tracker->Release();
+	// LogDebug("ResourceReleaseTracker %p tracking %p: 0x%x\n", tracker, resource, hr);
+	return hr;
 }
 
 HRESULT STDMETHODCALLTYPE ResourceReleaseTracker::QueryInterface(REFIID riid, _COM_Outptr_ void **ppvObject)

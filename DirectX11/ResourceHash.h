@@ -500,9 +500,10 @@ class ResourceReleaseTracker : public IUnknown
 {
 	std::atomic_ulong ref;
 	ID3D11Resource *resource;
+	ResourceReleaseTracker(ID3D11Resource *resource);
 
 public:
-	ResourceReleaseTracker(ID3D11Resource *resource);
+	static HRESULT Attach(ID3D11Resource *resource);
 
 	HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, _COM_Outptr_ void **ppvObject);
 	ULONG STDMETHODCALLTYPE AddRef(void);
