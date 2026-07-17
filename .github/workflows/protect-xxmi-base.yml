@@ -1,0 +1,27 @@
+# Fail any PR that targets xxmi-base. That branch is an upstream XXMI mirror only
+# (Update xxmi-base workflow / read-only comparison), not a feature branch.
+name: Protect xxmi-base
+
+on:
+  pull_request:
+    branches: [xxmi-base]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  reject:
+    name: Reject PRs into xxmi-base
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail with guidance
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          msg='xxmi-base is a read-only XXMI mirror for comparison. Do not open feature PRs into it. Work on develop (or a feature branch) and merge to main. Advance the mirror via Actions → Update xxmi-base only.'
+          echo "::error::$msg"
+          if command -v gh >/dev/null 2>&1; then
+            gh pr comment "${{ github.event.pull_request.number }}" --body "$msg" || true
+          fi
+          exit 1
