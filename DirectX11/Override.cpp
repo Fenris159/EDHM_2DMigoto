@@ -510,6 +510,11 @@ void Override::Toggle(HackerDevice *device)
 	return Activate(device, true);
 }
 
+void KeyOverride::ParseIniSection(LPCWSTR section)
+{
+	Override::ParseIniSection(section);
+}
+
 void KeyOverride::DownEvent(HackerDevice *device)
 {
 	if (type == KeyOverrideType::TOGGLE)

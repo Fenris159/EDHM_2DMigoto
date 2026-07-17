@@ -115,6 +115,7 @@ private:
 	ID3D11DeviceContext1 *mOrigContext1;
 	ID3D11DeviceContext1 *mRealOrigContext1;
 	HackerDevice *mHackerDevice;
+	bool mOwnsHackerDeviceReference;
 
 	// These are per-context, moved from globals.h:
 	uint32_t mCurrentVertexBuffers[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
@@ -142,6 +143,7 @@ private:
 
 	// These private methods are utility routines for HackerContext.
 	void ClearCurrentInputLayout();
+	void ResetTrackedState();
 	void BeforeDraw(DrawContext &data);
 	void AfterDraw(DrawContext &data);
 	bool BeforeDispatch(DispatchContext *context);
@@ -226,7 +228,7 @@ public:
 	HackerContext(ID3D11Device1 *pDevice1, ID3D11DeviceContext1 *pContext1);
 	~HackerContext();
 
-	void SetHackerDevice(HackerDevice *pDevice);
+	void SetHackerDevice(HackerDevice *pDevice, bool ownsReference = false);
 	HackerDevice* GetHackerDevice();
 	void Bind3DMigotoResources();
 	void InitIniParams();

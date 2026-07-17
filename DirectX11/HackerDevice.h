@@ -110,9 +110,11 @@ private:
 		/* [annotation] */
 		__out_opt  ID3D11Shader **ppShader,
 		wchar_t *shaderType);
+	void SetZBufferResourceView(ID3D11ShaderResourceView *view);
+	ID3D11ShaderResourceView *mZBufferResourceView;
 
 public:
-	ID3D11ShaderResourceView *mZBufferResourceView;
+	ID3D11ShaderResourceView *GetZBufferResourceView();
 	ID3D11Texture1D *mIniTexture;
 	ID3D11ShaderResourceView *mIniResourceView;
 

@@ -148,12 +148,12 @@ public:
 				transition_type, release_transition_type,
 				is_conditional, condition,
 				activate_command_list, deactivate_command_list),
-		type(type)
+		 type(type)
 	{}
 
+	void ParseIniSection(LPCWSTR section) override;
 	void DownEvent(HackerDevice *device);
 	void UpEvent(HackerDevice *device);
-#pragma warning(suppress : 4250) // Suppress ParseIniSection inheritance via dominance warning
 };
 
 class KeyOverrideCycle : public KeyOverrideBase
