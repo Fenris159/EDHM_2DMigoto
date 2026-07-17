@@ -68,6 +68,82 @@ EDHM Linux setup.
 
 Place EDHM next to `EliteDangerous64.exe`, not only next to the FDev launcher.
 
+## Flatpak Steam
+
+Flatpak does not block symbolic links, but Steam must be allowed to read the
+link target. A `ShaderFixes` link can therefore appear correctly beside
+`EliteDangerous64.exe` while still being unusable from inside Steam's sandbox.
+
+Use one of the following installation methods. The physical-directory method
+has the fewest permission and path dependencies.
+
+### Method 1: install physical directories (recommended)
+
+Install or copy the EDHM runtime files directly into the Elite product folder
+that contains `EliteDangerous64.exe`. In particular, these must be real
+directories rather than symbolic links:
+
+```text
+elite-dangerous-odyssey-64/
+|-- EliteDangerous64.exe
+|-- d3d11.dll
+|-- d3dx.ini
+|-- EDHM-ini/
+`-- ShaderFixes/
+```
+
+Steam already has access to its game directory, so no additional Flatpak
+filesystem permission is required. If EDHM-UI maintains a separate working
+copy, configure it to install or synchronize the active files into these real
+directories. Copying them only once will not carry later theme changes across
+unless EDHM-UI updates the copies.
+
+Confirm that neither directory is a symbolic link:
+
+```bash
+test -d "$GAME_DIR/ShaderFixes" && ! test -L "$GAME_DIR/ShaderFixes"
+test -d "$GAME_DIR/EDHM-ini" && ! test -L "$GAME_DIR/EDHM-ini"
+```
+
+Set `GAME_DIR` to the product folder shown by Steam's **Browse Local Files**
+action before running the checks.
+
+### Method 2: allow Steam to read symlink targets
+
+Keep the EDHM-UI symbolic links, but grant the Steam Flatpak read-only access
+to their real target directory. First resolve the links from the Elite product
+folder:
+
+```bash
+GAME_DIR="/absolute/path/to/elite-dangerous-odyssey-64"
+readlink -f "$GAME_DIR/ShaderFixes"
+readlink -f "$GAME_DIR/EDHM-ini"
+```
+
+Find the narrowest parent directory that contains both resolved targets, then
+grant Steam access to that real path. Do not pass the symlink path itself:
+
+```bash
+TARGET_PARENT="/absolute/path/to/EDHM-UI-managed-files"
+flatpak override --user \
+  --filesystem="$TARGET_PARENT:ro" \
+  com.valvesoftware.Steam
+```
+
+Completely exit and restart Steam after changing the override. This method is
+also required when the target is below another application's private
+`~/.var/app/<app-id>` directory; seeing the link in the game folder does not
+make that target visible inside Steam's sandbox.
+
+If only one directory is linked, grant access only to that directory. Avoid
+`--filesystem=home` or `--filesystem=host` because EDHM does not need access to
+the user's entire home directory or host filesystem.
+
+With either method, the Proton launch option from the previous section is
+still required. Filesystem access and `WINEDLLOVERRIDES` solve separate parts
+of startup: the former exposes EDHM's shader files, while the latter tells
+Wine to load EDHM's local `d3d11.dll`.
+
 ## Did EDHM load?
 
 After a launch (even a crash), open `d3d11_log.txt` in the game folder.
@@ -77,7 +153,13 @@ After a launch (even a crash), open `d3d11_log.txt` in the game folder.
 - **Log exists** -> read the `host compatibility report` and chained D3D11 path.
 
 The report also warns about `PROTON_USE_WINED3D=1` (OpenGL instead of DXVK) and
-`PROTON_NO_D3D11=1` (incompatible with Elite and EDHM).
+`PROTON_NO_D3D11=1` (incompatible with Elite and EDHM), and records whether a
+Flatpak environment was visible to the game process.
+
+During configuration loading, look for `Shader override directory available`.
+An `inaccessible` warning with a Win32 error means the DLL loaded but Wine could
+not traverse `ShaderFixes`; for Flatpak, verify the physical-directory install
+or the real symlink-target permission described above.
 
 ## Keep the setup minimal
 

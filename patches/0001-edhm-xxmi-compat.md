@@ -62,24 +62,50 @@ auto_refresh_file_to_monitor=EDHM-ini/ThemeSettings.json
 
 Stock bo3b / XXMI source did not implement this key. EDHM_UI uses it as a **signal** to re-read config when themes change.
 
-**Fix:** watch file mtime each Present; on change, set `gReloadConfigPending`.
+**Fix:** watch file mtime from Present; on change, set `gReloadConfigPending`. Poll interval is **2.0s** (hardcoded, matching EDHM’s shipped `d3d11.dll`; not an ini key).
 
-### 4. Unsafe `HackerInputLayout` cast
+### 4. Unsafe / exposed `HackerInputLayout` COM wrapper
 
-XXMI wraps input layouts and used `static_cast<HackerInputLayout*>` on every `IASetInputLayout`. Foreign layouts → UB / wrong orig pointer.
+XXMI wraps input layouts as a full `ID3D11InputLayout` COM object and **returns
+that wrapper to the game** from `CreateInputLayout`. It also used
+`static_cast<HackerInputLayout*>` on `IASetInputLayout` (foreign layouts → UB).
 
-**Fix:** mark originals with private data; unwrap via `HackerInputLayout::FromLayout`.
+Handing a non-D3D layout pointer to real `System32\d3d11.dll` (any path that does
+not unwrap) causes access violations during heavy UI/world load (Elite:
+`ACCESS_VIOLATION` read at null+offset inside system `d3d11.dll`, typically after
+location entry). Stock 3Dmigoto 1.4.5 / EDHM never exposed a layout COM wrapper.
+
+**Fix (0.1.0 partial + 0.1.1):**
+
+1. Mark the **original** layout with private data → side-car cache
+   (`HackerInputLayout::FromLayout`).
+2. **Do not** replace `*ppInputLayout` with the wrapper; the game always holds
+   a real D3D layout.
+3. `IASetInputLayout` / `IAGetInputLayout` bind and return real layouts only.
+4. Side-car `Release` must not `Release` the game’s Create ref on the original.
 
 ### 5. Version identity
 
-`version.h` still said 1.3.16 / “3Dmigoto”. EDHM ships 1.4.5. Updated product identity to **EDHM_2DMigoto 1.4.5** for clearer comparison (not a claim of binary identity with bo3b 1.4.5).
+`version.h` originally said 1.3.16 / “3Dmigoto” (XXMI). Product name is
+**EDHM_2DMigoto**. From package **0.1.1** onward, `VERSION_MAJOR/MINOR/REVISION`
+match the package SemVer in root `VERSION` (e.g. `0.1.1`), not classic 3Dmigoto
+`1.4.5` labeling — DLL Properties and `vX.Y.Z` tags stay aligned.
+
+### 6. `CreateRasterizerState1` scissor flag (0.1.1)
+
+`rasterizer_disable_scissor` was only applied on `CreateRasterizerState`. Elite
+may create RS via **DESC1**. **Fix:** apply the same scissor-disable on
+`CreateRasterizerState1`. Both paths modify a local descriptor copy rather than
+writing through the caller's `const` pointer.
 
 ## Files touched
 
 - `DirectX11/ResourceHash.cpp` — classic hash-vs-fuzzy precedence  
 - `DirectX11/IniHandler.cpp` — include default, auto_refresh parse, fuzzy opt-in  
 - `DirectX11/HackerDXGI.cpp` — auto_refresh mtime check  
-- `DirectX11/HackerInputLayout.*` / `HackerContext.cpp` — safe unwrap  
+- `DirectX11/HackerInputLayout.*` / `HackerContext.cpp` / `FrameAnalysis.cpp` —
+  layout side-car, no COM exposure to game  
+- `DirectX11/HackerDevice.cpp` — CreateRasterizerState1 scissor parity  
 - `DirectX11/globals.h` — new state  
 - `version.h` — product/version  
 
@@ -89,10 +115,14 @@ XXMI wraps input layouts and used `static_cast<HackerInputLayout*>` on every `IA
 2. Copy into an EDHM install **replacing only** `d3d11.dll` (keep EDHM’s `d3dcompiler_47.dll`, inis, ShaderFixes)  
 3. Confirm HUD recolors match stock EDHM 1.4.5 DLL  
 4. Change theme via EDHM_UI / touch `ThemeSettings.json` → config reloads without F11  
-5. Optional: enable `fuzzy_match_alongside_hash=1` only if testing AGMG-style dual-match  
+5. Load into open world / carrier without crash (location entry stress)  
+6. Optional: `hide_cursor=1` under `[Device]` if OS pointer should stay hidden  
+7. Optional: enable `fuzzy_match_alongside_hash=1` only if testing AGMG-style dual-match  
 
 ## Not changed (by design)
 
 - Full stereo pipeline (EDHM uses `stereo_params = -1`)  
 - XXMI resource pools / region-hash features (opt-in; EDHM does not enable `track_region_hashes`)  
 - Slim develop tree vs full `xxmi-base`  
+- Hard IniParams cap (soft notice at 256 float4 slots remains; EDHM may use 300+)  
+
