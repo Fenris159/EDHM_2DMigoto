@@ -1,9 +1,14 @@
-EDHM_2DMigoto License Notice
-============================
+3Dmigoto / XXMI EDHM Compatibility Build
+=========================================
 
-This project custom-tailors XXMI / 2Dmigoto libraries for EDHM by examining
-3Dmigoto behavior and adjusting XXMI-derived code where EDHM compatibility was
-lost by moving away from the older 3Dmigoto runtime.
+This repository maintains an EDHM-focused compatibility build of
+3Dmigoto-derived software based on XXMI / 2Dmigoto. EDHM_2DMigoto identifies
+the repository and build package; it does not replace the 3Dmigoto software
+identity or the authorship of the upstream projects.
+
+The compatibility work examines 3Dmigoto behavior and adjusts XXMI-derived
+code where EDHM compatibility was lost by moving away from the older
+3Dmigoto runtime.
 
 The source code of 3Dmigoto, XXMI-derived libraries, and modified versions of
 those libraries in this project are released under the GNU General Public

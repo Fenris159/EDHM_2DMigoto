@@ -200,7 +200,7 @@ static HMODULE ValidateChainedD3D11Module(HMODULE module, const char *via)
 		return NULL;
 
 	if (module == migoto_handle) {
-		LogInfo("*** Rejected chained d3d11 via %s because it resolved back to EDHM itself.\n",
+		LogInfo("*** Rejected chained d3d11 via %s because it resolved back to this 3Dmigoto wrapper.\n",
 			via ? via : "?");
 		FreeLibrary(module);
 		return NULL;
@@ -267,12 +267,12 @@ static BOOL CALLBACK InitD311Once(PINIT_ONCE, PVOID, PVOID*)
 		if (slash) {
 			slash[1] = 0;
 			if (wcscat_s(proxy_path, MAX_PATH, G->CHAIN_DLL_PATH) == 0) {
-				LogInfoW(L"Trying configured proxy beside EDHM: %ls\n", proxy_path);
+				LogInfoW(L"Trying configured proxy beside the game-local 3Dmigoto wrapper: %ls\n", proxy_path);
 				candidate = LoadLibraryExW(proxy_path, NULL, 0);
 			}
 		}
 		if (!candidate) {
-			LogInfoW(L"Configured proxy was not found beside EDHM; trying configured path: %ls\n",
+			LogInfoW(L"Configured proxy was not found beside the game-local 3Dmigoto wrapper; trying configured path: %ls\n",
 				G->CHAIN_DLL_PATH);
 			candidate = LoadLibraryExW(G->CHAIN_DLL_PATH, NULL, 0);
 		}
@@ -321,9 +321,9 @@ static BOOL CALLBACK InitD311Once(PINIT_ONCE, PVOID, PVOID*)
 	if (hD3D11 == NULL)
 	{
 		LogInfo("*** LoadLibrary on original or chained d3d11.dll failed.\n");
-		LogInfo("*** If this is Wine/Proton, ensure EDHM d3d11.dll is next to EliteDangerous64.exe\n");
-		LogInfo("*** and set WINEDLLOVERRIDES=d3d11=n,b so the game loads the native (EDHM) wrapper.\n");
-		LogInfo("*** Do not overwrite EDHM's d3d11.dll with DXVK's; Proton/Wine should provide D3D11 from its prefix.\n");
+		LogInfo("*** If this is Wine/Proton, ensure the 3Dmigoto d3d11.dll used by EDHM is next to EliteDangerous64.exe\n");
+		LogInfo("*** and set WINEDLLOVERRIDES=d3d11=n,b so the game loads the native 3Dmigoto wrapper.\n");
+		LogInfo("*** Do not overwrite the 3Dmigoto d3d11.dll used by EDHM with DXVK's; Proton/Wine should provide D3D11 from its prefix.\n");
 		DoubleBeepExit();
 	}
 
