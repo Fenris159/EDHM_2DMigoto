@@ -26,7 +26,8 @@
 // This is what an end-user will see when they look at dll properties.
 // Keep in sync with the package SemVer in the root VERSION file (MAJOR.MINOR.PATCH).
 
-// EDHM_2DMigoto: XXMI-based build aimed at classic 3Dmigoto / EDHM behaviour.
+// Package version for this EDHM compatibility build. Product attribution stays
+// with 3Dmigoto; EDHM_2DMigoto is the repository and distribution name.
 #define VERSION_MAJOR               0
 #define VERSION_MINOR               1
 #define VERSION_REVISION            3
@@ -39,10 +40,10 @@
                                     "." STRINGIZE(VERSION_MINOR)    \
                                     "." STRINGIZE(VERSION_REVISION) \
  
-#define VER_PRODUCTNAME_STR         "EDHM_2DMigoto"
+#define VER_PRODUCTNAME_STR         "3Dmigoto"
 #define VER_PRODUCT_VERSION         VER_FILE_VERSION
 #define VER_PRODUCT_VERSION_STR     VER_FILE_VERSION_STR
-#define VER_COPYRIGHT_STR           "Copyright (C) 2014-2026"
+#define VER_COPYRIGHT_STR           "Copyright (C) 2014-2019"
  
 #ifdef _DEBUG
   #define VER_VER_DEBUG             VS_FF_DEBUG

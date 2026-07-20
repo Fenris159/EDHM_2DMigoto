@@ -14,6 +14,13 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 ## [Unreleased]
 
+### Changed
+
+- Restored the compiled DLL product name and copyright metadata to the
+  upstream 3Dmigoto values.
+- Clarified that EDHM_2DMigoto is the repository/build-package name while the
+  runtime remains 3Dmigoto-derived software based on XXMI / 2Dmigoto.
+
 ### Planned
 
 - Further EDHM smoke validation against stock 3Dmigoto / EDHM packages

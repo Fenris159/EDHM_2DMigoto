@@ -235,6 +235,8 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>$(OutDir)3Dmigoto.pdb</ProgramDatabaseFile>
+      <AdditionalOptions>/PDBALTPATH:3Dmigoto.pdb %(AdditionalOptions)</AdditionalOptions>
       <ModuleDefinitionFile>d3d11Wrapper.def</ModuleDefinitionFile>
       <AdditionalDependencies>..\Nektra\NktHookLib_Debug.lib;..\pcre2\pcre2-8-32d.lib;XINPUT9_1_0.lib;d3dcompiler.lib;DXGI.lib;Shlwapi.lib;Dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ForceSymbolReferences>_CreateDXGIFactory@8</ForceSymbolReferences>
@@ -261,6 +263,8 @@ call "$(SolutionDir)CopyToGames.bat" "$(TargetDir)" "$(TargetedSDKArchitecture)"
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>$(OutDir)3Dmigoto.pdb</ProgramDatabaseFile>
+      <AdditionalOptions>/PDBALTPATH:3Dmigoto.pdb %(AdditionalOptions)</AdditionalOptions>
       <ModuleDefinitionFile>d3d11Wrapper.def</ModuleDefinitionFile>
       <AdditionalDependencies>..\Nektra\NktHookLib64_Debug.lib;..\pcre2\pcre2-8-64d.lib;XINPUT9_1_0.lib;d3dcompiler.lib;DXGI.lib;Shlwapi.lib;Dbghelp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ForceSymbolReferences>CreateDXGIFactory</ForceSymbolReferences>
@@ -290,6 +294,8 @@ call "$(SolutionDir)CopyToGames.bat" "$(TargetDir)" "$(TargetedSDKArchitecture)"
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>$(OutDir)3Dmigoto.pdb</ProgramDatabaseFile>
+      <AdditionalOptions>/PDBALTPATH:3Dmigoto.pdb %(AdditionalOptions)</AdditionalOptions>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <ModuleDefinitionFile>d3d11Wrapper.def</ModuleDefinitionFile>
@@ -323,6 +329,8 @@ call "$(SolutionDir)CopyToGames.bat" "$(TargetDir)" "$(TargetedSDKArchitecture)"
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>$(OutDir)3Dmigoto.pdb</ProgramDatabaseFile>
+      <AdditionalOptions>/PDBALTPATH:3Dmigoto.pdb %(AdditionalOptions)</AdditionalOptions>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <ModuleDefinitionFile>d3d11Wrapper.def</ModuleDefinitionFile>
@@ -355,6 +363,8 @@ xcopy "$(SolutionDir)Dependencies\*.*" "$(TargetDir)"  /E /Y /s
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>$(OutDir)3Dmigoto.pdb</ProgramDatabaseFile>
+      <AdditionalOptions>/PDBALTPATH:3Dmigoto.pdb %(AdditionalOptions)</AdditionalOptions>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <ModuleDefinitionFile>d3d11Wrapper.def</ModuleDefinitionFile>

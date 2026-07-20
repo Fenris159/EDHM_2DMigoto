@@ -18,7 +18,13 @@
 [![main vs develop](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFenris159%2FEDHM_2DMigoto%2Fbadges%2F.github%2Fbadges%2Fmain-vs-develop.json)](https://github.com/Fenris159/EDHM_2DMigoto/compare/develop...main)
 [![develop vs xxmi-base](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FFenris159%2FEDHM_2DMigoto%2Fbadges%2F.github%2Fbadges%2Fdevelop-vs-xxmi-base.json)](https://github.com/Fenris159/EDHM_2DMigoto/compare/xxmi-base...develop)
 
-Independent **XXMI / 2Dmigoto** libraries tailored for **[EDHM](https://github.com/psychicEgg/EDHM)** (Elite Dangerous HUD Mod) workflows.
+An **[EDHM](https://github.com/psychicEgg/EDHM)** compatibility build of the
+**[3Dmigoto](https://github.com/bo3b/3Dmigoto/)** runtime, based on
+**[XXMI / 2Dmigoto](https://github.com/SpectrumQT/XXMI-Libs-Package)**.
+
+`EDHM_2DMigoto` identifies this repository and its EDHM-focused build package.
+The `d3d11.dll` remains 3Dmigoto-derived software and preserves upstream
+authorship, licensing, and attribution.
 
 <p align="center">
   <img src="docs/images/edhm-2dmigoto-benefits.png" alt="Comparison of traditional 3Dmigoto and the focused EDHM_2DMigoto shader-loader approach" width="900">
@@ -40,7 +46,7 @@ Independent **XXMI / 2Dmigoto** libraries tailored for **[EDHM](https://github.c
 
 In-tree `docs/` remains a short reference; the **wiki is canonical** for development how-tos.
 
-This repository starts from [SpectrumQT/XXMI-Libs-Package](https://github.com/SpectrumQT/XXMI-Libs-Package) (itself a streamlined fork of [bo3b/3Dmigoto](https://github.com/bo3b/3Dmigoto/)) but is **not** a GitHub fork of either project. You own this tree completely; useful upstream fixes can still be pulled in selectively.
+This repository starts from [SpectrumQT/XXMI-Libs-Package](https://github.com/SpectrumQT/XXMI-Libs-Package) (itself a streamlined fork of [bo3b/3Dmigoto](https://github.com/bo3b/3Dmigoto/)) but is **not** registered as a GitHub fork of either project. It is maintained independently as an EDHM compatibility build while preserving upstream authorship and GPLv3 obligations; useful upstream fixes can still be pulled in selectively.
 
 ## Goal products (EDHM)
 
@@ -55,10 +61,10 @@ Everything else from full XXMI (loaders, other D3DCompiler proxies, DXGI shim, u
 
 EDHM historically relied on classic 3Dmigoto-era runtime behavior. XXMI (often called “2Dmigoto”) modernizes and strips stereo features, which can break EDHM expectations. This repo is the place to:
 
-- Keep a **focused**, buildable XXMI-derived tree under your control
+- Maintain a **focused**, buildable XXMI-derived compatibility tree
 - Apply EDHM-specific patches without fighting an upstream fork relationship
 - Cherry-pick only the XXMI / 3Dmigoto changes that help EDHM from `xxmi-base`
-- Ship versioned **`d3d11.dll`** builds for EDHM / EDHM_UI to consume
+- Ship versioned, 3Dmigoto-derived **`d3d11.dll`** builds for EDHM / EDHM_UI to consume
 
 ## Credits
 
