@@ -1412,7 +1412,7 @@ static void ParseIncludedIniFiles()
 	DWORD attrib;
 
 	if (!GetMigotoDirectory(migoto_path, ARRAYSIZE(migoto_path))) {
-		LogOverlay(LOG_WARNING, "Unable to resolve the EDHM DLL directory; skipping included ini files\n");
+		LogOverlay(LOG_WARNING, "Unable to resolve the 3Dmigoto DLL directory; skipping included ini files\n");
 		return;
 	}
 

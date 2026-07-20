@@ -156,7 +156,7 @@ bool ApplyWineCompatProfile(
 	}
 
 	// Force DXVK-friendly load behaviour. Redirect=2 pulls system d3d11 back
-	// into the game folder and often breaks the EDHM -> DXVK chain under Wine.
+	// into the game folder and often breaks the EDHM 3Dmigoto -> DXVK chain under Wine.
 	*load_library_redirect = 0;
 	*check_foreground_window = false;
 
@@ -178,7 +178,7 @@ void LogHostCompatReport()
 	if (!exe_path_len || exe_path_len >= MAX_PATH)
 		wcscpy_s(exe_path, L"(unknown)");
 
-	LogInfo("\n=== EDHM_2DMigoto host compatibility report ===\n");
+	LogInfo("\n=== 3Dmigoto host compatibility report (EDHM profile) ===\n");
 	LogInfo("  Platform: %s\n", GetHostPlatformLabel());
 	LogInfo("  wine_compat ini: %d (-1=auto 0=off 1=on)\n", G ? G->wine_compat : -1);
 	LogInfo("  wine_compat profile applied: %s\n",
@@ -195,11 +195,11 @@ void LogHostCompatReport()
 		LogInfo("  WARNING: PROTON_USE_WINED3D is enabled; Proton will use OpenGL wined3d instead of DXVK.\n");
 	if (EnvironmentOptionEnabled("PROTON_NO_D3D11"))
 		LogInfo("  WARNING: PROTON_NO_D3D11 is enabled; remove it because Elite and EDHM require D3D11.\n");
-	LogInfoW(L"  EDHM d3d11.dll: %ls\n", migoto_path);
+	LogInfoW(L"  3Dmigoto d3d11.dll (EDHM build): %ls\n", migoto_path);
 	LogInfoW(L"  Process: %ls\n", exe_path);
 	LogInfo("  If this log file never appears under Wine/Proton:\n");
-	LogInfo("    1) Place EDHM files next to EliteDangerous64.exe (not only the launcher)\n");
+	LogInfo("    1) Place the EDHM configuration and 3Dmigoto d3d11.dll next to EliteDangerous64.exe (not only the launcher)\n");
 	LogInfo("    2) Set WINEDLLOVERRIDES=d3d11=n,b (and d3dcompiler_47=n,b if needed)\n");
-	LogInfo("    3) Do not replace EDHM's d3d11.dll with DXVK's d3d11.dll\n");
-	LogInfo("=== end host compatibility report ===\n\n");
+	LogInfo("    3) Do not replace the 3Dmigoto d3d11.dll used by EDHM with DXVK's d3d11.dll\n");
+	LogInfo("=== end 3Dmigoto host compatibility report ===\n\n");
 }

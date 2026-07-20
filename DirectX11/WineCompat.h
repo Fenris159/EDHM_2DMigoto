@@ -1,6 +1,7 @@
 #pragma once
 
-// Wine / Proton detection and Linux-oriented runtime helpers for EDHM_2DMigoto.
+// Wine / Proton detection and Linux-oriented runtime helpers for the
+// 3Dmigoto-based EDHM compatibility build.
 // Detection is best-effort: ntdll wine exports are the primary signal.
 
 // True when running under Wine (including Proton, which is Wine-based).
