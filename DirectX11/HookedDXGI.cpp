@@ -344,11 +344,13 @@ static void ForceDisplayParams1(DXGI_SWAP_CHAIN_DESC1 *pDesc, DXGI_SWAP_CHAIN_FU
 
 		if (G->SCREEN_WIDTH >= 0)
 		{
-			LogOverlay(LOG_DIRE, "*** Unimplemented feature to force screen width in CreateSwapChainForHwnd\n");
+			pDesc->Width = G->SCREEN_WIDTH;
+			LogInfo("->Forcing Width to = %d\n", pDesc->Width);
 		}
 		if (G->SCREEN_HEIGHT >= 0)
 		{
-			LogOverlay(LOG_DIRE, "*** Unimplemented feature to force screen height in CreateSwapChainForHwnd\n");
+			pDesc->Height = G->SCREEN_HEIGHT;
+			LogInfo("->Forcing Height to = %d\n", pDesc->Height);
 		}
 	}
 }

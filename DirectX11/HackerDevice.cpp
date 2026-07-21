@@ -2113,7 +2113,7 @@ static UINT scale_dimension_checked(UINT dimension, float multiplier, const char
 }
 
 template <typename DescType>
-static void override_resource_desc_common_2d_3d(DescType *desc, TextureOverride *textureOverride)
+static void override_resource_desc_common_1d_2d_3d(DescType *desc, TextureOverride *textureOverride)
 {
 	if (textureOverride->format != -1) {
 		LogInfo("  setting custom format to %d\n", textureOverride->format);
@@ -2135,6 +2135,12 @@ static void override_resource_desc_common_2d_3d(DescType *desc, TextureOverride 
 		desc->Width = scale_dimension_checked(desc->Width, textureOverride->width_multiply, "width_multiply");
 		LogInfo("  multiplying custom width by %f to %d\n", textureOverride->width_multiply, desc->Width);
 	}
+}
+
+template <typename DescType>
+static void override_resource_desc_common_2d_3d(DescType *desc, TextureOverride *textureOverride)
+{
+	override_resource_desc_common_1d_2d_3d(desc, textureOverride);
 
 	if (textureOverride->height != -1) {
 		if (textureOverride->height > 0) {
@@ -2161,7 +2167,10 @@ static void override_resource_desc(D3D11_BUFFER_DESC *desc, TextureOverride *tex
 		}
 	}
 }
-static void override_resource_desc(D3D11_TEXTURE1D_DESC *desc, TextureOverride *textureOverride) {}
+static void override_resource_desc(D3D11_TEXTURE1D_DESC *desc, TextureOverride *textureOverride)
+{
+	override_resource_desc_common_1d_2d_3d(desc, textureOverride);
+}
 static void override_resource_desc(D3D11_TEXTURE2D_DESC *desc, TextureOverride *textureOverride)
 {
 	override_resource_desc_common_2d_3d(desc, textureOverride);
