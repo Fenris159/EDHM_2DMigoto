@@ -588,6 +588,7 @@ UINT GetIndexBufferRegionSize(DXGI_FORMAT format, DrawCallInfo* call_info);
 UINT GetVertexBufferRegionSize(UINT stride, DrawCallInfo* call_info);
 
 float BitCastToFloat(uint32_t bits);
+uint32_t BitCastToUint(float bits);
 uint64_t HashPointer(const void* p);
 uint32_t HashUnsigned32(uint32_t u);
 float EncodeFloat30(const uint32_t hash);

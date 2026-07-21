@@ -1915,30 +1915,45 @@ static CustomResource* ParseResourceSection(const wchar_t* section_name, const w
 
 static CustomResourcePool* ParseResourcePoolSection(const wchar_t* section_name)
 {
-	int pool_size = GetIniInt(section_name, L"pool_size", 0, NULL);
+	int pool_size = GetIniInt(section_name, L"pool_size", 1, NULL);
 
-	if (pool_size <= 0) {
+	if (pool_size < 1)
 		return nullptr;
-	}
 
 	wstring pool_id = section_name;
 	std::transform(pool_id.begin(), pool_id.end(), pool_id.begin(), ::towlower);
 
 	CustomResourcePool* pool = &customResourcePools[pool_id];
-	
+
 	pool->name = pool_id;
 
 	pool->index_type = GetIniEnumClass(section_name, L"pool_index_type", PoolIndexType::RING, NULL, PoolIndexTypeNames);
-	pool->lazy_initialization = GetIniBool(section_name, L"pool_lazy_init", 1, NULL);
+	pool->lazy_initialization = GetIniBool(section_name, L"pool_lazy_initialization", true, NULL);
+	pool->element_type_switch_reset = GetIniBool(section_name, L"pool_element_type_switch_reset", true, NULL);
+	
 	int keep_alive_frames = GetIniInt(section_name, L"pool_keep_alive_frames", -1, NULL);
 	if (keep_alive_frames >= 0)
 		pool->keep_alive_frames = (unsigned)keep_alive_frames;
-	pool->null_expired_resources = GetIniBool(section_name, L"pool_null_expired_resources", 1, NULL);
+	pool->reset_expired_elements = GetIniBool(section_name, L"pool_reset_expired_elements", true, NULL);
+	
 
 	pool->resource_template = ParseResourceSection(section_name, L"template");
 
 	pool->resource_template->pool = pool;
 	pool->resource_template->pool_index = -1;
+
+	bool persist_variables = GetIniBool(section_name, L"pool_persist_variables", false, NULL);
+	if (persist_variables && pool->index_type != PoolIndexType::RING) {
+		persist_variables = false;
+		IniWarningW(L"Pool variables persistence is not supported for \"%ls\" index type (\"ring\" index only feature).\n - [%ls]\n",
+			lookup_enum_name(PoolIndexTypeNames, pool->index_type), pool->name.c_str());
+	}
+
+	pool->variable_template = std::make_unique<CommandListVariable> (
+		pool_id + L"_template",
+		GetIniFloat(section_name, L"pool_variable_default_value", 0, NULL),
+		persist_variables ? VariableFlags::PERSIST : VariableFlags::NONE
+	);
 
 	pool->Initialize(pool_size);
 
@@ -1990,7 +2005,7 @@ static bool ParseCommandListLine(const wchar_t *ini_section,
 	if (ParseCommandListVariableAssignment(ini_section, lhs, rhs, raw_line, command_list, pre_command_list, post_command_list, ini_namespace))
 		return true;
 
-	if (ParseCommandListResourceCopyDirective(ini_section, lhs, rhs, command_list, ini_namespace))
+	if (ParseCommandListResourceCopyTargetDirective(ini_section, lhs, rhs, command_list, ini_namespace))
 		return true;
 
 	if (raw_line && !explicit_command_list &&
@@ -2146,6 +2161,24 @@ static void ParseCommandList(const wchar_t *id,
 		post_command_list->scope = NULL;
 }
 
+CommandListVariable* RegisterGlobalVariable(wstring& name, float* fval, VariableFlags flags)
+{
+	std::pair<CommandListVariables::iterator, bool> inserted = command_list_globals.emplace(name, CommandListVariable{ name, *fval, flags });
+	if (!inserted.second) {
+		return nullptr;
+	}
+
+	if (flags & VariableFlags::PERSIST)
+		persistent_variables.emplace_back(&inserted.first->second);
+
+	if (!fval)
+		LogInfo("  global %S\n", name.c_str());
+	else
+		LogInfo("  global %S=%f\n", name.c_str(), *fval);
+
+	return &inserted.first->second;
+}
+
 static void ParseConstantsSection()
 {
 	VariableFlags flags;
@@ -2154,9 +2187,6 @@ static void ParseConstantsSection()
 	wstring *key, *val, name;
 	const wchar_t *name_pos;
 	const wstring *ini_namespace;
-	std::pair<CommandListVariables::iterator, bool> inserted;
-	float fval;
-	int len;
 
 	// The naming on this one is historical - [Constants] used to define
 	// iniParams that couldn't change, then later we allowed them to be
@@ -2207,37 +2237,28 @@ static void ParseConstantsSection()
 		name = name_pos;
 
 		if (!valid_variable_name(name)) {
-			IniWarningW(L"Illegal global variable name: \"%ls\"\n - [Constants] @ [%ls]\n", name.c_str(), entry->ini_namespace.c_str());
+			IniWarningW(L"Illegal global variable name: \"%ls\"\n - [Constants] @ [%ls]\n", name.c_str(), ini_namespace->c_str());
 			continue;
 		}
 
 		if (!ini_namespace->empty())
 			name = get_namespaced_var_name_lower(name, ini_namespace);
 
-		// Initialisation is optional and deferred until the command
-		// list is run
-		// If the initialiser is present and simple
-		fval = 0.0f;
+		// Initialisation is optional and deferred until the command list is run.
+		// If the initialiser is present and simple.
+		float fval = 0.0f;
+		int len;
 		if (!val->empty()) {
 			if (swscanf_s(val->c_str(), L"%f%n", &fval, &len) != 1 || len != val->length()) {
-				IniWarningW(L"Floating point parse error: %ls=%ls\n - [Constants] @ [%ls]\n", key->c_str(), val->c_str(), entry->ini_namespace.c_str());
+				IniWarningW(L"Floating point parse error: %ls=%ls\n - [Constants] @ [%ls]\n", key->c_str(), val->c_str(), ini_namespace->c_str());
 				continue;
 			}
 		}
 
-		inserted = command_list_globals.emplace(name, CommandListVariable{name, fval, flags});
-		if (!inserted.second) {
-			IniWarningW(L"Redeclaration of %ls\n - [Constants] @ [%ls]\n", name.c_str(), entry->ini_namespace.c_str());
+		if (!RegisterGlobalVariable(name, &fval, flags)) {
+			IniWarningW(L"Redeclaration of %ls\n - [Constants] @ [%ls]\n", name.c_str(), ini_namespace->c_str());
 			continue;
 		}
-
-		if (flags & VariableFlags::PERSIST)
-			persistent_variables.emplace_back(&inserted.first->second);
-
-		if (val->empty())
-			LogInfo("  global %S\n", name.c_str());
-		else
-			LogInfo("  global %S=%f\n", name.c_str(), fval);
 
 		// Remove this line from the ini section data structures so the
 		// command list won't consider it in the 2nd pass:

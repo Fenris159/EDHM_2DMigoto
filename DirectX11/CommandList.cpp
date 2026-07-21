@@ -751,7 +751,7 @@ static bool ParseDrawCommandArgs(const wchar_t* section, wstring *val, DrawComma
 			return false;
 
 		if (operation->indirect_buffer.type == ResourceCopyTargetType::CUSTOM_RESOURCE) {
-			CustomResource* custom_resource = operation->indirect_buffer.GetCustomResource(true);
+			CustomResource* custom_resource = operation->indirect_buffer.GetCustomResource(nullptr, true);
 			if (!custom_resource->AddFlags((D3D11_BIND_FLAG)0, D3D11_RESOURCE_MISC_DRAWINDIRECT_ARGS, true)) {
 				LogOverlayW(LOG_WARNING, L"To use resources with incompatible flags explicitly add 'copy' keyword, e.g. 'vs-cb0 = copy ResourceRWBufferCB'\n - [%ls] @ [%ls]\n", section, ini_namespace);
 				return false;
@@ -2488,6 +2488,9 @@ float CommandListOperand::process_texture_filter(CommandListState *state)
 			return 1.0f;
 		}
 
+		case ResourceCopyTargetEvaluationMode::VARIABLE:
+			return texture_filter_target.GetPoolVariable(state, false)->fval;
+
 		case ResourceCopyTargetEvaluationMode::RESOURCE_IDENTITY:
 			return texture_filter_target.GetResourceId(state);
 
@@ -2505,7 +2508,7 @@ float CommandListOperand::process_texture_filter(CommandListState *state)
 
 		case ResourceCopyTargetEvaluationMode::RESOURCE_SOURCE_STRIDE:
 		{
-			CustomResource* custom_resource = texture_filter_target.GetCustomResource();
+			CustomResource* custom_resource = texture_filter_target.GetCustomResource(state);
 			if (custom_resource != nullptr)
 				return (float)custom_resource->source_stride;
 			else
@@ -2515,7 +2518,7 @@ float CommandListOperand::process_texture_filter(CommandListState *state)
 
 		case ResourceCopyTargetEvaluationMode::POOL_INDEX:
 		{
-			CustomResource* custom_resource = texture_filter_target.GetCustomResource();
+			CustomResource* custom_resource = texture_filter_target.GetCustomResource(state);
 			if (custom_resource != nullptr)
 				// Return X for ResourceCopyTarget with custom resource from pool
 				//   * X in range [0, texture_filter_target.custom_resource_pool->resources.size() - 1]
@@ -2532,7 +2535,7 @@ float CommandListOperand::process_texture_filter(CommandListState *state)
 
 		case ResourceCopyTargetEvaluationMode::POOL_SIZE:
 			if (texture_filter_target.custom_resource_pool != nullptr)
-				return (float)texture_filter_target.custom_resource_pool->resources.size();
+				return (float)texture_filter_target.custom_resource_pool->GetPoolSize();
 			else
 				return -1.0f;
 
@@ -3225,6 +3228,55 @@ public:
 	{}
 };
 
+static size_t FindIdentifierTokenEnd(const std::wstring& str)
+{
+	std::vector<wchar_t> brackets;
+
+	auto isIdentifierChar = [](wchar_t c)
+	{
+		return wcschr(L"@#abcdefghijklmnopqrstuvwxyz_-0123456789$.>", c) != nullptr;
+	};
+
+	for (size_t i = 0; i < str.size(); ++i)
+	{
+		wchar_t c = str[i];
+
+		if (!brackets.empty())
+		{
+			// Inside brackets: accept everything except manage nesting.
+			if (c == L'(')
+				brackets.push_back(L')');
+			else if (c == L'[')
+				brackets.push_back(L']');
+			else if (c == brackets.back())
+				brackets.pop_back();
+
+			continue;
+		}
+
+		// Outside brackets
+		if (c == L'(')
+		{
+			brackets.push_back(L')');
+			continue;
+		}
+
+		if (c == L'[')
+		{
+			brackets.push_back(L']');
+			continue;
+		}
+
+		if (!isIdentifierChar(c))
+			return i;
+	}
+
+	if (!brackets.empty())
+		throw CommandListSyntaxError(L"Unterminated bracket expression", str.size());
+
+	return str.size();
+}
+
 static void tokenise(const wstring *expression, CommandListSyntaxTree *tree, const wstring *ini_namespace, CommandListScope *scope)
 {
 	wstring remain = *expression;
@@ -3278,16 +3330,9 @@ next_token:
 		//   doesn't work if custom resources are checked. If we need
 		//   to match these for some other reason, we could add \ and .
 		//   to this list, which will cover most namespaced resources.
-		pos = remain.find_first_not_of(L"@#abcdefghijklmnopqrstuvwxyz_-0123456789[$.]>()");
+		pos = FindIdentifierTokenEnd(remain);
 		if (pos) {
 			token = remain.substr(0, pos);
-			// If token contains '(', look for ')' to include whitespaces
-			if (token.find(L'(') != std::wstring::npos)
-			{
-				size_t end = remain.find(L')', 0);
-				token = remain.substr(0, end + 1);
-				pos = end + 1;
-			}
 			ret = texture_filter_target.ParseTarget(token.c_str(), true, ini_namespace, scope);
 			if (ret) {
 				operand = make_shared<CommandListOperand>(friendly_pos, token);
@@ -4690,6 +4735,7 @@ void CustomResource::SubstantiateBuffer(ID3D11Device *mOrigDevice1, void **buf, 
 		LogResourceDesc(&desc);
 	}
 }
+
 void CustomResource::SubstantiateTexture1D(ID3D11Device *mOrigDevice1)
 {
 	ID3D11Texture1D *tex1d;
@@ -4879,6 +4925,38 @@ void CustomResource::OverrideOutOfBandInfo(DXGI_FORMAT *format, UINT *stride)
 		*stride = override_stride;
 }
 
+void CustomResource::CopyMetadataFrom(const CustomResource& src)
+{
+	max_copies_per_frame = src.max_copies_per_frame;
+
+	filename = src.filename;
+
+	override_type = src.override_type;
+	override_format = src.override_format;
+	override_byte_width = src.override_byte_width;
+	override_stride = src.override_stride;
+	override_array = src.override_array;
+
+	override_width = src.override_width;
+	override_height = src.override_height;
+	override_depth = src.override_depth;
+	override_mips = src.override_mips;
+	override_msaa = src.override_msaa;
+	override_msaa_quality = src.override_msaa_quality;
+
+	width_multiply = src.width_multiply;
+	height_multiply = src.height_multiply;
+
+	override_bind_flags = src.override_bind_flags;
+	override_misc_flags = src.override_misc_flags;
+
+	bind_flags = src.bind_flags;
+	misc_flags = src.misc_flags;
+
+	initial_data = src.initial_data;
+	initial_data_size = src.initial_data_size;
+}
+
 // Returns 1 for definite dsv formats
 // Returns 2 for typeless variants of dsv formats (have a stencil buffer)
 // Returns -1 for possible typecast depth formats, but with no stencil buffer they may not be
@@ -4906,255 +4984,6 @@ static int is_dsv_format(DXGI_FORMAT fmt)
 		default:
 			return 0;
 	}
-}
-
-bool CustomResourcePool::PropagateFlags(D3D11_BIND_FLAG bind_flags, D3D11_RESOURCE_MISC_FLAG misc_flags)
-{
-	bool ret = resource_template->AddFlags(bind_flags, misc_flags, false);
-
-	for (CustomResource* resource : resources) {
-		if (resource) {
-			if (!resource->AddFlags(bind_flags, misc_flags, false))
-				ret = false;
-		}
-	}
-
-	return ret;
-}
-
-CustomResource* CustomResourcePool::InitializeResource(size_t pool_index)
-{
-	wstring resource_id = wstring(name) + L"_" + std::to_wstring(pool_index);
-
-	CustomResource* custom_resource = &customResources[resource_id];
-	custom_resource->name = resource_id;
-
-	custom_resource->pool = this;
-	custom_resource->pool_index = pool_index;
-
-	custom_resource->max_copies_per_frame = resource_template->max_copies_per_frame;
-
-	custom_resource->filename = resource_template->filename;
-
-	custom_resource->override_type = resource_template->override_type;
-	custom_resource->override_format = resource_template->override_format;
-	custom_resource->override_byte_width = resource_template->override_byte_width;
-	custom_resource->override_stride = resource_template->override_stride;
-	custom_resource->override_array = resource_template->override_array;
-
-	custom_resource->override_width = resource_template->override_width;
-	custom_resource->override_height = resource_template->override_height;
-	custom_resource->override_depth = resource_template->override_depth;
-	custom_resource->override_mips = resource_template->override_mips;
-	custom_resource->override_msaa = resource_template->override_msaa;
-	custom_resource->override_msaa_quality = resource_template->override_msaa_quality;
-
-	custom_resource->width_multiply = resource_template->width_multiply;
-	custom_resource->height_multiply = resource_template->height_multiply;
-
-	custom_resource->override_bind_flags = resource_template->override_bind_flags;
-	custom_resource->override_misc_flags = resource_template->override_misc_flags;
-
-	custom_resource->bind_flags = resource_template->bind_flags;
-	custom_resource->misc_flags = resource_template->misc_flags;
-
-	if (resource_template->initial_data != nullptr) {
-		custom_resource->initial_data = resource_template->initial_data;
-		custom_resource->initial_data_size = resource_template->initial_data_size;
-	}
-
-	resources[pool_index] = custom_resource;
-
-	return custom_resource;
-}
-
-void CustomResourcePool::Initialize(size_t pool_size)
-{
-	resources.resize(pool_size, nullptr);
-
-	if (index_type != PoolIndexType::RING || keep_alive_frames != UINT32_MAX)
-		index_table.resize(pool_size);
-
-	if (index_type != PoolIndexType::RING)
-		last_replacement_index = pool_size - 1;
-
-	if (!lazy_initialization)
-	{
-		for (size_t i = 0; i < pool_size; ++i)
-			InitializeResource(i);
-	}
-}
-
-void CustomResourcePool::ResetResource(size_t pool_index)
-{
-	CustomResource* custom_resource = resources[pool_index];
-	if (custom_resource != nullptr) {
-		custom_resource->stride = 0;
-		custom_resource->offset = 0;
-		custom_resource->format = DXGI_FORMAT_UNKNOWN;
-		custom_resource->buf_size = 0;
-		custom_resource->is_null = true;
-	}
-}
-
-void CustomResourcePool::ResetResources()
-{
-	for (size_t i = 0; i < resources.size(); ++i)
-	{
-		ResetResource(i);
-	}
-}
-
-void CustomResourcePool::Reset()
-{
-	// Clear slot metadata.
-	if (index_type != PoolIndexType::RING || keep_alive_frames != UINT32_MAX) {
-		for (PoolSlot& slot : index_table)
-		{
-			slot.key = FLT_MAX;
-			slot.last_seen = 0;
-		}
-	}
-
-	if (index_type != PoolIndexType::RING) {
-		// Reset replacement pointer.
-		last_replacement_index = resources.empty() ? 0 : resources.size() - 1;
-
-		// Clear lookup table.
-		index_map.clear();
-	}
-
-	// Force ExpireResources() to run next frame.
-	last_expiration_run = UINT32_MAX;
-
-	// Reset resource contents.
-	ResetResources();
-}
-
-void CustomResourcePool::ExpireResources()
-{
-	if (keep_alive_frames == UINT32_MAX)
-		return;
-
-	if (last_expiration_run == G->frame_no)
-		return;
-
-	last_expiration_run = G->frame_no;
-
-	for (size_t i = 0; i < index_table.size(); ++i)
-	{
-		PoolSlot& pool_slot = index_table[i];
-
-		if (pool_slot.key == FLT_MAX)
-			continue;
-
-		if (G->frame_no - pool_slot.last_seen > keep_alive_frames)
-		{
-			if (index_type != PoolIndexType::RING)
-				index_map.erase(pool_slot.key);
-
-			if (null_expired_resources)
-				ResetResource(i);
-
-			pool_slot.key = FLT_MAX;
-			pool_slot.last_seen = 0;
-		}
-	}
-}
-
-void CustomResourcePool::AssignSlot(size_t slot, float key)
-{
-	PoolSlot& pool_slot = index_table[slot];
-
-	if (index_type != PoolIndexType::RING) {
-		// Remove previous mapping if slot occupied
-		if (pool_slot.key != FLT_MAX)
-			index_map.erase(pool_slot.key);
-
-		// Update lookup table for keyed indexing modes
-		index_map[key] = slot;
-	}
-
-	pool_slot.key = key;
-	if (keep_alive_frames != UINT32_MAX)
-		pool_slot.last_seen = G->frame_no;
-}
-
-CustomResource* CustomResourcePool::GetResource(float id, bool static_evaluation, bool use_ring_index) {
-	// During static evaluation (parsing time) we cannot evaluate dynamic indexes
-	// So parsing-time config has to be applied to the entire pool
-	if (static_evaluation)
-		return resource_template;
-
-	if (resources.empty())
-		return nullptr;
-
-	ExpireResources();
-
-	size_t pool_index;
-
-	// Treat pool index as RING to directly get underlying custom resource.
-	PoolIndexType pool_index_type = use_ring_index ? PoolIndexType::RING : index_type;
-
-	switch (pool_index_type) {
-	case PoolIndexType::RING:
-	{
-		// Allows to continuously loop through a pool
-		// For pool [ResourceA, ResourceB, ResourceC]
-		//   ResourcePoolFoo[-1] returns ResourceC pool_index (2)
-		//   ResourcePoolFoo[3] returns ResourceA pool_index (0)
-		pool_index = ((int)id % resources.size() + resources.size()) % resources.size();
-
-		if (keep_alive_frames != UINT32_MAX)
-			AssignSlot(pool_index, (float)pool_index);
-
-		break;
-	}
-	case PoolIndexType::FIFO:
-	{
-		// UID-based rolling FIFO indexing:
-		// New UIDs are assigned the next pool slot.
-		// Existing UIDs keep their assigned slot.
-		// When the pool is full, the oldest slot assignment is overwritten.
-		// 
-		// For pool_size of 2 [ResourcePoolFoo_0, ResourcePoolFoo_1]:
-		//   ResourcePoolFoo[11] -> ResourcePoolFoo_0 (pool_index 0)
-		//   ResourcePoolFoo[22] -> ResourcePoolFoo_1 (pool_index 1)
-		//	 ResourcePoolFoo[33] -> ResourcePoolFoo_0 (pool_index 0, evicts UID 11)
-		//   ResourcePoolFoo[22] -> ResourcePoolFoo_1 (pool_index 1, existing assignment)
-		//   ResourcePoolFoo[44] -> ResourcePoolFoo_1 (pool_index 1, evicts UID 22)
-		auto it = index_map.find(id);
-
-		if (it != index_map.end())
-		{
-			// Return existing UID -> slot mapping
-			pool_index = it->second;
-
-			if (keep_alive_frames != UINT32_MAX)
-				index_table[pool_index].last_seen = G->frame_no;
-		}
-		else
-		{
-			// Allocate next FIFO slot
-			pool_index = (last_replacement_index + 1) % resources.size();
-			last_replacement_index = pool_index;
-
-			AssignSlot(pool_index, id);
-		}
-		break;
-	}
-	default:
-		// Should never happen, but just in case lets guarantee existing resource
-		return resource_template;
-	}
-
-	CustomResource* resource = resources[pool_index];
-
-	if (resource == nullptr && lazy_initialization) {
-		resource = InitializeResource(pool_index);
-	}
-
-	return resource;
 }
 
 // Transfer a resource from one device to another. First came across this
@@ -5493,13 +5322,421 @@ void CustomResource::expire(ID3D11Device *mOrigDevice1, ID3D11DeviceContext *mOr
 #pragma endregion CustomResource
 
 
+#pragma region CustomResourcePool
+
+#pragma region CustomResourcePoolAPI
+
+void CustomResourcePool::Initialize(size_t pool_size)
+{
+	if (source_pool)
+		return source_pool->Initialize(pool_size);
+
+	this->pool_size = pool_size;
+
+	// Extend elements cache for larger pool size.
+	// Never shrink the cache to avoid reallocations at runtime.
+	if (elements.size() < pool_size)
+		elements.resize(pool_size);
+
+	if (index_type & PoolIndexType::INDEX_TABLE_MASK || keep_alive_frames != UINT32_MAX)
+		index_table.resize(pool_size);
+
+	if (index_type & PoolIndexType::INDEX_TABLE_MASK)
+	{
+		if (!index_map)
+			index_map = std::make_unique<FlatHashMap<uint32_t, size_t>>(pool_size * 2);
+		last_replacement_index = pool_size - 1;
+	}
+
+	if (!lazy_initialization)
+	{
+		for (size_t i = 0; i < pool_size; ++i) {
+			InitializeVariable(i);
+			InitializeResource(i);
+		}
+	}
+}
+
+bool CustomResourcePool::PropagateFlags(D3D11_BIND_FLAG bind_flags, D3D11_RESOURCE_MISC_FLAG misc_flags)
+{
+	if (source_pool)
+		return source_pool->PropagateFlags(bind_flags, misc_flags);
+
+	bool ret = resource_template->AddFlags(bind_flags, misc_flags, false);
+
+	for (const PoolElement& element : elements) {
+		if (element.resource) {
+			if (!element.resource->AddFlags(bind_flags, misc_flags, false))
+				ret = false;
+		}
+	}
+
+	return ret;
+}
+
+size_t CustomResourcePool::GetElementIndex(float id, bool use_ring_index, bool is_assignment)
+{
+	ExpireElements();
+
+	size_t pool_index;
+
+	// Treat pool index as RING to directly get underlying custom resource.
+	PoolIndexType pool_index_type = use_ring_index ? PoolIndexType::RING : index_type;
+
+	switch (pool_index_type) {
+	case PoolIndexType::RING:
+	case PoolIndexType::STATIC:
+	{
+		// Allows to continuously loop through a pool
+		// For pool [ResourceA, ResourceB, ResourceC]
+		//   ResourcePoolFoo[-1] returns ResourceC pool_index (2)
+		//   ResourcePoolFoo[3] returns ResourceA pool_index (0)
+		pool_index = ((int)id % pool_size + pool_size) % pool_size;
+
+		if (keep_alive_frames != UINT32_MAX)
+			PostponeExpiration(index_table[pool_index], is_assignment);
+
+		return pool_index;
+	}
+	case PoolIndexType::FIFO:
+	{
+		// UID-based rolling FIFO indexing:
+		// 
+		// - New UIDs are assigned the next pool slot.
+		// - Existing UIDs keep their assigned slot.
+		// - When the pool is full, the oldest slot assignment is overwritten.
+		// 
+		// For pool_size of 2 [ResourcePoolFoo_0, ResourcePoolFoo_1]:
+		//   ResourcePoolFoo[11] -> ResourcePoolFoo_0 (pool_index 0)
+		//   ResourcePoolFoo[22] -> ResourcePoolFoo_1 (pool_index 1)
+		//	 ResourcePoolFoo[33] -> ResourcePoolFoo_0 (pool_index 0, evicts UID 11)
+		//   ResourcePoolFoo[22] -> ResourcePoolFoo_1 (pool_index 1, existing assignment)
+		//   ResourcePoolFoo[44] -> ResourcePoolFoo_1 (pool_index 1, evicts UID 22)
+		uint32_t key = BitCastToUint(id);
+
+		if (index_map->find(key, pool_index))
+		{
+			// Return existing UID -> slot mapping
+
+			if (keep_alive_frames != UINT32_MAX)
+				PostponeExpiration(index_table[pool_index], is_assignment);
+		}
+		else
+		{
+			// Allocate next FIFO slot
+			pool_index = (last_replacement_index + 1) % pool_size;
+			last_replacement_index = pool_index;
+
+			AssignSlot(pool_index, key, is_assignment);
+		}
+
+		return pool_index;
+	}
+
+	default:
+		assert(false);
+	}
+}
+
+CustomResource* CustomResourcePool::GetResource(float id, bool template_lookup, bool use_ring_index, bool is_assignment)
+{
+	if (source_pool)
+		return source_pool->GetResource(id, template_lookup, use_ring_index, is_assignment);
+
+	// During static evaluation (parsing time) we cannot evaluate dynamic indexes
+	// So parsing-time config has to be applied to the entire pool
+	if (template_lookup)
+		return resource_template;
+
+	size_t pool_index = GetElementIndex(id, use_ring_index, is_assignment);
+
+	PoolElement& element = elements[pool_index];
+
+	if (is_assignment)
+		SwitchElementType(element, element_type_switch_reset ? PoolElement::Type::Resource : PoolElement::Type::Mixed);
+
+	if (!element.resource && lazy_initialization)
+		InitializeResource(pool_index);
+
+	return element.resource;
+}
+
+CommandListVariable* CustomResourcePool::GetVariable(float id, bool template_lookup, bool use_ring_index, bool is_assignment)
+{
+	if (source_pool)
+		return source_pool->GetVariable(id, template_lookup, use_ring_index, is_assignment);
+
+	// During static evaluation (parsing time) we cannot evaluate dynamic indexes
+	// So parsing-time config has to be applied to the entire pool
+	if (template_lookup)
+		return variable_template.get();
+
+	size_t pool_index = GetElementIndex(id, use_ring_index, is_assignment);
+
+	PoolElement& element = elements[pool_index];
+
+	if (is_assignment)
+		SwitchElementType(element, element_type_switch_reset ? PoolElement::Type::Variable : PoolElement::Type::Mixed);
+
+	if (!element.variable && lazy_initialization)
+		InitializeVariable(pool_index);
+
+	return element.variable;
+}
+
+size_t CustomResourcePool::GetPoolSize() const
+{
+	return ResolvePool()->pool_size;
+}
+
+void CustomResourcePool::SetSourcePool(CustomResourcePool* src)
+{
+	source_pool = src;
+}
+
+const CustomResourcePool* CustomResourcePool::ResolvePool() const
+{
+	return source_pool ? source_pool : this;
+}
+
+void CustomResourcePool::CopyMetadataFrom(const CustomResourcePool& src)
+{
+	// Disable pool proxy mode.
+	SetSourcePool(nullptr);
+
+	// Reset index metadata, keep resources in slots untouched.
+	ResetPool(false);
+
+	pool_size = src.pool_size;
+	index_type = src.index_type;
+	lazy_initialization = src.lazy_initialization;
+
+	// Import pool resource template settings.
+	if (resource_template && src.resource_template)
+		resource_template->CopyMetadataFrom(*src.resource_template);
+
+	// Copy variable template.
+	if (variable_template && src.variable_template)
+		variable_template->CopyStateFrom(*src.variable_template);
+
+	keep_alive_frames = src.keep_alive_frames;
+	reset_expired_elements = src.reset_expired_elements;
+
+	// Initialize index state and resize resources vector.
+	Initialize(src.pool_size);
+}
+
+void CustomResourcePool::ResetElements()
+{
+	if (source_pool)
+		return source_pool->ResetElements();
+
+	for (size_t i = 0; i < pool_size; ++i)
+		ResetElement(i);
+}
+
+void CustomResourcePool::ResetPool(bool reset_elements)
+{
+	// Disable pool proxy mode.
+	if (source_pool) {
+		source_pool = nullptr;
+		return;
+	}
+
+	// Clear slot metadata.
+	if (index_type != PoolIndexType::RING || keep_alive_frames != UINT32_MAX) {
+		for (PoolSlot& slot : index_table)
+		{
+			slot.key = UINT32_MAX;
+			slot.last_update_frame = 0;
+		}
+	}
+
+	// Reset index state.
+	if (index_type & PoolIndexType::INDEX_TABLE_MASK) {
+		last_replacement_index = elements.empty() ? 0 : pool_size - 1;
+		index_map->clear();
+	}
+
+	// Reset elements to default state.
+	if (reset_elements)
+		ResetElements();
+}
+
+#pragma endregion CustomResourcePoolAPI
+
+#pragma region CustomResourcePoolImpl
+
+void CustomResourcePool::InitializeResource(size_t pool_index)
+{
+	PoolElement& element = elements[pool_index];
+
+	if (!element.resource) {
+		wstring resource_id = wstring(name) + L"_" + std::to_wstring(pool_index);
+
+		element.resource = &customResources[resource_id];
+
+		element.resource->name = resource_id;
+		element.resource->pool = this;
+		element.resource->pool_index = pool_index;
+	}
+
+	element.resource->CopyMetadataFrom(*resource_template);
+}
+
+void CustomResourcePool::InitializeVariable(size_t pool_index)
+{
+	PoolElement& element = elements[pool_index];
+
+	if (!element.variable) {
+		wstring variable_id = L"$" + name + L"[" + std::to_wstring(pool_index) + L"]";
+		element.variable = RegisterGlobalVariable(variable_id, &variable_template->fval, variable_template->flags);
+	}
+	else {
+		element.variable->fval = variable_template->fval;
+		element.variable->flags = variable_template->flags;
+	}
+}
+
+void CustomResourcePool::AssignSlot(size_t slot, uint32_t key, bool is_assignment)
+{
+	PoolSlot& pool_slot = index_table[slot];
+
+	if (index_type & PoolIndexType::INDEX_TABLE_MASK)
+	{
+		// Remove previous mapping if slot occupied
+		if (pool_slot.key != UINT32_MAX)
+			index_map->erase(pool_slot.key);
+
+		// Update lookup table for keyed indexing modes
+		index_map->insert(key, slot);
+
+		// Install new mapping.
+		pool_slot.key = key;
+	}
+
+	if (keep_alive_frames != UINT32_MAX)
+		PostponeExpiration(pool_slot, is_assignment);
+}
+
+void CustomResourcePool::SwitchElementType(PoolElement& element, PoolElement::Type new_type)
+{
+	if (element.type == new_type)
+		return;
+
+	switch (element.type)
+	{
+	case PoolElement::Type::Resource:
+		ResetResource(element.resource);
+		break;
+
+	case PoolElement::Type::Variable:
+		ResetVariable(element.variable);
+		break;
+	}
+
+	element.type = new_type;
+}
+
+void CustomResourcePool::ResetResource(CustomResource* custom_resource)
+{
+	if (!custom_resource)
+		return;
+
+	custom_resource->stride = 0;
+	custom_resource->offset = 0;
+	custom_resource->format = DXGI_FORMAT_UNKNOWN;
+	custom_resource->buf_size = 0;
+	custom_resource->is_null = true;
+}
+
+void CustomResourcePool::ResetVariable(CommandListVariable* variable)
+{
+	if (!variable)
+		return;
+
+	variable->fval = variable_template->fval;
+}
+
+void CustomResourcePool::ResetElement(size_t pool_index)
+{
+	PoolElement& element = elements[pool_index];
+	switch (element.type)
+	{
+	case PoolElement::Type::Resource:
+		ResetResource(element.resource);
+		break;
+
+	case PoolElement::Type::Variable:
+		ResetVariable(element.variable);
+		break;
+
+	case PoolElement::Type::Mixed:
+		ResetResource(element.resource);
+		ResetVariable(element.variable);
+		break;
+	}
+	element.type = PoolElement::Type::None;
+}
+
+void CustomResourcePool::PostponeExpiration(PoolSlot& pool_slot, bool is_assignment)
+{
+	if (!is_assignment)
+		return;
+
+	pool_slot.last_update_frame = G->frame_no;
+}
+
+void CustomResourcePool::ExpireElements()
+{
+	if (keep_alive_frames == UINT32_MAX)
+		return;
+
+	if (last_expiration_run == G->frame_no)
+		return;
+
+	last_expiration_run = G->frame_no;
+
+	for (size_t i = 0; i < index_table.size(); ++i)
+	{
+		PoolSlot& pool_slot = index_table[i];
+
+		if (pool_slot.last_update_frame == UINT32_MAX)
+			continue;
+
+		if (G->frame_no - pool_slot.last_update_frame > keep_alive_frames)
+		{
+			pool_slot.last_update_frame = UINT32_MAX;
+
+			if (index_type & PoolIndexType::INDEX_TABLE_MASK)
+			{
+				index_map->erase(pool_slot.key);
+				pool_slot.key = UINT32_MAX;
+			}
+
+			if (reset_expired_elements)
+				ResetElement(i);
+		}
+	}
+}
+
+#pragma endregion CustomResourcePoolImpl
+
+#pragma endregion CustomResourcePool
+
+
 #pragma region ParseResourceCopyTarget
 
 IniParserResult ResourceCopyTarget::ParseTargetPrefix(const wchar_t*& target, size_t& length)
 {
 	switch (target[0]) {
 	case L'$':
-		return IniParserResult::SYNTAX_ERROR;
+		if ((target[length - 1] == L']') && !wcsncmp(target, L"$pool", 5)) {
+			evaluation_mode = ResourceCopyTargetEvaluationMode::VARIABLE;
+			target++;
+			length--;
+			return IniParserResult::TOKEN_FOUND;
+		}
 	case L'@':
 		evaluation_mode = ResourceCopyTargetEvaluationMode::RESOURCE_IDENTITY;
 		target++;
@@ -5706,27 +5943,28 @@ IniParserResult ResourceCopyTarget::ParseTargetCustomResource(const wchar_t*& ta
 	if (res == customResources.end())
 		return IniParserResult::SYNTAX_ERROR;
 
-	_custom_resource = &res->second;
+	static_custom_resource = &res->second;
 	type = ResourceCopyTargetType::CUSTOM_RESOURCE;
 
 	return IniParserResult::TOKEN_FOUND;
 }
 
-IniParserResult ResourceCopyTarget::ParseTargetPool(const wchar_t*& target, size_t length, const wstring* ini_namespace, CommandListScope* scope)
+IniParserResult ResourceCopyTarget::ParseTargetPool(const wchar_t*& target, size_t length, const wstring* ini_namespace, CommandListScope* scope, bool is_source)
 {
-	//LogInfo("ParseTargetPool: target=%ls, length=%d\n", target, length);
 	if (length < 5 || wcsncmp(target, L"pool", 4))
 		return IniParserResult::TOKEN_NOT_FOUND;
 
+	//LogInfo("ParseTargetPool: target=%ls, length=%d\n", target, length);
+
 	wstring pool_id;
-	wstring pool_index_var_name;
+	wstring pool_index_text;
 
 	if (target[length - 1] == L']')
 	{
 		// Parse PoolName[$id] or PoolName[0]
-		const wchar_t* pool_index_open_pos = wcsrchr(target, L'[');
+		const wchar_t* pool_index_open_pos = wcschr(target, L'[');
 		if (pool_index_open_pos && pool_index_open_pos > target) {
-			pool_index_var_name = wstring(pool_index_open_pos + 1, target + length - 1);
+			pool_index_text = wstring(pool_index_open_pos + 1, target + length - 1);
 			length = pool_index_open_pos - target;
 			pool_id = wstring(target, target + length);
 		}
@@ -5737,7 +5975,7 @@ IniParserResult ResourceCopyTarget::ParseTargetPool(const wchar_t*& target, size
 	}
 	else if (evaluation_mode == ResourceCopyTargetEvaluationMode::RESOURCE_IDENTITY)
 	{
-		// Treat ^PoolName as POOL_IDENTITY instead of RESOURCE_IDENTITY (no index provided)
+		// Treat @PoolName as POOL_IDENTITY instead of RESOURCE_IDENTITY (no index provided)
 		evaluation_mode = ResourceCopyTargetEvaluationMode::POOL_IDENTITY;
 		pool_id = wstring(target);
 	}
@@ -5747,7 +5985,8 @@ IniParserResult ResourceCopyTarget::ParseTargetPool(const wchar_t*& target, size
 		evaluation_mode = ResourceCopyTargetEvaluationMode::POOL_SIZE;
 		pool_id = wstring(target);
 	}
-	else if (evaluation_mode == ResourceCopyTargetEvaluationMode::RESOURCE)
+	else if (evaluation_mode == ResourceCopyTargetEvaluationMode::RESOURCE
+			|| evaluation_mode == ResourceCopyTargetEvaluationMode::VARIABLE)
 	{
 		pool_id = wstring(target);
 	}
@@ -5767,45 +6006,71 @@ IniParserResult ResourceCopyTarget::ParseTargetPool(const wchar_t*& target, size
 	if (custom_resource_pool == nullptr)
 		return IniParserResult::SYNTAX_ERROR;
 
-	// Handle resource pool index
-	if (!pool_index_var_name.empty()) {
-		if (pool_index_var_name[0] == L'$')
-		{
-			// Parse DYNAMIC pool index PoolName[$id]
-			CommandListVariable* var = NULL;
-			// Try parsing var_name as a variable:
-			if (find_local_variable(pool_index_var_name, scope, &var) ||
-				parse_command_list_var_name(pool_index_var_name, ini_namespace, &var)) {
-				// Bind custom resource pool
-				// Custom resource will be resolved dynamically in ResourceCopyTarget::GetResource
-				custom_resource_pool_index_var = var;
-			}
-			else {
-				return IniParserResult::SYNTAX_ERROR;
-			}
-			//LogInfo("ParseTargetPool: TOKEN_FOUND CUSTOM_RESOURCE var=%ls\n", pool_index_var_name.c_str());
-		}
-		else
-		{
-			// Parse STATIC pool index or PoolName[0] 
-			wchar_t* end;
-			// Try parsing var_name as a float
-			float value = wcstof(pool_index_var_name.c_str(), &end);
-			if (*end != L'\0')
-				return IniParserResult::SYNTAX_ERROR;
-			// Bind custom resource instance directly
-			_custom_resource = custom_resource_pool->GetResource(value);
-			//LogInfo("ParseTargetPool: TOKEN_FOUND CUSTOM_RESOURCE value=%f\n", value);
-		}
+	// No pool index specified, treat target as non-evaluatable pool.
+	if (pool_index_text.empty()) {
+		type = ResourceCopyTargetType::POOL;
+		return IniParserResult::TOKEN_FOUND;
+	}
 
-		type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+	// Pool range operation. Only DST is supported for now.
+	if (pool_index_text == L"*") {
+		if (is_source)
+			return IniParserResult::SYNTAX_ERROR;
+		type = ResourceCopyTargetType::POOL;
+		evaluation_mode = ResourceCopyTargetEvaluationMode::POOL_FULL_RANGE;
+		return IniParserResult::TOKEN_FOUND;
+	}
+
+	// Handle resource pool index
+	if (custom_resource_pool->index_type == PoolIndexType::STATIC)
+	{
+		// Parse value for STATIC index type.
+		wchar_t* end;
+		float static_pool_index = wcstof(pool_index_text.c_str(), &end);
+		if (*end != L'\0')
+			return IniParserResult::SYNTAX_ERROR;
+
+		// Statically resolve custom resource or variable from pool.
+		switch (evaluation_mode)
+		{
+		case ResourceCopyTargetEvaluationMode::VARIABLE:
+			//LogInfo("ParseTargetPool: STATIC VARIABLE pool_index=%f\n", static_pool_index);
+			static_pool_variable = custom_resource_pool->GetVariable(static_pool_index, false, false, !is_source);
+			type = ResourceCopyTargetType::VARIABLE;
+			return IniParserResult::TOKEN_FOUND;
+
+		default:
+			//LogInfo("ParseTargetPool: STATIC RESOURCE pool_index=%f\n", static_pool_index);
+			static_custom_resource = custom_resource_pool->GetResource(static_pool_index, false, false, !is_source);
+			type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+			return IniParserResult::TOKEN_FOUND;
+		}
 	}
 	else
 	{
-		type = ResourceCopyTargetType::CUSTOM_RESOURCE_POOL;
+		// Parse expression for any dynamic index type.
+		pool_dynamic_index_expression = std::make_unique<CommandListExpression>();
+		if (!pool_dynamic_index_expression->parse(&pool_index_text, ini_namespace, scope)) {
+			pool_dynamic_index_expression.reset();
+			return IniParserResult::SYNTAX_ERROR;
+		}
+
+		// Custom resource or variable will be resolved dynamically by operation parser.
+		switch (evaluation_mode)
+		{
+		case ResourceCopyTargetEvaluationMode::VARIABLE:
+			//LogInfo("ParseTargetPool: DYNAMIC VARIABLE pool_index_text=%ls\n", pool_index_text.c_str());
+			type = ResourceCopyTargetType::VARIABLE;
+			return IniParserResult::TOKEN_FOUND;
+
+		default:
+			//LogInfo("ParseTargetPool: DYNAMIC RESOURCE pool_index_text=%ls\n", pool_index_text.c_str());
+			type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+			return IniParserResult::TOKEN_FOUND;
+		}
 	}
 
-	return IniParserResult::TOKEN_FOUND;
+	return IniParserResult::SYNTAX_ERROR;
 }
 
 static constexpr bool is_shader_resource(wchar_t shader_type) {
@@ -5941,11 +6206,20 @@ bool ResourceCopyTarget::ParseTarget(const wchar_t *target, bool is_source, cons
 	if (!target || length < 2)
 		return false;
 
-	// Consume an optional target prefix (`@` or `#`).
+	// Consume an optional target prefix (`@` or `#` or `$`).
 	ret = ParseTargetPrefix(target, length);
 	//LogInfo("ParseTarget: %d at ParseTargetPrefix\n", ret);
 	if (ret == IniParserResult::SYNTAX_ERROR)
 		return false;
+
+	// Parse pool variable early.
+	if (evaluation_mode == ResourceCopyTargetEvaluationMode::VARIABLE)
+	{
+		// Parse pool variable (e.g. `$PoolFoo[0]`).
+		ret = ParseTargetPool(target, length, ini_namespace, scope, is_source);
+		//LogInfo("ParseTarget: %d at ParseTargetPool\n", ret);
+		return ret == IniParserResult::TOKEN_FOUND;
+	}
 
 	// Consume an optional resource member suffix (e.g. `->HashRegion(0, 16)` or `->Length`).
 	ret = ParseTargetMember(target, length, temp_target, ini_namespace, scope);
@@ -5964,7 +6238,7 @@ bool ResourceCopyTarget::ParseTarget(const wchar_t *target, bool is_source, cons
 		return ret == IniParserResult::TOKEN_FOUND;
 
 	// Parse the remainder as a resource pool (e.g. `PoolFoo`).
-	ret = ParseTargetPool(target, length, ini_namespace, scope);
+	ret = ParseTargetPool(target, length, ini_namespace, scope, is_source);
 	//LogInfo("ParseTarget: %d at ParseTargetPool\n", ret);
 	if (ret != IniParserResult::TOKEN_NOT_FOUND)
 		return ret == IniParserResult::TOKEN_FOUND;
@@ -5982,38 +6256,111 @@ bool ResourceCopyTarget::ParseTarget(const wchar_t *target, bool is_source, cons
 #pragma endregion ParseResourceCopyTarget
 
 
-bool ParseCommandListResourceCopyDirective(const wchar_t *section,
-		const wchar_t *key, wstring *val, CommandList *command_list,
-		const wstring *ini_namespace)
+#pragma region PoolCopyOperation
+
+static ResourceCopyOptions parse_copy_options(wstring* val, wchar_t*& src_ptr)
 {
-	ResourceCopyOperation *operation = new ResourceCopyOperation();
-	wchar_t buf[MAX_PATH];
-	wchar_t *src_ptr = NULL;
-
-	if (!operation->dst.ParseTarget(key, false, ini_namespace, command_list->scope))
-		goto bail;
-
 	// parse_enum_option_string replaces spaces with NULLs, so it can't
 	// operate on the buffer in the wstring directly. I could potentially
 	// change it to work without modifying the string, but for now it's
 	// easier to just make a copy of the string:
 	if (val->length() >= MAX_PATH)
-		goto bail;
+		return ResourceCopyOptions::INVALID;
+	wchar_t buf[MAX_PATH];
 	wcsncpy_s(buf, val->c_str(), MAX_PATH);
 
-	operation->options = parse_enum_option_string<wchar_t *, ResourceCopyOptions>
-		(ResourceCopyOptionNames, buf, &src_ptr);
+	return parse_enum_option_string<wchar_t*, ResourceCopyOptions>(ResourceCopyOptionNames, buf, &src_ptr);
+}
 
-	if (!src_ptr)
-		goto bail;
+static CommandListCommand* parse_pool_copy_operation(
+	const wchar_t* section, ResourceCopyTarget& dst, ResourceCopyTarget& src, ResourceCopyOptions options, CommandList* command_list, const wstring* ini_namespace
+)
+{
+	//LogInfoW(L"parse_pool_copy_operation dst_type=%ls, dst_mode=%ls, src_type=%ls, src_mode=%ls\n",
+	//	lookup_enum_name(ResourceCopyTargetTypeNames, dst.type), lookup_enum_name(ResourceCopyTargetEvaluationModeNames, dst.evaluation_mode),
+	//	lookup_enum_name(ResourceCopyTargetTypeNames, src.type), lookup_enum_name(ResourceCopyTargetEvaluationModeNames, src.evaluation_mode));
 
-	if (!operation->src.ParseTarget(src_ptr, true, ini_namespace, command_list->scope))
-		goto bail;
+	switch (src.type)
+	{
+	case ResourceCopyTargetType::POOL:
+		if (!(options & ResourceCopyOptions::COPY_TYPE_MASK))
+			// Pool can be copied only to another pool, prefer proxy mode by default.
+			options |= ResourceCopyOptions::REFERENCE;
+		else if (options & ResourceCopyOptions::COPY) {
+			// Cannot use `copy` for pool to pool, only `ref` and `copy_desc` are supported.
+			LogOverlayW(LOG_WARNING, L"Cannot copy `%ls` to `%ls` (deep `copy` is not supported)\n - [% ls] @[% ls]\n", src.custom_resource_pool->name, dst.custom_resource_pool->name, section, ini_namespace->c_str());
+			return nullptr;
+		}
+		break;
 
-	if (operation->src.type == ResourceCopyTargetType::CUSTOM_RESOURCE_POOL)
-		goto bail;
+	case ResourceCopyTargetType::EMPTY:
+		break;
 
-	if (!(operation->options & ResourceCopyOptions::COPY_TYPE_MASK)) {
+	default:
+		return nullptr;
+	}
+
+	PoolCopyOperation* operation = new PoolCopyOperation();
+
+	operation->src = std::move(src);
+	operation->dst = std::move(dst);
+	operation->options = options;
+
+	return operation;
+}
+
+void PoolCopyOperation::CopyPoolToPool(CommandListState* state)
+{
+	if (options & ResourceCopyOptions::COPY_MASK)
+	{
+		if (options & ResourceCopyOptions::COPY_DESC) {
+			COMMAND_LIST_LOG(state, "  copying pool metadata\n");
+			dst.custom_resource_pool->CopyMetadataFrom(*src.custom_resource_pool);
+		}
+		else {
+			//COMMAND_LIST_LOG(state, "  performing deep pool copy\n");
+			LogOverlayW(LOG_NOTICE, L"Failed to copy `%ls` to `%ls` (deep copy not supported)\n", src.custom_resource_pool->name.c_str(), dst.custom_resource_pool->name.c_str());
+		}
+	}
+	else {
+		COMMAND_LIST_LOG(state, "  copying pool by reference\n");
+		dst.custom_resource_pool->SetSourcePool(src.custom_resource_pool);
+	}
+}
+
+void PoolCopyOperation::run(CommandListState* state)
+{
+	COMMAND_LIST_LOG(state, "%S\n", ini_line.c_str());
+
+	switch (src.type)
+	{
+	case ResourceCopyTargetType::POOL:
+		CopyPoolToPool(state);
+		return;
+
+	case ResourceCopyTargetType::EMPTY:
+		if (dst.evaluation_mode == ResourceCopyTargetEvaluationMode::POOL_FULL_RANGE)
+			dst.custom_resource_pool->ResetElements(); // Reset all pool elements.
+		else
+			dst.custom_resource_pool->ResetPool(false); // Reset pool index metadata and proxy state.
+		return;
+	}
+}
+
+#pragma endregion PoolCopyOperation
+
+
+#pragma region ParseResourceCopyOperation
+
+static CommandListCommand* parse_resource_copy_operation(
+	const wchar_t* section, ResourceCopyTarget& dst, ResourceCopyTarget& src, ResourceCopyOptions options, CommandList* command_list, const wstring* ini_namespace
+)
+{
+	//LogInfoW(L"parse_resource_copy_operation dst_type=%ls, dst_mode=%ls, src_type=%ls, src_mode=%ls\n",
+	//	lookup_enum_name(ResourceCopyTargetTypeNames, dst.type), lookup_enum_name(ResourceCopyTargetEvaluationModeNames, dst.evaluation_mode),
+	//	lookup_enum_name(ResourceCopyTargetTypeNames, src.type), lookup_enum_name(ResourceCopyTargetEvaluationModeNames, src.evaluation_mode));
+
+	if (!(options & ResourceCopyOptions::COPY_TYPE_MASK)) {
 		// If the copy method was not speficied make a guess.
 		// References aren't always safe (e.g. a resource can't be both
 		// an input and an output), and a resource may not have been
@@ -6038,22 +6385,22 @@ bool ParseCommandListResourceCopyDirective(const wchar_t *section,
 		// we assigned to it. Mostly this would already work due to the
 		// custom resource rules, but adding this rule should make
 		// assigning the back buffer to a render target work.
-		if (operation->dst.type == ResourceCopyTargetType::CUSTOM_RESOURCE
-			|| operation->dst.type == ResourceCopyTargetType::CUSTOM_RESOURCE_POOL)
-			operation->options |= ResourceCopyOptions::COPY;
-		else if (operation->dst.type == ResourceCopyTargetType::RENDER_TARGET)
-			operation->options |= ResourceCopyOptions::REFERENCE;
-		else if (operation->src.type == ResourceCopyTargetType::CUSTOM_RESOURCE)
-			operation->options |= ResourceCopyOptions::REFERENCE;
-		else if (operation->src.type == operation->dst.type)
-			operation->options |= ResourceCopyOptions::REFERENCE;
-		else if (operation->dst.type == ResourceCopyTargetType::SHADER_RESOURCE
-				&& (operation->src.type == ResourceCopyTargetType::INI_PARAMS
-				|| operation->src.type == ResourceCopyTargetType::CURSOR_MASK
-				|| operation->src.type == ResourceCopyTargetType::CURSOR_COLOR))
-			operation->options |= ResourceCopyOptions::REFERENCE;
+		if (dst.type == ResourceCopyTargetType::CUSTOM_RESOURCE
+			|| dst.type == ResourceCopyTargetType::POOL)
+			options |= ResourceCopyOptions::COPY;
+		else if (dst.type == ResourceCopyTargetType::RENDER_TARGET)
+			options |= ResourceCopyOptions::REFERENCE;
+		else if (src.type == ResourceCopyTargetType::CUSTOM_RESOURCE)
+			options |= ResourceCopyOptions::REFERENCE;
+		else if (src.type == dst.type)
+			options |= ResourceCopyOptions::REFERENCE;
+		else if (dst.type == ResourceCopyTargetType::SHADER_RESOURCE
+				&& (src.type == ResourceCopyTargetType::INI_PARAMS
+					|| src.type == ResourceCopyTargetType::CURSOR_MASK
+					|| src.type == ResourceCopyTargetType::CURSOR_COLOR))
+			options |= ResourceCopyOptions::REFERENCE;
 		else
-			operation->options |= ResourceCopyOptions::COPY;
+			options |= ResourceCopyOptions::COPY;
 	}
 
 	// FIXME: If custom resources are copied to other custom resources by
@@ -6067,22 +6414,188 @@ bool ParseCommandListResourceCopyDirective(const wchar_t *section,
 	// remaining exceptions would be where differing bind flags are used at
 	// different times and we still can't deduce it here
 	// FIXME: The constant buffer bind flag can't be combined with others
-	if (operation->src.type == ResourceCopyTargetType::CUSTOM_RESOURCE &&
-			(operation->options & ResourceCopyOptions::REFERENCE)) {
-		CustomResource* src_custom_resource = operation->src.GetCustomResource(true);
+	if (src.type == ResourceCopyTargetType::CUSTOM_RESOURCE && (options & ResourceCopyOptions::REFERENCE)) {
+		CustomResource* src_custom_resource = src.GetCustomResource(nullptr, true);
 		D3D11_RESOURCE_MISC_FLAG misc_flags = (D3D11_RESOURCE_MISC_FLAG)0;
-		if (!src_custom_resource->AddFlags(operation->dst.BindFlags(NULL, &misc_flags), misc_flags, true)) {
+		if (!src_custom_resource->AddFlags(dst.BindFlags(NULL, &misc_flags), misc_flags, true)) {
 			LogOverlayW(LOG_WARNING, L"To use resources with incompatible flags explicitly add 'copy' keyword, e.g. 'vs-cb0 = copy ResourceRWBufferCB'\n - [%ls] @ [%ls]\n", section, ini_namespace->c_str());
-			goto bail;
+			return nullptr;
 		}
 	}
 
+	ResourceCopyOperation* operation = new ResourceCopyOperation();
+
+	operation->src = std::move(src);
+	operation->dst = std::move(dst);
+	operation->options = options;
+
+	return operation;
+}
+
+#pragma endregion ParseResourceCopyOperation
+
+
+#pragma region PoolVariableOperation
+
+CommandListCommand* parse_pool_variable_operation(const wchar_t *section, ResourceCopyTarget& dst, wstring *val, CommandList *command_list, const wstring *ini_namespace)
+{
+
+	//LogInfoW(L"parse_pool_variable_operation dst_type=%ls, dst_mode=%ls, val=%ls\n",
+	//	lookup_enum_name(ResourceCopyTargetTypeNames, dst.type), lookup_enum_name(ResourceCopyTargetEvaluationModeNames, dst.evaluation_mode), val->c_str());
+
+	if (!dst.custom_resource_pool)
+		return false;
+
+	if (val->empty())
+		return false;
+
+	PoolVariableOperation* command = new PoolVariableOperation();
+
+	if (!command->expression.parse(val, ini_namespace, command_list->scope))
+		goto bail;
+
+	command->dst = std::move(dst);
+
+	return command;
+
+bail:
+	delete command;
+	return nullptr;
+}
+
+void PoolVariableOperation::SetVariableValue(CommandListState* state, CommandListVariable* dst, float value)
+{
+	float orig = dst->fval;
+
+	COMMAND_LIST_LOG(state, "%S\n", ini_line.c_str());
+
+	dst->fval = value;
+
+	COMMAND_LIST_LOG(state, "  = %f\n", dst->fval);
+
+	if (dst->flags & VariableFlags::PERSIST)
+		G->user_config_dirty |= (dst->fval != orig);
+}
+
+void PoolVariableOperation::SetAllPoolVariables(CommandListState* state, float value)
+{
+	for (size_t slot_index = 0; slot_index < dst.custom_resource_pool->GetPoolSize(); ++slot_index)
+	{
+		CommandListVariable* dst_var = dst.custom_resource_pool->GetVariable((float)slot_index, false, true, true);
+		SetVariableValue(state, dst_var, value);
+	}
+}
+
+void PoolVariableOperation::run(CommandListState* state)
+{
+	float new_value = expression.evaluate(state);
+
+	switch (dst.type)
+	{
+	case ResourceCopyTargetType::VARIABLE:
+	{
+		CommandListVariable* dst_var = dst.GetPoolVariable(state, true);
+		SetVariableValue(state, dst_var, new_value);
+		return;
+	}
+	case ResourceCopyTargetType::POOL:
+	{
+		SetAllPoolVariables(state, new_value);
+		return;
+	}
+	}
+}
+
+bool PoolVariableOperation::optimise(HackerDevice* device)
+{
+	if (dst.pool_dynamic_index_expression && !dst.pool_dynamic_index_expression->optimise(device))
+		return false;
+
+	return expression.optimise(device);
+}
+
+#pragma endregion PoolVariableOperation
+
+
+bool ParseCommandListResourceCopyTargetDirective(
+	const wchar_t *section, const wchar_t *key, wstring *val, CommandList *command_list, const wstring *ini_namespace
+)
+{
+	//LogInfo("Parsing CommandListResourceCopyTargetDirective: `%ls = %ls`\n", key, val->c_str());
+
+	ResourceCopyTarget dst = ResourceCopyTarget();
+
+	if (!dst.ParseTarget(key, false, ini_namespace, command_list->scope))
+		return false;
+
+	CommandListCommand* operation = nullptr;
+
+	if (dst.type == ResourceCopyTargetType::VARIABLE)
+	{
+		// Pool Variable - Copy Exression Result To Pool Variable
+		// $PoolFoo[0] = $PoolBar[0] + $var + 1
+		operation = parse_pool_variable_operation(section, dst, val, command_list, ini_namespace);
+	}
+	else
+	{
+		ResourceCopyTarget src = ResourceCopyTarget();
+
+		wchar_t* src_ptr = nullptr;
+		ResourceCopyOptions options = parse_copy_options(val, src_ptr);
+
+		if (!src_ptr || !src.ParseTarget(src_ptr, true, ini_namespace, command_list->scope))
+			src.type = ResourceCopyTargetType::INVALID;
+
+		if (dst.type == ResourceCopyTargetType::POOL)
+		{
+			if (src.type == ResourceCopyTargetType::POOL) // PoolFoo = ref PoolBar
+			{
+				// Pool - Copy Pool To Pool (`ref` and `copy_desc`)
+				operation = parse_pool_copy_operation(section, dst, src, options, command_list, ini_namespace);
+			}
+			else if (dst.evaluation_mode == ResourceCopyTargetEvaluationMode::POOL_FULL_RANGE)
+			{
+				switch (src.type)
+				{
+				case ResourceCopyTargetType::EMPTY: // PoolFoo[*] = null
+					// Pool - Reset All Slots
+					operation = parse_pool_copy_operation(section, dst, src, options, command_list, ini_namespace);
+					break;
+
+				case ResourceCopyTargetType::VARIABLE: // PoolFoo[*] = $PoolBar[0]
+				case ResourceCopyTargetType::INVALID:  // PoolFoo[*] = $var
+					// Pool - Copy Variable To All Slots (`val` will be re-parsed as expression)
+					operation = parse_pool_variable_operation(section, dst, val, command_list, ini_namespace);
+					break;
+
+				default: // PoolFoo[*] = copy ResourceBar
+					// Pool - Copy Resource To All Slots
+					operation = parse_resource_copy_operation(section, dst, src, options, command_list, ini_namespace);
+				}
+			}
+		}
+		else if (src.type != ResourceCopyTargetType::INVALID)
+		{
+			// 1. Pool Resource - Copy Resource To Slot
+			// PoolFoo[0] = copy ResourceFoo
+			// 2. Resource - Copy Resource To Resource
+			// ResourceFoo = copy vb0
+			operation = parse_resource_copy_operation(section, dst, src, options, command_list, ini_namespace);
+		}
+		else {
+			return false;
+		}
+	}
+
+	if (operation == nullptr)
+		return false;
+
+	//LogInfo("Parsed CommandListResourceCopyTargetDirective: `%ls = %ls`\n", key, val->c_str());
+
 	operation->ini_line = L"[" + wstring(section) + L"] " + wstring(key) + L" = " + *val;
 	command_list->commands.push_back(std::shared_ptr<CommandListCommand>(operation));
+
 	return true;
-bail:
-	delete operation;
-	return false;
 }
 
 
@@ -6351,23 +6864,55 @@ bool CommandPlaceholder::noop(bool post, bool ignore_cto_pre, bool ignore_cto_po
 
 void ResourceCopyTarget::SetCustomResource(CustomResource* resource)
 {
-	_custom_resource = resource;
+	static_custom_resource = resource;
 }
 
-CustomResource* ResourceCopyTarget::GetCustomResource(bool static_evaluation)
+template<typename StaticT, typename Getter>
+StaticT* ResourceCopyTarget::GetPoolObject(StaticT* static_object, CommandListState* state, bool is_assignment, Getter getter)
 {
-	if (custom_resource_pool == nullptr) {
-		// Default hot path for non-pool resource
-		return _custom_resource;
-	} else {
-		if (custom_resource_pool_index_var == nullptr) {
-			// Pool resource with static indexing (e.g. ResourcePoolFoo[0])
-			return _custom_resource;
-		} else {
-			// Pool resource with dynamic indexing (e.g. ResourcePoolFoo[$id])
-			return custom_resource_pool->GetResource(custom_resource_pool_index_var->fval, static_evaluation);
-		}
+	// Default hot path for non-pool object or for pool object with static indexing (e.g. PoolFoo[0]).
+	if (static_object)
+		return static_object;
+
+	// ResourceCopyTarget without both static object and `pool_dynamic_index_expression` must be a pool.
+	if (!pool_dynamic_index_expression) {
+		if (type != ResourceCopyTargetType::POOL)
+			LogOverlayW(LOG_DIRE, L"BUG: GetPoolObject called for non-pool ResourceCopyTarget (type=%ls, mode=%ls) without static pool object or dynamic pool index, falling back to plugging pool object template\n",
+				lookup_enum_name(ResourceCopyTargetTypeNames, type), lookup_enum_name(ResourceCopyTargetEvaluationModeNames, evaluation_mode));
+		// Request a pool object template via pool proxy chain.
+		return getter(FLT_MAX, true, is_assignment);
 	}
+
+	// Pool object with dynamic indexing (e.g. PoolFoo[$id])
+	float id = state ? pool_dynamic_index_expression->evaluate(state) : 0.0f;
+
+	return getter(id, state == nullptr, is_assignment);
+}
+
+CustomResource* ResourceCopyTarget::GetCustomResource(CommandListState* state, bool is_assignment)
+{
+	return GetPoolObject(
+		static_custom_resource,
+		state,
+		is_assignment,
+		[this](float id, bool template_lookup, bool assign)
+		{ 
+			return custom_resource_pool->GetResource(id, template_lookup, false, assign); 
+		}
+	);
+}
+
+CommandListVariable* ResourceCopyTarget::GetPoolVariable(CommandListState* state, bool is_assignment)
+{
+	return GetPoolObject(
+		static_pool_variable,
+		state,
+		is_assignment,
+		[this](float id, bool template_lookup, bool assign)
+		{ 
+			return custom_resource_pool->GetVariable(id, template_lookup, false, assign);
+		}
+	);
 }
 
 ID3D11Resource *ResourceCopyTarget::GetResource(
@@ -6569,12 +7114,13 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 
 	case ResourceCopyTargetType::CUSTOM_RESOURCE:
 		{
-			CustomResource* custom_resource = GetCustomResource();
+			CustomResource* custom_resource = GetCustomResource(state);
 
 			custom_resource->expire(mOrigDevice1, mOrigContext1);
 
 			if (dst)
 				bind_flags = dst->BindFlags(state, &misc_flags);
+
 			custom_resource->Substantiate(mOrigDevice1, bind_flags, misc_flags);
 
 			if (stride)
@@ -6676,10 +7222,6 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 				COMMAND_LIST_LOG(state, "  Unable to get access to fake swap chain\n");
 		}
 		return res;
-		
-	case ResourceCopyTargetType::CUSTOM_RESOURCE_POOL:
-		// Can't "get" resource pool object as a resource
-		return NULL;
 	}
 
 	return NULL;
@@ -6884,7 +7426,7 @@ void ResourceCopyTarget::SetResource(
 
 	case ResourceCopyTargetType::CUSTOM_RESOURCE:
 	{
-		CustomResource* custom_resource = GetCustomResource();
+		CustomResource* custom_resource = GetCustomResource(state, true);
 
 		custom_resource->stride = stride;
 		custom_resource->offset = offset;
@@ -6949,11 +7491,6 @@ void ResourceCopyTarget::SetResource(
 		// We can't set values on the CPU directly from here, since the
 		// values won't have finished transferring yet. These will be
 		// set from elsewhere.
-	case ResourceCopyTargetType::CUSTOM_RESOURCE_POOL:
-		// 1. Reset pool state (slots metadata and indexing state).
-		// 2. Do `PoolFoo[$index] = null` for all resources.
-		if (res == NULL && view == NULL)
-			custom_resource_pool->Reset();
 		break;
 	}
 }
@@ -6978,8 +7515,9 @@ D3D11_BIND_FLAG ResourceCopyTarget::BindFlags(CommandListState *state, D3D11_RES
 		case ResourceCopyTargetType::UNORDERED_ACCESS_VIEW:
 			return D3D11_BIND_UNORDERED_ACCESS;
 		case ResourceCopyTargetType::CUSTOM_RESOURCE:
+		case ResourceCopyTargetType::POOL:
 		{
-			CustomResource* custom_resource = GetCustomResource();
+			CustomResource* custom_resource = GetCustomResource(state);
 			if (misc_flags)
 				*misc_flags = custom_resource->misc_flags;
 			return custom_resource->bind_flags;
@@ -7006,8 +7544,6 @@ D3D11_BIND_FLAG ResourceCopyTarget::BindFlags(CommandListState *state, D3D11_RES
 		case ResourceCopyTargetType::SWAP_CHAIN:
 		case ResourceCopyTargetType::CPU:
 			// N/A since swap chain can't be set as a destination
-		case ResourceCopyTargetType::CUSTOM_RESOURCE_POOL:
-			// Can't bind flags to resource pool object
 			return (D3D11_BIND_FLAG)0;
 	}
 
@@ -7138,7 +7674,7 @@ float ResourceCopyTarget::GetPoolId()
 		return 0.0f;
 
 	// Hash 64-bit pointer to mix bits
-	uint64_t hash = HashPointer(pool);
+	uint64_t hash = HashPointer(pool->ResolvePool());
 
 	// Encode 64-bit hash as float30 to preserve as much precision as possible at low cost.
 	return EncodeFloat30((uint32_t)hash);
@@ -7155,7 +7691,7 @@ float ResourceCopyTarget::GetResourceStride(CommandListState* state)
 	switch (type) {
 		case ResourceCopyTargetType::CUSTOM_RESOURCE: 
 		{
-			if (auto custom_resource = GetCustomResource()) {
+			if (auto custom_resource = GetCustomResource(state)) {
 				if (custom_resource->override_stride != -1)
 					return (float)custom_resource->override_stride;
 
@@ -7213,7 +7749,7 @@ float ResourceCopyTarget::GetResourceStride(CommandListState* state)
 float ResourceCopyTarget::GetResourceSize(CommandListState* state)
 {
 	if (type == ResourceCopyTargetType::CUSTOM_RESOURCE) {
-		if (auto custom_resource = GetCustomResource()) {
+		if (auto custom_resource = GetCustomResource(state)) {
 			if (custom_resource->buf_size > 0)
 				return (float)custom_resource->buf_size;
 		}
@@ -7349,7 +7885,7 @@ float ResourceCopyTarget::GetResourceRegionHash(CommandListState* state)
 
 			UINT region_size = (UINT)member_args[1].GetValue();
 
-			uint32_t region_hash = GetRegionHash(state->mOrigContext1, buf, region_offset, region_size, GetCustomResource());
+			uint32_t region_hash = GetRegionHash(state->mOrigContext1, buf, region_offset, region_size, GetCustomResource(state));
 
 			if (region_hash)
 				ret = EncodeFloat30(HashUnsigned32(region_hash));
@@ -7509,7 +8045,7 @@ static ID3D11Buffer *RecreateCompatibleBuffer(
 	}
 
 	if (dst && dst->type == ResourceCopyTargetType::CUSTOM_RESOURCE) {
-		CustomResource* dst_custom_resource = dst->GetCustomResource();
+		CustomResource* dst_custom_resource = dst->GetCustomResource(state, true);
 		dst_custom_resource->OverrideBufferDesc(&new_desc);
 	}
 
@@ -7765,7 +8301,7 @@ static ResourceType* RecreateCompatibleTexture(
 	new_desc.MiscFlags &= ~D3D11_RESOURCE_MISC_GENERATE_MIPS;
 
 	if (dst && dst->type == ResourceCopyTargetType::CUSTOM_RESOURCE) {
-		CustomResource* dst_custom_resource = dst->GetCustomResource();
+		CustomResource* dst_custom_resource = dst->GetCustomResource(state);
 		dst_custom_resource->OverrideTexDesc(&new_desc);
 	}
 
@@ -8749,7 +9285,7 @@ void ResourceCopyOperation::CopyResourceToResource(
 		// the cache in the ResourceCopyOperation. This will reduce the
 		// number of extra resources we have floating around if copying
 		// something to a single custom resource from multiple shaders.
-		dst_custom_resource = dst.GetCustomResource();
+		dst_custom_resource = dst.GetCustomResource(state, true);
 
 		pp_cached_resource = &dst_custom_resource->resource;
 		pp_cached_device = &dst_custom_resource->device;
@@ -8770,7 +9306,7 @@ void ResourceCopyOperation::CopyResourceToResource(
 		dst_custom_resource->OverrideOutOfBandInfo(&format, &stride);
 
 		if (src.type == ResourceCopyTargetType::CUSTOM_RESOURCE) {
-			CustomResource* src_custom_resource = src.GetCustomResource();
+			CustomResource* src_custom_resource = src.GetCustomResource(state);
 			dst_custom_resource->source_stride = src_custom_resource->source_stride > 0 ? src_custom_resource->source_stride : stride;
 		} else {
 			dst_custom_resource->source_stride = stride;
@@ -8883,7 +9419,7 @@ void ResourceCopyOperation::CopyResourceToPool(
 	dst.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
 	dst.custom_resource_pool = nullptr;
 	
-	for (size_t slot_index = 0; slot_index < custom_resource_pool->pool_size; ++slot_index)
+	for (size_t slot_index = 0; slot_index < custom_resource_pool->GetPoolSize(); ++slot_index)
 	{
 		// Force ring index usage to directly get custom resources from pool slots.
 		CustomResource* dst_resource = custom_resource_pool->GetResource((float)slot_index, false, true, true);
@@ -8893,7 +9429,7 @@ void ResourceCopyOperation::CopyResourceToPool(
 		CopyResourceToResource(state, src_resource, src_view, stride, offset, format, buf_src_size);
 	}
 	// Restore original state of pool's ResourceCopyTarget object.
-	dst.type = ResourceCopyTargetType::CUSTOM_RESOURCE_POOL;
+	dst.type = ResourceCopyTargetType::POOL;
 	dst.custom_resource_pool = custom_resource_pool;
 	dst.SetCustomResource(nullptr);
 }
@@ -8918,7 +9454,7 @@ void ResourceCopyOperation::run(CommandListState *state)
 
 	switch (dst.type)
 	{
-	case ResourceCopyTargetType::CUSTOM_RESOURCE_POOL:
+	case ResourceCopyTargetType::POOL:
 		CopyResourceToPool(state, src_resource, src_view, stride, offset, format, buf_src_size);
 		break;
 

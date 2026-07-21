@@ -2231,6 +2231,13 @@ float BitCastToFloat(uint32_t bits)
 	return value;
 }
 
+uint32_t BitCastToUint(float bits)
+{
+	uint32_t value;
+	memcpy(&value, &bits, sizeof(value));
+	return value;
+}
+
 float EncodeFloat30(const uint32_t hash)
 {
 	// IEEE-754 float layout:
