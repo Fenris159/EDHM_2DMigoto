@@ -537,8 +537,10 @@ STDMETHODIMP HackerSwapChain::GetDevice(
 {
 	LogDebug("HackerSwapChain::GetDevice(%s@%p) called with IID: %s\n", type_name(this), this, NameFromIID(riid).c_str());
 
-	HRESULT hr = mOrigSwapChain1->GetDevice(riid, ppDevice);
-	LogDebug("  returns result = %x, handle = %p\n", hr, *ppDevice);
+	// Route known D3D device interfaces through HackerDevice so GetDevice
+	// cannot bypass the same wrapper policy enforced by QueryInterface.
+	HRESULT hr = mHackerDevice ? mHackerDevice->QueryInterface(riid, ppDevice) : E_NOINTERFACE;
+	LogDebug("  returns result = %x, handle = %p\n", hr, ppDevice ? *ppDevice : NULL);
 	return hr;
 }
 
