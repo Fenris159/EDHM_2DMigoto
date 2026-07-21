@@ -375,22 +375,31 @@ HRESULT WINAPI D3D11On12CreateDevice(
 	_COM_Outptr_opt_ ID3D11DeviceContext** ppImmediateContext,
 	_Out_opt_ D3D_FEATURE_LEVEL* pChosenFeatureLevel)
 {
+	// Out parameters carry no input ownership. Clear them before forwarding so
+	// a failing non-conforming runtime cannot make cleanup release stale caller
+	// pointers.
+	if (ppDevice)
+		*ppDevice = NULL;
+	if (ppImmediateContext)
+		*ppImmediateContext = NULL;
+	if (pChosenFeatureLevel)
+		*pChosenFeatureLevel = (D3D_FEATURE_LEVEL)0;
+
 	InitD311();
 	LogInfo("D3D11On12CreateDevice called.\n");
 	if (!_D3D11On12CreateDevice) {
 		LogInfo("*** Chained d3d11 does not export D3D11On12CreateDevice.\n");
-		if (ppDevice)
-			*ppDevice = NULL;
-		if (ppImmediateContext)
-			*ppImmediateContext = NULL;
-		if (pChosenFeatureLevel)
-			*pChosenFeatureLevel = (D3D_FEATURE_LEVEL)0;
 		return E_NOTIMPL;
 	}
 
 	HRESULT hr = (*_D3D11On12CreateDevice)(pDevice, Flags, pFeatureLevels, FeatureLevels, ppCommandQueues, NumQueues, NodeMask, ppDevice, ppImmediateContext, pChosenFeatureLevel);
 	NormalizeComFailureOutput(hr, ppDevice);
 	NormalizeComFailureOutput(hr, ppImmediateContext);
+	if (SUCCEEDED(hr) && ((ppDevice && !*ppDevice) || (ppImmediateContext && !*ppImmediateContext))) {
+		hr = E_UNEXPECTED;
+		NormalizeComFailureOutput(hr, ppDevice);
+		NormalizeComFailureOutput(hr, ppImmediateContext);
+	}
 	if (FAILED(hr) && pChosenFeatureLevel)
 		*pChosenFeatureLevel = (D3D_FEATURE_LEVEL)0;
 	return hr;
@@ -410,7 +419,7 @@ HRESULT WINAPI CreateDirect3D11DeviceFromDXGIDevice(
 	}
 
 	HRESULT hr = (*_CreateDirect3D11DeviceFromDXGIDevice)(dxgiDevice, graphicsDevice);
-	return NormalizeComFailureOutput(hr, graphicsDevice);
+	return NormalizeRequiredComOutput(hr, graphicsDevice);
 }
 
 HRESULT WINAPI CreateDirect3D11SurfaceFromDXGISurface(
@@ -427,7 +436,7 @@ HRESULT WINAPI CreateDirect3D11SurfaceFromDXGISurface(
 	}
 
 	HRESULT hr = (*_CreateDirect3D11SurfaceFromDXGISurface)(dxgiSurface, graphicsSurface);
-	return NormalizeComFailureOutput(hr, graphicsSurface);
+	return NormalizeRequiredComOutput(hr, graphicsSurface);
 }
 
 int WINAPI OpenAdapter10(struct D3D10DDIARG_OPENADAPTER *adapter)

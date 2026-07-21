@@ -139,6 +139,13 @@ static void TestComFailureOutput()
 	output = nullptr;
 	Check(NormalizeComFailureOutput(E_FAIL, &output) == E_FAIL, "null COM failure output changed result");
 	Check(NormalizeComFailureOutput<FakeComObject>(E_FAIL, nullptr) == E_FAIL, "null COM output address changed result");
+
+	Check(NormalizeRequiredComOutput<FakeComObject>(S_OK, &output) == E_UNEXPECTED,
+		"required COM success accepted a null output");
+	Check(NormalizeRequiredComOutput<FakeComObject>(E_FAIL, &output) == E_FAIL,
+		"required COM failure changed result");
+	Check(NormalizeRequiredComOutput<FakeComObject>(S_OK, nullptr) == E_POINTER,
+		"required COM output accepted a null address");
 }
 
 static void TestUtf8Conversion()
