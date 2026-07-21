@@ -4925,6 +4925,27 @@ void CustomResource::OverrideOutOfBandInfo(DXGI_FORMAT *format, UINT *stride)
 		*stride = override_stride;
 }
 
+void CustomResource::ResetRuntimeState()
+{
+	if (resource) {
+		resource->Release();
+		resource = nullptr;
+	}
+
+	if (view) {
+		view->Release();
+		view = nullptr;
+	}
+
+	device = nullptr;
+
+	is_null = false;
+	substantiated = false;
+
+	copies_this_frame = 0;
+	frame_no = 0;
+}
+
 void CustomResource::CopyMetadataFrom(const CustomResource& src)
 {
 	max_copies_per_frame = src.max_copies_per_frame;
@@ -5299,22 +5320,18 @@ void CustomResource::expire(ID3D11Device *mOrigDevice1, ID3D11DeviceContext *mOr
 	new_resource = inter_device_resource_transfer(
 			mOrigDevice1, mOrigContext1, resource, &name);
 
-	// Expire cache:
-	resource->Release();
-	if (view)
-		view->Release();
-	view = NULL;
+	// Old resource is no longer usable, regardless of transfer result.
+	ResetRuntimeState();
 
 	if (new_resource) {
 		// Inter-device copy succeeded, switch to the new resource:
 		resource = new_resource;
 		device = mOrigDevice1;
-	} else {
+		substantiated = true;
+	}
+	else {
 		// Inter-device copy failed / skipped. Flag resource for
 		// re-substantiation (if possible for this resource):
-		substantiated = false;
-		resource = NULL;
-		device = NULL;
 		is_null = true;
 	}
 }

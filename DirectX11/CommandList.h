@@ -548,6 +548,7 @@ public:
 	void OverrideTexDesc(D3D11_TEXTURE2D_DESC *desc);
 	void OverrideTexDesc(D3D11_TEXTURE3D_DESC *desc);
 	void OverrideOutOfBandInfo(DXGI_FORMAT *format, UINT *stride);
+	void ResetRuntimeState();
 	void CopyMetadataFrom(const CustomResource& src);
 	void expire(ID3D11Device *mOrigDevice1, ID3D11DeviceContext *mOrigContext1);
 
