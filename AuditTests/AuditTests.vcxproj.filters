@@ -16,6 +16,7 @@
     <ClInclude Include="..\D3D_Shaders\DxbcContainer.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\DirectX11\ComOutput.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\DirectX11\LegacyDecompilerConfig.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\DirectX11\PresentResult.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\DirectX11\ThreadLocale.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\DirectX11\WrappedInterfacePolicy.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\utf8.h"><Filter>Header Files</Filter></ClInclude>

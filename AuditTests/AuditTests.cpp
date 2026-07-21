@@ -8,6 +8,7 @@
 #include "D3D_Shaders/DxbcContainer.h"
 #include "DirectX11/ComOutput.h"
 #include "DirectX11/LegacyDecompilerConfig.h"
+#include "DirectX11/PresentResult.h"
 #include "DirectX11/ThreadLocale.h"
 #include "DirectX11/WrappedInterfacePolicy.h"
 #include "utf8.h"
@@ -207,6 +208,16 @@ static void TestWrappedInterfacePolicy()
 	Check(IsUnsupportedWrappedContextInterface(__uuidof(ID3D11DeviceContext4)), "Context4 interface escaped policy");
 }
 
+static void TestPresentResultPolicy()
+{
+	Check(!IsDeviceLossPresentResult(S_OK), "successful Present classified as device loss");
+	Check(!IsDeviceLossPresentResult(DXGI_STATUS_OCCLUDED), "occluded Present classified as device loss");
+	Check(IsDeviceLossPresentResult(DXGI_ERROR_DEVICE_REMOVED), "removed device not classified as loss");
+	Check(IsDeviceLossPresentResult(DXGI_ERROR_DEVICE_RESET), "reset device not classified as loss");
+	Check(IsDeviceLossPresentResult(DXGI_ERROR_DEVICE_HUNG), "hung device not classified as loss");
+	Check(IsDeviceLossPresentResult(DXGI_ERROR_DRIVER_INTERNAL_ERROR), "driver failure not classified as loss");
+}
+
 int main()
 {
 	TestDxbcValidation();
@@ -215,6 +226,7 @@ int main()
 	TestScopedThreadLocale();
 	TestLegacyDecompilerConfig();
 	TestWrappedInterfacePolicy();
+	TestPresentResultPolicy();
 	if (failures) {
 		std::fprintf(stderr, "%u audit contract test(s) failed\n", failures);
 		return 1;

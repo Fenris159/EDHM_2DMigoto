@@ -86,6 +86,7 @@
     <ClInclude Include="..\D3D_Shaders\DxbcContainer.h" />
     <ClInclude Include="..\DirectX11\ComOutput.h" />
     <ClInclude Include="..\DirectX11\LegacyDecompilerConfig.h" />
+    <ClInclude Include="..\DirectX11\PresentResult.h" />
     <ClInclude Include="..\DirectX11\ThreadLocale.h" />
     <ClInclude Include="..\DirectX11\WrappedInterfacePolicy.h" />
     <ClInclude Include="..\utf8.h" />

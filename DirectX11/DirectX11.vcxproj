@@ -104,6 +104,7 @@
     <ClInclude Include="ResourceHash.h" />
     <ClInclude Include="ShaderRegex.h" />
     <ClInclude Include="LegacyDecompilerConfig.h" />
+    <ClInclude Include="PresentResult.h" />
     <ClInclude Include="ThreadLocale.h" />
     <ClInclude Include="WrappedInterfacePolicy.h" />
     <ClInclude Include="..\vkeys.h" />

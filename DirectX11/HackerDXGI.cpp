@@ -71,6 +71,7 @@
 #include "CommandList.h"
 #include "profiling.h"
 #include "cursor.h" // For InstallHookLate
+#include "PresentResult.h"
 
 
 // -----------------------------------------------------------------------------
@@ -545,15 +546,11 @@ STDMETHODIMP HackerSwapChain::GetDevice(
 /** IDXGISwapChain **/
 
 // If Present reported that the device was removed, reset or hung, log the
-// HRESULT and the device's removal reason once so field logs can identify
-// driver resets. We deliberately still run the post-present command list:
-// it restores wrapper state changed by the pre-present list, and skipping it
-// blindly could leave that state corrupted for a game that recovers.
+// Log the Present HRESULT and the device's removal reason once so field logs
+// can identify driver resets.
 static void LogPresentDeviceLossOnce(HackerDevice *device, HRESULT present_hr)
 {
-	if (present_hr != DXGI_ERROR_DEVICE_REMOVED &&
-	    present_hr != DXGI_ERROR_DEVICE_RESET &&
-	    present_hr != DXGI_ERROR_DEVICE_HUNG)
+	if (!IsDeviceLossPresentResult(present_hr))
 		return;
 
 	static LONG logged = 0;
@@ -626,10 +623,16 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
 	LogPresentDeviceLossOnce(mHackerDevice, hr);
 
 	if (!(Flags & DXGI_PRESENT_TEST)) {
+		G->bb_is_upscaling_bb = !!G->SCREEN_UPSCALING && G->upscaling_command_list_using_explicit_bb_flip;
+
+		// A removed/reset/hung device cannot accept meaningful state restoration.
+		// Let the game own recovery instead of issuing more GPU work through the
+		// invalid context after Present reports the failure.
+		if (IsDeviceLossPresentResult(hr))
+			return hr;
+
 		if (profiling)
 			Profiling::start(&profiling_state);
-
-		G->bb_is_upscaling_bb = !!G->SCREEN_UPSCALING && G->upscaling_command_list_using_explicit_bb_flip;
 
 		// Run the post present command list now, which can be used to restore
 		// state changed in the pre-present command list, or to perform some
@@ -936,10 +939,13 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 	LogPresentDeviceLossOnce(mHackerDevice, hr);
 
 	if (!(PresentFlags & DXGI_PRESENT_TEST)) {
+		G->bb_is_upscaling_bb = !!G->SCREEN_UPSCALING && G->upscaling_command_list_using_explicit_bb_flip;
+
+		if (IsDeviceLossPresentResult(hr))
+			return hr;
+
 		if (profiling)
 			Profiling::start(&profiling_state);
-
-		G->bb_is_upscaling_bb = !!G->SCREEN_UPSCALING && G->upscaling_command_list_using_explicit_bb_flip;
 
 		// Run the post present command list now, which can be used to restore
 		// state changed in the pre-present command list, or to perform some
