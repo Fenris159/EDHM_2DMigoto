@@ -19,7 +19,6 @@
 #include <D3Dcompiler.h>
 #include <algorithm>
 #include <cmath>
-#include <codecvt>
 #include <new>
 
 #include "log.h"
@@ -792,13 +791,10 @@ static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
 	// strchr could run past the end of a file with no newline). The UTF-8
 	// conversion can throw on malformed input, which must not propagate
 	// through the game's CreateXXShader call.
-	try {
-		std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf8_to_utf16;
-		vector<char>::iterator newline = find(srcData.begin(), srcData.end(), '\n');
-		pHeaderLine = utf8_to_utf16.from_bytes(srcData.data(),
-				newline == srcData.end() ? srcData.data() + srcData.size() : &*newline);
-	} catch (const std::exception &e) {
-		LogInfo("    invalid UTF-8 in first line of HLSL replacement: %s\n", e.what());
+	vector<char>::iterator newline = find(srcData.begin(), srcData.end(), '\n');
+	size_t header_size = newline == srcData.end() ? srcData.size() : static_cast<size_t>(newline - srcData.begin());
+	if (!utf8_to_wide(srcData.data(), header_size, &pHeaderLine)) {
+		LogInfo("    invalid UTF-8 in first line of HLSL replacement\n");
 		pHeaderLine.clear();
 	}
 
@@ -806,7 +802,7 @@ static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
 	// temporary variable to not modify anything already here and reduce
 	// the risk of breaking it in some subtle way:
 	const char *tmpShaderModel;
-	char apath[MAX_PATH];
+	string apath;
 
 	if (pOverrideShaderModel)
 		tmpShaderModel = pOverrideShaderModel;
@@ -824,13 +820,12 @@ static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
 	// #include will work with a relative path from the shader itself.
 	// Later we could add a custom include handler to track dependencies so
 	// that we can make reloading work better when using includes:
-	size_t apath_len = wcstombs(apath, path, MAX_PATH);
-	if (apath_len == (size_t)-1 || apath_len >= MAX_PATH) {
+	if (!wide_to_utf8(path, wcslen(path), &apath)) {
 		LogInfo("    error converting shader path for the compiler\n");
 		return false;
 	}
-	MigotoIncludeHandler include_handler(apath);
-	HRESULT ret = D3DCompile(srcData.data(), srcDataSize, apath, 0,
+	MigotoIncludeHandler include_handler(apath.c_str());
+	HRESULT ret = D3DCompile(srcData.data(), srcDataSize, apath.c_str(), 0,
 		G->recursive_include == -1 ? D3D_COMPILE_STANDARD_FILE_INCLUDE : &include_handler,
 		"main", tmpShaderModel, D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &compiledOutput, &errorMsgs);
 	if (compiledOutput)
@@ -963,13 +958,10 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 			// The UTF-8 conversion can throw on malformed input; this runs
 			// on the default EDHM path (ASM replacements) and must never
 			// propagate through the game's CreateXXShader call.
-			try {
-				std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf8_to_utf16;
-				vector<char>::iterator newline = find(asmTextBytes.begin(), asmTextBytes.end(), '\n');
-				pHeaderLine = utf8_to_utf16.from_bytes(asmTextBytes.data(),
-					newline == asmTextBytes.end() ? asmTextBytes.data() + asmTextBytes.size() : &*newline);
-			} catch (const std::exception &e) {
-				LogInfo("    invalid UTF-8 in first line of ASM replacement: %s\n", e.what());
+			vector<char>::iterator newline = find(asmTextBytes.begin(), asmTextBytes.end(), '\n');
+			size_t header_size = newline == asmTextBytes.end() ? asmTextBytes.size() : static_cast<size_t>(newline - asmTextBytes.begin());
+			if (!utf8_to_wide(asmTextBytes.data(), header_size, &pHeaderLine)) {
+				LogInfo("    invalid UTF-8 in first line of ASM replacement\n");
 				pHeaderLine.clear();
 			}
 
@@ -1134,7 +1126,7 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 	// temporary variable to not modify anything already here and reduce
 	// the risk of breaking it in some subtle way:
 	const char *tmpShaderModel;
-	char apath[MAX_PATH];
+	string apath;
 
 	if (overrideShaderModel)
 		tmpShaderModel = overrideShaderModel;
@@ -1151,13 +1143,13 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 	// but for consistency pass the path here as well so that the standard
 	// include handler can correctly handle includes with paths relative to the
 	// shader itself:
-	if (!WideCharToMultiByte(CP_UTF8, 0, val, -1, apath, MAX_PATH, NULL, NULL)) {
-		LogInfo("    error converting shader path to UTF-8: %lu\n", GetLastError());
+	if (!wide_to_utf8(val, wcslen(val), &apath)) {
+		LogInfo("    error converting shader path to UTF-8\n");
 		if (fw)
 			fclose(fw);
 		return NULL;
 	}
-	hr = D3DCompile(decompiledCode.c_str(), decompiledCode.size(), apath, 0, D3D_COMPILE_STANDARD_FILE_INCLUDE,
+	hr = D3DCompile(decompiledCode.c_str(), decompiledCode.size(), apath.c_str(), 0, D3D_COMPILE_STANDARD_FILE_INCLUDE,
 		"main", tmpShaderModel, D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &pCompiledOutput, &pErrorMsgs);
 	LogInfo("    compile result of fixed HLSL shader: %x\n", hr);
 

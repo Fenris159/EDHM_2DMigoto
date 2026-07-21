@@ -18,6 +18,7 @@
 #include "profiling.h"
 #include "Hunting.h"
 #include "cursor.h"
+#include "utf8.h"
 
 #include <D3DCompiler.h>
 
@@ -1772,7 +1773,7 @@ static const D3D_SHADER_MACRO cs_macros[] = { "COMPUTE_SHADER", "", NULL, NULL }
 bool CustomShader::compile(char type, wchar_t *filename, const wstring *wname, const wstring *namespace_path)
 {
 	wchar_t wpath[MAX_PATH], cache_path[MAX_PATH];
-	char apath[MAX_PATH];
+	string apath;
 	HANDLE f;
 	DWORD srcDataSize = 0, readSize;
 	vector<char> srcData;
@@ -1902,14 +1903,13 @@ bool CustomShader::compile(char type, wchar_t *filename, const wstring *wname, c
 	// #include will work with a relative path from the shader itself.
 	// Later we could add a custom include handler to track dependencies so
 	// that we can make reloading work better when using includes:
-	size_t apath_len = wcstombs(apath, wpath, MAX_PATH);
-	if (apath_len == (size_t)-1 || apath_len >= MAX_PATH) {
+	if (!wide_to_utf8(wpath, wcslen(wpath), &apath)) {
 		LogInfo("    Error converting custom shader path for the compiler\n");
 		goto err;
 	}
 	{
-		MigotoIncludeHandler include_handler(apath);
-		hr = D3DCompile(srcData.data(), srcDataSize, apath, macros,
+		MigotoIncludeHandler include_handler(apath.c_str());
+		hr = D3DCompile(srcData.data(), srcDataSize, apath.c_str(), macros,
 			G->recursive_include == -1 ? D3D_COMPILE_STANDARD_FILE_INCLUDE : &include_handler,
 			"main", shaderModel, (UINT)compile_flags, 0, ppBytecode, &pErrorMsgs);
 	}

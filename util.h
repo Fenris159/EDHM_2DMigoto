@@ -18,6 +18,7 @@
 #include "log.h"
 #include "crc32c.h"
 #include "util_min.h"
+#include "utf8.h"
 
 #include "D3D_Shaders\stdafx.h"
 
@@ -68,8 +69,6 @@ static inline bool get_file_size_with_limit(HANDLE file, DWORD limit, DWORD *siz
 	*size = static_cast<DWORD>(file_size.QuadPart);
 	return true;
 }
-
-// -----------------------------------------------------------------------------------------------
 
 // This critical section must be held to avoid race conditions when creating
 // any resource. The nvapi functions used to set the resource creation mode
@@ -174,13 +173,19 @@ static wchar_t *RightStripW(wchar_t *buf)
 	return end;
 }
 
-static char *readStringParameter(wchar_t *val)
+static std::string readStringParameter(const wchar_t *val)
 {
-	static char buf[MAX_PATH];
-	wcstombs(buf, val, MAX_PATH);
-	RightStripA(buf);
-	char *start = buf; while (isspace(*start)) start++;
-	return start;
+	std::string value;
+	if (!val || !wide_to_utf8(val, wcslen(val), &value))
+		return std::string();
+
+	size_t start = 0;
+	while (start < value.size() && isspace(static_cast<unsigned char>(value[start])))
+		++start;
+	size_t end = value.size();
+	while (end > start && isspace(static_cast<unsigned char>(value[end - 1])))
+		--end;
+	return value.substr(start, end - start);
 }
 
 static void BeepSuccess() 
@@ -583,12 +588,10 @@ static DXGI_FORMAT ParseFormatString(const char *fmt, bool allow_numeric_format)
 
 static DXGI_FORMAT ParseFormatString(const wchar_t *wfmt, bool allow_numeric_format)
 {
-	char afmt[42];
-
-	wcstombs(afmt, wfmt, 42);
-	afmt[41] = '\0';
-
-	return ParseFormatString(afmt, allow_numeric_format);
+	std::string afmt;
+	if (!wfmt || !wide_to_utf8(wfmt, wcslen(wfmt), &afmt))
+		return (DXGI_FORMAT)-1;
+	return ParseFormatString(afmt.c_str(), allow_numeric_format);
 }
 
 // From DirectXTK with extra formats added
@@ -1174,12 +1177,10 @@ static D3DFORMAT ParseFormatStringDX9(const char *fmt, bool allow_numeric_format
 
 static D3DFORMAT ParseFormatStringDX9(const wchar_t *wfmt, bool allow_numeric_format)
 {
-	char afmt[42];
-
-	wcstombs(afmt, wfmt, 42);
-	afmt[41] = '\0';
-
-	return ParseFormatStringDX9(afmt, allow_numeric_format);
+	std::string afmt;
+	if (!wfmt || !wide_to_utf8(wfmt, wcslen(wfmt), &afmt))
+		return (D3DFORMAT)-1;
+	return ParseFormatStringDX9(afmt.c_str(), allow_numeric_format);
 }
 inline size_t BitsPerPixel(_In_ D3DFORMAT fmt)
 {

@@ -85,6 +85,8 @@
   <ItemGroup>
     <ClInclude Include="..\D3D_Shaders\DxbcContainer.h" />
     <ClInclude Include="..\DirectX11\ComOutput.h" />
+    <ClInclude Include="..\DirectX11\ThreadLocale.h" />
+    <ClInclude Include="..\utf8.h" />
   </ItemGroup>
   <Target Name="CopyAddressSanitizerRuntime" AfterTargets="Build" Condition="'$(EnableAuditASAN)'=='true' and '$(Platform)'=='x64'">
     <Copy SourceFiles="$(VCToolsInstallDir)bin\Hostx64\x64\clang_rt.asan_dynamic-x86_64.dll" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />

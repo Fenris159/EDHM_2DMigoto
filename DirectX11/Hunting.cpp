@@ -4,7 +4,6 @@
 #include <sstream>
 #include <D3Dcompiler.h>
 #include <algorithm>
-#include <codecvt>
 #include <new>
 #include <strsafe.h>
 
@@ -402,7 +401,6 @@ void MigotoIncludeHandler::push_dir(const char *path)
 
 STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFileName, LPCVOID pParentData, LPCVOID *ppData, UINT *pBytes)
 {
-	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> codec;
 	char *buf = NULL;
 	DWORD size = 0, read;
 	string apath;
@@ -436,7 +434,8 @@ STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFi
 			apath = dir_stack.back() + pFileName;
 		else
 			apath = dir_stack.front() + pFileName;
-		wpath = codec.from_bytes(apath);
+		if (!utf8_to_wide(apath, &wpath))
+			throw std::range_error("invalid UTF-8");
 	} catch (const std::exception&) {
 		LogInfo("      Invalid UTF-8 include path: %s\n", pFileName);
 		return E_FAIL;
@@ -456,7 +455,8 @@ STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFi
 		// enabled as that already disables backwards compatibility.
 		try {
 			apath = pFileName;
-			wpath = codec.from_bytes(apath);
+			if (!utf8_to_wide(apath, &wpath))
+				throw std::range_error("invalid UTF-8");
 		} catch (const std::exception&) {
 			LogInfo("      Invalid UTF-8 include path: %s\n", pFileName);
 			return E_FAIL;
@@ -539,7 +539,7 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 	*pCode = nullptr;
 	headerLine.clear();
 	wchar_t fullName[MAX_PATH];
-	char apath[MAX_PATH];
+	string apath;
 	swprintf_s(fullName, MAX_PATH, L"%s\\%s", shaderFixPath, fileName);
 
 	WarnIfConflictingShaderExists(fullName);
@@ -606,12 +606,12 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 		// #include will work with a relative path from the shader itself.
 		// Later we could add a custom include handler to track dependencies so
 		// that we can make reloading work better when using includes:
-		if (!WideCharToMultiByte(CP_UTF8, 0, fullName, -1, apath, MAX_PATH, NULL, NULL)) {
-			LogInfo("    error converting shader path to UTF-8: %lu\n", GetLastError());
+		if (!wide_to_utf8(fullName, wcslen(fullName), &apath)) {
+			LogInfo("    error converting shader path to UTF-8\n");
 			return true;
 		}
-		MigotoIncludeHandler include_handler(apath);
-		HRESULT ret = D3DCompile(srcData.data(), srcDataSize, apath, 0,
+		MigotoIncludeHandler include_handler(apath.c_str());
+		HRESULT ret = D3DCompile(srcData.data(), srcDataSize, apath.c_str(), 0,
 				G->recursive_include == -1 ? D3D_COMPILE_STANDARD_FILE_INCLUDE : &include_handler,
 			"main", shaderModel, D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &pByteCode, &pErrorMsgs);
 
@@ -701,13 +701,10 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 
 	// For success, let's add the first line of text from the file to the OriginalShaderInfo,
 	// so the ShaderHacker can edit the line and reload and have it live.
-	try {
-		std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf8_to_utf16;
-		vector<char>::iterator newline = find(srcData.begin(), srcData.end(), '\n');
-		headerLine = utf8_to_utf16.from_bytes(srcData.data(),
-			newline == srcData.end() ? srcData.data() + srcData.size() : &*newline);
-	} catch (const std::exception &e) {
-		LogInfo("    invalid UTF-8 in first line of reloaded shader: %s\n", e.what());
+	vector<char>::iterator newline = find(srcData.begin(), srcData.end(), '\n');
+	size_t header_size = newline == srcData.end() ? srcData.size() : static_cast<size_t>(newline - srcData.begin());
+	if (!utf8_to_wide(srcData.data(), header_size, &headerLine)) {
+		LogInfo("    invalid UTF-8 in first line of reloaded shader\n");
 		headerLine.clear();
 	}
 

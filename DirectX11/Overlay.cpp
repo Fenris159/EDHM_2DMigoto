@@ -17,6 +17,7 @@
 
 #include "HackerDevice.h"
 #include "HackerContext.h"
+#include "utf8.h"
 
 #include <stdexcept>
 
@@ -919,7 +920,6 @@ void LogOverlay(LogLevel level, char *fmt, ...)
 	}
 
 	char amsg[maxstring];
-	wchar_t wmsg[maxstring];
 	va_list ap;
 
 	va_start(ap, fmt);
@@ -931,11 +931,19 @@ void LogOverlay(LogLevel level, char *fmt, ...)
 		// wrap the message, which DirectXTK doesn't appear to support, who
 		// cares if it gets cut off somewhere off screen anyway?
 		_vsnprintf_s(amsg, maxstring, _TRUNCATE, fmt, ap);
-		mbstowcs(wmsg, amsg, maxstring);
+		std::wstring wmsg;
+		if (!utf8_to_wide(amsg, strlen(amsg), &wmsg)) {
+			int input_length = static_cast<int>(strlen(amsg));
+			int length = MultiByteToWideChar(CP_ACP, 0, amsg, input_length, nullptr, 0);
+			if (length > 0) {
+				wmsg.resize(static_cast<size_t>(length));
+				MultiByteToWideChar(CP_ACP, 0, amsg, input_length, &wmsg[0], length);
+			}
+		}
 
 		EnterCriticalSectionPretty(&notices.lock);
 
-		notices.notices[level].emplace_back(wmsg);
+		notices.notices[level].emplace_back(std::move(wmsg));
 		has_notice = true;
 
 		LeaveCriticalSection(&notices.lock);

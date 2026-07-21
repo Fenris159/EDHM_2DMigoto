@@ -1,10 +1,14 @@
 #include <cstdint>
+#include <clocale>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <vector>
 
 #include "D3D_Shaders/DxbcContainer.h"
 #include "DirectX11/ComOutput.h"
+#include "DirectX11/ThreadLocale.h"
+#include "utf8.h"
 
 static unsigned failures;
 
@@ -131,10 +135,45 @@ static void TestComFailureOutput()
 	Check(NormalizeComFailureOutput<FakeComObject>(E_FAIL, nullptr) == E_FAIL, "null COM output address changed result");
 }
 
+static void TestUtf8Conversion()
+{
+	const char utf8_path[] = "ShaderFixes/\xe3\x83\x86\xe3\x83\xbc\xe3\x83\x9e.txt";
+	std::wstring wide_path;
+	std::string round_trip;
+	Check(utf8_to_wide(utf8_path, sizeof(utf8_path) - 1, &wide_path), "valid UTF-8 path rejected");
+	Check(wide_to_utf8(wide_path, &round_trip), "valid wide path rejected");
+	Check(round_trip == utf8_path, "UTF-8 path did not round trip");
+
+	const char invalid_utf8[] = { static_cast<char>(0xc0), static_cast<char>(0xaf) };
+	Check(!utf8_to_wide(invalid_utf8, sizeof(invalid_utf8), &wide_path), "invalid UTF-8 accepted");
+	Check(wide_path.empty(), "failed UTF-8 conversion retained output");
+
+	const wchar_t invalid_wide[] = { static_cast<wchar_t>(0xd800) };
+	Check(!wide_to_utf8(invalid_wide, 1, &round_trip), "unpaired UTF-16 surrogate accepted");
+	Check(round_trip.empty(), "failed UTF-16 conversion retained output");
+
+	Check(utf8_to_wide(nullptr, 0, &wide_path) && wide_path.empty(), "empty UTF-8 input rejected");
+	Check(wide_to_utf8(nullptr, 0, &round_trip) && round_trip.empty(), "empty wide input rejected");
+}
+
+static void TestScopedThreadLocale()
+{
+	const char *before = setlocale(LC_CTYPE, nullptr);
+	std::string previous = before ? before : "";
+	{
+		ScopedThreadLocale locale(LC_CTYPE, ".UTF-8");
+		Check(locale.changed(), "UTF-8 thread locale was unavailable");
+	}
+	const char *after = setlocale(LC_CTYPE, nullptr);
+	Check(after && previous == after, "thread locale was not restored");
+}
+
 int main()
 {
 	TestDxbcValidation();
 	TestComFailureOutput();
+	TestUtf8Conversion();
+	TestScopedThreadLocale();
 	if (failures) {
 		std::fprintf(stderr, "%u audit contract test(s) failed\n", failures);
 		return 1;

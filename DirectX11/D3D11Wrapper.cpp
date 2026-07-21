@@ -98,9 +98,6 @@ static bool verify_intended_target_late()
 
 static bool InitializeDLL()
 {
-	const char* default_locale = setlocale(LC_CTYPE, nullptr);
-	G->gDefaultLocale = default_locale ? default_locale : "";
-
 	if (G->gInitialized)
 		return true;
 

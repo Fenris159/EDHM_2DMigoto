@@ -46,6 +46,7 @@
     <ClInclude Include="Input.h" />
     <ClInclude Include="Overlay.h" />
     <ClInclude Include="..\vkeys.h" />
+    <ClInclude Include="..\utf8.h" />
     <ClInclude Include="..\HLSLDecompiler\DecompileHLSL.h" />
     <ClInclude Include="..\D3D_Shaders\DxbcContainer.h" />
     <ClInclude Include="HookedDXGI.h" />
@@ -61,6 +62,7 @@
     <ClInclude Include="HookedDevice.h" />
     <ClInclude Include="..\shader.h" />
     <ClInclude Include="ShaderRegex.h" />
+    <ClInclude Include="ThreadLocale.h" />
     <ClInclude Include="FrameAnalysis.h" />
     <ClInclude Include="HackerDXGI.h" />
     <ClInclude Include="profiling.h" />
