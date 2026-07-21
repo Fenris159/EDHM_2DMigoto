@@ -86,6 +86,11 @@ jobs:
           if (-not (Test-Path $dll)) { throw "Missing $dll" }
           Get-Item $dll | Format-List FullName, Length, LastWriteTime
 
+      - name: Verify proxy export contract
+        if: steps.sol.outputs.exists == 'true'
+        shell: pwsh
+        run: .\scripts\Test-ProxyExports.ps1 -DllPath x64\Release\d3d11.dll
+
       - name: Run audit contract tests
         if: steps.sol.outputs.exists == 'true'
         shell: pwsh
