@@ -86,6 +86,24 @@ jobs:
           if (-not (Test-Path $dll)) { throw "Missing $dll" }
           Get-Item $dll | Format-List FullName, Length, LastWriteTime
 
+      - name: Run audit contract tests
+        if: steps.sol.outputs.exists == 'true'
+        shell: pwsh
+        run: .\x64\Release\AuditTests.exe
+
+      - name: Run audit contract tests with AddressSanitizer
+        if: steps.sol.outputs.exists == 'true'
+        shell: pwsh
+        run: |
+          msbuild AuditTests\AuditTests.vcxproj `
+            -property:Configuration=Release `
+            -property:Platform=x64 `
+            -property:EnableAuditASAN=true `
+            -target:Rebuild `
+            -verbosity:minimal `
+            -restore:false
+          .\x64\Release\AuditTests.exe
+
       - name: Upload build artifact
         if: steps.sol.outputs.exists == 'true'
         uses: actions/upload-artifact@v7

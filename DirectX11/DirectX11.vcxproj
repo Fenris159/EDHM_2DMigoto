@@ -38,6 +38,7 @@
   <ItemGroup>
     <ClCompile Include="..\crc32c-hw-1.0.5\src\crc32c.cpp" />
     <ClCompile Include="..\D3D_Shaders\Assembler.cpp" />
+    <ClCompile Include="..\D3D_Shaders\DxbcContainer.cpp" />
     <ClCompile Include="..\D3D_Shaders\SignatureParser.cpp" />
     <ClCompile Include="..\HLSLDecompiler\DecompileHLSL.cpp" />
     <ClCompile Include="CommandList.cpp" />
@@ -73,6 +74,7 @@
   <ItemGroup>
     <ClInclude Include="..\crc32c-hw-1.0.5\include\crc32c.h" />
     <ClInclude Include="..\HLSLDecompiler\DecompileHLSL.h" />
+    <ClInclude Include="..\D3D_Shaders\DxbcContainer.h" />
     <ClInclude Include="..\log.h" />
     <ClInclude Include="..\shader.h" />
     <ClInclude Include="..\util.h" />
@@ -96,6 +98,7 @@
     <ClInclude Include="lock.h" />
     <ClInclude Include="Overlay.h" />
     <ClInclude Include="CommandList.h" />
+    <ClInclude Include="ComOutput.h" />
     <ClInclude Include="Override.h" />
     <ClInclude Include="profiling.h" />
     <ClInclude Include="ResourceHash.h" />

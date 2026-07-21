@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "DxbcContainer.h"
 #include "float.h"
 
 #if MIGOTO_DX == 9
@@ -2893,80 +2894,6 @@ HRESULT disassemblerDX9(vector<byte> *buffer, vector<byte> *ret, const char *com
 }
 #endif
 
-// Minimal validated DXBC container reader, used by both the disassembler
-// and assembler below. Local shader binaries (cached shaders, regex cache
-// blobs) are mutable on-disk input, so the container structure must be
-// proven before any offset is used: minimum header size, declared file
-// size, chunk table bounds, every chunk offset, every chunk header/length,
-// and the presence of a usable SHEX/SHDR code chunk. All arithmetic is
-// done in 64-bit so it cannot wrap. Matches the historical behaviour of
-// selecting the last SHEX/SHDR chunk when several are present.
-static bool find_dxbc_code_chunk(const void *data, size_t size,
-		DWORD *out_num_chunks, DWORD *out_code_chunk_index,
-		DWORD *out_code_chunk_offset, DWORD *out_code_chunk_size,
-		byte **out_code_start)
-{
-	if (!data || size < 32)
-		return false;
-
-	const byte *base = static_cast<const byte*>(data);
-	if (memcmp(base, "DXBC", 4))
-		return false;
-
-	DWORD file_size, num_chunks;
-	memcpy(&file_size, base + 24, 4);
-	memcpy(&num_chunks, base + 28, 4);
-
-	// The declared file size must fit within the buffer we were actually
-	// given - a truncated cache file must not trick us into reading past
-	// its real end:
-	if (!num_chunks || file_size < 32 || file_size > size)
-		return false;
-
-	// The chunk offset table must fit in the file (64-bit multiplication):
-	uint64_t chunk_table_end = 32 + (uint64_t)num_chunks * 4;
-	if (chunk_table_end > file_size)
-		return false;
-
-	// Validate every chunk offset and every chunk header/length up front:
-	for (DWORD i = 0; i < num_chunks; i++) {
-		DWORD chunk_offset;
-		memcpy(&chunk_offset, base + 32 + (size_t)i * 4, 4);
-		if (chunk_offset < chunk_table_end || (uint64_t)chunk_offset + 8 > file_size)
-			return false;
-
-		DWORD chunk_size;
-		memcpy(&chunk_size, base + chunk_offset + 4, 4);
-		if ((uint64_t)chunk_offset + 8 + chunk_size > file_size)
-			return false;
-	}
-
-	// A shader container must have exactly one usable SHEX/SHDR code chunk.
-	DWORD found_code_chunks = 0;
-	for (DWORD i = num_chunks; i-- > 0; ) {
-		DWORD chunk_offset;
-		memcpy(&chunk_offset, base + 32 + (size_t)i * 4, 4);
-		const byte *chunk = base + chunk_offset;
-		if (memcmp(chunk, "SHEX", 4) && memcmp(chunk, "SHDR", 4))
-			continue;
-
-		DWORD chunk_size;
-		memcpy(&chunk_size, chunk + 4, 4);
-		if ((chunk_offset & 3) || chunk_size < 8 || (chunk_size & 3))
-			return false;
-		if (++found_code_chunks != 1)
-			return false;
-
-		if (out_num_chunks) *out_num_chunks = num_chunks;
-		if (out_code_chunk_index) *out_code_chunk_index = i;
-		if (out_code_chunk_offset) *out_code_chunk_offset = chunk_offset;
-		if (out_code_chunk_size) *out_code_chunk_size = chunk_size;
-		if (out_code_start) *out_code_start = const_cast<byte*>(chunk);
-	}
-
-	return found_code_chunks == 1;
-}
-
 HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *comment,
 		int hexdump, bool d3dcompiler_46_compat,
 		bool disassemble_undecipherable_data,
@@ -2978,14 +2905,14 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 	// proving the buffer was large enough, and used a garbage codeByteStart
 	// when no SHEX/SHDR chunk was found (FIXME, C4701/C4703 at the two use
 	// sites). Bail out with a controlled failure instead:
-	DWORD numChunks = 0;
-	DWORD codeChunk = 0;
-	DWORD codeChunkOffset = 0;
-	DWORD codeChunkSize = 0;
-	byte* codeByteStart = NULL;
-	if (!find_dxbc_code_chunk(buffer->data(), buffer->size(), &numChunks,
-			&codeChunk, &codeChunkOffset, &codeChunkSize, &codeByteStart))
+	DxbcCodeChunkInfo code_chunk;
+	if (!FindDxbcCodeChunk(buffer->data(), buffer->size(), &code_chunk))
 		return S_FALSE;
+	DWORD numChunks = code_chunk.num_chunks;
+	DWORD codeChunk = code_chunk.code_chunk_index;
+	DWORD codeChunkOffset = code_chunk.code_chunk_offset;
+	DWORD codeChunkSize = code_chunk.code_chunk_size;
+	byte* codeByteStart = const_cast<byte*>(code_chunk.code_chunk);
 
 	char* asmBuffer;
 	size_t asmSize;
@@ -3321,14 +3248,14 @@ vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode,
 	// Validate the DXBC container before trusting any of its offsets (the
 	// old code had the same unchecked header parse and garbage codeByteStart
 	// FIXME as the disassembler):
-	DWORD numChunks = 0;
-	DWORD codeChunk = 0;
-	DWORD codeChunkOffset = 0;
-	DWORD codeChunkSize = 0;
-	byte* codeByteStart = NULL;
-	if (!find_dxbc_code_chunk(origBytecode.data(), origBytecode.size(), &numChunks,
-			&codeChunk, &codeChunkOffset, &codeChunkSize, &codeByteStart))
+	DxbcCodeChunkInfo code_chunk;
+	if (!FindDxbcCodeChunk(origBytecode.data(), origBytecode.size(), &code_chunk))
 		throw std::invalid_argument("assembler: Bad shader binary");
+	DWORD numChunks = code_chunk.num_chunks;
+	DWORD codeChunk = code_chunk.code_chunk_index;
+	DWORD codeChunkOffset = code_chunk.code_chunk_offset;
+	DWORD codeChunkSize = code_chunk.code_chunk_size;
+	byte* codeByteStart = const_cast<byte*>(code_chunk.code_chunk);
 
 	char* asmBuffer;
 	size_t asmSize;

@@ -21,6 +21,7 @@
 #include "log.h"
 #include "util.h"
 #include "D3D11Wrapper.h"
+#include "ComOutput.h"
 
 
 // This class is for a different approach than the wrapping of the system objects
@@ -564,11 +565,7 @@ HRESULT __stdcall Hooked_CreateSwapChainForHwnd(
 		LogInfo("Hooking Quirk: Unexpected call back into IDXGIFactory2::CreateSwapChainForHwnd, passing through\n");
 		// No known cases
 		HRESULT hr = fnOrigCreateSwapChainForHwnd(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
-		if (FAILED(hr) && *ppSwapChain) {
-			(*ppSwapChain)->Release();
-			*ppSwapChain = NULL;
-		}
-		return hr;
+		return NormalizeComFailureOutput(hr, ppSwapChain);
 	}
 
 	HackerDevice *hackerDevice = NULL;
@@ -602,10 +599,7 @@ HRESULT __stdcall Hooked_CreateSwapChainForHwnd(
 	if (FAILED(hr))
 	{
 		LogInfo("->Failed result %#x\n\n", hr);
-		if (ppSwapChain && *ppSwapChain) {
-			(*ppSwapChain)->Release();
-			*ppSwapChain = NULL;
-		}
+		NormalizeComFailureOutput(hr, ppSwapChain);
 		goto out_release;
 	}
 	if (!ppSwapChain || !*ppSwapChain) {
@@ -659,11 +653,7 @@ HRESULT __stdcall Hooked_CreateSwapChainForCoreWindow(
 		LogInfo("Hooking Quirk: Unexpected call back into IDXGIFactory2::CreateSwapChainForCoreWindow, passing through\n");
 		// No known cases
 		HRESULT hr = fnOrigCreateSwapChainForCoreWindow(This, pDevice, pWindow, pDesc, pRestrictToOutput, ppSwapChain);
-		if (FAILED(hr) && *ppSwapChain) {
-			(*ppSwapChain)->Release();
-			*ppSwapChain = NULL;
-		}
-		return hr;
+		return NormalizeComFailureOutput(hr, ppSwapChain);
 	}
 
 	HackerDevice *hackerDevice = NULL;
@@ -686,10 +676,7 @@ HRESULT __stdcall Hooked_CreateSwapChainForCoreWindow(
 	if (FAILED(hr))
 	{
 		LogInfo("->Failed result %#x\n\n", hr);
-		if (ppSwapChain && *ppSwapChain) {
-			(*ppSwapChain)->Release();
-			*ppSwapChain = NULL;
-		}
+		NormalizeComFailureOutput(hr, ppSwapChain);
 		goto out_release;
 	}
 	if (!ppSwapChain || !*ppSwapChain) {
@@ -741,11 +728,7 @@ HRESULT __stdcall Hooked_CreateSwapChainForComposition(
 		LogInfo("Hooking Quirk: Unexpected call back into IDXGIFactory2::CreateSwapChainForComposition, passing through\n");
 		// No known cases
 		HRESULT hr = fnOrigCreateSwapChainForComposition(This, pDevice, pDesc, pRestrictToOutput, ppSwapChain);
-		if (FAILED(hr) && *ppSwapChain) {
-			(*ppSwapChain)->Release();
-			*ppSwapChain = NULL;
-		}
-		return hr;
+		return NormalizeComFailureOutput(hr, ppSwapChain);
 	}
 
 	HackerDevice *hackerDevice = NULL;
@@ -768,10 +751,7 @@ HRESULT __stdcall Hooked_CreateSwapChainForComposition(
 	if (FAILED(hr))
 	{
 		LogInfo("->Failed result %#x\n\n", hr);
-		if (ppSwapChain && *ppSwapChain) {
-			(*ppSwapChain)->Release();
-			*ppSwapChain = NULL;
-		}
+		NormalizeComFailureOutput(hr, ppSwapChain);
 		goto out_release;
 	}
 	if (!ppSwapChain || !*ppSwapChain) {

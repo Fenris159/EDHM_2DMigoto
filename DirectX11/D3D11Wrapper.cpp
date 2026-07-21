@@ -7,6 +7,7 @@
 #include "IniHandler.h"
 #include "HookedDXGI.h"
 #include "WineCompat.h"
+#include "ComOutput.h"
 
 #include <locale>
 #include <chrono>
@@ -390,7 +391,12 @@ HRESULT WINAPI D3D11On12CreateDevice(
 		return E_NOTIMPL;
 	}
 
-	return (*_D3D11On12CreateDevice)(pDevice, Flags, pFeatureLevels, FeatureLevels, ppCommandQueues, NumQueues, NodeMask, ppDevice, ppImmediateContext, pChosenFeatureLevel);
+	HRESULT hr = (*_D3D11On12CreateDevice)(pDevice, Flags, pFeatureLevels, FeatureLevels, ppCommandQueues, NumQueues, NodeMask, ppDevice, ppImmediateContext, pChosenFeatureLevel);
+	NormalizeComFailureOutput(hr, ppDevice);
+	NormalizeComFailureOutput(hr, ppImmediateContext);
+	if (FAILED(hr) && pChosenFeatureLevel)
+		*pChosenFeatureLevel = (D3D_FEATURE_LEVEL)0;
+	return hr;
 }
 
 HRESULT WINAPI CreateDirect3D11DeviceFromDXGIDevice(
@@ -407,11 +413,7 @@ HRESULT WINAPI CreateDirect3D11DeviceFromDXGIDevice(
 	}
 
 	HRESULT hr = (*_CreateDirect3D11DeviceFromDXGIDevice)(dxgiDevice, graphicsDevice);
-	if (FAILED(hr) && *graphicsDevice) {
-		(*graphicsDevice)->Release();
-		*graphicsDevice = NULL;
-	}
-	return hr;
+	return NormalizeComFailureOutput(hr, graphicsDevice);
 }
 
 HRESULT WINAPI CreateDirect3D11SurfaceFromDXGISurface(
@@ -428,11 +430,7 @@ HRESULT WINAPI CreateDirect3D11SurfaceFromDXGISurface(
 	}
 
 	HRESULT hr = (*_CreateDirect3D11SurfaceFromDXGISurface)(dxgiSurface, graphicsSurface);
-	if (FAILED(hr) && *graphicsSurface) {
-		(*graphicsSurface)->Release();
-		*graphicsSurface = NULL;
-	}
-	return hr;
+	return NormalizeComFailureOutput(hr, graphicsSurface);
 }
 
 int WINAPI OpenAdapter10(struct D3D10DDIARG_OPENADAPTER *adapter)
