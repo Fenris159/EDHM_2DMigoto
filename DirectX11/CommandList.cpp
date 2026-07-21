@@ -8719,7 +8719,7 @@ static ResourceCopyTargetType EquivTarget(ResourceCopyTargetType type)
 	return type;
 }
 
-void ResourceCopyOperation::CopySourceToDestination(
+void ResourceCopyOperation::CopyResourceToResource(
 	CommandListState* state, ID3D11Resource* src_resource, ID3D11View* src_view, UINT stride, UINT offset, DXGI_FORMAT format, UINT buf_src_size
 )
 {
@@ -8872,6 +8872,32 @@ out_release:
 	}
 }
 
+void ResourceCopyOperation::CopyResourceToPool(
+	CommandListState* state, ID3D11Resource* src_resource, ID3D11View* src_view, UINT stride, UINT offset, DXGI_FORMAT format, UINT buf_src_size
+)
+{
+	// TODO: Implement a proper way to do the same without hacks.
+	CustomResourcePool* custom_resource_pool = dst.custom_resource_pool;
+
+	// Make pool's ResourceCopyTarget object to pretend it's one of a custom resource.
+	dst.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+	dst.custom_resource_pool = nullptr;
+	
+	for (size_t slot_index = 0; slot_index < custom_resource_pool->pool_size; ++slot_index)
+	{
+		// Force ring index usage to directly get custom resources from pool slots.
+		CustomResource* dst_resource = custom_resource_pool->GetResource((float)slot_index, false, true, true);
+		// Change target custom resource to one of the current pool slot.
+		dst.SetCustomResource(dst_resource);
+		// DST ResourceCopyTarget setup is complete, invoke CopyResourceToResource.
+		CopyResourceToResource(state, src_resource, src_view, stride, offset, format, buf_src_size);
+	}
+	// Restore original state of pool's ResourceCopyTarget object.
+	dst.type = ResourceCopyTargetType::CUSTOM_RESOURCE_POOL;
+	dst.custom_resource_pool = custom_resource_pool;
+	dst.SetCustomResource(nullptr);
+}
+
 void ResourceCopyOperation::run(CommandListState *state)
 {
 	COMMAND_LIST_LOG(state, "%S\n", ini_line.c_str());
@@ -8890,24 +8916,15 @@ void ResourceCopyOperation::run(CommandListState *state)
 
 	src_resource = src.GetResource(state, &src_view, &stride, &offset, &format, &buf_src_size, ((options & ResourceCopyOptions::REFERENCE) ? &dst : NULL));
 
-	if (dst.type != ResourceCopyTargetType::CUSTOM_RESOURCE_POOL)
+	switch (dst.type)
 	{
-		CopySourceToDestination(state, src_resource, src_view, stride, offset, format, buf_src_size);
-	}
-	else
-	{
-		// TODO: Implement a proper way to do the same without hacks.
-		dst.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
-		CustomResourcePool* custom_resource_pool = dst.custom_resource_pool;
-		dst.custom_resource_pool = nullptr;
-		for (size_t i = 0; i < custom_resource_pool->resources.size(); ++i)
-		{
-			CustomResource* dst_resource = custom_resource_pool->GetResource((float)i, false, true);
-			dst.SetCustomResource(dst_resource);
-			CopySourceToDestination(state, src_resource, src_view, stride, offset, format, buf_src_size);
-		}
-		dst.custom_resource_pool = custom_resource_pool;
-		dst.type = ResourceCopyTargetType::CUSTOM_RESOURCE_POOL;
+	case ResourceCopyTargetType::CUSTOM_RESOURCE_POOL:
+		CopyResourceToPool(state, src_resource, src_view, stride, offset, format, buf_src_size);
+		break;
+
+	default:
+		CopyResourceToResource(state, src_resource, src_view, stride, offset, format, buf_src_size);
+		break;
 	}
 
 	if (src_view)
