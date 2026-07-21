@@ -977,7 +977,6 @@ public:
 	bool optimise(HackerDevice *device, std::shared_ptr<CommandListEvaluatable> *replacement) override;
 	Walk walk() override;
 
-	static const wchar_t* pattern() { return L"<IMPLEMENT ME>"; }
 	virtual float evaluate(float lhs, float rhs) = 0;
 };
 
