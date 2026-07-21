@@ -800,8 +800,13 @@ static string BinaryToAsmText(const void *pShaderBytecode, size_t BytecodeLength
 #if MIGOTO_DX == 9
 	r = disassemblerDX9(&byteCode, &disassembly, comments.c_str());
 #elif MIGOTO_DX == 11
-	r = disassembler(&byteCode, &disassembly, comments.c_str(), hexdump,
-			d3dcompiler_46_compat, disassemble_undecipherable_data, patch_cb_offsets);
+	try {
+		r = disassembler(&byteCode, &disassembly, comments.c_str(), hexdump,
+				d3dcompiler_46_compat, disassemble_undecipherable_data, patch_cb_offsets);
+	} catch (const std::exception& e) {
+		LogInfo("  disassembly failed with exception: %s\n", e.what());
+		return "";
+	}
 #endif // MIGOTO_DX
 	if (FAILED(r)) {
 		LogInfo("  disassembly failed. Error: %x\n", r);
@@ -869,16 +874,22 @@ static string GetShaderModel(const void *pShaderBytecode, size_t bytecodeLength)
 		return "";
 
 	// Read shader model. This is the first not commented line.
-	char *pos = (char *)asmText.data();
-	char *end = pos + asmText.size();
-	while ((pos[0] == '/' || pos[0] == '\n') && pos < end)
+	const char *pos = asmText.data();
+	const char *end = pos + asmText.size();
+	while (pos < end && (pos[0] == '/' || pos[0] == '\n'))
 	{
-		while (pos[0] != 0x0a && pos < end) pos++;
-		pos++;
+		while (pos < end && pos[0] != '\n')
+			pos++;
+		if (pos < end)
+			pos++;
 	}
+	if (pos == end)
+		return "";
+
 	// Extract model.
-	char *eol = pos;
-	while (eol[0] != 0x0a && pos < end) eol++;
+	const char *eol = pos;
+	while (eol < end && eol[0] != '\n')
+		eol++;
 	string shaderModel(pos, eol);
 
 	return shaderModel;
@@ -895,23 +906,26 @@ static string GetShaderModel(const void *pShaderBytecode, size_t bytecodeLength)
 static HRESULT CreateTextFile(wchar_t *fullPath, string *asmText, bool overwrite)
 {
 	FILE *f;
+	errno_t err;
 
 	if (!overwrite) {
-		_wfopen_s(&f, fullPath, L"rb");
+		err = _wfopen_s(&f, fullPath, L"rb");
 		if (f)
 		{
 			fclose(f);
 			LogInfoW(L"    CreateTextFile error: file already exists %s\n", fullPath);
-			return ERROR_FILE_EXISTS;
+			return HRESULT_FROM_WIN32(ERROR_FILE_EXISTS);
 		}
 	}
 
-	_wfopen_s(&f, fullPath, L"wb");
-	if (f)
-	{
-		fwrite(asmText->data(), 1, asmText->size(), f);
-		fclose(f);
-	}
+	err = _wfopen_s(&f, fullPath, L"wb");
+	if (err || !f)
+		return HRESULT_FROM_WIN32(ERROR_OPEN_FAILED);
+
+	size_t written = fwrite(asmText->data(), 1, asmText->size(), f);
+	int close_result = fclose(f);
+	if (written != asmText->size() || close_result)
+		return HRESULT_FROM_WIN32(ERROR_WRITE_FAULT);
 
 	return S_OK;
 }
@@ -925,40 +939,23 @@ static HRESULT CreateTextFile(wchar_t *fullPath, string *asmText, bool overwrite
 static HRESULT CreateAsmTextFile(wchar_t* fileDirectory, UINT64 hash, const wchar_t* shaderType, 
 	const void *pShaderBytecode, size_t bytecodeLength, bool patch_cb_offsets)
 {
-	// TODO: Poorly added try catch. Must replace for a more robust solution in line with the rest of the codebase
-	// Specifically added to avoid crashes when the following error displays in the log:
-	// error exporting original shader: invalid string position
-	try {
-		string asmText = BinaryToAsmText(pShaderBytecode, bytecodeLength, patch_cb_offsets);
-		if (asmText.empty())
-		{
-			return E_OUTOFMEMORY;
-		}
-
-		wchar_t fullPath[MAX_PATH];
-		swprintf_s(fullPath, MAX_PATH, L"%ls\\%016llx-%ls.txt", fileDirectory, hash, shaderType);
-
-		HRESULT hr = CreateTextFile(fullPath, &asmText, false);
-
-		if (SUCCEEDED(hr))
-			LogInfoW(L"    storing disassembly to %s\n", fullPath);
-		else
-			LogInfoW(L"    error: %x, storing disassembly to %s\n", hr, fullPath);
-
-		return hr;
-	}
-	catch (const std::exception& e)
+	string asmText = BinaryToAsmText(pShaderBytecode, bytecodeLength, patch_cb_offsets);
+	if (asmText.empty())
 	{
-		LogInfoW(L"    CreateAsmTextFile exception: %hs\n", e.what());
 		return E_FAIL;
 	}
-}
 
-// Specific variant to name files, so we know they are HLSL text.
+	wchar_t fullPath[MAX_PATH];
+	swprintf_s(fullPath, MAX_PATH, L"%ls\\%016llx-%ls.txt", fileDirectory, hash, shaderType);
 
-static HRESULT CreateHLSLTextFile(UINT64 hash, string hlslText)
-{
+	HRESULT hr = CreateTextFile(fullPath, &asmText, false);
 
+	if (SUCCEEDED(hr))
+		LogInfoW(L"    storing disassembly to %s\n", fullPath);
+	else
+		LogInfoW(L"    error: %x, storing disassembly to %s\n", hr, fullPath);
+
+	return hr;
 }
 
 // -----------------------------------------------------------------------------------------------
