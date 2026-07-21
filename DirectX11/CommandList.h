@@ -780,26 +780,28 @@ static EnumName_t<const wchar_t*, ResourceCopyTargetEvaluationMode> ResourceCopy
 	{NULL, ResourceCopyTargetEvaluationMode::INVALID} // End of list marker
 };
 
+class CommandListExpression;
 
 struct MemberArg
 {
-	float constant = 0.0f;
-	CommandListVariable* var = nullptr;
+	enum class Type {
+		None = 0,
+		Float,
+		Signed,
+		Unsigned,
+		String,
+	};
 
-	MemberArg(float constant) :
-		constant(constant)
-	{}
-	MemberArg(CommandListVariable* var) :
-		var(var)
-	{}
-	MemberArg()
-	{}
+	Type type = Type::None;
 
-	bool IsVariable() const { return var != nullptr; }
+	unique_ptr<CommandListExpression> expression;
 
-	float GetValue() const {
-		return var ? var->fval : constant;
-	}
+	std::wstring constant_string;
+
+	bool ParseAs(Type parse_type, const wstring* ini_namespace, CommandListScope* scope);
+
+	float GetValue(CommandListState* state);
+	const std::wstring& GetString() const;
 };
 
 enum class IniParserResult : uint8_t {

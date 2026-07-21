@@ -5768,36 +5768,50 @@ IniParserResult ResourceCopyTarget::ParseTargetPrefix(const wchar_t*& target, si
 	return IniParserResult::TOKEN_NOT_FOUND;
 }
 
+bool MemberArg::ParseAs(Type parse_type, const wstring* ini_namespace, CommandListScope* scope)
+{
+	if (constant_string.empty())
+		return false;
+
+	if (parse_type == Type::String) {
+		type = Type::String;
+		return true;
+	}
+
+	if (!expression)
+		expression = std::make_unique<CommandListExpression>();
+
+	if (!expression->parse(&constant_string, ini_namespace, scope))
+	{
+		expression.reset();
+		return false;
+	}
+
+	constant_string.clear();
+
+	return true;
+}
+
+float MemberArg::GetValue(CommandListState* state)
+{
+	if (expression)
+		return expression->evaluate(state);
+
+	return 0.0f;
+}
+
+const std::wstring& MemberArg::GetString() const
+{
+	return constant_string;
+}
+
 bool ResourceCopyTarget::ParseMemberArgument(const std::wstring& text, const std::wstring* ini_namespace, CommandListScope* scope, MemberArg& arg)
 {
 	if (text.empty())
 		return false;
 
-	if (text[0] == L'$')
-	{
-		// Parse DYNAMIC attr ($id)
-		CommandListVariable* var = nullptr;
-
-		// Try parsing var_name as a variable:
-		if (find_local_variable(text, scope, &var) || parse_command_list_var_name(text, ini_namespace, &var)) {
-			arg.var = var;
-			return true;
-		}
-
-		return false;
-	}
-	else
-	{
-		// Parse STATIC attr (0)
-		wchar_t* end = nullptr;
-		float value = wcstof(text.c_str(), &end);
-
-		// Try parsing var_name as a float
-		if (*end != L'\0')
-			return false;
-
-		arg.constant = value;
-	}
+	// Defer real parsing until target member function is known.
+	arg.constant_string = text;
 
 	return true;
 }
@@ -5892,15 +5906,26 @@ IniParserResult ResourceCopyTarget::ParseTargetMember(
 		const wchar_t* keyword;
 		size_t len; // including "->"
 		ResourceCopyTargetEvaluationMode mode;
-		size_t num_args = 0;
+		std::array<MemberArg::Type, MAX_MEMBER_ARGS_COUNT> args{};
+
+		size_t num_args() const
+		{
+			size_t n = 0;
+			while (n < args.size() && args[n] != MemberArg::Type::None)
+				++n;
+			return n;
+		}
 	};
 
 	static constexpr MemberInfo members[] = {
-		{ L"->size",          6, ResourceCopyTargetEvaluationMode::RESOURCE_SIZE,          0 },
-		{ L"->offset",        8, ResourceCopyTargetEvaluationMode::RESOURCE_OFFSET,        0 },
-		{ L"->stride",        8, ResourceCopyTargetEvaluationMode::RESOURCE_STRIDE,        0 },
-		{ L"->hashregion",   12, ResourceCopyTargetEvaluationMode::RESOURCE_REGION_HASH,   2 },
-		{ L"->sourcestride", 14, ResourceCopyTargetEvaluationMode::RESOURCE_SOURCE_STRIDE, 0 },
+		{ L"->size",           6, ResourceCopyTargetEvaluationMode::RESOURCE_SIZE },
+		{ L"->offset",         8, ResourceCopyTargetEvaluationMode::RESOURCE_OFFSET },
+		{ L"->stride",         8, ResourceCopyTargetEvaluationMode::RESOURCE_STRIDE },
+		{ L"->hashregion",    12, ResourceCopyTargetEvaluationMode::RESOURCE_REGION_HASH, {{
+			MemberArg::Type::Unsigned, // Byte Offset 
+			MemberArg::Type::Unsigned  // Byte Size 
+		}} },
+		{ L"->sourcestride",  14, ResourceCopyTargetEvaluationMode::RESOURCE_SOURCE_STRIDE },
 	};
 
 	// Consume arguments (adjust `length` accordingly). Ensure syntax error passthrough.
@@ -5921,8 +5946,14 @@ IniParserResult ResourceCopyTarget::ParseTargetMember(
 		if (suffix_equals(target, length, member.keyword, member.len)) {
 			// Number of parsed argments must meet expectations.
 			// While we allow both ->Size and ->Size(), we don't want user to put something weird inbetween.
-			if (num_args != member.num_args)
+			if (num_args != member.num_args())
 				return IniParserResult::SYNTAX_ERROR;
+			for (size_t i = 0; i < member.num_args(); ++i)
+			{
+				const MemberArg::Type& arg_type = member.args[i];
+				if (!member_args[i].ParseAs(arg_type, ini_namespace, scope))
+					return IniParserResult::SYNTAX_ERROR;
+			}
 			// Member found.
 			evaluation_mode = member.mode;
 			length -= member.len;
@@ -7898,9 +7929,9 @@ float ResourceCopyTarget::GetResourceRegionHash(CommandListState* state)
 				break;
 			}
 
-			region_offset += (UINT)member_args[0].GetValue();
+			region_offset += (UINT)member_args[0].GetValue(state);
 
-			UINT region_size = (UINT)member_args[1].GetValue();
+			UINT region_size = (UINT)member_args[1].GetValue(state);
 
 			uint32_t region_hash = GetRegionHash(state->mOrigContext1, buf, region_offset, region_size, GetCustomResource(state));
 
