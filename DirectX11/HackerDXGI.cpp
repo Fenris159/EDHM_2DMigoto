@@ -142,7 +142,8 @@ HackerSwapChain::HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDev
 	mOrigSwapChain2(NULL),
 	mOrigSwapChain3(NULL),
 	mOrigSwapChain4(NULL),
-	mRefCount(1)
+	mRefCount(1),
+	mOverlay(nullptr)
 {
 	// Hold each supported interface for the wrapper's lifetime. The wrapper
 	// uses its own reference count so these references cannot prevent cleanup.
@@ -545,7 +546,6 @@ STDMETHODIMP HackerSwapChain::GetDevice(
 // -----------------------------------------------------------------------------
 /** IDXGISwapChain **/
 
-// If Present reported that the device was removed, reset or hung, log the
 // Log the Present HRESULT and the device's removal reason once so field logs
 // can identify driver resets.
 static void LogPresentDeviceLossOnce(HackerDevice *device, HRESULT present_hr)
@@ -1107,7 +1107,7 @@ STDMETHODIMP HackerSwapChain::SetHDRMetaData(DXGI_HDR_METADATA_TYPE Type, UINT S
 HackerUpscalingSwapChain::HackerUpscalingSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pHackerDevice, HackerContext *pHackerContext,
 	DXGI_SWAP_CHAIN_DESC* pFakeSwapChainDesc, UINT newWidth, UINT newHeight)
 	: HackerSwapChain(pSwapChain, pHackerDevice, pHackerContext),
-	mFakeBackBuffer(nullptr), mFakeSwapChain1(nullptr), mWidth(0), mHeight(0)
+	mFakeSwapChain(nullptr), mFakeBackBuffer(nullptr), mWidth(0), mHeight(0)
 {
 	CreateRenderTarget(pFakeSwapChainDesc);
 
@@ -1118,8 +1118,8 @@ HackerUpscalingSwapChain::HackerUpscalingSwapChain(IDXGISwapChain1 *pSwapChain, 
 
 HackerUpscalingSwapChain::~HackerUpscalingSwapChain()
 {
-	if (mFakeSwapChain1)
-		mFakeSwapChain1->Release();
+	if (mFakeSwapChain)
+		mFakeSwapChain->Release();
 	if (mFakeBackBuffer)
 		mFakeBackBuffer->Release();
 }
@@ -1170,21 +1170,23 @@ void HackerUpscalingSwapChain::CreateRenderTarget(DXGI_SWAP_CHAIN_DESC* pFakeSwa
 
 		// fake swap chain should have no influence on window
 		pFakeSwapChainDesc->Flags &= ~DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-		IDXGISwapChain* swapChain;
+		IDXGISwapChain *swapChain = nullptr;
 		get_tls()->hooking_quirk_protection = true;
-		pFactory->CreateSwapChain(mHackerDevice->GetPossiblyHookedOrigDevice1(), pFakeSwapChainDesc, &swapChain);
+		hr = pFactory->CreateSwapChain(mHackerDevice->GetPossiblyHookedOrigDevice1(), pFakeSwapChainDesc, &swapChain);
 		get_tls()->hooking_quirk_protection = false;
 
 		pFactory->Release();
-
-		HRESULT res = swapChain->QueryInterface(IID_PPV_ARGS(&mFakeSwapChain1));
-		if (SUCCEEDED(res))
-			swapChain->Release();
-		else
-			mFakeSwapChain1 = reinterpret_cast<IDXGISwapChain1*>(swapChain);
-
 		// restore old state in case fall back is required ToDo: Unlikely needed now.
 		pFakeSwapChainDesc->Flags = flagBackup;
+
+		if (SUCCEEDED(hr) && swapChain)
+			mFakeSwapChain = swapChain;
+		else {
+			if (swapChain)
+				swapChain->Release();
+			if (SUCCEEDED(hr))
+				hr = E_FAIL;
+		}
 	}
 	break;
 	default:
@@ -1225,9 +1227,9 @@ STDMETHODIMP HackerUpscalingSwapChain::GetBuffer(THIS_
 		// NULL, and bumps the refcount if successful:
 		hr = mFakeBackBuffer->QueryInterface(riid, ppSurface);
 	}
-	else if (mFakeSwapChain1)
+	else if (mFakeSwapChain)
 	{
-		hr = mFakeSwapChain1->GetBuffer(Buffer, riid, ppSurface);
+		hr = mFakeSwapChain->GetBuffer(Buffer, riid, ppSurface);
 	}
 	else
 	{
@@ -1303,9 +1305,9 @@ STDMETHODIMP HackerUpscalingSwapChain::GetDesc(THIS_
 				LogDebug("->Using fake SwapChain Sizes.\n");
 			}
 
-			if (mFakeSwapChain1)
+			if (mFakeSwapChain)
 			{
-				hr = mFakeSwapChain1->GetDesc(pDesc);
+				hr = mFakeSwapChain->GetDesc(pDesc);
 			}
 		}
 
@@ -1369,10 +1371,10 @@ STDMETHODIMP HackerUpscalingSwapChain::ResizeBuffers(THIS_
 		else  // nothing to resize
 			hr = S_OK;
 	}
-	else if (mFakeSwapChain1) // UPSCALE_MODE 1
+	else if (mFakeSwapChain) // UPSCALE_MODE 1
 	{
 		// the last parameter have to be zero to avoid the influence of the faked swap chain on the resize target function 
-		hr = mFakeSwapChain1->ResizeBuffers(BufferCount, Width, Height, NewFormat, 0);
+		hr = mFakeSwapChain->ResizeBuffers(BufferCount, Width, Height, NewFormat, 0);
 	}
 	else
 	{
@@ -1382,6 +1384,18 @@ STDMETHODIMP HackerUpscalingSwapChain::ResizeBuffers(THIS_
 
 	LogInfo("  returns result = %x\n", hr);
 	return hr;
+}
+
+STDMETHODIMP HackerUpscalingSwapChain::ResizeBuffers1(UINT BufferCount, UINT Width, UINT Height,
+	DXGI_FORMAT Format, UINT SwapChainFlags, const UINT *pCreationNodeMask,
+	IUnknown *const *ppPresentQueue)
+{
+	// The fake back buffer is not a multi-adapter presentation queue. Keep the
+	// established upscaling resize behavior instead of resizing the real output
+	// chain behind the fake buffer.
+	(void)pCreationNodeMask;
+	(void)ppPresentQueue;
+	return ResizeBuffers(BufferCount, Width, Height, Format, SwapChainFlags);
 }
 
 STDMETHODIMP HackerUpscalingSwapChain::ResizeTarget(THIS_

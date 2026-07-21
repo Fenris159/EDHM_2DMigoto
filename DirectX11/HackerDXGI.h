@@ -25,6 +25,8 @@ void InstallSetWindowPosHook();
 class HackerSwapChain : public IDXGISwapChain4
 {
 protected:
+	virtual ~HackerSwapChain() = default;
+
 	IDXGISwapChain1 *mOrigSwapChain1;
 	IDXGISwapChain2 *mOrigSwapChain2;
 	IDXGISwapChain3 *mOrigSwapChain3;
@@ -225,7 +227,7 @@ public:
 class HackerUpscalingSwapChain : public HackerSwapChain
 {
 private:
-	IDXGISwapChain1 *mFakeSwapChain1;
+	IDXGISwapChain *mFakeSwapChain;
 	ID3D11Texture2D *mFakeBackBuffer;
 
 	UINT mWidth;
@@ -234,7 +236,7 @@ private:
 public:
 	HackerUpscalingSwapChain::HackerUpscalingSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pHackerDevice, HackerContext *pHackerContext,
 		DXGI_SWAP_CHAIN_DESC* pFakeSwapChainDesc, UINT newWidth, UINT newHeight);
-	~HackerUpscalingSwapChain();
+	~HackerUpscalingSwapChain() override;
 
 private:
 	void CreateRenderTarget(DXGI_SWAP_CHAIN_DESC* pFakeSwapChainDesc);
@@ -267,6 +269,10 @@ public:
 	STDMETHOD(ResizeTarget)(THIS_
 		/* [annotation][in] */
 		_In_  const DXGI_MODE_DESC *pNewTargetParameters);
+
+	STDMETHOD(ResizeBuffers1)(THIS_ UINT BufferCount, UINT Width, UINT Height,
+		DXGI_FORMAT Format, UINT SwapChainFlags, const UINT *pCreationNodeMask,
+		IUnknown *const *ppPresentQueue);
 
 };
 
