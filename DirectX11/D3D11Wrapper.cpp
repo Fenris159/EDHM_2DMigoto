@@ -279,7 +279,8 @@ static BOOL CALLBACK InitD311Once(PINIT_ONCE, PVOID, PVOID*)
 			// same-named DLL. Only a fully-qualified configured path is
 			// honoured here, and it is logged for auditability:
 			bool absolute = (G->CHAIN_DLL_PATH[0] == L'\\' && G->CHAIN_DLL_PATH[1] == L'\\') ||
-				(iswalpha(G->CHAIN_DLL_PATH[0]) && G->CHAIN_DLL_PATH[1] == L':');
+				(iswalpha(G->CHAIN_DLL_PATH[0]) && G->CHAIN_DLL_PATH[1] == L':' &&
+					(G->CHAIN_DLL_PATH[2] == L'\\' || G->CHAIN_DLL_PATH[2] == L'/'));
 			if (absolute) {
 				LogInfoW(L"Configured proxy was not found beside the game-local 3Dmigoto wrapper; trying absolute configured path: %ls\n",
 					G->CHAIN_DLL_PATH);
@@ -393,31 +394,45 @@ HRESULT WINAPI D3D11On12CreateDevice(
 }
 
 HRESULT WINAPI CreateDirect3D11DeviceFromDXGIDevice(
-	IDXGIDevice *dxgiDevice,
-	IInspectable **graphicsDevice)
+	_In_ IDXGIDevice *dxgiDevice,
+	_COM_Outptr_ IInspectable **graphicsDevice)
 {
+	if (!graphicsDevice)
+		return E_POINTER;
+	*graphicsDevice = NULL;
+
 	InitD311();
 	if (!_CreateDirect3D11DeviceFromDXGIDevice) {
-		if (graphicsDevice)
-			*graphicsDevice = NULL;
 		return E_NOTIMPL;
 	}
 
-	return (*_CreateDirect3D11DeviceFromDXGIDevice)(dxgiDevice, graphicsDevice);
+	HRESULT hr = (*_CreateDirect3D11DeviceFromDXGIDevice)(dxgiDevice, graphicsDevice);
+	if (FAILED(hr) && *graphicsDevice) {
+		(*graphicsDevice)->Release();
+		*graphicsDevice = NULL;
+	}
+	return hr;
 }
 
 HRESULT WINAPI CreateDirect3D11SurfaceFromDXGISurface(
-	IDXGISurface *dxgiSurface,
-	IInspectable **graphicsSurface)
+	_In_ IDXGISurface *dxgiSurface,
+	_COM_Outptr_ IInspectable **graphicsSurface)
 {
+	if (!graphicsSurface)
+		return E_POINTER;
+	*graphicsSurface = NULL;
+
 	InitD311();
 	if (!_CreateDirect3D11SurfaceFromDXGISurface) {
-		if (graphicsSurface)
-			*graphicsSurface = NULL;
 		return E_NOTIMPL;
 	}
 
-	return (*_CreateDirect3D11SurfaceFromDXGISurface)(dxgiSurface, graphicsSurface);
+	HRESULT hr = (*_CreateDirect3D11SurfaceFromDXGISurface)(dxgiSurface, graphicsSurface);
+	if (FAILED(hr) && *graphicsSurface) {
+		(*graphicsSurface)->Release();
+		*graphicsSurface = NULL;
+	}
+	return hr;
 }
 
 int WINAPI OpenAdapter10(struct D3D10DDIARG_OPENADAPTER *adapter)

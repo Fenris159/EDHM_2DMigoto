@@ -5,6 +5,7 @@
 #include <D3Dcompiler.h>
 #include <algorithm>
 #include <codecvt>
+#include <new>
 #include <strsafe.h>
 
 #include "ScreenGrab.h"
@@ -403,12 +404,17 @@ STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFi
 {
 	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> codec;
 	char *buf = NULL;
-	DWORD size, read;
+	DWORD size = 0, read;
 	string apath;
 	wstring wpath;
 	HANDLE f;
 
-	LogDebug("      MigotoIncludeHandler::Open(%p, %u, %s, %p)\n", this, IncludeType, pFileName, pParentData);
+	if (!pFileName || !ppData || !pBytes || dir_stack.empty())
+		return E_INVALIDARG;
+
+	*ppData = NULL;
+	*pBytes = 0;
+	LogDebug("      MigotoIncludeHandler::Open(%p, %u, %s, %p)\n", this, (unsigned)IncludeType, pFileName, pParentData);
 
 	// For backwards compatibility with D3D_COMPILE_STANDARD_FILE_INCLUDE
 	// we only search for shaders relative to the *initial* source file by
@@ -425,11 +431,16 @@ STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFi
 	// handler would include "d" from the root instead. This might be
 	// contrived enough to ignore it and drop the option, but its safer to
 	// include the option.
-	if (G->recursive_include)
-		apath = dir_stack.back() + pFileName;
-	else
-		apath = dir_stack.front() + pFileName;
-	wpath = codec.from_bytes(apath);
+	try {
+		if (G->recursive_include)
+			apath = dir_stack.back() + pFileName;
+		else
+			apath = dir_stack.front() + pFileName;
+		wpath = codec.from_bytes(apath);
+	} catch (const std::exception&) {
+		LogInfo("      Invalid UTF-8 include path: %s\n", pFileName);
+		return E_FAIL;
+	}
 
 	f = CreateFile(wpath.c_str(), GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (f == INVALID_HANDLE_VALUE && !G->recursive_include) {
@@ -443,8 +454,13 @@ STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFi
 		// directories on different editions (e.g. FC4 / FCPrimal Steam
 		// vs UPlay), so we disallow this if recursive_include is
 		// enabled as that already disables backwards compatibility.
-		apath = pFileName;
-		wpath = codec.from_bytes(apath);
+		try {
+			apath = pFileName;
+			wpath = codec.from_bytes(apath);
+		} catch (const std::exception&) {
+			LogInfo("      Invalid UTF-8 include path: %s\n", pFileName);
+			return E_FAIL;
+		}
 		f = CreateFile(wpath.c_str(), GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	}
 	if (f == INVALID_HANDLE_VALUE) {
@@ -466,13 +482,17 @@ STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFi
 			break;
 	}
 
-	size = GetFileSize(f, 0);
-	if (!size || size == INVALID_FILE_SIZE || size > MAX_SHADER_FILE_SIZE) {
+	if (!get_file_size_with_limit(f, MAX_SHADER_FILE_SIZE, &size)) {
 		LogInfo("      Invalid included file size: %u\n", size);
 		CloseHandle(f);
 		return E_FAIL;
 	}
-	buf = new char[size];
+	buf = new (std::nothrow) char[size];
+	if (!buf) {
+		LogInfo("      Unable to allocate %u bytes for included file.\n", size);
+		CloseHandle(f);
+		return E_OUTOFMEMORY;
+	}
 
 	if (!ReadFile(f, buf, size, &read, 0) || size != read) {
 		LogInfo("      Error reading included file.\n");
@@ -497,7 +517,8 @@ STDMETHODIMP MigotoIncludeHandler::Close(LPCVOID pData)
 {
 	LogDebug("      MigotoIncludeHandler::Close(%p, %p)\n", this, pData);
 	delete [] pData;
-	dir_stack.pop_back();
+	if (dir_stack.size() > 1)
+		dir_stack.pop_back();
 	return S_OK;
 }
 
@@ -532,16 +553,23 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 	}
 
 
-	DWORD srcDataSize = GetFileSize(f, 0);
-	if (!srcDataSize || srcDataSize == INVALID_FILE_SIZE)
+	DWORD srcDataSize = 0;
+	if (!get_file_size_with_limit(f, MAX_SHADER_FILE_SIZE, &srcDataSize))
 	{
 		LogInfo("    Invalid shader source file size.\n");
 		CloseHandle(f);
 		return true;
 	}
-	vector<char> srcData(srcDataSize);
+	vector<char> srcData;
+	try {
+		srcData.resize(srcDataSize);
+	} catch (const std::bad_alloc&) {
+		LogInfo("    Unable to allocate %u bytes for shader reload.\n", srcDataSize);
+		CloseHandle(f);
+		return true;
+	}
 	DWORD readSize;
-	FILETIME curFileTime;
+	FILETIME curFileTime = {};
 
 	if (!ReadFile(f, srcData.data(), srcDataSize, &readSize, 0)
 		|| !GetFileTime(f, NULL, NULL, &curFileTime)
@@ -568,7 +596,7 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 	if (wcsstr(fileName, L"_replace"))
 	{
 		LogInfo("   >Replacement shader found. Re-Loading replacement HLSL code from %ls\n", fileName);
-		LogInfo("    Reload source code loaded. Size = %d\n", srcDataSize);
+		LogInfo("    Reload source code loaded. Size = %u\n", srcDataSize);
 		LogInfo("    compiling replacement HLSL code with shader model %s\n", shaderModel);
 
 		// TODO: Add #defines for IniParams
@@ -591,24 +619,33 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 
 		if (pErrorMsgs)
 		{
-			LPVOID errMsg = pErrorMsgs->GetBufferPointer();
+			const char *errMsg = static_cast<const char*>(pErrorMsgs->GetBufferPointer());
 			SIZE_T errSize = pErrorMsgs->GetBufferSize();
+			SIZE_T textSize = errSize;
+			if (errMsg && textSize && !errMsg[textSize - 1])
+				--textSize;
 			LogInfo("--------------------------------------------- BEGIN ---------------------------------------------\n");
-			if (FAILED(ret))
+			if (FAILED(ret) && errMsg && textSize)
 			{
 				// If there are errors they go to the overlay
-				LogOverlay(LOG_NOTICE, "%*s\n", errSize, errMsg);
+				LogOverlay(LOG_NOTICE, "%.*s\n", (int)min<SIZE_T>(textSize, INT_MAX), errMsg);
 			}
-			else if (LogFile)
+			else if (LogFile && errMsg && textSize)
 			{
 				// If there are only warnings they go to the
 				// log file, because it's too noisy to send all
 				// these to the overlay.
-				fwrite(errMsg, 1, errSize - 1, LogFile);
+				fwrite(errMsg, 1, textSize, LogFile);
 			}
 			LogInfo("---------------------------------------------- END ----------------------------------------------\n");
-			if (errText)
-				*errText = string((char*)pErrorMsgs->GetBufferPointer(), pErrorMsgs->GetBufferSize() - 1);
+			if (errText && errMsg) {
+				try {
+					errText->assign(errMsg, textSize);
+				} catch (const std::bad_alloc&) {
+					errText->clear();
+					LogInfo("    Unable to copy shader compiler diagnostics.\n");
+				}
+			}
 			pErrorMsgs->Release();
 		}
 
@@ -625,15 +662,16 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 	else
 	{
 		LogInfo("   >Replacement shader found. Re-Loading replacement ASM code from %ls\n", fileName);
-		LogInfo("    Reload source code loaded. Size = %d\n", srcDataSize);
+		LogInfo("    Reload source code loaded. Size = %u\n", srcDataSize);
 		LogInfo("    assembling replacement ASM code with shader model %s\n", shaderModel);
 
 		// We need original byte code unchanged, so make a copy.
-		vector<byte> byteCode(origByteCode->GetBufferSize());
-		memcpy(byteCode.data(), origByteCode->GetBufferPointer(), origByteCode->GetBufferSize());
+		vector<byte> byteCode;
 
 		try
 		{
+			byteCode.resize(origByteCode->GetBufferSize());
+			memcpy(byteCode.data(), origByteCode->GetBufferPointer(), origByteCode->GetBufferSize());
 			// Treat parse errors on shader reload as fatal since there should
 			// be a shaderhacker at the keyboard ready to fix their bugs.
 			byteCode = AssembleFluganWithOptionalSignatureParsing(&srcData, G->assemble_signature_comments, &byteCode);
@@ -663,10 +701,15 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 
 	// For success, let's add the first line of text from the file to the OriginalShaderInfo,
 	// so the ShaderHacker can edit the line and reload and have it live.
-	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf8_to_utf16;
-	vector<char>::iterator newline = find(srcData.begin(), srcData.end(), '\n');
-	headerLine = utf8_to_utf16.from_bytes(srcData.data(),
-		newline == srcData.end() ? srcData.data() + srcData.size() : &*newline);
+	try {
+		std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf8_to_utf16;
+		vector<char>::iterator newline = find(srcData.begin(), srcData.end(), '\n');
+		headerLine = utf8_to_utf16.from_bytes(srcData.data(),
+			newline == srcData.end() ? srcData.data() + srcData.size() : &*newline);
+	} catch (const std::exception &e) {
+		LogInfo("    invalid UTF-8 in first line of reloaded shader: %s\n", e.what());
+		headerLine.clear();
+	}
 
 	// pCode on return == NULL for error cases, valid if made it this far.
 	*pCode = pByteCode;

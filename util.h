@@ -47,9 +47,27 @@ const int INI_PARAMS_SIZE_WARNING = 256;
 // cache, or include file. Real HLSL/ASM sources and DXBC binaries are tiny
 // (kilobytes); anything approaching this limit is corrupt or hostile, and
 // reading it blindly risks multi-gigabyte allocations inside the game
-// process. GetFileSize() failure (INVALID_FILE_SIZE = 0xFFFFFFFF) also lands
-// safely above this cap.
+// process.
 const DWORD MAX_SHADER_FILE_SIZE = 64 * 1024 * 1024; // 64 MiB
+// Custom buffer resources are external configuration data as well. Keep their
+// cap higher than shader files while preventing a malformed path from asking
+// the game process for an effectively unbounded allocation.
+const DWORD MAX_CUSTOM_RESOURCE_FILE_SIZE = 256 * 1024 * 1024; // 256 MiB
+
+static inline bool get_file_size_with_limit(HANDLE file, DWORD limit, DWORD *size)
+{
+	LARGE_INTEGER file_size;
+
+	if (!size)
+		return false;
+	*size = 0;
+	if (file == INVALID_HANDLE_VALUE || !GetFileSizeEx(file, &file_size) ||
+			file_size.QuadPart <= 0 || file_size.QuadPart > limit)
+		return false;
+
+	*size = static_cast<DWORD>(file_size.QuadPart);
+	return true;
+}
 
 // -----------------------------------------------------------------------------------------------
 

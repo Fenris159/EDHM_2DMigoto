@@ -556,13 +556,19 @@ HRESULT __stdcall Hooked_CreateSwapChainForHwnd(
 	/* [annotation][out] */
 	_Out_  IDXGISwapChain1 **ppSwapChain)
 {
-	if (ppSwapChain)
-		*ppSwapChain = NULL;
+	if (!ppSwapChain)
+		return E_POINTER;
+	*ppSwapChain = NULL;
 
 	if (get_tls()->hooking_quirk_protection) {
 		LogInfo("Hooking Quirk: Unexpected call back into IDXGIFactory2::CreateSwapChainForHwnd, passing through\n");
 		// No known cases
-		return fnOrigCreateSwapChainForHwnd(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
+		HRESULT hr = fnOrigCreateSwapChainForHwnd(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
+		if (FAILED(hr) && *ppSwapChain) {
+			(*ppSwapChain)->Release();
+			*ppSwapChain = NULL;
+		}
+		return hr;
 	}
 
 	HackerDevice *hackerDevice = NULL;
@@ -645,13 +651,19 @@ HRESULT __stdcall Hooked_CreateSwapChainForCoreWindow(
 	/* [annotation][out] */
 	_COM_Outptr_  IDXGISwapChain1 **ppSwapChain)
 {
-	if (ppSwapChain)
-		*ppSwapChain = NULL;
+	if (!ppSwapChain)
+		return E_POINTER;
+	*ppSwapChain = NULL;
 
 	if (get_tls()->hooking_quirk_protection) {
 		LogInfo("Hooking Quirk: Unexpected call back into IDXGIFactory2::CreateSwapChainForCoreWindow, passing through\n");
 		// No known cases
-		return fnOrigCreateSwapChainForCoreWindow(This, pDevice, pWindow, pDesc, pRestrictToOutput, ppSwapChain);
+		HRESULT hr = fnOrigCreateSwapChainForCoreWindow(This, pDevice, pWindow, pDesc, pRestrictToOutput, ppSwapChain);
+		if (FAILED(hr) && *ppSwapChain) {
+			(*ppSwapChain)->Release();
+			*ppSwapChain = NULL;
+		}
+		return hr;
 	}
 
 	HackerDevice *hackerDevice = NULL;
@@ -721,13 +733,19 @@ HRESULT __stdcall Hooked_CreateSwapChainForComposition(
 	/* [annotation][out] */
 	_COM_Outptr_  IDXGISwapChain1 **ppSwapChain)
 {
-	if (ppSwapChain)
-		*ppSwapChain = NULL;
+	if (!ppSwapChain)
+		return E_POINTER;
+	*ppSwapChain = NULL;
 
 	if (get_tls()->hooking_quirk_protection) {
 		LogInfo("Hooking Quirk: Unexpected call back into IDXGIFactory2::CreateSwapChainForComposition, passing through\n");
 		// No known cases
-		return fnOrigCreateSwapChainForComposition(This, pDevice, pDesc, pRestrictToOutput, ppSwapChain);
+		HRESULT hr = fnOrigCreateSwapChainForComposition(This, pDevice, pDesc, pRestrictToOutput, ppSwapChain);
+		if (FAILED(hr) && *ppSwapChain) {
+			(*ppSwapChain)->Release();
+			*ppSwapChain = NULL;
+		}
+		return hr;
 	}
 
 	HackerDevice *hackerDevice = NULL;
