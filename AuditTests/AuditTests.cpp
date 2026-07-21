@@ -1,8 +1,11 @@
 #include <cstdint>
 #include <clocale>
+#include <condition_variable>
 #include <cstdio>
 #include <cstring>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "D3D_Shaders/DxbcContainer.h"
@@ -169,6 +172,35 @@ static void TestScopedThreadLocale()
 	}
 	const char *after = setlocale(LC_CTYPE, nullptr);
 	Check(after && previous == after, "thread locale was not restored");
+
+	std::mutex mutex;
+	std::condition_variable condition;
+	bool worker_ready = false;
+	bool release_worker = false;
+	bool worker_changed = false;
+	std::thread worker([&]() {
+		ScopedThreadLocale locale(LC_CTYPE, ".UTF-8");
+		std::unique_lock<std::mutex> lock(mutex);
+		worker_changed = locale.changed();
+		worker_ready = true;
+		condition.notify_one();
+		condition.wait(lock, [&]() { return release_worker; });
+	});
+
+	{
+		std::unique_lock<std::mutex> lock(mutex);
+		condition.wait(lock, [&]() { return worker_ready; });
+	}
+	const char *during_worker_scope = setlocale(LC_CTYPE, nullptr);
+	Check(worker_changed, "worker UTF-8 thread locale was unavailable");
+	Check(during_worker_scope && previous == during_worker_scope,
+		"worker locale change escaped to the calling thread");
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		release_worker = true;
+	}
+	condition.notify_one();
+	worker.join();
 }
 
 static void TestLegacyDecompilerConfig()
