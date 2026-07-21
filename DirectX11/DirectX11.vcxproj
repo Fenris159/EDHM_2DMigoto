@@ -103,6 +103,7 @@
     <ClInclude Include="profiling.h" />
     <ClInclude Include="ResourceHash.h" />
     <ClInclude Include="ShaderRegex.h" />
+    <ClInclude Include="LegacyDecompilerConfig.h" />
     <ClInclude Include="ThreadLocale.h" />
     <ClInclude Include="..\vkeys.h" />
     <ClInclude Include="..\utf8.h" />

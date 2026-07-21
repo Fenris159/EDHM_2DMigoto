@@ -7,6 +7,7 @@
 
 #include "D3D_Shaders/DxbcContainer.h"
 #include "DirectX11/ComOutput.h"
+#include "DirectX11/LegacyDecompilerConfig.h"
 #include "DirectX11/ThreadLocale.h"
 #include "utf8.h"
 
@@ -168,12 +169,34 @@ static void TestScopedThreadLocale()
 	Check(after && previous == after, "thread locale was not restored");
 }
 
+static void TestLegacyDecompilerConfig()
+{
+	std::string texture;
+	char component = '\0';
+	Check(ParseDepthTextureSetting(L" SceneDepthTexture.x ", &texture, &component),
+		"valid depth texture setting rejected");
+	Check(texture == "SceneDepthTexture" && component == 'x', "depth texture setting parsed incorrectly");
+	Check(!ParseDepthTextureSetting(L"", &texture, &component), "empty depth texture setting accepted");
+	Check(!ParseDepthTextureSetting(L"SceneDepthTexture", &texture, &component),
+		"depth texture without component accepted");
+	Check(!ParseDepthTextureSetting(L"SceneDepthTexture.q", &texture, &component),
+		"invalid depth texture component accepted");
+
+	std::vector<std::string> values = { "stale" };
+	Check(ParseIdentifierList(L" ScreenToLight, InverseView  ThirdValue ", &values),
+		"valid identifier list rejected");
+	Check(values.size() == 3 && values[0] == "ScreenToLight" &&
+		values[1] == "InverseView" && values[2] == "ThirdValue", "identifier list parsed incorrectly");
+	Check(ParseIdentifierList(L" ,  , ", &values) && values.empty(), "empty identifier list retained stale values");
+}
+
 int main()
 {
 	TestDxbcValidation();
 	TestComFailureOutput();
 	TestUtf8Conversion();
 	TestScopedThreadLocale();
+	TestLegacyDecompilerConfig();
 	if (failures) {
 		std::fprintf(stderr, "%u audit contract test(s) failed\n", failures);
 		return 1;

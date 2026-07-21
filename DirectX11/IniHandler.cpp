@@ -20,6 +20,7 @@
 #include "cursor.h"
 #include "WineCompat.h"
 #include "ThreadLocale.h"
+#include "LegacyDecompilerConfig.h"
 #include "utf8.h"
 #include <chrono>
 
@@ -4600,6 +4601,7 @@ void LoadConfigFile()
 	G->EXPORT_BINARY = GetIniBool(L"Rendering", L"export_binary", false, NULL);
 	G->DumpUsage = GetIniBool(L"Rendering", L"dump_usage", false, NULL);
 
+	G->decompiler_settings = DecompilerSettings();
 	G->IniParamsReg = GetIniInt(L"Rendering", L"ini_params", 120, NULL);
 	G->decompiler_settings.IniParamsReg = G->IniParamsReg;
 	if (G->IniParamsReg >= D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT) {
@@ -4617,21 +4619,15 @@ void LoadConfigFile()
 	G->decompiler_settings.recompileVs = GetIniBool(L"Rendering", L"recompile_all_vs", false, NULL);
 	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_DepthTexture1", 0, setting, MAX_PATH))
 	{
-		char buf[MAX_PATH];
-		wcstombs(buf, setting, MAX_PATH);
-		char *end = RightStripA(buf);
-		G->decompiler_settings.ZRepair_DepthTextureReg1 = *end; *(end - 1) = 0;
-		char *start = buf; while (isspace(*start)) start++;
-		G->decompiler_settings.ZRepair_DepthTexture1 = start;
+		if (!ParseDepthTextureSetting(setting, &G->decompiler_settings.ZRepair_DepthTexture1,
+				&G->decompiler_settings.ZRepair_DepthTextureReg1))
+			IniWarningW(L"Invalid fix_ZRepair_DepthTexture1 setting\n - [%ls]\n", INI_FILENAME);
 	}
 	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_DepthTexture2", 0, setting, MAX_PATH))
 	{
-		char buf[MAX_PATH];
-		wcstombs(buf, setting, MAX_PATH);
-		char *end = RightStripA(buf);
-		G->decompiler_settings.ZRepair_DepthTextureReg2 = *end; *(end - 1) = 0;
-		char *start = buf; while (isspace(*start)) start++;
-		G->decompiler_settings.ZRepair_DepthTexture2 = start;
+		if (!ParseDepthTextureSetting(setting, &G->decompiler_settings.ZRepair_DepthTexture2,
+				&G->decompiler_settings.ZRepair_DepthTextureReg2))
+			IniWarningW(L"Invalid fix_ZRepair_DepthTexture2 setting\n - [%ls]\n", INI_FILENAME);
 	}
 	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_ZPosCalc1", 0, setting, MAX_PATH))
 		G->decompiler_settings.ZRepair_ZPosCalc1 = readStringParameter(setting);
@@ -4643,39 +4639,18 @@ void LoadConfigFile()
 		G->decompiler_settings.ZRepair_WorldPosCalc = readStringParameter(setting);
 	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_Dependencies1", 0, setting, MAX_PATH))
 	{
-		char buf[MAX_PATH];
-		wcstombs(buf, setting, MAX_PATH);
-		char *start = buf; while (isspace(*start)) ++start;
-		while (*start)
-		{
-			char *end = start; while (*end != ',' && *end && *end != ' ') ++end;
-			G->decompiler_settings.ZRepair_Dependencies1.push_back(string(start, end));
-			start = end; if (*start == ',') ++start;
-		}
+		if (!ParseIdentifierList(setting, &G->decompiler_settings.ZRepair_Dependencies1))
+			IniWarningW(L"Invalid fix_ZRepair_Dependencies1 setting\n - [%ls]\n", INI_FILENAME);
 	}
 	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_Dependencies2", 0, setting, MAX_PATH))
 	{
-		char buf[MAX_PATH];
-		wcstombs(buf, setting, MAX_PATH);
-		char *start = buf; while (isspace(*start)) ++start;
-		while (*start)
-		{
-			char *end = start; while (*end != ',' && *end && *end != ' ') ++end;
-			G->decompiler_settings.ZRepair_Dependencies2.push_back(string(start, end));
-			start = end; if (*start == ',') ++start;
-		}
+		if (!ParseIdentifierList(setting, &G->decompiler_settings.ZRepair_Dependencies2))
+			IniWarningW(L"Invalid fix_ZRepair_Dependencies2 setting\n - [%ls]\n", INI_FILENAME);
 	}
 	if (GetIniStringAndLog(L"Rendering", L"fix_InvTransform", 0, setting, MAX_PATH))
 	{
-		char buf[MAX_PATH];
-		wcstombs(buf, setting, MAX_PATH);
-		char *start = buf; while (isspace(*start)) ++start;
-		while (*start)
-		{
-			char *end = start; while (*end != ',' && *end && *end != ' ') ++end;
-			G->decompiler_settings.InvTransforms.push_back(string(start, end));
-			start = end; if (*start == ',') ++start;
-		}
+		if (!ParseIdentifierList(setting, &G->decompiler_settings.InvTransforms))
+			IniWarningW(L"Invalid fix_InvTransform setting\n - [%ls]\n", INI_FILENAME);
 	}
 	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_DepthTextureHash", 0, setting, MAX_PATH))
 	{
