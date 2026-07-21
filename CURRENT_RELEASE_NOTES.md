@@ -27,8 +27,8 @@ Built from this repository's automated release workflow.
 - Corrected multi-page region-hash invalidation, synchronized asynchronous frame
   analysis query tracking, and attached resource-release trackers outside cache
   locks to avoid stale results and re-entrant lock hazards.
-- Avoided non-trivial thread cleanup from `DllMain` detach notifications while
-  preserving process-shutdown cleanup on explicit unload.
+- Skipped nonessential teardown during process termination while retaining
+  per-thread TLS cleanup and full cleanup on explicit dynamic unload.
 - Made `KeyOverride` ini parsing dominance explicit instead of relying on an
   ambiguous inherited implementation.
 - Corrected post-build commands so Win32 and x64 packages receive the matching
