@@ -52,8 +52,9 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 - Corrected multi-page region-hash invalidation, synchronized asynchronous frame
   analysis query tracking, and attached resource-release trackers outside cache
   locks to avoid stale results and re-entrant lock hazards.
-- Avoided non-trivial thread cleanup from `DllMain` detach notifications while
-  preserving process-shutdown cleanup on explicit unload.
+- Skipped all non-trivial cleanup from `DllMain` during process termination
+  (`DLL_PROCESS_DETACH` with `lpvReserved` set); per-thread TLS cleanup on
+  thread detach and full shutdown on explicit dynamic unload remain by design.
 - Made `KeyOverride` ini parsing dominance explicit instead of relying on an
   ambiguous inherited implementation.
 - Corrected post-build commands so Win32 and x64 packages receive the matching

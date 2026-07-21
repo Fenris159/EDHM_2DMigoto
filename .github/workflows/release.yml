@@ -234,6 +234,27 @@ jobs:
           $zipName = "EDHM_2DMigoto-$tag-x64.zip"
           $zipPath = Join-Path 'dist' $zipName
           if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+
+          # License and provenance notices required for binary redistribution:
+          # GPLv3 (project + 3Dmigoto lineage), PCRE2 BSD and DirectXTK MIT
+          # all require their notices to accompany the binaries.
+          $noticeSources = @(
+            @{ src = 'COPYING.txt';              dst = 'COPYING.txt' },
+            @{ src = 'LICENSE.GPL.txt';          dst = 'LICENSE.GPL.txt' },
+            @{ src = 'AUTHORS.txt';              dst = 'AUTHORS.txt' },
+            @{ src = 'THIRD_PARTY_NOTICES.md';   dst = 'THIRD_PARTY_NOTICES.md' },
+            @{ src = 'pcre2\LICENCE';            dst = 'PCRE2_LICENCE.txt' },
+            @{ src = 'DirectXTK\LICENSE';        dst = 'DirectXTK_LICENSE.txt' }
+          )
+          foreach ($notice in $noticeSources) {
+            if (Test-Path $notice.src) {
+              Copy-Item $notice.src (Join-Path 'dist' $notice.dst) -Force
+              $zipFiles += "dist\$($notice.dst)"
+            } else {
+              throw "Required license/notice file missing: $($notice.src)"
+            }
+          }
+
           Compress-Archive -Path $zipFiles -DestinationPath $zipPath -Force
 
           # Checksums

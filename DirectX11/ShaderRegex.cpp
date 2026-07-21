@@ -679,7 +679,9 @@ bool get_shader_model_from_bytecode(const void* data, size_t size, std::string* 
 	{
 		uint32_t offset = chunkOffsets[i];
 
-		if (offset + 12 > size)
+		// 64-bit arithmetic: a 32-bit offset + 12 can wrap to a small
+		// value and pass the check with a ~4GB out-of-bounds read:
+		if ((uint64_t)offset + 12 > size)
 			continue;
 
 		const uint8_t* chunk = buffer + offset;

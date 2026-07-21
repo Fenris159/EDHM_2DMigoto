@@ -43,6 +43,14 @@
 // has other problems such as no meaningful names, no namespacing, etc.
 const int INI_PARAMS_SIZE_WARNING = 256;
 
+// Maximum size accepted when reading any local shader replacement, shader
+// cache, or include file. Real HLSL/ASM sources and DXBC binaries are tiny
+// (kilobytes); anything approaching this limit is corrupt or hostile, and
+// reading it blindly risks multi-gigabyte allocations inside the game
+// process. GetFileSize() failure (INVALID_FILE_SIZE = 0xFFFFFFFF) also lands
+// safely above this cap.
+const DWORD MAX_SHADER_FILE_SIZE = 64 * 1024 * 1024; // 64 MiB
+
 // -----------------------------------------------------------------------------------------------
 
 // This critical section must be held to avoid race conditions when creating

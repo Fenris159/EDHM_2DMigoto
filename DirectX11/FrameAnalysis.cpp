@@ -1359,7 +1359,7 @@ void FrameAnalysisContext::DumpVBTxt(wchar_t *filename, D3D11_MAPPED_SUBRESOURCE
 	FILE *fd = NULL;
 	errno_t err;
 	const D3D11_INPUT_ELEMENT_DESC *layout_desc = NULL;
-	size_t layout_elements;
+	size_t layout_elements = 0;
 	bool per_vert = false, per_inst = false;
 
 	err = wfopen_ensuring_access(&fd, filename, L"w");

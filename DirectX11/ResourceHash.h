@@ -356,7 +356,7 @@ struct ResourceHandleInfo
 	};
 
 	void InitializeDataCache(size_t size, size_t offset = 0);
-	void SetDataCache(void* src, size_t size);
+	void SetDataCache(const void* src, size_t size);
 	void SetDataCacheRegion(const void* src, size_t size, UINT offset);
 	// Clears cached region hashes and invalidates cached buffer data.
 	// Should be called when the underlying resource contents change.

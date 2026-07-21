@@ -1,6 +1,7 @@
 #include "IniHandler.h"
 
 #include <algorithm>
+#include <cmath>
 #include <iterator>
 #include <string>
 #include <strsafe.h>
@@ -915,7 +916,7 @@ void GetIniSection(IniSectionVector **key_vals, const wchar_t *section)
 int GetIniString(const wchar_t *section, const wchar_t *key, const wchar_t *def,
 	wchar_t *ret, unsigned size)
 {
-	int rc;
+	int rc = 0;
 	bool found = false;
 
 	auto ini_section = ini_sections.find(section);
@@ -3000,8 +3001,34 @@ static void parse_texture_override_common(const wchar_t *id, TextureOverride *ov
 	override->width_multiply = GetIniFloat(id, L"width_multiply", 1.0f, NULL);
 	override->height_multiply = GetIniFloat(id, L"height_multiply", 1.0f, NULL);
 
+	// Validate configuration numerics at parse time so a mistyped, negative,
+	// NaN or infinite value warns once here instead of feeding undefined
+	// float->UINT conversions or wrapped multiplications at resource
+	// creation time:
+	if (!std::isfinite(override->width_multiply) || override->width_multiply <= 0.0f) {
+		IniWarningW(L"Ignoring invalid width_multiply=%f\n - [%ls]\n", override->width_multiply, override->ini_section.c_str());
+		override->width_multiply = 1.0f;
+	}
+	if (!std::isfinite(override->height_multiply) || override->height_multiply <= 0.0f) {
+		IniWarningW(L"Ignoring invalid height_multiply=%f\n - [%ls]\n", override->height_multiply, override->ini_section.c_str());
+		override->height_multiply = 1.0f;
+	}
+	if (override->width != -1 && override->width <= 0) {
+		IniWarningW(L"Ignoring invalid Width=%d\n - [%ls]\n", override->width, override->ini_section.c_str());
+		override->width = -1;
+	}
+	if (override->height != -1 && override->height <= 0) {
+		IniWarningW(L"Ignoring invalid Height=%d\n - [%ls]\n", override->height, override->ini_section.c_str());
+		override->height = -1;
+	}
+
 	if (G->allow_buffer_resize) 
 	{
+		// Practical ceiling for the buffer resize feature. Well above any
+		// real vertex buffer, well below anything that could wrap 32-bit
+		// arithmetic or destabilize the game with a single allocation:
+		const INT64 max_override_byte_width = 1LL << 30; // 1 GiB
+
 		// Handle buffer resize aka vertex limit raise feature.
 		int override_vertex_count = GetIniInt(id, L"override_vertex_count", -1, &found);
 		if (override_vertex_count > 0) {
@@ -3011,14 +3038,23 @@ static void parse_texture_override_common(const wchar_t *id, TextureOverride *ov
 				LogOverlayW(LOG_DIRE, L"Failed to detect stride for override_vertex_count=%d, please set override_byte_stride!\n - [%ls]\n", override_vertex_count, override->ini_section.c_str());
 				return;
 			}
-			// Override buffer size according to section params.
-			override->override_byte_width = override_byte_stride * override_vertex_count;
+			// Override buffer size according to section params, using 64-bit
+			// intermediates so extreme values cannot wrap the signed 32-bit
+			// multiplication (that would be undefined behaviour):
+			INT64 byte_width = (INT64)override_byte_stride * override_vertex_count;
+			if (byte_width > max_override_byte_width) {
+				IniWarningW(L"Ignoring oversized override_vertex_count=%d * override_byte_stride=%d\n - [%ls]\n",
+						override_vertex_count, override_byte_stride, override->ini_section.c_str());
+				override->override_byte_width = -1;
+				return;
+			}
+			override->override_byte_width = (int)byte_width;
 
 			// Handle UAV resize
 			int uav_byte_stride = GetIniInt(id, L"uav_byte_stride", -1, &found);
 			if (uav_byte_stride > 0) {
 				// Use StructureByteStride override (useful when actual buffer stride is different from the one declared by a game)
-				override->override_num_elements = override_vertex_count * override_byte_stride / uav_byte_stride;
+				override->override_num_elements = (int)(byte_width / uav_byte_stride);
 			} else {
 				// Use VertexCount override
 				override->override_num_elements = override_vertex_count;

@@ -730,7 +730,7 @@ void Overlay::DrawShaderInfoLines(float *y)
 void Overlay::DrawNotices(float *y)
 {
 	std::vector<OverlayNotice>::iterator notice;
-	DWORD time = GetTickCount();
+	ULONGLONG time = GetTickCount64();
 	Vector2 textPosition;
 	Vector2 strSize;
 	int level, displayed = 0;

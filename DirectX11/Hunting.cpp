@@ -467,6 +467,11 @@ STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFi
 	}
 
 	size = GetFileSize(f, 0);
+	if (!size || size == INVALID_FILE_SIZE || size > MAX_SHADER_FILE_SIZE) {
+		LogInfo("      Invalid included file size: %u\n", size);
+		CloseHandle(f);
+		return E_FAIL;
+	}
 	buf = new char[size];
 
 	if (!ReadFile(f, buf, size, &read, 0) || size != read) {

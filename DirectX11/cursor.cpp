@@ -137,7 +137,7 @@ BOOL WINAPI CursorUpscalingBypass_GetCursorInfo(
 static BOOL WINAPI Hooked_ScreenToClient(_In_ HWND hWnd, LPPOINT lpPoint)
 {
 	BOOL rc;
-	RECT client;
+	RECT client = {};
 	bool translate = G->SCREEN_UPSCALING > 0 && lpPoint
 		&& trampoline_GetClientRect(G->hWnd, &client)
 		&& client.right && client.bottom

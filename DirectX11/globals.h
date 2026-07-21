@@ -408,7 +408,8 @@ struct Globals
 	bool dump_all_profiles;
 	float gTime;
 	float gSettingsSaveTime;
-	DWORD ticks_at_launch;
+	// 64-bit so elapsed-time arithmetic does not wrap after ~49.7 days:
+	ULONGLONG ticks_at_launch;
 	std::wstring additionalForegroundWindowTitle;
 
 	wchar_t SHADER_PATH[MAX_PATH];
@@ -770,7 +771,7 @@ struct Globals
 		for (i = 0; i < 11; i++)
 			FILTER_REFRESH[i] = 0;
 
-		ticks_at_launch = GetTickCount();
+		ticks_at_launch = GetTickCount64();
 	}
 };
 

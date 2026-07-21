@@ -2006,15 +2006,23 @@ void ResourceHandleInfo::InitializeDataCache(size_t size, size_t offset)
 	region_hashes_cache->Initialize(size);
 }
 
-void ResourceHandleInfo::SetDataCache(void* src, size_t size)
+// Copies the supplied bytes into an independently owned CPU snapshot.
+// The source pointer is only borrowed for the duration of this call. That
+// makes it safe to pass memory owned by the D3D runtime (such as an
+// ID3D11DeviceContext::Map result) provided the resource remains mapped
+// until this function returns. We must never adopt or free such a pointer:
+// mapped memory belongs to the runtime, is only valid until Unmap, and was
+// never allocated with malloc.
+void ResourceHandleInfo::SetDataCache(const void* src, size_t size)
 {
-	if (!src)
+	if (!src || !size)
 		return;
 
 	InitializeDataCache(size);
 
-	// Adopt memory pointer as shared_ptr, no re-allocation involved.
-	cached_data = std::shared_ptr<uint8_t[]>(static_cast<uint8_t*>(src), free);
+	// Own an independent copy of the data so it stays valid after Unmap.
+	cached_data = std::shared_ptr<uint8_t[]>(new uint8_t[size]);
+	memcpy(cached_data.get(), src, size);
 
 	//cached_data_hash = crc32c_hw(0, GetCachedData(), size);
 	//LogInfo("SetDataCache size=%d, data_hash=%08lx\n", size, cached_data_hash);
@@ -2103,6 +2111,12 @@ void ClearResourceRegionHashCache(ID3D11Resource* resource)
 	}
 	info->ClearDataCache();
 	LeaveCriticalSection(&G->mCriticalSection);
+
+	// The global per-frame L3 cache is keyed by raw resource pointer and the
+	// FlatHashMap cannot evict a single key, so drop the whole cache. This is
+	// coarse but correct: without it a stale hash for the updated resource
+	// could be returned for the remainder of the frame.
+	ClearRegionHashesGlobalCache();
 }
 
 // Creates a CPU-readable snapshot of the buffer contents and stores it
@@ -2168,17 +2182,25 @@ static bool CacheBufferData(ID3D11DeviceContext* context, ID3D11Buffer* buffer, 
 	return true;
 }
 
+// Saturate a 64-bit byte offset/size to UINT. GetRegionHash range-checks the
+// result against the real buffer size, so a saturated value simply fails the
+// bounds check instead of wrapping into a bogus small offset/size.
+static UINT SaturateRegionValue(uint64_t value)
+{
+	return value > UINT_MAX ? UINT_MAX : (UINT)value;
+}
+
 UINT GetVertexBufferRegionOffset(UINT stride, DrawCallInfo* call_info, UINT byte_offset)
 {
-	UINT byte_size = stride * call_info->FirstVertex;
-	return byte_offset + byte_size;
+	uint64_t byte_size = (uint64_t)stride * call_info->FirstVertex;
+	return SaturateRegionValue((uint64_t)byte_offset + byte_size);
 }
 
 UINT GetIndexBufferRegionOffset(DXGI_FORMAT format, DrawCallInfo* call_info, UINT byte_offset)
 {
 	UINT index_stride = (format == DXGI_FORMAT_R32_UINT) ? 4 : 2;
-	UINT byte_size = index_stride * call_info->FirstIndex;
-	return byte_offset + byte_size;
+	uint64_t byte_size = (uint64_t)index_stride * call_info->FirstIndex;
+	return SaturateRegionValue((uint64_t)byte_offset + byte_size);
 }
 
 // Computes the byte size of the vertex buffer region used by a draw call.
@@ -2187,30 +2209,56 @@ UINT GetVertexBufferRegionSize(UINT stride, DrawCallInfo* call_info)
 {
 	// If VertexCount is not provided, estimate it from the index count.
 	// 0.15 * x + 3
-	UINT vertex_count = call_info->VertexCount > 0 ? call_info->VertexCount : (3 * call_info->IndexCount + 10) / 20 + 3;
-	UINT region_size = stride * vertex_count;
-	//LogInfo("GetVertexBufferRegionSize region_size=%d, stride=%d, VertexCount=%d, IndexCount=%d \n", region_size, stride, call_info->VertexCount, call_info->IndexCount);
-	return region_size;
+	uint64_t vertex_count = call_info->VertexCount > 0 ? call_info->VertexCount : (3ull * call_info->IndexCount + 10) / 20 + 3;
+	uint64_t region_size = (uint64_t)stride * vertex_count;
+	//LogInfo("GetVertexBufferRegionSize region_size=%llu, stride=%d, VertexCount=%d, IndexCount=%d \n", region_size, stride, call_info->VertexCount, call_info->IndexCount);
+	return SaturateRegionValue(region_size);
 }
 
 // Computes the byte size of the index buffer region referenced by a draw call.
 UINT GetIndexBufferRegionSize(DXGI_FORMAT format, DrawCallInfo* call_info)
 {
 	UINT index_stride = (format == DXGI_FORMAT_R32_UINT) ? 4 : 2;
-	UINT region_size = index_stride * call_info->IndexCount;
-	//LogInfo("GetIndexBufferRegionSize region_size=%d, stride=%d, IndexCount=%d \n", region_size, index_stride, call_info->IndexCount);
-	return region_size;
+	uint64_t region_size = (uint64_t)index_stride * call_info->IndexCount;
+	//LogInfo("GetIndexBufferRegionSize region_size=%llu, stride=%d, IndexCount=%d \n", region_size, index_stride, call_info->IndexCount);
+	return SaturateRegionValue(region_size);
 }
 
-// Global "L3" cache with per-frame reset in HackerSwapChain::Present.
+// Global "L3" cache with per-frame reset in HackerSwapChain::Present and Present1.
 // Optimized for single global "entry point" into TextureOverride's, e.g. `CheckTextureOverride = ib` from global ShaderRegEx.
 // Usually, total number of handles is 5-10 times bigger than of ones bound to some specific slot.
-// So lookup in dedicated continuous container is expected to be always faster than one in huge unordered map. 
+// So lookup in dedicated continuous container is expected to be always faster than one in huge unordered map.
+//
+// FlatHashMap is not thread-safe and D3D11 devices are free-threaded, so every
+// access goes through this slim reader/writer lock: lookups take the lock
+// shared, insert/clear take it exclusive. Lock ordering: this lock is only
+// ever taken as the innermost lock (it never wraps G->mCriticalSection), so
+// taking it while holding G->mCriticalSection cannot deadlock.
+static SRWLOCK region_hashes_global_cache_lock = SRWLOCK_INIT;
 FlatHashMap<RegionHashKeyL3, uint32_t, RegionHashKeyHasherL3> region_hashes_global_cache(1024);
 
 void ClearRegionHashesGlobalCache()
 {
+	AcquireSRWLockExclusive(&region_hashes_global_cache_lock);
 	region_hashes_global_cache.clear();
+	ReleaseSRWLockExclusive(&region_hashes_global_cache_lock);
+}
+
+static bool RegionHashesGlobalCacheGet(const RegionHashKeyL3 &key, uint32_t *hash)
+{
+	AcquireSRWLockShared(&region_hashes_global_cache_lock);
+	// Copy the value out under the lock; a pointer into the table could
+	// dangle as soon as another thread inserts and triggers a rehash.
+	bool found = region_hashes_global_cache.find(key, *hash);
+	ReleaseSRWLockShared(&region_hashes_global_cache_lock);
+	return found;
+}
+
+static void RegionHashesGlobalCacheInsert(const RegionHashKeyL3 &key, uint32_t hash)
+{
+	AcquireSRWLockExclusive(&region_hashes_global_cache_lock);
+	region_hashes_global_cache.insert(key, hash);
+	ReleaseSRWLockExclusive(&region_hashes_global_cache_lock);
 }
 
 // Returns a CRC32 hash for a specific region of the buffer.
@@ -2222,12 +2270,13 @@ uint32_t GetRegionHash(ID3D11DeviceContext* context, ID3D11Buffer* buffer, UINT 
 		return 0;
 	}
 
-	// Lookup offset in fast L3 cache without any locking involved.
+	// Lookup offset in fast L3 cache under a shared reader lock.
 	RegionHashKeyL3 level_3_cache_key{ (uint64_t)buffer, offset, size };
-	if (uint32_t* h = region_hashes_global_cache.find_ptr(level_3_cache_key))
+	uint32_t level_3_hash = 0;
+	if (RegionHashesGlobalCacheGet(level_3_cache_key, &level_3_hash))
 	{
-		//LogInfo("GetRegionHash: From L3 cache: hash=%08lx, offset=%d, size=%d, pResource=0x%p, cache_size=%d \n", *h, offset, size, buffer, region_hashes_global_cache.size());
-		return *h;
+		//LogInfo("GetRegionHash: From L3 cache: hash=%08lx, offset=%d, size=%d, pResource=0x%p \n", level_3_hash, offset, size, buffer);
+		return level_3_hash;
 	}
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
@@ -2245,7 +2294,7 @@ uint32_t GetRegionHash(ID3D11DeviceContext* context, ID3D11Buffer* buffer, UINT 
 	RegionHashKeyL2 level_2_cache_key{ (uint64_t)offset, size };
 	hash = handle_info->GetCachedRegionHash(level_2_cache_key);
 	if (hash) {
-		region_hashes_global_cache.insert(level_3_cache_key, hash);
+		RegionHashesGlobalCacheInsert(level_3_cache_key, hash);
 		LeaveCriticalSection(&G->mCriticalSection);
 		//LogInfo("GetRegionHash: From L2 cache: hash=%08lx, offset=%d, size=%d, full_hash=%08lx, pResource=0x%p, cache_size=%d \n", hash, offset, size, handle_info->hash, buffer, handle_info->region_hashes_cache->GetSize());
 		return hash;
@@ -2288,7 +2337,7 @@ uint32_t GetRegionHash(ID3D11DeviceContext* context, ID3D11Buffer* buffer, UINT 
 	// Store computed region hash in the L2 cache (local per ResourceHandleInfo).
 	handle_info->CacheRegionHash(level_2_cache_key, hash);
 	// Store computed region hash in the L3 cache (global per-frame).
-	region_hashes_global_cache.insert(level_3_cache_key, hash);
+	RegionHashesGlobalCacheInsert(level_3_cache_key, hash);
 
 	LeaveCriticalSection(&G->mCriticalSection);
 

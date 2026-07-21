@@ -196,7 +196,9 @@ void HackerSwapChain::RunFrameActions()
 {
 	LogDebug("Running frame actions.  Device: %p\n", mHackerDevice);
 
-	G->gTime = (GetTickCount() - G->ticks_at_launch) / 1000.0f;
+	// 64-bit ticks: GetTickCount() wraps after ~49.7 days and would freeze
+	// or glitch every elapsed-time consumer of gTime in long-lived processes.
+	G->gTime = (float)((double)(GetTickCount64() - G->ticks_at_launch) / 1000.0);
 
 	// Avoid fflush every Present — that undoes OS write buffering and costs
 	// measurable time when enabled=1. Debug mode keeps per-frame accuracy;
@@ -565,6 +567,32 @@ STDMETHODIMP HackerSwapChain::GetDevice(
 // -----------------------------------------------------------------------------
 /** IDXGISwapChain **/
 
+// If Present reported that the device was removed, reset or hung, log the
+// HRESULT and the device's removal reason once so field logs can identify
+// driver resets. We deliberately still run the post-present command list:
+// it restores wrapper state changed by the pre-present list, and skipping it
+// blindly could leave that state corrupted for a game that recovers.
+static void LogPresentDeviceLossOnce(HackerDevice *device, HRESULT present_hr)
+{
+	if (present_hr != DXGI_ERROR_DEVICE_REMOVED &&
+	    present_hr != DXGI_ERROR_DEVICE_RESET &&
+	    present_hr != DXGI_ERROR_DEVICE_HUNG)
+		return;
+
+	static LONG logged = 0;
+	if (InterlockedExchange(&logged, 1))
+		return;
+
+	HRESULT reason = E_FAIL;
+	if (device && device->GetPassThroughOrigDevice1())
+		reason = device->GetPassThroughOrigDevice1()->GetDeviceRemovedReason();
+
+	LogInfo("*** Present returned device-loss HRESULT=0x%08x, GetDeviceRemovedReason=0x%08x\n",
+			present_hr, reason);
+	if (LogFile)
+		fflush(LogFile);
+}
+
 STDMETHODIMP HackerSwapChain::Present(THIS_
 	/* [in] */ UINT SyncInterval,
 	/* [in] */ UINT Flags)
@@ -617,6 +645,8 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
 	get_tls()->hooking_quirk_protection = true; // Present may call D3D11CreateDevice, which we may have hooked
 	HRESULT hr = mOrigSwapChain1->Present(SyncInterval, Flags);
 	get_tls()->hooking_quirk_protection = false;
+
+	LogPresentDeviceLossOnce(mHackerDevice, hr);
 
 	if (!(Flags & DXGI_PRESENT_TEST)) {
 		if (profiling)
@@ -907,6 +937,13 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 		if (profiling)
 			Profiling::start(&profiling_state);
 
+		// Keep the same per-frame maintenance as Present: without this an
+		// application presenting via Present1 would retain region-hash L3
+		// entries beyond the intended frame boundary.
+		if (G->track_region_hashes) {
+			ClearRegionHashesGlobalCache();
+		}
+
 		// Every presented frame, we want to take some CPU time to run our actions,
 		// which enables hunting, and snapshots, and aiming overrides and other inputs
 		RunFrameActions();
@@ -918,6 +955,8 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 	get_tls()->hooking_quirk_protection = true; // Present may call D3D11CreateDevice, which we may have hooked
 	HRESULT hr = mOrigSwapChain1->Present1(SyncInterval, PresentFlags, pPresentParameters);
 	get_tls()->hooking_quirk_protection = false;
+
+	LogPresentDeviceLossOnce(mHackerDevice, hr);
 
 	if (!(PresentFlags & DXGI_PRESENT_TEST)) {
 		if (profiling)

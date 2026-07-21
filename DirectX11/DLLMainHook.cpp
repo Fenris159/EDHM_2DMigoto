@@ -1,5 +1,7 @@
 #include "DLLMainHook.h"
 
+#include <new>
+
 #include "HookedDXGI.h"
 #include "D3D11Wrapper.h"
 #include "util_min.h"
@@ -201,9 +203,16 @@ static bool verify_intended_target(HINSTANCE our_dll)
 		return true;
 
 	// Allow our DLL to load if it's located in directory somewhere inside exe's directory tree
-	// It opens up possibilities for more complex file structure of injector apps
-	if (wcswcs(our_path, exe_path)) {
-		return true;
+	// It opens up possibilities for more complex file structure of injector apps.
+	// The containment check must be path-boundary aware: a plain substring
+	// match would also accept sibling directories sharing a prefix (e.g.
+	// "C:\Games\EliteDangerous" when the exe lives in "C:\Games\Elite").
+	{
+		size_t exe_dir_len = wcslen(exe_path);
+		if (_wcsnicmp(our_path, exe_path, exe_dir_len) == 0 &&
+			(our_path[exe_dir_len] == L'\0' || our_path[exe_dir_len] == L'\\')) {
+			return true;
+		}
 	}
 
 	LogHooking("3DMigoto loaded from outside game directory\n"
@@ -253,7 +262,13 @@ static bool verify_intended_target(HINSTANCE our_dll)
 		return false;
 
 	filesize = GetFileSize(f, NULL);
-	buf = new char[filesize + 1];
+	// GetFileSize failure returns INVALID_FILE_SIZE (0xFFFFFFFF), and the old
+	// unchecked filesize+1 allocation would then wrap to zero bytes while
+	// ReadFile was still asked for ~4GB. A sane d3dx.ini is kilobytes; refuse
+	// anything pathological rather than allocating it under the loader lock.
+	if (filesize == INVALID_FILE_SIZE || !filesize || filesize > 16 * 1024 * 1024)
+		goto out_close;
+	buf = new (std::nothrow) char[filesize + 1];
 	if (!buf)
 		goto out_close;
 

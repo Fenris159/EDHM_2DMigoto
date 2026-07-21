@@ -245,10 +245,10 @@ void optimise_command_lists(HackerDevice *device)
 	bool ignore_cto_pre, ignore_cto_post;
 	size_t i;
 	CommandList::Commands::iterator new_end;
-	DWORD start;
+	ULONGLONG start;
 
 	LogInfo("Optimising command lists...\n");
-	start = GetTickCount();
+	start = GetTickCount64();
 
 	for (CommandList *command_list : registered_command_lists) {
 		for (i = 0; i < command_list->commands.size(); i++)
@@ -309,7 +309,7 @@ void optimise_command_lists(HackerDevice *device)
 
 	Profiling::update_cto_warning(!ignore_cto_post);
 
-	LogInfo("Command List Optimiser finished after %ums\n", GetTickCount() - start);
+	LogInfo("Command List Optimiser finished after %llums\n", GetTickCount64() - start);
 	registered_command_lists.clear();
 	dynamically_allocated_command_lists.clear();
 }
@@ -2151,13 +2151,16 @@ void RunCustomShaderCommand::run(CommandListState *state)
 	ID3D11RasterizerState *saved_rs = NULL;
 	UINT num_viewports = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
 	D3D11_VIEWPORT saved_viewports[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
-	FLOAT saved_blend_factor[4];
-	UINT saved_sample_mask;
-	UINT saved_stencil_ref;
+	// Zero-initialised so the save/restore pairing below is explicit even
+	// though each variable is only restored under the same condition that
+	// saved it (silences C4701 without changing behaviour):
+	FLOAT saved_blend_factor[4] = {};
+	UINT saved_sample_mask = 0;
+	UINT saved_stencil_ref = 0;
 	bool saved_post;
 	struct OMState om_state;
 	UINT i;
-	D3D11_PRIMITIVE_TOPOLOGY saved_topology;
+	D3D11_PRIMITIVE_TOPOLOGY saved_topology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
 	UINT num_sampler = D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT;
 	ID3D11SamplerState* saved_sampler_states[D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT];
 
@@ -2672,8 +2675,10 @@ static unsigned GetCursorFrame(HCURSOR cursor)
 
 	// period is a multiple of 1/60 seconds. We should really use the ms
 	// since this cursor was most recently displayed, but the global tick
-	// count works well enough and means we have less state to track:
-	return (GetTickCount() * 6) / (period * 100) % frames;
+	// count works well enough and means we have less state to track.
+	// 64-bit arithmetic: the old 32-bit form both wrapped at ~49.7 days and
+	// could overflow the (ticks * 6) multiplication.
+	return (DWORD)((GetTickCount64() * 6) / ((ULONGLONG)period * 100) % frames);
 }
 
 static void _CreateTextureFromBitmap(HDC dc, BITMAP *bitmap_obj,

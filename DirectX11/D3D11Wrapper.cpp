@@ -1,5 +1,7 @@
 #include "D3D11Wrapper.h"
 
+#include <cwctype>
+
 #include "log.h"
 #include "Globals.h"
 #include "IniHandler.h"
@@ -272,9 +274,20 @@ static BOOL CALLBACK InitD311Once(PINIT_ONCE, PVOID, PVOID*)
 			}
 		}
 		if (!candidate) {
-			LogInfoW(L"Configured proxy was not found beside the game-local 3Dmigoto wrapper; trying configured path: %ls\n",
-				G->CHAIN_DLL_PATH);
-			candidate = LoadLibraryExW(G->CHAIN_DLL_PATH, NULL, 0);
+			// Never fall back to a bare or relative name: that would use
+			// the process DLL search order and could load an unintended
+			// same-named DLL. Only a fully-qualified configured path is
+			// honoured here, and it is logged for auditability:
+			bool absolute = (G->CHAIN_DLL_PATH[0] == L'\\' && G->CHAIN_DLL_PATH[1] == L'\\') ||
+				(iswalpha(G->CHAIN_DLL_PATH[0]) && G->CHAIN_DLL_PATH[1] == L':');
+			if (absolute) {
+				LogInfoW(L"Configured proxy was not found beside the game-local 3Dmigoto wrapper; trying absolute configured path: %ls\n",
+					G->CHAIN_DLL_PATH);
+				candidate = LoadLibraryExW(G->CHAIN_DLL_PATH, NULL, 0);
+			} else {
+				LogInfoW(L"Configured proxy path \"%ls\" is not absolute; refusing search-order fallback\n",
+					G->CHAIN_DLL_PATH);
+			}
 		}
 		hD3D11 = ValidateChainedD3D11Module(candidate, "proxy_d3d11");
 		if (!hD3D11)
