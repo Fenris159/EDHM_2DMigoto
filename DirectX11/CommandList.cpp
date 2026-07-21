@@ -39,6 +39,9 @@ std::vector<std::shared_ptr<CommandList>> dynamically_allocated_command_lists;
 		(state)->mHackerContext->FrameAnalysisLog("3DMigoto%*s " fmt, state->recursion + state->extra_indent, "", __VA_ARGS__); \
 	} while (0)
 
+
+#pragma region CommandListProfiling
+
 struct command_list_profiling_state {
 	LARGE_INTEGER list_start_time;
 	LARGE_INTEGER cmd_start_time;
@@ -155,7 +158,12 @@ static void _RunCommandList(CommandList *command_list, CommandListState *state, 
 	}
 }
 
-static void CommandListFlushState(CommandListState *state)
+#pragma endregion CommandListProfiling
+
+
+#pragma region CommandListRuntimePart1
+
+static void CommandListFlushState(CommandListState* state)
 {
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 	HRESULT hr;
@@ -355,6 +363,11 @@ static bool AddCommandToList(CommandListCommand *command,
 	return true;
 }
 
+#pragma endregion CommandListRuntimePart1
+
+
+#pragma region LocalVariables
+
 int find_local_variable(const wstring& name, CommandListScope* scope, CommandListVariable** var)
 {
 	CommandListScope::iterator it;
@@ -408,6 +421,11 @@ bool declare_local_variable(const wchar_t* section, wstring& name,
 
 	return true;
 }
+
+#pragma endregion LocalVariables
+
+
+#pragma region CommandParsers
 
 static bool ParseCheckTextureOverride(const wchar_t *section,
 		const wchar_t *key, wstring *val,
@@ -993,6 +1011,11 @@ bool ParseCommandListGeneralCommands(const wchar_t *section,
 
 	return ParseDrawCommand(section, key, val, explicit_command_list, pre_command_list, post_command_list, ini_namespace);
 }
+
+#pragma endregion CommandParsers
+
+
+#pragma region Commands
 
 void CheckTextureOverrideCommand::run(CommandListState *state)
 {
@@ -1648,6 +1671,11 @@ void Draw3DMigotoOverlayCommand::run(CommandListState *state)
 		G->suppress_overlay = true;
 	}
 }
+
+#pragma endregion Commands
+
+
+#pragma region CustomShader
 
 CustomShader::CustomShader() :
 	vs_override(false), hs_override(false), ds_override(false),
@@ -2311,6 +2339,11 @@ bool RunCustomShaderCommand::noop(bool post, bool ignore_cto_pre, bool ignore_ct
 	return (custom_shader->command_list.commands.empty() && custom_shader->post_command_list.commands.empty());
 }
 
+#pragma endregion CustomShader
+
+
+#pragma region CommandListRuntimePart2
+
 void RunExplicitCommandList::run(CommandListState *state)
 {
 	bool saved_post;
@@ -2606,6 +2639,11 @@ CommandListState::~CommandListState()
 	if (cursor_color_tex)
 		cursor_color_tex->Release();
 }
+
+#pragma endregion CommandListRuntimePart2
+
+
+#pragma region WindowCursorHelpers
 
 static void UpdateWindowInfo(CommandListState *state)
 {
@@ -2937,6 +2975,11 @@ static float HeuristicGetWindowHeight(CommandListState* state)
 	return (float)G->gFallbackScreenHeight;
 }
 
+#pragma endregion WindowCursorHelpers
+
+
+#pragma region CommandListRuntimePart3
+
 float CommandListOperand::evaluate(CommandListState *state, HackerDevice *device)
 {
 	float ftemp;
@@ -3157,6 +3200,11 @@ bool CommandListOperand::optimise(HackerDevice *device, std::shared_ptr<CommandL
 	return true;
 }
 
+#pragma endregion CommandListRuntimePart3
+
+
+#pragma region Tokenization
+
 static const wchar_t *operator_tokens[] = {
 	// Three character tokens first:
 	L"===", L"!==",
@@ -3275,6 +3323,7 @@ next_token:
 			//
 			// Match token substring before namespace (i.e. `$` or `Resource`) or entire token without namespace (i.e. `$var`)
 			pos = remain.find_first_not_of(L"abcdefghijklmnopqrstuvwxyz_0123456789$.");
+
 			// Check if next char after match is namespace opening backslash
 			if (remain[pos] == L'\\') {
 				// Find tokens separation char to prevent namespace search overflow to next namespaced token
@@ -3363,6 +3412,9 @@ static void group_parenthesis(CommandListSyntaxTree *tree)
 			throw CommandListSyntaxError(L"Unmatched (", lbracket->token_pos);
 	}
 }
+
+
+#pragma region OperatorTokenization
 
 // Expression operator definitions:
 #define DEFINE_OPERATOR(name, operator_pattern, fn) \
@@ -3582,6 +3634,13 @@ static void transform_operators_recursive(CommandListWalkable *tree,
 			factories, num_factories, right_associative, unary);
 }
 
+#pragma endregion OperatorTokenization
+
+#pragma endregion Tokenization
+
+
+#pragma region LogSyntaxTree
+
 // Using raw pointers here so that ::optimise() can call it with "this"
 static void _log_syntax_tree(CommandListSyntaxTree *tree);
 static void _log_token(CommandListToken *token)
@@ -3657,6 +3716,11 @@ static void log_syntax_tree(T token, const char *msg)
 	_log_token(dynamic_cast<CommandListToken*>(token.get()));
 	LogInfo("\n");
 }
+
+#pragma endregion LogSyntaxTree
+
+
+#pragma region CommandListExpressions
 
 bool CommandListExpression::parse(const wstring *expression, const wstring *ini_namespace, CommandListScope *scope)
 {
@@ -3881,6 +3945,11 @@ bool CommandListOperator::optimise(HackerDevice *device, std::shared_ptr<Command
 	*replacement = dynamic_pointer_cast<CommandListEvaluatable>(operand);
 	return true;
 }
+
+#pragma endregion CommandListExpressions
+
+
+#pragma region VariablesAndIniParams
 
 CommandListSyntaxTree::Walk CommandListOperator::walk()
 {
@@ -4152,6 +4221,11 @@ bail:
 	return false;
 }
 
+#pragma endregion VariablesAndIniParams
+
+
+#pragma region ResourcePool
+
 ResourcePool::~ResourcePool()
 {
 	ResourcePoolCache::iterator i;
@@ -4245,6 +4319,11 @@ static ResourceType* GetResourceFromPool(
 	LogDebugResourceDesc(desc);
 	return resource;
 }
+
+#pragma endregion ResourcePool
+
+
+#pragma region CustomResource
 
 CustomResource::CustomResource() :
 	resource(NULL),
@@ -4637,6 +4716,7 @@ void CustomResource::SubstantiateTexture1D(ID3D11Device *mOrigDevice1)
 		LogResourceDesc(&desc);
 	}
 }
+
 void CustomResource::SubstantiateTexture2D(ID3D11Device *mOrigDevice1)
 {
 	ID3D11Texture2D *tex2d;
@@ -4663,6 +4743,7 @@ void CustomResource::SubstantiateTexture2D(ID3D11Device *mOrigDevice1)
 		LogResourceDesc(&desc);
 	}
 }
+
 void CustomResource::SubstantiateTexture3D(ID3D11Device *mOrigDevice1)
 {
 	ID3D11Texture3D *tex3d;
@@ -5409,6 +5490,11 @@ void CustomResource::expire(ID3D11Device *mOrigDevice1, ID3D11DeviceContext *mOr
 	}
 }
 
+#pragma endregion CustomResource
+
+
+#pragma region ParseResourceCopyTarget
+
 IniParserResult ResourceCopyTarget::ParseTargetPrefix(const wchar_t*& target, size_t& length)
 {
 	switch (target[0]) {
@@ -5893,6 +5979,9 @@ bool ResourceCopyTarget::ParseTarget(const wchar_t *target, bool is_source, cons
 	return false;
 }
 
+#pragma endregion ParseResourceCopyTarget
+
+
 bool ParseCommandListResourceCopyDirective(const wchar_t *section,
 		const wchar_t *key, wstring *val, CommandList *command_list,
 		const wstring *ini_namespace)
@@ -5995,6 +6084,9 @@ bail:
 	delete operation;
 	return false;
 }
+
+
+#pragma region ParseFlowControl
 
 static bool ParseIfCommand(const wchar_t *section, const wstring *line,
 		CommandList *pre_command_list, CommandList *post_command_list,
@@ -6251,6 +6343,11 @@ bool CommandPlaceholder::noop(bool post, bool ignore_cto_pre, bool ignore_cto_po
 	LogOverlayW(LOG_WARNING, L"Command not terminated\n - [%ls]\n", ini_line.c_str());
 	return true;
 }
+
+#pragma endregion ParseFlowControl
+
+
+#pragma region ResourceCopyTarget
 
 void ResourceCopyTarget::SetCustomResource(CustomResource* resource)
 {
@@ -6794,7 +6891,6 @@ void ResourceCopyTarget::SetResource(
 		custom_resource->format = format;
 		custom_resource->buf_size = buf_size;
 
-
 		if (res == NULL && view == NULL) {
 			// Optimisation to allow the resource to be set to null
 			// without throwing away the cache so we don't
@@ -7269,6 +7365,11 @@ float ResourceCopyTarget::GetResourceRegionHash(CommandListState* state)
 
 	return ret;
 }
+
+#pragma endregion ResourceCopyTarget
+
+
+#pragma region CompatibleResourceCreation
 
 static bool IsConversionToStructuredBufferRequired(ID3D11View *view, UINT stride,
 		UINT offset, DXGI_FORMAT format, D3D11_BIND_FLAG bind_flags)
@@ -7811,6 +7912,8 @@ static bool requires_raw_view(ID3D11Buffer *buf, DXGI_FORMAT format)
 	return false;
 }
 
+#pragma region FillOutDesc
+
 static D3D11_SHADER_RESOURCE_VIEW_DESC* FillOutBufferDesc(ID3D11Buffer *buf,
 		D3D11_SHADER_RESOURCE_VIEW_DESC *desc, UINT stride,
 		UINT offset, UINT buf_src_size, ResourceCopyOptions options)
@@ -8113,6 +8216,8 @@ static D3D11_UNORDERED_ACCESS_VIEW_DESC* FillOutTex3DDesc(
 	return view_desc;
 }
 
+#pragma endregion FillOutDesc
+
 
 template <typename ViewType,
 	 typename DescType,
@@ -8242,6 +8347,11 @@ static ID3D11View* CreateCompatibleView(
 	return NULL;
 }
 
+#pragma endregion CompatibleResourceCreation
+
+
+#pragma region ResourceOperations
+
 static void SetViewportFromResource(CommandListState *state, ID3D11Resource *resource)
 {
 	D3D11_RESOURCE_DIMENSION dimension;
@@ -8279,21 +8389,6 @@ static void SetViewportFromResource(CommandListState *state, ID3D11Resource *res
 	}
 
 	state->mOrigContext1->RSSetViewports(1, &viewport);
-}
-
-ResourceCopyOperation::ResourceCopyOperation() :
-	options(ResourceCopyOptions::INVALID),
-	cached_resource(NULL),
-	cached_view(NULL)
-{}
-
-ResourceCopyOperation::~ResourceCopyOperation()
-{
-	if (cached_resource)
-		cached_resource->Release();
-
-	if (cached_view)
-		cached_view->Release();
 }
 
 ResourceStagingOperation::ResourceStagingOperation()
@@ -8577,6 +8672,26 @@ void ClearViewCommand::run(CommandListState *state)
 		view->Release();
 }
 
+#pragma endregion ResourceOperations
+
+
+#pragma region ResourceCopyOperation
+
+ResourceCopyOperation::ResourceCopyOperation() :
+	options(ResourceCopyOptions::INVALID),
+	cached_resource(NULL),
+	cached_view(NULL)
+{
+}
+
+ResourceCopyOperation::~ResourceCopyOperation()
+{
+	if (cached_resource)
+		cached_resource->Release();
+
+	if (cached_view)
+		cached_view->Release();
+}
 
 static bool ViewMatchesResource(ID3D11View *view, ID3D11Resource *resource)
 {
@@ -8801,3 +8916,5 @@ void ResourceCopyOperation::run(CommandListState *state)
 	if (src_resource)
 		src_resource->Release();
 }
+
+#pragma endregion ResourceCopyOperation
