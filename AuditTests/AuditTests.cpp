@@ -9,6 +9,7 @@
 #include "DirectX11/ComOutput.h"
 #include "DirectX11/LegacyDecompilerConfig.h"
 #include "DirectX11/ThreadLocale.h"
+#include "DirectX11/WrappedInterfacePolicy.h"
 #include "utf8.h"
 
 static unsigned failures;
@@ -190,6 +191,22 @@ static void TestLegacyDecompilerConfig()
 	Check(ParseIdentifierList(L" ,  , ", &values) && values.empty(), "empty identifier list retained stale values");
 }
 
+static void TestWrappedInterfacePolicy()
+{
+	Check(!IsUnsupportedWrappedDeviceInterface(__uuidof(ID3D11Device)), "base device interface denied");
+	Check(!IsUnsupportedWrappedDeviceInterface(__uuidof(ID3D11Device1)), "Device1 interface denied");
+	Check(IsUnsupportedWrappedDeviceInterface(__uuidof(ID3D11Device2)), "Device2 interface escaped policy");
+	Check(IsUnsupportedWrappedDeviceInterface(__uuidof(ID3D11Device3)), "Device3 interface escaped policy");
+	Check(IsUnsupportedWrappedDeviceInterface(__uuidof(ID3D11Device4)), "Device4 interface escaped policy");
+	Check(IsUnsupportedWrappedDeviceInterface(__uuidof(ID3D11Device5)), "Device5 interface escaped policy");
+
+	Check(!IsUnsupportedWrappedContextInterface(__uuidof(ID3D11DeviceContext)), "base context interface denied");
+	Check(!IsUnsupportedWrappedContextInterface(__uuidof(ID3D11DeviceContext1)), "Context1 interface denied");
+	Check(IsUnsupportedWrappedContextInterface(__uuidof(ID3D11DeviceContext2)), "Context2 interface escaped policy");
+	Check(IsUnsupportedWrappedContextInterface(__uuidof(ID3D11DeviceContext3)), "Context3 interface escaped policy");
+	Check(IsUnsupportedWrappedContextInterface(__uuidof(ID3D11DeviceContext4)), "Context4 interface escaped policy");
+}
+
 int main()
 {
 	TestDxbcValidation();
@@ -197,6 +214,7 @@ int main()
 	TestUtf8Conversion();
 	TestScopedThreadLocale();
 	TestLegacyDecompilerConfig();
+	TestWrappedInterfacePolicy();
 	if (failures) {
 		std::fprintf(stderr, "%u audit contract test(s) failed\n", failures);
 		return 1;

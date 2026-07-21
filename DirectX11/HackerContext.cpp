@@ -18,6 +18,7 @@
 #include "Globals.h"
 
 #include "HackerDevice.h"
+#include "WrappedInterfacePolicy.h"
 #include "D3D11Wrapper.h"
 //#include "ResourceHash.h"
 //#include "Override.h"
@@ -1073,13 +1074,22 @@ HRESULT STDMETHODCALLTYPE HackerContext::QueryInterface(
 {
 	LogDebug("HackerContext::QueryInterface(%s@%p) called with IID: %s\n", type_name(this), this, NameFromIID(riid).c_str());
 
-	if (ppvObject && IsEqualIID(riid, IID_HackerContext)) {
+	if (!ppvObject)
+		return E_POINTER;
+	*ppvObject = NULL;
+
+	if (IsEqualIID(riid, IID_HackerContext) || riid == __uuidof(IUnknown)) {
 		// This is a special case - only 3DMigoto itself should know
 		// this IID, so this is us checking if it has a HackerContext.
 		// There's no need to call through to DX for this one.
 		AddRef();
 		*ppvObject = this;
 		return S_OK;
+	}
+	if (IsUnsupportedWrappedContextInterface(riid)) {
+		LogInfo("  returns E_NOINTERFACE for unsupported wrapped context interface: %s\n",
+			NameFromIID(riid).c_str());
+		return E_NOINTERFACE;
 	}
 
 	HRESULT hr = mOrigContext1->QueryInterface(riid, ppvObject);

@@ -87,6 +87,7 @@
     <ClInclude Include="..\DirectX11\ComOutput.h" />
     <ClInclude Include="..\DirectX11\LegacyDecompilerConfig.h" />
     <ClInclude Include="..\DirectX11\ThreadLocale.h" />
+    <ClInclude Include="..\DirectX11\WrappedInterfacePolicy.h" />
     <ClInclude Include="..\utf8.h" />
   </ItemGroup>
   <Target Name="CopyAddressSanitizerRuntime" AfterTargets="Build" Condition="'$(EnableAuditASAN)'=='true' and '$(Platform)'=='x64'">

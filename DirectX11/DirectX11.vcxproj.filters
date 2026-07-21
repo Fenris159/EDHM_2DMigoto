@@ -64,6 +64,7 @@
     <ClInclude Include="..\shader.h" />
     <ClInclude Include="ShaderRegex.h" />
     <ClInclude Include="ThreadLocale.h" />
+    <ClInclude Include="WrappedInterfacePolicy.h" />
     <ClInclude Include="FrameAnalysis.h" />
     <ClInclude Include="HackerDXGI.h" />
     <ClInclude Include="profiling.h" />

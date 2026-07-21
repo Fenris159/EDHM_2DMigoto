@@ -105,6 +105,7 @@
     <ClInclude Include="ShaderRegex.h" />
     <ClInclude Include="LegacyDecompilerConfig.h" />
     <ClInclude Include="ThreadLocale.h" />
+    <ClInclude Include="WrappedInterfacePolicy.h" />
     <ClInclude Include="..\vkeys.h" />
     <ClInclude Include="..\utf8.h" />
   </ItemGroup>
