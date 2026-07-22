@@ -11,6 +11,7 @@
 
 #include "DrawCallInfo.h"
 #include "ResourceHash.h"
+#include "HackerInputLayout.h"
 
 // Used to prevent typos leading to infinite recursion (or at least overflowing
 // the real stack) due to a section running itself or a circular reference. 64
@@ -25,6 +26,23 @@ class HackerDevice;
 class HackerContext;
 enum class FrameAnalysisOptions;
 class ResourceCopyTarget;
+
+struct InputLayoutElementOverride {
+	struct Match {
+		std::string semantic_name;                // empty = wildcard
+		UINT semantic_index = UINT32_MAX;         // UINT32_MAX = wildcard
+		UINT input_slot = UINT32_MAX;             // UINT32_MAX = wildcard
+		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN; // UNKNOWN = wildcard
+		UINT format_byte_size = UINT32_MAX;       // UINT32_MAX = wildcard
+		UINT aligned_byte_offset = UINT32_MAX;    // UINT32_MAX = wildcard
+	} match;
+	struct Replace {
+		std::string semantic_name;                // empty = don't change
+		UINT semantic_index = UINT32_MAX;         // UINT32_MAX = don't change
+		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN; // DXGI_FORMAT_UNKNOWN = don't change
+		UINT aligned_byte_offset = UINT32_MAX;   // UINT32_MAX = don't change
+	} replace;
+};
 
 class CommandListState {
 public:
@@ -50,6 +68,7 @@ public:
 	ResourceCopyTarget *this_target;
 	ID3D11Resource **resource;
 	ID3D11View *view;
+	std::vector<InputLayoutElementOverride*> input_layout_overrides;
 
 	// TODO: Cursor info and resources would be better off being cached
 	// somewhere that is updated at most once per frame rather than once
@@ -758,6 +777,12 @@ enum class ResourceCopyTargetEvaluationMode : uint16_t {
 
 	// VARIABLE
 	VARIABLE               = 0b0010000000000000, // 0x2000
+
+	// LAYOUT
+	LAYOUT_ELEMENT_FORMAT  = 0b0100000000000000, // 0x4000
+	LAYOUT_ELEMENT_OFFSET  = 0b1000000000000000, // 0x8000
+	
+	LAYOUT_MASK            = 0b1100000000000000
 };
 SENSIBLE_ENUM(ResourceCopyTargetEvaluationMode);
 static EnumName_t<const wchar_t*, ResourceCopyTargetEvaluationMode> ResourceCopyTargetEvaluationModeNames[] = {
@@ -960,6 +985,17 @@ public:
 	ResourceCopyOptions options;
 
 	void CopyPoolToPool(CommandListState* state);
+
+	void run(CommandListState*) override;
+};
+
+class LayoutElementOperation : public CommandListCommand {
+public:
+	ResourceCopyTarget dst;
+	InputLayoutElementOverride override;
+
+	LayoutElementOperation() {};
+	~LayoutElementOperation() {};
 
 	void run(CommandListState*) override;
 };

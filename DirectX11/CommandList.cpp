@@ -161,6 +161,239 @@ static void _RunCommandList(CommandList *command_list, CommandListState *state, 
 #pragma endregion CommandListProfiling
 
 
+#pragma region InputLayoutOverride
+
+static void RealignInputLayoutOffsets(
+	std::vector<D3D11_INPUT_ELEMENT_DESC>& elements, size_t modified_index, UINT original_offset, DXGI_FORMAT original_format, INT size_delta
+)
+{
+	const UINT inputSlot = elements[modified_index].InputSlot;
+
+	//LogInfo("RealignInputLayoutOffsets: index=%zu slot=%u originalOffset=%u sizeDelta=%d\n", modifiedIndex, inputSlot, originalOffset, sizeDelta);
+
+	for (size_t i = 0; i < elements.size(); ++i)
+	{
+		if (i == modified_index)
+			continue;
+
+		D3D11_INPUT_ELEMENT_DESC& element = elements[i];
+
+		if (element.InputSlot != inputSlot)
+			continue;
+
+		if (element.AlignedByteOffset == D3D11_APPEND_ALIGNED_ELEMENT)
+			continue;
+
+		UINT boundary = original_format + dxgi_format_size(original_format);
+
+		if (element.AlignedByteOffset >= boundary) {
+			//LogInfo("  Element %zu offset %u -> %u\n", i, element.AlignedByteOffset, static_cast<UINT>(static_cast<INT>(element.AlignedByteOffset) + sizeDelta));
+			element.AlignedByteOffset = static_cast<UINT>(static_cast<INT>(element.AlignedByteOffset) + size_delta);
+		}
+	}
+}
+
+static bool MatchesInputLayoutOverride(const D3D11_INPUT_ELEMENT_DESC& element, const InputLayoutElementOverride::Match& match)
+{
+	//LogInfo("Matching override: semantic=%s index=%u slot=%u format=%s offset=%u | "
+	//	"match: semantic=%s index=%u slot=%u format=%s offset=%u\n",
+	//	element.SemanticName ? element.SemanticName : "<null>",
+	//	element.SemanticIndex,
+	//	element.InputSlot,
+	//	TexFormatStr(element.Format),
+	//	element.AlignedByteOffset,
+	//	match.semantic_name.empty() ? "<any>" : match.semantic_name.c_str(),
+	//	match.semantic_index,
+	//	match.input_slot,
+	//	TexFormatStr(match.format),
+	//	match.aligned_byte_offset);
+
+	if (!match.semantic_name.empty())
+	{
+		if (!element.SemanticName)
+			return false;
+
+		if (strcmp(match.semantic_name.c_str(), element.SemanticName))
+			return false;
+	}
+
+	if (match.semantic_index != UINT32_MAX && match.semantic_index != element.SemanticIndex)
+		return false;
+
+	if (match.input_slot != UINT32_MAX && match.input_slot != element.InputSlot)
+		return false;
+
+	if (match.format != DXGI_FORMAT_UNKNOWN && match.format != element.Format)
+		return false;
+
+	if (match.format_byte_size != UINT32_MAX && match.format_byte_size != dxgi_format_size(element.Format))
+		return false;
+
+	if (match.aligned_byte_offset != UINT32_MAX && match.aligned_byte_offset != element.AlignedByteOffset)
+		return false;
+
+	return true;
+}
+
+static void ApplyInputLayoutOverride(D3D11_INPUT_ELEMENT_DESC& element, const InputLayoutElementOverride::Replace& replace)
+{
+	//LogInfo("Applying override to %s\n", element.SemanticName ? element.SemanticName : "<null>");
+
+	if (!replace.semantic_name.empty())
+	{
+		//LogInfo("  SemanticName: %s -> %s\n", element.SemanticName ? element.SemanticName : "<null>", replace.semantic_name.c_str());
+		element.SemanticName = replace.semantic_name.c_str();
+	}
+
+	if (replace.semantic_index != UINT32_MAX)
+	{
+		//LogInfo("  SemanticIndex: %u -> %u\n", element.SemanticIndex, replace.semantic_index);
+		element.SemanticIndex = replace.semantic_index;
+	}
+
+	if (replace.format != DXGI_FORMAT_UNKNOWN)
+	{
+		//LogInfo("  Format: %s -> %s\n", TexFormatStr(element.Format), TexFormatStr(replace.format));
+		element.Format = replace.format;
+	}
+
+	if (replace.aligned_byte_offset != UINT32_MAX)
+	{
+		//LogInfo("  Offset: %u -> %u\n", element.AlignedByteOffset, replace.aligned_byte_offset);
+		element.AlignedByteOffset = replace.aligned_byte_offset;
+	}
+}
+
+static bool ApplyInputLayoutOverrides(std::vector<D3D11_INPUT_ELEMENT_DESC>& elements, CommandListState* state)
+{
+	bool modified = false;
+
+	//LogInfo("ApplyInputLayoutOverrides: element count=%zu\n", elements.size());
+
+	for (size_t i = 0; i < elements.size(); ++i)
+	{
+		D3D11_INPUT_ELEMENT_DESC& element = elements[i];
+
+		const DXGI_FORMAT original_format = element.Format;
+		const UINT original_offset = element.AlignedByteOffset;
+
+		bool element_modified = false;
+
+		for (const auto& element_override : state->input_layout_overrides)
+		{
+			if (!MatchesInputLayoutOverride(element, element_override->match))
+				continue;
+
+			ApplyInputLayoutOverride(element, element_override->replace);
+			element_modified = true;
+		}
+
+		if (!element_modified)
+			continue;
+
+		//LogInfo("Element %zu modified\n", i);
+
+		if ((element.Format != original_format) && (original_offset != D3D11_APPEND_ALIGNED_ELEMENT))
+		{
+			INT size_delta = static_cast<INT>(dxgi_format_size(element.Format)) - static_cast<INT>(dxgi_format_size(original_format));
+
+			//LogInfo("Format changed: old=%s new=%s sizeDelta=%d\n",
+			//	TexFormatStr(original_format), TexFormatStr(element.Format), size_delta);
+
+			if (size_delta != 0)
+				RealignInputLayoutOffsets(elements, i, original_offset, original_format, size_delta);
+		}
+
+		modified = true;
+	}
+
+	return modified;
+}
+
+static void UpdateInputLayout(const wchar_t* ini_section, CommandListState* state)
+{
+	//LogInfo("UpdateInputLayout called\n");
+
+	HackerInputLayout* current_layout = nullptr;
+
+	state->mHackerContext->IAGetInputLayout(reinterpret_cast<ID3D11InputLayout**>(&current_layout));
+
+	if (!current_layout)
+		return;
+
+	//LogInfo("Original InputLayout elements: %u\n", current_layout->GetElementCount());
+	//for (UINT i = 0; i < current_layout->GetElementCount(); i++)
+	//{
+	//	const auto& e = current_layout->GetElements()[i];
+
+	//	LogInfo("[%u] %s index=%u slot=%u format=%s offset=%u\n",
+	//		i,
+	//		e.SemanticName ? e.SemanticName : "<null>",
+	//		e.SemanticIndex,
+	//		e.InputSlot,
+	//		TexFormatStr(e.Format),
+	//		e.AlignedByteOffset);
+	//}
+
+	std::vector<D3D11_INPUT_ELEMENT_DESC> elements(current_layout->GetElements(), current_layout->GetElements() + current_layout->GetElementCount());
+
+	//LogInfo("ApplyInputLayoutOverrides: override count=%zu\n", state->input_layout_overrides.size());
+
+	//for (size_t i = 0; i < state->input_layout_overrides.size(); i++)
+	//{
+	//	const auto& o = state->input_layout_overrides[i];
+
+	//	LogInfo("Override[%zu]: semantic='%s' index=%u slot=%u format=%s\n",
+	//		i,
+	//		o->match.semantic_name.empty() ? "<empty>" : o->match.semantic_name.c_str(),
+	//		o->match.semantic_index,
+	//		o->match.input_slot,
+	//		TexFormatStr(o->replace.format));
+	//}
+
+	if (ApplyInputLayoutOverrides(elements, state))
+	{
+		ID3D11InputLayout* new_layout = nullptr;
+
+		HRESULT hr = state->mHackerDevice->CreateInputLayout(
+			elements.data(), static_cast<UINT>(elements.size()), current_layout->GetShaderSignature(), current_layout->GetShaderSignatureSize(), &new_layout
+		);
+
+		if (SUCCEEDED(hr) && new_layout)
+		{
+
+			//HackerInputLayout* new_lay = static_cast<HackerInputLayout*>(new_layout);
+
+			//LogInfo("NEW InputLayout elements: %u\n", new_lay->GetElementCount());
+			//for (UINT i = 0; i < new_lay->GetElementCount(); i++)
+			//{
+			//	const auto& e = new_lay->GetElements()[i];
+
+			//	LogInfo("[%u] %s index=%u slot=%u format=%s offset=%u\n",
+			//		i,
+			//		e.SemanticName ? e.SemanticName : "<null>",
+			//		e.SemanticIndex,
+			//		e.InputSlot,
+			//		TexFormatStr(e.Format),
+			//		e.AlignedByteOffset);
+			//}
+
+			state->mHackerContext->DeferInputLayoutOverride(static_cast<HackerInputLayout*>(new_layout));
+		}
+		else
+		{
+			LogOverlayW(LOG_WARNING, L"Failed to create modified InputLayout\n - [%ls]\n", ini_section);
+		}
+	}
+
+	current_layout->Release();
+
+	state->input_layout_overrides.clear();
+}
+
+#pragma endregion InputLayoutOverride
+
+
 #pragma region CommandListRuntimePart1
 
 static void CommandListFlushState(CommandListState* state)
@@ -199,6 +432,9 @@ static void RunCommandListComplete(HackerDevice *mHackerDevice,
 	state.resource = resource;
 	state.view = view;
 	state.post = post;
+
+	if (!post && !state.input_layout_overrides.empty())
+		UpdateInputLayout(command_list->ini_section.c_str(), &state);
 
 	_RunCommandList(command_list, &state);
 	CommandListFlushState(&state);
@@ -1254,6 +1490,12 @@ void DrawCommand::run(CommandListState *state)
 	if (info && info->hunting_skip) {
 		COMMAND_LIST_LOG(state, "[%S] Draw -> SKIPPED DUE TO HUNTING\n", ini_section.c_str());
 		return;
+	}
+
+	// Plug input layout override right before a custom draw call.
+	if (!state->input_layout_overrides.empty()) {
+		UpdateInputLayout(ini_section.c_str(), state);
+		state->mHackerContext->OverrideInputLayout();
 	}
 
 	// Ensure IniParams are visible:
@@ -6032,6 +6274,14 @@ IniParserResult ResourceCopyTarget::ParseTargetMember(
 			MemberArg::Type::Float     // Cell Size
 		}} },
 		{ L"->sourcestride",  14, ResourceCopyTargetEvaluationMode::RESOURCE_SOURCE_STRIDE },
+		{ L"->elementformat", 15, ResourceCopyTargetEvaluationMode::LAYOUT_ELEMENT_FORMAT, {{
+			MemberArg::Type::String,  // Semantic Name
+			MemberArg::Type::Unsigned // Semantic Index
+		}} },
+		{ L"->elementoffset", 15, ResourceCopyTargetEvaluationMode::LAYOUT_ELEMENT_OFFSET, {{
+			MemberArg::Type::String,  // Semantic Name
+			MemberArg::Type::Unsigned // Semantic Index
+		}} },
 	};
 
 	// Consume arguments (adjust `length` accordingly). Ensure syntax error passthrough.
@@ -6589,6 +6839,106 @@ static CommandListCommand* parse_resource_copy_operation(
 #pragma endregion ParseResourceCopyOperation
 
 
+#pragma region LayoutElementOperation
+
+static CommandListCommand* parse_layout_operation(
+	const wchar_t* section, ResourceCopyTarget& dst, wstring* val, CommandList* command_list, const wstring* ini_namespace
+)
+{
+	if (dst.type != ResourceCopyTargetType::VERTEX_BUFFER)
+		return nullptr;
+
+	LayoutElementOperation* operation = new LayoutElementOperation();
+
+	std::wstring arg0;
+
+	switch (dst.evaluation_mode)
+	{
+	case ResourceCopyTargetEvaluationMode::LAYOUT_ELEMENT_FORMAT:
+	{
+		//LogInfo("Parsed LAYOUT_ELEMENT_FORMAT: ");
+
+		operation->override.replace.format = ParseFormatString(val->c_str(), true);
+
+		if (operation->override.replace.format == (DXGI_FORMAT)-1) {
+			LogOverlayW(LOG_WARNING, L"Unknown format \"%ls\"\n - [%ls] @ [%ls]\n", val->c_str(), section, ini_namespace->c_str());
+			goto bail;
+		}
+
+		break;
+	}
+	case ResourceCopyTargetEvaluationMode::LAYOUT_ELEMENT_OFFSET:
+	{
+		//LogInfo("Parsed LAYOUT_ELEMENT_OFFSET: ");
+
+		wchar_t* end = nullptr;
+		operation->override.replace.aligned_byte_offset = (UINT)wcstof(val->c_str(), &end);
+
+		if (*end != L'\0')
+			goto bail;
+
+		break;
+	}
+	default:
+		return nullptr;
+	}
+
+	// SemanticName must be [A-Z_0-9] with max length of 256.
+	arg0 = dst.member_args[0].GetString();
+	std::transform(arg0.begin(), arg0.end(), arg0.begin(), ::towupper);
+	if (arg0.size() > 256 || arg0.find_first_not_of(L"ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789") != std::wstring::npos)
+		goto bail;
+
+	operation->override.match.semantic_name = std::string(arg0.begin(), arg0.end());
+	operation->override.match.input_slot = dst.slot;
+
+	//LogInfo("input_slot=%d, semantic_name=%s, semantic_index=%d ",
+	//		operation->override.match.input_slot, operation->override.match.semantic_name.c_str(), operation->override.match.semantic_index);
+
+	//switch (dst.evaluation_mode)
+	//{
+	//case ResourceCopyTargetEvaluationMode::LAYOUT_ELEMENT_FORMAT:
+	//	LogInfo("new_format=%s\n", TexFormatStr(operation->override.replace.format));
+	//	break;
+	//case ResourceCopyTargetEvaluationMode::LAYOUT_ELEMENT_OFFSET:
+	//	LogInfo("new_offset=%d\n", operation->override.replace.aligned_byte_offset);
+	//	break;
+	//}
+
+	operation->dst = std::move(dst);
+
+	return operation;
+
+bail:
+	//LogInfo("ERROR!\n");
+	delete operation;
+	return nullptr;
+}
+
+void LayoutElementOperation::run(CommandListState* state)
+{
+	COMMAND_LIST_LOG(state, "%S\n", ini_line.c_str());
+
+	override.match.semantic_index = dst.member_args[1].GetValue(state);
+
+	if (state->input_layout_overrides.empty())
+		state->input_layout_overrides.reserve(16);
+
+	//LogInfo("Adding override: semantic=%s index=%u slot=%u format=%d, total_overrides=%u\n",
+	//	override.match.semantic_name.c_str(),
+	//	override.match.semantic_index,
+	//	override.match.input_slot,
+	//	override.replace.format,
+	//	state->input_layout_overrides.size());
+
+	state->input_layout_overrides.push_back(&override);
+
+	const auto& added = state->input_layout_overrides.back();
+}
+
+#pragma endregion LayoutElementOperation
+
+
 #pragma region PoolVariableOperation
 
 CommandListCommand* parse_pool_variable_operation(const wchar_t *section, ResourceCopyTarget& dst, wstring *val, CommandList *command_list, const wstring *ini_namespace)
@@ -6689,6 +7039,12 @@ bool ParseCommandListResourceCopyTargetDirective(
 		// Pool Variable - Copy Exression Result To Pool Variable
 		// $PoolFoo[0] = $PoolBar[0] + $var + 1
 		operation = parse_pool_variable_operation(section, dst, val, command_list, ini_namespace);
+	}
+	else if (dst.evaluation_mode & ResourceCopyTargetEvaluationMode::LAYOUT_MASK)
+	{
+		// Vertex Buffer Layout Override
+		// vb0->ElementFormat(BLENDINDICES, 0) = R16G16B16A16_FLOAT
+		operation = parse_layout_operation(section, dst, val, command_list, ini_namespace);
 	}
 	else
 	{
