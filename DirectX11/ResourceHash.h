@@ -27,7 +27,7 @@
 // - Average O(1) lookup and insert
 // - High performance at moderate load factors(<= ~0.5 recommended)
 // - Rehashing is O(n) but infrequent if capacity is preallocated
-// - No support for deletion(can be extended with tombstones if needed)
+// - Supports backward-shift deletion
 //
 // Thread safety :
 // - Not thread-safe.
@@ -157,6 +157,81 @@ public:
 
 			idx = (idx + 1) & mask;
 		}
+	}
+
+	// Erases a key using backward-shift deletion.
+	//
+	// Behavior:
+	// - Removes the key if found
+	// - Shifts subsequent entries backward to preserve probe chains
+	//
+	// Performance:
+	// - Average O(1)
+	// - Worst case O(cluster length)
+	inline bool erase(const K& key)
+	{
+		size_t idx = hasher(key) & mask;
+
+		// Find the entry
+		while (true)
+		{
+			Entry& e = table[idx];
+
+			if (e.generation != current_generation)
+				return false;
+
+			if (e.key == key)
+				break;
+
+			idx = (idx + 1) & mask;
+		}
+
+		// Remove and compact the cluster
+		size_t hole = idx;
+		size_t next = (hole + 1) & mask;
+
+		while (true)
+		{
+			Entry& e = table[next];
+
+			// End of cluster
+			if (e.generation != current_generation)
+			{
+				table[hole].generation = 0;
+				break;
+			}
+
+			// Determine the natural bucket of this entry
+			size_t ideal = hasher(e.key) & mask;
+
+			// Check if this entry can be moved into the hole.
+			//
+			// If its probe sequence crosses the hole, moving it back
+			// keeps lookup correctness.
+			bool should_move;
+
+			if (hole <= next)
+			{
+				// Normal non-wrapping case
+				should_move = (ideal <= hole) || (ideal > next);
+			}
+			else
+			{
+				// Wrapped cluster
+				should_move = (ideal <= hole) && (ideal > next);
+			}
+
+			if (should_move)
+			{
+				table[hole] = std::move(e);
+				hole = next;
+			}
+
+			next = (next + 1) & mask;
+		}
+
+		--count;
+		return true;
 	}
 
 	// Clears the hash map.
