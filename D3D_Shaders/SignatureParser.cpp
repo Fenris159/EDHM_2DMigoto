@@ -764,7 +764,9 @@ HRESULT AssembleFluganWithSignatureParsing(vector<char> *assembly, vector<byte> 
 	if (FAILED(hr))
 		return E_FAIL;
 
-	*result_bytecode = assembler(assembly, manufactured_bytecode, parse_errors);
+	// The manufactured container intentionally has an empty SHEX placeholder;
+	// Flugan replaces it with the assembled instructions below.
+	*result_bytecode = assembler(assembly, manufactured_bytecode, parse_errors, true);
 
 	return S_OK;
 }

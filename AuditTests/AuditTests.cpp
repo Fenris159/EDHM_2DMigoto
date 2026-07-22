@@ -82,6 +82,13 @@ static void TestDxbcValidation()
 	WriteUint32(&mutated, 40, 4);
 	Check(!FindDxbcCodeChunk(mutated.data(), mutated.size(), &info), "undersized code chunk accepted");
 
+	mutated.resize(44);
+	WriteUint32(&mutated, 24, static_cast<uint32_t>(mutated.size()));
+	WriteUint32(&mutated, 40, 0);
+	Check(!FindDxbcCodeChunk(mutated.data(), mutated.size(), &info), "empty external code chunk accepted");
+	Check(FindDxbcCodeChunk(mutated.data(), mutated.size(), &info, true),
+		"internal assembler placeholder rejected");
+
 	mutated = valid;
 	WriteUint32(&mutated, 40, 9);
 	Check(!FindDxbcCodeChunk(mutated.data(), mutated.size(), &info), "unaligned code payload accepted");

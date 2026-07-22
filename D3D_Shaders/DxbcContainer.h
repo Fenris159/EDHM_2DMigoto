@@ -14,4 +14,5 @@ struct DxbcCodeChunkInfo
 
 // Validates a DXBC container and locates its single SHEX/SHDR code chunk.
 // The returned pointer remains owned by the caller's input buffer.
-bool FindDxbcCodeChunk(const void *data, size_t size, DxbcCodeChunkInfo *info);
+bool FindDxbcCodeChunk(const void *data, size_t size, DxbcCodeChunkInfo *info,
+		bool allow_empty_code_chunk = false);

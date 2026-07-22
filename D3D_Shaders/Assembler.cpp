@@ -3243,13 +3243,14 @@ static vector<DWORD> ComputeHash(byte const* input, DWORD size)
 // origByteCode is modified in this function, so passing it by value!
 // asmFile is not modified, so passing it by pointer -DarkStarSword
 vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode,
-		vector<AssemblerParseError> *parse_errors)
+		vector<AssemblerParseError> *parse_errors, bool allow_empty_code_chunk)
 {
 	// Validate the DXBC container before trusting any of its offsets (the
 	// old code had the same unchecked header parse and garbage codeByteStart
 	// FIXME as the disassembler):
 	DxbcCodeChunkInfo code_chunk;
-	if (!FindDxbcCodeChunk(origBytecode.data(), origBytecode.size(), &code_chunk))
+	if (!FindDxbcCodeChunk(origBytecode.data(), origBytecode.size(), &code_chunk,
+			allow_empty_code_chunk))
 		throw std::invalid_argument("assembler: Bad shader binary");
 	DWORD numChunks = code_chunk.num_chunks;
 	DWORD codeChunk = code_chunk.code_chunk_index;

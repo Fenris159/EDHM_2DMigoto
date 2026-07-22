@@ -1024,6 +1024,7 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 				delete[] pCode;
 				pCode = NULL;
 				pCodeSize = 0;
+				LogInfo("    Error assembling %S: %s\n", path, e.what());
 				LogOverlay(LOG_WARNING, "Error assembling %S: %s\n",
 						path, e.what());
 			}
@@ -1385,7 +1386,7 @@ HRESULT HackerDevice::ReplaceShaderFromShaderFixes(UINT64 hash,
 		(hash, shaderType, *ppShader, pShaderBytecode, BytecodeLength, pClassLinkage);
 
 out_delete:
-	delete replaceShader;
+	delete[] replaceShader;
 	return hr;
 }
 

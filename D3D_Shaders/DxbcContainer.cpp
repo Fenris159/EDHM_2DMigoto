@@ -10,7 +10,8 @@ static bool ReadUint32(const uint8_t *data, size_t size, size_t offset, uint32_t
 	return true;
 }
 
-bool FindDxbcCodeChunk(const void *data, size_t size, DxbcCodeChunkInfo *info)
+bool FindDxbcCodeChunk(const void *data, size_t size, DxbcCodeChunkInfo *info,
+		bool allow_empty_code_chunk)
 {
 	if (info)
 		*info = {};
@@ -47,7 +48,12 @@ bool FindDxbcCodeChunk(const void *data, size_t size, DxbcCodeChunkInfo *info)
 		const uint8_t *chunk = base + chunk_offset;
 		if (std::memcmp(chunk, "SHEX", 4) && std::memcmp(chunk, "SHDR", 4))
 			continue;
-		if ((chunk_offset & 3) || chunk_size < 8 || (chunk_size & 3) || ++found_code_chunks != 1)
+		// SignatureParser manufactures an empty SHEX placeholder that the
+		// assembler immediately replaces. Only that internal path may opt in to
+		// accepting an empty code chunk; external DXBC remains strictly checked.
+		bool valid_code_size = chunk_size >= 8 || (allow_empty_code_chunk && !chunk_size);
+		if ((chunk_offset & 3) || (chunk_size & 3) || !valid_code_size ||
+				++found_code_chunks != 1)
 			return false;
 
 		candidate.num_chunks = num_chunks;
