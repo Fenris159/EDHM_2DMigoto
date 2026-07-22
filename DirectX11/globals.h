@@ -450,6 +450,7 @@ struct Globals
 	time_t huntTime;
 	bool verbose_overlay;
 	bool suppress_overlay;
+	bool advanced_hunting_enabled;
 
 	bool deferred_contexts_enabled;
 
@@ -672,7 +673,7 @@ struct Globals
 
 	      hunting(HUNTING_MODE_DISABLED), overlay_buffer_hash_lifetime(-1), fix_enabled(true), config_reloadable(false),
 	      show_original_enabled(false), huntTime(0), verbose_overlay(false), suppress_overlay(false),
-	      gSelectedVertexBufferSlotId(-1), gResetSelectedVertexBufferSlotId(false),
+	      advanced_hunting_enabled(false), gSelectedVertexBufferSlotId(-1), gResetSelectedVertexBufferSlotId(false),
 
 	      deferred_contexts_enabled(true),
 
