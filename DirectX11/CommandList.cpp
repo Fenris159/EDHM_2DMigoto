@@ -5452,6 +5452,101 @@ size_t CustomResourcePool::GetElementIndex(float id, bool use_ring_index, bool i
 
 		return pool_index;
 	}
+	case PoolIndexType::SPATIAL:
+	{
+		// Spatial cache indexing:
+		// 
+		// - Exact spatial cell lookup for stable objects.
+		// - Nearby-cell reuse for objects that moved within spatial_radius.
+		// - FIFO replacement when the cache has no suitable existing slot.
+		// 
+		// The input ID is a spatial hash (uint32_t) bitcast to float.
+		// The hash encodes quantized XYZ cell coordinates and preserves spatial locality.
+		// Objects mapped to the same spatial cell share the same pool slot.
+		uint32_t spatial_hash = BitCastToUint(id);
+
+		if (index_map->find(spatial_hash, pool_index))
+		{
+			// Fast path: exact spatial cell match.
+			// The object remains associated with its existing pool slot.
+
+			if (keep_alive_frames != UINT32_MAX)
+				PostponeExpiration(index_table[pool_index], is_assignment);
+		}
+		else
+		{
+			// Slow path: no exact cell match.
+			// 
+			// Search existing slots for the nearest spatial cell within the allowed radius.
+			// This preserves resources for objects that moved only slightly between frames.
+			//
+			// Chebyshev distance is used because spatial cells form a square/cubic grid.
+			// It treats all cells inside a radius-N axis-aligned cube as equally close:
+			// 
+			//   distance = max(abs(a.x - b.x), abs(a.y - b.y), ...)
+			//
+			// Unlike Euclidean distance, diagonal movement does not cost more than
+			// axis-aligned movement, which matches grid-cell adjacency.
+			uint32_t closest_distance = UINT32_MAX;
+
+			size_t nearest_slot = SIZE_MAX;
+			size_t empty_slot = SIZE_MAX;
+
+			GridPos query_cell = UnpackCellCoords(spatial_hash);
+
+			for (size_t i = 0; i < index_table.size(); ++i)
+			{
+				PoolSlot& pool_slot = index_table[i];
+
+				if (pool_slot.key == UINT32_MAX)
+				{
+					// UINT32_MAX indicates an unused slot.
+					// Remember the first available slot for later use.
+					if (empty_slot == SIZE_MAX)
+						empty_slot = i;
+					continue;
+				}
+
+				GridPos slot_cell = UnpackCellCoords(pool_slot.key);
+
+				uint32_t d = SpatialDistanceChebyshev(query_cell, slot_cell);
+
+				if (d < closest_distance)
+				{
+					closest_distance = d;
+					nearest_slot = i;
+
+					// Defensive early-out. Exact matches are normally handled by index_map.
+					if (d == 0)
+						break;
+				}
+			}
+
+			if (closest_distance <= spatial_radius && nearest_slot != SIZE_MAX)
+			{
+				// Reuse the slot belonging to the closest nearby spatial cell.
+				// This keeps resources stable when objects move within the radius.
+				pool_index = nearest_slot;
+			}
+			else if (empty_slot != SIZE_MAX)
+			{
+				// No nearby match found. Allocate an unused pool slot.
+				pool_index = empty_slot;
+			}
+			else
+			{
+				// Pool is full and no nearby slot is suitable.
+				// Evict the oldest slot using FIFO replacement order.
+				pool_index = (last_replacement_index + 1) % pool_size;
+				last_replacement_index = pool_index;
+			}
+
+			// Associate the selected slot with the new spatial cell.
+			AssignSlot(pool_index, spatial_hash, is_assignment);
+		}
+
+		return pool_index;
+	}
 
 	default:
 		assert(false);
@@ -5538,6 +5633,8 @@ void CustomResourcePool::CopyMetadataFrom(const CustomResourcePool& src)
 	// Copy variable template.
 	if (variable_template && src.variable_template)
 		variable_template->CopyStateFrom(*src.variable_template);
+
+	spatial_radius = src.spatial_radius;
 
 	keep_alive_frames = src.keep_alive_frames;
 	reset_expired_elements = src.reset_expired_elements;

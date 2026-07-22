@@ -1936,6 +1936,12 @@ static CustomResourcePool* ParseResourcePoolSection(const wchar_t* section_name)
 		pool->keep_alive_frames = (unsigned)keep_alive_frames;
 	pool->reset_expired_elements = GetIniBool(section_name, L"pool_reset_expired_elements", true, NULL);
 	
+	int spatial_radius = GetIniInt(section_name, L"pool_spatial_radius", 1, NULL);
+	if (spatial_radius < 1) {
+		IniWarningW(L"Specified spatial radius \"%d\" is below minimum \"1\".\n - [%ls]\n", spatial_radius, pool->name.c_str());
+		spatial_radius = 1;
+	}
+	pool->spatial_radius = spatial_radius;
 
 	pool->resource_template = ParseResourceSection(section_name, L"template");
 

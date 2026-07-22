@@ -573,6 +573,7 @@ enum class PoolIndexType : uint8_t {
 
 	// Index Table Based Types
 	FIFO             = 0b00000100,
+	SPATIAL          = 0b00001000,
 
 	INDEX_TABLE_MASK = 0b00001100,
 };
@@ -582,6 +583,7 @@ static EnumName_t<const wchar_t*, PoolIndexType> PoolIndexTypeNames[] = {
 	{L"ring",    PoolIndexType::RING},
 	{L"fifo",    PoolIndexType::FIFO},
 	{L"static",  PoolIndexType::STATIC},
+	{L"spatial", PoolIndexType::SPATIAL},
 	{NULL, PoolIndexType::INVALID} // End of list marker
 };
 
@@ -616,7 +618,7 @@ public:
 	bool element_type_switch_reset = true;
 	unsigned keep_alive_frames = UINT32_MAX;
 	bool reset_expired_elements = false;
-	unsigned last_expiration_run = UINT32_MAX;
+	uint32_t spatial_radius = 0;
 
 	CustomResource* resource_template = nullptr;
 	std::unique_ptr<CommandListVariable> variable_template;
