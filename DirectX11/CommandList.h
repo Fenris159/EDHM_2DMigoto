@@ -741,7 +741,7 @@ enum class ResourceCopyTargetEvaluationMode : uint16_t {
 	RESOURCE_SIZE          = 0b0000000000010000, // 0x0010
 	RESOURCE_OFFSET        = 0b0000000000100000, // 0x0020
 	RESOURCE_REGION_HASH   = 0b0000000001000000, // 0x0040
-	//                       0b0000000010000000, // 0x0080
+	RESOURCE_SPATIAL_HASH  = 0b0000000010000000, // 0x0080
 	//                       0b0000000100000000, // 0x0100
 
 	RESOURCE_MASK          = 0b0000000111111111,
@@ -766,6 +766,7 @@ static EnumName_t<const wchar_t*, ResourceCopyTargetEvaluationMode> ResourceCopy
 	{L"ResourceSize", ResourceCopyTargetEvaluationMode::RESOURCE_SIZE},
 	{L"ResourceOffset", ResourceCopyTargetEvaluationMode::RESOURCE_OFFSET},
 	{L"ResourceRegionHash", ResourceCopyTargetEvaluationMode::RESOURCE_REGION_HASH},
+	{L"ResourceSpatialHash", ResourceCopyTargetEvaluationMode::RESOURCE_SPATIAL_HASH},
 
 	{L"PoolIdentity", ResourceCopyTargetEvaluationMode::POOL_IDENTITY},
 	{L"PoolSize", ResourceCopyTargetEvaluationMode::POOL_SIZE},
@@ -811,7 +812,7 @@ enum class IniParserResult : uint8_t {
 };
 
 class ResourceCopyTarget {
-	static constexpr size_t MAX_MEMBER_ARGS_COUNT = 2;
+	static constexpr size_t MAX_MEMBER_ARGS_COUNT = 4;
 public:
 	ResourceCopyTargetType type = ResourceCopyTargetType::INVALID;
 	ResourceCopyTargetEvaluationMode evaluation_mode = ResourceCopyTargetEvaluationMode::RESOURCE;
@@ -861,6 +862,8 @@ public:
 	float GetResourceSize(CommandListState* state);
 	float GetResourceOffset(CommandListState* state);
 	float GetResourceRegionHash(CommandListState* state);
+	float GetResourceSpatialHash(CommandListState* state);
+
 	D3D11_BIND_FLAG BindFlags(CommandListState *state, D3D11_RESOURCE_MISC_FLAG *misc_flags=NULL);
 
 private:

@@ -593,7 +593,17 @@ uint64_t HashPointer(const void* p);
 uint32_t HashUnsigned32(uint32_t u);
 float EncodeFloat30(const uint32_t hash);
 
+struct GridPos
+{
+	uint32_t x;
+	uint32_t y;
+	uint32_t z;
+};
+GridPos UnpackCellCoords(uint32_t packed);
+uint32_t SpatialDistanceChebyshev(const GridPos& a, const GridPos& b);
+
 uint32_t GetRegionHash(ID3D11DeviceContext* context, ID3D11Buffer* buffer, UINT offset, UINT size, CustomResource* custom_resource = nullptr);
+uint32_t GetSpatialHash(ID3D11DeviceContext* context, ID3D11Buffer* buffer, UINT offset_x, UINT offset_y, UINT offset_z, float cell_size = 0.125f, CustomResource* custom_resource = nullptr);
 
 void MarkResourceHashContaminated(ID3D11Resource *dest, UINT DstSubresource,
 		ID3D11Resource *src, UINT srcSubresource, char type,
