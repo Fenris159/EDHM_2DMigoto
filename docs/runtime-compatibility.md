@@ -17,10 +17,12 @@ provided by the Microsoft system DLL.
   this DLL reaches `DllMain` and will not create `d3d11_log.txt`.
 
 The wrapper intercepts the D3D11 device/context interfaces used by EDHM and
-wraps `IDXGISwapChain1` through `IDXGISwapChain4` when the host runtime exposes
-them. Device2-Device5 and Context2-Context4 queries are denied because their
-additional methods are not intercepted; returning the real interface would
-silently bypass state tracking.
+wraps `IDXGISwapChain1`. Queries for `IDXGISwapChain2` and `IDXGISwapChain3`
+return the native DXGI interfaces so Windows HDR components and display drivers
+retain the object identity they expect. `IDXGISwapChain4` remains unsupported,
+matching the established 3Dmigoto compatibility behavior. Device2-Device5 and
+Context2-Context4 queries are denied because their additional methods are not
+intercepted; returning the real interface would silently bypass state tracking.
 
 ## Loader lifecycle
 

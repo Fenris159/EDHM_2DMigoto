@@ -1,7 +1,6 @@
 #pragma once
 
-#include <atomic>
-#include <dxgi1_5.h>
+#include <dxgi1_2.h>
 
 #include "HackerDevice.h"
 #include "HackerContext.h"
@@ -20,18 +19,14 @@ void InstallSetWindowPosHook();
 
 // -----------------------------------------------------------------------------
 // Hierarchy:
-//	HackerSwapChain -> IDXGISwapChain4 -> IDXGISwapChain3 -> IDXGISwapChain2 -> IDXGISwapChain1
+//	HackerSwapChain -> IDXGISwapChain1 -> IDXGISwapChain -> IDXGIDeviceSubObject -> IDXGIObject -> IUnknown
 
-class HackerSwapChain : public IDXGISwapChain4
+class HackerSwapChain : public IDXGISwapChain1
 {
 protected:
 	virtual ~HackerSwapChain() = default;
 
 	IDXGISwapChain1 *mOrigSwapChain1;
-	IDXGISwapChain2 *mOrigSwapChain2;
-	IDXGISwapChain3 *mOrigSwapChain3;
-	IDXGISwapChain4 *mOrigSwapChain4;
-	std::atomic<ULONG> mRefCount;
 	HackerDevice *mHackerDevice;
 	HackerContext *mHackerContext;
 
@@ -193,32 +188,6 @@ public:
 		/* [annotation][out] */
 		_Out_  DXGI_MODE_ROTATION *pRotation);
 
-
-	/** IDXGISwapChain2 **/
-
-	HRESULT STDMETHODCALLTYPE SetSourceSize(UINT Width, UINT Height);
-	HRESULT STDMETHODCALLTYPE GetSourceSize(_Out_ UINT *pWidth, _Out_ UINT *pHeight);
-	HRESULT STDMETHODCALLTYPE SetMaximumFrameLatency(UINT MaxLatency);
-	HRESULT STDMETHODCALLTYPE GetMaximumFrameLatency(_Out_ UINT *pMaxLatency);
-	HANDLE STDMETHODCALLTYPE GetFrameLatencyWaitableObject(void);
-	HRESULT STDMETHODCALLTYPE SetMatrixTransform(const DXGI_MATRIX_3X2_F *pMatrix);
-	HRESULT STDMETHODCALLTYPE GetMatrixTransform(_Out_ DXGI_MATRIX_3X2_F *pMatrix);
-
-
-	/** IDXGISwapChain3 **/
-
-	UINT STDMETHODCALLTYPE GetCurrentBackBufferIndex(void);
-	HRESULT STDMETHODCALLTYPE CheckColorSpaceSupport(DXGI_COLOR_SPACE_TYPE ColorSpace,
-		_Out_ UINT *pColorSpaceSupport);
-	HRESULT STDMETHODCALLTYPE SetColorSpace1(DXGI_COLOR_SPACE_TYPE ColorSpace);
-	HRESULT STDMETHODCALLTYPE ResizeBuffers1(UINT BufferCount, UINT Width, UINT Height,
-		DXGI_FORMAT Format, UINT SwapChainFlags, const UINT *pCreationNodeMask,
-		IUnknown *const *ppPresentQueue);
-
-
-	/** IDXGISwapChain4 **/
-
-	HRESULT STDMETHODCALLTYPE SetHDRMetaData(DXGI_HDR_METADATA_TYPE Type, UINT Size, void *pMetaData);
 };
 
 
@@ -269,10 +238,6 @@ public:
 	STDMETHOD(ResizeTarget)(THIS_
 		/* [annotation][in] */
 		_In_  const DXGI_MODE_DESC *pNewTargetParameters);
-
-	STDMETHOD(ResizeBuffers1)(THIS_ UINT BufferCount, UINT Width, UINT Height,
-		DXGI_FORMAT Format, UINT SwapChainFlags, const UINT *pCreationNodeMask,
-		IUnknown *const *ppPresentQueue);
 
 };
 

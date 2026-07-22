@@ -139,21 +139,10 @@ void InstallSetWindowPosHook()
 
 HackerSwapChain::HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDevice, HackerContext *pContext) :
 	mOrigSwapChain1(pSwapChain),
-	mOrigSwapChain2(NULL),
-	mOrigSwapChain3(NULL),
-	mOrigSwapChain4(NULL),
-	mRefCount(1),
+	mHackerDevice(pDevice),
+	mHackerContext(pContext),
 	mOverlay(nullptr)
 {
-	// Hold each supported interface for the wrapper's lifetime. The wrapper
-	// uses its own reference count so these references cannot prevent cleanup.
-	mOrigSwapChain1->QueryInterface(IID_PPV_ARGS(&mOrigSwapChain2));
-	mOrigSwapChain1->QueryInterface(IID_PPV_ARGS(&mOrigSwapChain3));
-	mOrigSwapChain1->QueryInterface(IID_PPV_ARGS(&mOrigSwapChain4));
-
-	mHackerDevice = pDevice;
-	mHackerContext = pContext;
-
 	// Bump the refcounts on the device and context to make sure they can't
 	// be released as long as the swap chain is alive and we may be
 	// accessing them. We probably don't actually need to do this for the
@@ -377,38 +366,53 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 		return E_POINTER;
 	*ppvObject = NULL;
 
+	HRESULT hr = mOrigSwapChain1->QueryInterface(riid, ppvObject);
+	if (FAILED(hr) || !*ppvObject)
+	{
+		LogInfo("  failed result = %x for %p\n", hr, ppvObject);
+		return hr;
+	}
+
+	// Keep the real modern interfaces for HDR and platform compatibility. Some
+	// system components and drivers require the native DXGI object identity.
+	if (riid == __uuidof(IDXGISwapChain2) || riid == __uuidof(IDXGISwapChain3))
+	{
+		LogInfo("  return modern swap-chain interface (%p) without wrapper.\n", *ppvObject);
+		LogInfo("  returns result = %x for %p\n", hr, ppvObject);
+		return hr;
+	}
+	if (riid == __uuidof(IDXGISwapChain4))
+	{
+		LogInfo("***  returns E_NOINTERFACE as error for IDXGISwapChain4.\n");
+		reinterpret_cast<IUnknown*>(*ppvObject)->Release();
+		*ppvObject = NULL;
+		return E_NOINTERFACE;
+	}
+
 	if (riid == __uuidof(IUnknown) || riid == __uuidof(IDXGIObject) ||
 			riid == __uuidof(IDXGIDeviceSubObject) || riid == __uuidof(IDXGISwapChain) ||
 			riid == __uuidof(IDXGISwapChain1))
-		*ppvObject = static_cast<IDXGISwapChain1*>(this);
-	else if (riid == __uuidof(IDXGISwapChain2) && mOrigSwapChain2)
-		*ppvObject = static_cast<IDXGISwapChain2*>(this);
-	else if (riid == __uuidof(IDXGISwapChain3) && mOrigSwapChain3)
-		*ppvObject = static_cast<IDXGISwapChain3*>(this);
-	else if (riid == __uuidof(IDXGISwapChain4) && mOrigSwapChain4)
-		*ppvObject = static_cast<IDXGISwapChain4*>(this);
-
-	if (*ppvObject) {
-		AddRef();
+	{
+		*ppvObject = this;
 		LogInfo("  return HackerSwapChain(%s@%p) wrapper of %p\n", type_name(this), this, mOrigSwapChain1);
-		return S_OK;
+		return hr;
 	}
 
-	HRESULT hr = mOrigSwapChain1->QueryInterface(riid, ppvObject);
+	LogInfo("  return unwrapped interface %s (%p).\n", NameFromIID(riid).c_str(), *ppvObject);
 	LogInfo("  returns result = %x for %p\n", hr, ppvObject);
 	return hr;
 }
 
 STDMETHODIMP_(ULONG) HackerSwapChain::AddRef(THIS)
 {
-	ULONG ulRef = ++mRefCount;
+	ULONG ulRef = mOrigSwapChain1->AddRef();
 	LogInfo("HackerSwapChain::AddRef(%s@%p), counter=%d, this=%p\n", type_name(this), this, ulRef, this);
 	return ulRef;
 }
 
 STDMETHODIMP_(ULONG) HackerSwapChain::Release(THIS)
 {
-	ULONG ulRef = --mRefCount;
+	ULONG ulRef = mOrigSwapChain1->Release();
 	LogInfo("HackerSwapChain::Release(%s@%p), counter=%d, this=%p\n", type_name(this), this, ulRef, this);
 
 	if (ulRef <= 0)
@@ -430,14 +434,6 @@ STDMETHODIMP_(ULONG) HackerSwapChain::Release(THIS)
 
 		if (last_fullscreen_swap_chain == mOrigSwapChain1)
 			last_fullscreen_swap_chain = NULL;
-
-		if (mOrigSwapChain4)
-			mOrigSwapChain4->Release();
-		if (mOrigSwapChain3)
-			mOrigSwapChain3->Release();
-		if (mOrigSwapChain2)
-			mOrigSwapChain2->Release();
-		mOrigSwapChain1->Release();
 
 		LogInfo("  counter=%d, this=%p, deleting self.\n", ulRef, this);
 
@@ -1022,85 +1018,6 @@ STDMETHODIMP HackerSwapChain::GetRotation(THIS_
 }
 
 // -----------------------------------------------------------------------------
-/** IDXGISwapChain2 **/
-
-STDMETHODIMP HackerSwapChain::SetSourceSize(UINT Width, UINT Height)
-{
-	return mOrigSwapChain2 ? mOrigSwapChain2->SetSourceSize(Width, Height) : E_NOINTERFACE;
-}
-
-STDMETHODIMP HackerSwapChain::GetSourceSize(UINT *pWidth, UINT *pHeight)
-{
-	return mOrigSwapChain2 ? mOrigSwapChain2->GetSourceSize(pWidth, pHeight) : E_NOINTERFACE;
-}
-
-STDMETHODIMP HackerSwapChain::SetMaximumFrameLatency(UINT MaxLatency)
-{
-	return mOrigSwapChain2 ? mOrigSwapChain2->SetMaximumFrameLatency(MaxLatency) : E_NOINTERFACE;
-}
-
-STDMETHODIMP HackerSwapChain::GetMaximumFrameLatency(UINT *pMaxLatency)
-{
-	return mOrigSwapChain2 ? mOrigSwapChain2->GetMaximumFrameLatency(pMaxLatency) : E_NOINTERFACE;
-}
-
-STDMETHODIMP_(HANDLE) HackerSwapChain::GetFrameLatencyWaitableObject(void)
-{
-	return mOrigSwapChain2 ? mOrigSwapChain2->GetFrameLatencyWaitableObject() : NULL;
-}
-
-STDMETHODIMP HackerSwapChain::SetMatrixTransform(const DXGI_MATRIX_3X2_F *pMatrix)
-{
-	return mOrigSwapChain2 ? mOrigSwapChain2->SetMatrixTransform(pMatrix) : E_NOINTERFACE;
-}
-
-STDMETHODIMP HackerSwapChain::GetMatrixTransform(DXGI_MATRIX_3X2_F *pMatrix)
-{
-	return mOrigSwapChain2 ? mOrigSwapChain2->GetMatrixTransform(pMatrix) : E_NOINTERFACE;
-}
-
-// -----------------------------------------------------------------------------
-/** IDXGISwapChain3 **/
-
-STDMETHODIMP_(UINT) HackerSwapChain::GetCurrentBackBufferIndex(void)
-{
-	return mOrigSwapChain3 ? mOrigSwapChain3->GetCurrentBackBufferIndex() : 0;
-}
-
-STDMETHODIMP HackerSwapChain::CheckColorSpaceSupport(DXGI_COLOR_SPACE_TYPE ColorSpace,
-	UINT *pColorSpaceSupport)
-{
-	return mOrigSwapChain3 ? mOrigSwapChain3->CheckColorSpaceSupport(ColorSpace, pColorSpaceSupport) : E_NOINTERFACE;
-}
-
-STDMETHODIMP HackerSwapChain::SetColorSpace1(DXGI_COLOR_SPACE_TYPE ColorSpace)
-{
-	return mOrigSwapChain3 ? mOrigSwapChain3->SetColorSpace1(ColorSpace) : E_NOINTERFACE;
-}
-
-STDMETHODIMP HackerSwapChain::ResizeBuffers1(UINT BufferCount, UINT Width, UINT Height,
-	DXGI_FORMAT Format, UINT SwapChainFlags, const UINT *pCreationNodeMask,
-	IUnknown *const *ppPresentQueue)
-{
-	if (!mOrigSwapChain3)
-		return E_NOINTERFACE;
-	if (G->mResolutionInfo.from == GetResolutionFrom::SWAP_CHAIN) {
-		G->mResolutionInfo.width = Width;
-		G->mResolutionInfo.height = Height;
-	}
-	return mOrigSwapChain3->ResizeBuffers1(BufferCount, Width, Height, Format,
-		SwapChainFlags, pCreationNodeMask, ppPresentQueue);
-}
-
-// -----------------------------------------------------------------------------
-/** IDXGISwapChain4 **/
-
-STDMETHODIMP HackerSwapChain::SetHDRMetaData(DXGI_HDR_METADATA_TYPE Type, UINT Size, void *pMetaData)
-{
-	return mOrigSwapChain4 ? mOrigSwapChain4->SetHDRMetaData(Type, Size, pMetaData) : E_NOINTERFACE;
-}
-
-// -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
 // HackerUpscalingSwapChain, to provide post-process upscaling to arbitrary
@@ -1386,18 +1303,6 @@ STDMETHODIMP HackerUpscalingSwapChain::ResizeBuffers(THIS_
 
 	LogInfo("  returns result = %x\n", hr);
 	return hr;
-}
-
-STDMETHODIMP HackerUpscalingSwapChain::ResizeBuffers1(UINT BufferCount, UINT Width, UINT Height,
-	DXGI_FORMAT Format, UINT SwapChainFlags, const UINT *pCreationNodeMask,
-	IUnknown *const *ppPresentQueue)
-{
-	// The fake back buffer is not a multi-adapter presentation queue. Keep the
-	// established upscaling resize behavior instead of resizing the real output
-	// chain behind the fake buffer.
-	(void)pCreationNodeMask;
-	(void)ppPresentQueue;
-	return ResizeBuffers(BufferCount, Width, Height, Format, SwapChainFlags);
 }
 
 STDMETHODIMP HackerUpscalingSwapChain::ResizeTarget(THIS_
