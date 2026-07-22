@@ -21,6 +21,7 @@
 #include "profiling.h"
 #include "FrameAnalysis.h"
 #include "ShaderRegex.h"
+#include "AdvancedHunting.h"
 
 // bo3b: For this routine, we have a lot of warnings in x64, from converting a size_t result into the needed
 //  DWORD type for the Write calls.  These are writing 256 byte strings, so there is never a chance that it 
@@ -1500,6 +1501,9 @@ static void NextVertexBufferSlot(HackerDevice* device, void* private_data)
 }
 static void NextPixelShader(HackerDevice *device, void *private_data)
 {
+	if (AdvancedHuntingConfigured() && AdvancedHuntingActive())
+		return;
+
 	HuntNext<UINT64>("pixel shader", &G->mVisitedPixelShaders, &G->mSelectedPixelShader, &G->mSelectedPixelShaderPos);
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
@@ -1509,6 +1513,9 @@ static void NextPixelShader(HackerDevice *device, void *private_data)
 }
 static void NextVertexShader(HackerDevice *device, void *private_data)
 {
+	if (AdvancedHuntingConfigured() && AdvancedHuntingActive())
+		return;
+
 	HuntNext<UINT64>("vertex shader", &G->mVisitedVertexShaders, &G->mSelectedVertexShader, &G->mSelectedVertexShaderPos);
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
@@ -1642,6 +1649,9 @@ static void PrevIndexBuffer(HackerDevice *device, void *private_data)
 }
 static void PrevPixelShader(HackerDevice *device, void *private_data)
 {
+	if (AdvancedHuntingConfigured() && AdvancedHuntingActive())
+		return;
+
 	HuntPrev<UINT64>("pixel shader", &G->mVisitedPixelShaders, &G->mSelectedPixelShader, &G->mSelectedPixelShaderPos);
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
@@ -1651,6 +1661,9 @@ static void PrevPixelShader(HackerDevice *device, void *private_data)
 }
 static void PrevVertexShader(HackerDevice *device, void *private_data)
 {
+	if (AdvancedHuntingConfigured() && AdvancedHuntingActive())
+		return;
+
 	HuntPrev<UINT64>("vertex shader", &G->mVisitedVertexShaders, &G->mSelectedVertexShader, &G->mSelectedVertexShaderPos);
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
@@ -1834,6 +1847,14 @@ static void MarkVertexShader(HackerDevice *device, void *private_data)
 	MarkShaderEnd(device, "vertex shader", "vs", G->mSelectedVertexShader);
 }
 
+void MarkSelectedShaderForAdvancedHunting(HackerDevice* device, bool pixel_shader)
+{
+	if (pixel_shader)
+		MarkPixelShader(device, NULL);
+	else
+		MarkVertexShader(device, NULL);
+}
+
 static void MarkComputeShader(HackerDevice *device, void *private_data)
 {
 	if (!MarkShaderBegin("compute shader", G->mSelectedComputeShader))
@@ -1967,6 +1988,7 @@ static void DoneHunting(HackerDevice *device, void *private_data)
 		return;
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
+	ResetAdvancedHunting();
 
 	TimeoutHuntingBuffers();
 
@@ -2006,9 +2028,10 @@ static void DoneHunting(HackerDevice *device, void *private_data)
 
 static void ToggleHunting(HackerDevice *device, void *private_data)
 {
-	if (G->hunting == HUNTING_MODE_ENABLED)
+	if (G->hunting == HUNTING_MODE_ENABLED) {
+		ResetAdvancedHunting();
 		G->hunting = HUNTING_MODE_SOFT_DISABLED;
-	else
+	} else
 		G->hunting = HUNTING_MODE_ENABLED;
 	LogInfo("> Hunting toggled to %d\n", G->hunting);
 }
@@ -2022,6 +2045,8 @@ void ParseHuntingSection()
 	static MarkingMode prev_marking_mode = MarkingMode::INVALID;
 
 	LogInfo("[Hunting]\n");
+	ResetAdvancedHunting();
+	G->advanced_hunting_enabled = false;
 	G->hunting = GetIniInt(L"Hunting", L"hunting", 0, NULL);
 
 	// Number of frames a IB/VB buffer hash can remain in the overlay tracking
@@ -2061,6 +2086,7 @@ void ParseHuntingSection()
 	RegisterIniKeyBinding(L"Hunting", L"toggle_hunting", ToggleHunting, NULL, noRepeat, NULL);
 
 	repeat = GetIniInt(L"Hunting", L"repeat_rate", repeat, NULL);
+	ParseAdvancedHuntingSection(repeat);
 
 	// For a better user experience we avoid resetting the marking mode on
 	// config reload if the next_marking_mode key is enabled, unless

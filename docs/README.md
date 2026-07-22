@@ -9,6 +9,7 @@
 | [building.md](building.md) | How to build `d3d11.dll` and package `d3dcompiler_47.dll` |
 | [linux-wine-compat.md](linux-wine-compat.md) | Standard EDHM setup for Proton and Wine |
 | [runtime-compatibility.md](runtime-compatibility.md) | Supported proxy surface, loader, path, crash-dump, and validation boundaries |
+| [advanced-shader-hunting.md](advanced-shader-hunting.md) | Optional two-level shader and draw-context hunting workflow |
 | [upstream-delta-map.md](upstream-delta-map.md) | Function-level EDHM differences from `xxmi-base` |
 | [upstream-sync.md](upstream-sync.md) | Fetch and selectively merge XXMI / 3Dmigoto updates |
 | [releasing.md](releasing.md) | SemVer, changelog, CI, Release / pre-release workflow |

@@ -11,6 +11,7 @@
 //  HackerContext <- ID3D11DeviceContext1 <- ID3D11DeviceContext <- ID3D11DeviceChild <- IUnknown
 
 #include "Hunting.h"
+#include "AdvancedHunting.h"
 
 //#include "HookedContext.h"
 
@@ -25,6 +26,7 @@
 #include "ShaderRegex.h"
 #include "FrameAnalysis.h"
 #include "profiling.h"
+#include "ResourceHash.h"
 
 // -----------------------------------------------------------------------------------------------
 
@@ -85,6 +87,10 @@ void HackerContext::ResetTrackedState()
 	ClearCurrentInputLayout();
 	memset(mCurrentVertexBuffers, 0, sizeof(mCurrentVertexBuffers));
 	mCurrentIndexBuffer = 0;
+	memset(mCurrentPixelShaderResources, 0, sizeof(mCurrentPixelShaderResources));
+	memset(mCurrentRenderTargetHashes, 0, sizeof(mCurrentRenderTargetHashes));
+	mCurrentDepthTargetHash = 0;
+	mCurrentPrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
 	memset(mCurrentVertexBuffersBindings, 0, sizeof(mCurrentVertexBuffersBindings));
 	memset(&mCurrentIndexBufferBinding, 0, sizeof(mCurrentIndexBufferBinding));
 	mCurrentRenderTargets.clear();
@@ -780,6 +786,9 @@ void HackerContext::DeferredShaderReplacementBeforeDispatch()
 void HackerContext::BeforeDraw(DrawContext &data)
 {
 	Profiling::State profiling_state;
+	AdvancedHuntingShaderStage advanced_hunting_stage = AdvancedHuntingShaderStage::NONE;
+	bool advanced_hunting_active = false;
+	bool advanced_selection_match = false;
 
 	if (Profiling::mode == Profiling::Mode::SUMMARY)
 		Profiling::start(&profiling_state);
@@ -798,6 +807,13 @@ void HackerContext::BeforeDraw(DrawContext &data)
 	// If we are not hunting shaders, we should skip all of this shader management for a performance bump.
 	if (G->hunting == HUNTING_MODE_ENABLED)
 	{
+		UINT64 advanced_hunting_hash = 0;
+		bool advanced_parent_match = false;
+		if (AdvancedHuntingConfigured())
+			advanced_hunting_active = GetAdvancedHuntingStateForDraw(
+				mCurrentVertexShader, mCurrentPixelShader,
+				&advanced_hunting_stage, &advanced_hunting_hash, &advanced_parent_match);
+
 		// Register currently set index and vertex buffers for browsing in Shader Hunting Mode overlay.
 		if (G->track_region_hashes) 
 		{
@@ -835,6 +851,36 @@ void HackerContext::BeforeDraw(DrawContext &data)
 			}
 		}
 
+		if (advanced_parent_match)
+		{
+			AdvancedHuntingContext advanced_context;
+			advanced_context.shader_stage = advanced_hunting_stage;
+			advanced_context.shader_hash = advanced_hunting_hash;
+			advanced_context.draw_type = data.call_info.type;
+			advanced_context.topology = mCurrentPrimitiveTopology;
+			advanced_context.vertex_count = data.call_info.VertexCount;
+			advanced_context.index_count = data.call_info.IndexCount;
+			advanced_context.instance_count = data.call_info.InstanceCount;
+			advanced_context.first_vertex = data.call_info.FirstVertex;
+			advanced_context.first_index = data.call_info.FirstIndex;
+			advanced_context.first_instance = data.call_info.FirstInstance;
+			advanced_context.index_buffer = mCurrentIndexBuffer;
+			memcpy(advanced_context.vertex_buffers, mCurrentVertexBuffers,
+				sizeof(advanced_context.vertex_buffers));
+			memcpy(advanced_context.pixel_shader_resources, mCurrentPixelShaderResources,
+				sizeof(advanced_context.pixel_shader_resources));
+
+			memcpy(advanced_context.render_targets, mCurrentRenderTargetHashes,
+				sizeof(advanced_context.render_targets));
+			advanced_context.depth_target = mCurrentDepthTargetHash;
+			if (data.call_info.indirect_buffer && *data.call_info.indirect_buffer) {
+				advanced_context.indirect_buffer = GetResourceHash(*data.call_info.indirect_buffer);
+				advanced_context.indirect_args_offset = data.call_info.args_offset;
+			}
+
+			advanced_selection_match = SubmitAdvancedHuntingContext(advanced_context);
+		}
+
 		UINT selectedVertexBufferPos = D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT;
 		UINT selectedRenderTargetPos;
 		UINT i;
@@ -863,14 +909,16 @@ void HackerContext::BeforeDraw(DrawContext &data)
 				if (mCurrentRenderTargets[selectedRenderTargetPos] == G->mSelectedRenderTarget)
 					break;
 			}
-			if (mCurrentIndexBuffer == G->mSelectedIndexBuffer ||
+			bool selected_operation = advanced_hunting_active ? advanced_selection_match :
+				(mCurrentIndexBuffer == G->mSelectedIndexBuffer ||
 				mCurrentVertexShader == G->mSelectedVertexShader ||
 				mCurrentPixelShader == G->mSelectedPixelShader ||
 				mCurrentGeometryShader == G->mSelectedGeometryShader ||
 				mCurrentDomainShader == G->mSelectedDomainShader ||
 				mCurrentHullShader == G->mSelectedHullShader ||
 				selectedVertexBufferPos < D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT ||
-				selectedRenderTargetPos < mCurrentRenderTargets.size())
+				selectedRenderTargetPos < mCurrentRenderTargets.size());
+			if (selected_operation)
 			{
 				LogDebug("  Skipping selected operation. CurrentIndexBuffer = %08lx, CurrentVertexShader = %016I64x, CurrentPixelShader = %016I64x\n",
 					mCurrentIndexBuffer, mCurrentVertexShader, mCurrentPixelShader);
@@ -934,6 +982,18 @@ void HackerContext::BeforeDraw(DrawContext &data)
 				{
 					if (G->mPinkingShader)
 						data.oldPixelShader = SwitchPSShader(G->mPinkingShader);
+				}
+				else if (advanced_hunting_active && G->marking_mode == MarkingMode::ORIGINAL)
+				{
+					if (advanced_hunting_stage == AdvancedHuntingShaderStage::PIXEL) {
+						ShaderReplacementMap::iterator original = lookup_original_shader(mCurrentPixelShaderHandle);
+						if (original != G->mOriginalShaders.end())
+							data.oldPixelShader = SwitchPSShader((ID3D11PixelShader*)original->second);
+					} else if (advanced_hunting_stage == AdvancedHuntingShaderStage::VERTEX) {
+						ShaderReplacementMap::iterator original = lookup_original_shader(mCurrentVertexShaderHandle);
+						if (original != G->mOriginalShaders.end())
+							data.oldVertexShader = SwitchVSShader((ID3D11VertexShader*)original->second);
+					}
 				}
 			}
 		}
@@ -1588,6 +1648,7 @@ STDMETHODIMP_(void) HackerContext::IASetPrimitiveTopology(THIS_
 	/* [annotation] */
 	__in D3D11_PRIMITIVE_TOPOLOGY Topology)
 {
+	mCurrentPrimitiveTopology = Topology;
 	 mOrigContext1->IASetPrimitiveTopology(Topology);
 }
 
@@ -2380,7 +2441,9 @@ STDMETHODIMP_(void) HackerContext::SetShader(THIS_
 			// Replacement map.
 			if (G->marking_mode == MarkingMode::ORIGINAL || !G->fix_enabled) {
 				ShaderReplacementMap::iterator j = lookup_original_shader(pShader);
-				if ((selectedShader == *currentShaderHash || !G->fix_enabled) && j != G->mOriginalShaders.end()) {
+				if ((((!AdvancedHuntingConfigured() || !AdvancedHuntingActive()) &&
+					selectedShader == *currentShaderHash) || !G->fix_enabled) &&
+					j != G->mOriginalShaders.end()) {
 					repl_shader = (ID3D11Shader*)j->second;
 				}
 			}
@@ -3037,6 +3100,63 @@ void HackerContext::SetShaderResources(UINT StartSlot, UINT NumViews,
 	}
 }
 
+void HackerContext::UpdateAdvancedHuntingPixelShaderResources(UINT StartSlot, UINT NumViews,
+		ID3D11ShaderResourceView *const *ppShaderResourceViews)
+{
+	if (!AdvancedHuntingConfigured() || StartSlot >= D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT)
+		return;
+
+	UINT end_slot = StartSlot + min(NumViews,
+		(UINT)D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT - StartSlot);
+	for (UINT slot = StartSlot; slot < end_slot; ++slot) {
+		uint32_t hash = 0;
+		UINT source = slot - StartSlot;
+
+		if (ppShaderResourceViews && ppShaderResourceViews[source]) {
+			ID3D11Resource *resource = NULL;
+			ppShaderResourceViews[source]->GetResource(&resource);
+			if (resource) {
+				hash = GetResourceHash(resource);
+				resource->Release();
+			}
+		}
+
+		// IniParams is an injected implementation resource, not game draw context.
+		if ((int)slot == G->IniParamsReg)
+			hash = 0;
+		mCurrentPixelShaderResources[slot] = hash;
+	}
+}
+
+void HackerContext::UpdateAdvancedHuntingRenderTargets(UINT NumViews,
+		ID3D11RenderTargetView *const *ppRenderTargetViews,
+		ID3D11DepthStencilView *pDepthStencilView)
+{
+	memset(mCurrentRenderTargetHashes, 0, sizeof(mCurrentRenderTargetHashes));
+	UINT view_count = min(NumViews, (UINT)D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT);
+	for (UINT slot = 0; slot < view_count; ++slot) {
+		if (!ppRenderTargetViews || !ppRenderTargetViews[slot])
+			continue;
+
+		ID3D11Resource *resource = NULL;
+		ppRenderTargetViews[slot]->GetResource(&resource);
+		if (resource) {
+			mCurrentRenderTargetHashes[slot] = GetResourceHash(resource);
+			resource->Release();
+		}
+	}
+
+	mCurrentDepthTargetHash = 0;
+	if (pDepthStencilView) {
+		ID3D11Resource *resource = NULL;
+		pDepthStencilView->GetResource(&resource);
+		if (resource) {
+			mCurrentDepthTargetHash = GetResourceHash(resource);
+			resource->Release();
+		}
+	}
+}
+
 // The rest of these methods are all the primary code for the tool, Direct3D calls that we override
 // in order to replace or modify shaders.
 
@@ -3063,6 +3183,8 @@ STDMETHODIMP_(void) HackerContext::PSSetShaderResources(THIS_
 	/* [annotation] */
 	__in_ecount(NumViews) ID3D11ShaderResourceView *const *ppShaderResourceViews)
 {
+	if (G->advanced_hunting_enabled)
+		UpdateAdvancedHuntingPixelShaderResources(StartSlot, NumViews, ppShaderResourceViews);
 	SetShaderResources<&ID3D11DeviceContext::PSSetShaderResources>(StartSlot, NumViews, ppShaderResourceViews);
 }
 
@@ -3217,6 +3339,8 @@ STDMETHODIMP_(void) HackerContext::OMSetRenderTargets(THIS_
 	__in_opt ID3D11DepthStencilView *pDepthStencilView)
 {
 	Profiling::State profiling_state;
+	if (G->advanced_hunting_enabled)
+		UpdateAdvancedHuntingRenderTargets(NumViews, ppRenderTargetViews, pDepthStencilView);
 
 	if (G->hunting == HUNTING_MODE_ENABLED) {
 		EnterCriticalSectionPretty(&G->mCriticalSection);
@@ -3264,6 +3388,8 @@ STDMETHODIMP_(void) HackerContext::OMSetRenderTargetsAndUnorderedAccessViews(THI
 	__in_ecount_opt(NumUAVs)  const UINT *pUAVInitialCounts)
 {
 	Profiling::State profiling_state;
+	if (G->advanced_hunting_enabled && NumRTVs != D3D11_KEEP_RENDER_TARGETS_AND_DEPTH_STENCIL)
+		UpdateAdvancedHuntingRenderTargets(NumRTVs, ppRenderTargetViews, pDepthStencilView);
 
 	if (G->hunting == HUNTING_MODE_ENABLED) {
 		EnterCriticalSectionPretty(&G->mCriticalSection);
