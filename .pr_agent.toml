@@ -1,0 +1,20 @@
+[github_app]
+feedback_on_draft_pr = true
+
+[pr_reviewer]
+extra_instructions = """
+This repository is a specialized 2D-focused derivative of 3Dmigoto for
+Elite Dangerous and EDHM.
+
+Prioritize:
+- DLL initialization and proxy-forwarding regressions
+- DirectX and COM resource lifecycle errors
+- Shader-loading and hash-matching regressions
+- Windows, Wine, Proton, symlink, and Flatpak compatibility
+- Fail-open behavior when optional ShaderFixes files are inaccessible
+
+Do not recommend restoring stereoscopic or full 3Dmigoto functionality unless
+the pull request explicitly intends to do so.
+
+Avoid generic style comments unless they affect correctness or maintainability.
+"""
