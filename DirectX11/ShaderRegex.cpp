@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <new>
 
 ShaderRegexGroups shader_regex_groups;
 std::vector<ShaderRegexGroup*> shader_regex_group_index;
@@ -483,10 +484,11 @@ ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type
 	ShaderRegexGroup *group;
 	wchar_t path[MAX_PATH];
 	uint32_t *match_ids;
-	DWORD size, size2;
+	DWORD size = 0, size2;
 	byte *buf = NULL;
 	size_t suffix;
 	uint32_t i;
+	vector<byte> patched_bytecode;
 
 	suffix = swprintf_s(path, MAX_PATH, L"%ls\\%016llx-%ls_regex.", G->SHADER_CACHE_PATH, hash, shader_type);
 	wcscpy_s(path+suffix, MAX_PATH-suffix, L"dat");
@@ -494,11 +496,13 @@ ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type
 	if (meta_f == INVALID_HANDLE_VALUE)
 		return ret;
 
-	size = GetFileSize(meta_f, 0);
-	if (size < sizeof(ShaderRegexCacheHeader))
+	if (!get_file_size_with_limit(meta_f, MAX_SHADER_FILE_SIZE, &size) ||
+			size < sizeof(ShaderRegexCacheHeader))
 		goto out;
 
-	buf = new byte[size];
+	buf = new (std::nothrow) byte[size];
+	if (!buf)
+		goto out;
 
 	if (!ReadFile(meta_f, buf, size, &size2, NULL) || size != size2)
 		goto out;
@@ -530,14 +534,6 @@ ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type
 		// groups without having to do an expensive lookup by name:
 		if (match_ids[i] >= shader_regex_group_index.size())
 			goto out;
-		group = shader_regex_group_index[match_ids[i]];
-
-		LogInfo("ShaderRegexCache: %S %016I64x matches [%S]\n", shader_type, hash, group->ini_section.c_str());
-
-		if (header->patched && tagline)
-			tagline->append(std::wstring(L"[") + group->ini_section + std::wstring(L"]"));
-
-		group->link_command_lists_and_filter_index(hash);
 	}
 
 	if (header->patched) {
@@ -545,13 +541,34 @@ ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type
 		bin_f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 		if (bin_f == INVALID_HANDLE_VALUE)
 			goto out;
-		size = GetFileSize(bin_f, 0);
-		bytecode->resize(size);
-		if (!size || !ReadFile(bin_f, bytecode->data(), size, &size2, NULL) || size != size2)
+		if (!get_file_size_with_limit(bin_f, MAX_SHADER_FILE_SIZE, &size))
 			goto out;
+		try {
+			patched_bytecode.resize(size);
+		} catch (const std::bad_alloc&) {
+			goto out;
+		}
+		if (!ReadFile(bin_f, patched_bytecode.data(), size, &size2, NULL) || size != size2)
+			goto out;
+	}
+
+	// Apply cache side effects only after every ID and the optional patched
+	// bytecode file have been validated. A corrupt cache must not partially
+	// link command lists or overwrite the caller's original bytecode.
+	for (i = 0; i < header->num_matches; i++) {
+		group = shader_regex_group_index[match_ids[i]];
+		LogInfo("ShaderRegexCache: %S %016I64x matches [%S]\n", shader_type, hash, group->ini_section.c_str());
+		if (header->patched && tagline)
+			tagline->append(std::wstring(L"[") + group->ini_section + std::wstring(L"]"));
+		group->link_command_lists_and_filter_index(hash);
+	}
+
+	if (header->patched) {
+		bytecode->swap(patched_bytecode);
 		ret = ShaderRegexCache::PATCH;
-	} else
+	} else {
 		ret = ShaderRegexCache::MATCH;
+	}
 
 out:
 	if (buf)
@@ -665,29 +682,34 @@ bool get_shader_model_from_bytecode(const void* data, size_t size, std::string* 
 	memcpy(&totalSize, ptr, 4); ptr += 4;
 	memcpy(&numChunks, ptr, 4); ptr += 4;
 
-	if (numChunks == 0)
+	if (one != 1 || numChunks == 0 || totalSize < 32 || totalSize > size)
 		return false;
 
 	// Validate chunk table bounds
-	if (ptr + numChunks * sizeof(uint32_t) > buffer + size)
+	if (numChunks > (totalSize - 32) / sizeof(uint32_t))
 		return false;
-
-	const uint32_t* chunkOffsets = reinterpret_cast<const uint32_t*>(ptr);
+	uint64_t chunkTableEnd = 32 + (uint64_t)numChunks * sizeof(uint32_t);
 
 	// Iterate chunks backwards (same as disassembler)
-	for (int32_t i = (int32_t)numChunks - 1; i >= 0; --i)
+	for (uint32_t i = numChunks; i-- > 0;)
 	{
-		uint32_t offset = chunkOffsets[i];
+		uint32_t offset;
+		memcpy(&offset, ptr + i * sizeof(uint32_t), sizeof(offset));
 
 		// 64-bit arithmetic: a 32-bit offset + 12 can wrap to a small
 		// value and pass the check with a ~4GB out-of-bounds read:
-		if ((uint64_t)offset + 12 > size)
+		if (offset < chunkTableEnd || (offset & 3) || (uint64_t)offset + 12 > totalSize)
 			continue;
 
 		const uint8_t* chunk = buffer + offset;
 
 		// Look for shader code chunk
 		if (memcmp(chunk, "SHEX", 4) != 0 && memcmp(chunk, "SHDR", 4) != 0)
+			continue;
+
+		uint32_t chunkSize;
+		memcpy(&chunkSize, chunk + 4, 4);
+		if (chunkSize < 4 || (uint64_t)offset + 8 + chunkSize > totalSize)
 			continue;
 
 		// Version token is at +8
@@ -698,7 +720,7 @@ bool get_shader_model_from_bytecode(const void* data, size_t size, std::string* 
 		uint32_t major = (versionToken >> 4) & 0xF;
 		uint32_t minor = (versionToken >> 0) & 0xF;
 
-		const char* prefix = "xx";
+		const char* prefix;
 		switch (type)
 		{
 			case 0: prefix = "ps"; break;
@@ -707,6 +729,7 @@ bool get_shader_model_from_bytecode(const void* data, size_t size, std::string* 
 			case 3: prefix = "hs"; break;
 			case 4: prefix = "ds"; break;
 			case 5: prefix = "cs"; break;
+			default: return false;
 		}
 
 		char buf[16];

@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "DxbcContainer.h"
 #include "float.h"
 
 #if MIGOTO_DX == 9
@@ -6,6 +7,7 @@
 #endif
 
 #include <stdexcept>
+#include <limits>
 
 using namespace std;
 
@@ -2892,76 +2894,6 @@ HRESULT disassemblerDX9(vector<byte> *buffer, vector<byte> *ret, const char *com
 }
 #endif
 
-// Minimal validated DXBC container reader, used by both the disassembler
-// and assembler below. Local shader binaries (cached shaders, regex cache
-// blobs) are mutable on-disk input, so the container structure must be
-// proven before any offset is used: minimum header size, declared file
-// size, chunk table bounds, every chunk offset, every chunk header/length,
-// and the presence of a usable SHEX/SHDR code chunk. All arithmetic is
-// done in 64-bit so it cannot wrap. Matches the historical behaviour of
-// selecting the last SHEX/SHDR chunk when several are present.
-static bool find_dxbc_code_chunk(const void *data, size_t size,
-		DWORD *out_num_chunks, DWORD *out_code_chunk_index,
-		DWORD *out_code_chunk_offset, DWORD *out_code_chunk_size,
-		byte **out_code_start)
-{
-	if (!data || size < 32)
-		return false;
-
-	const byte *base = static_cast<const byte*>(data);
-	DWORD file_size, num_chunks;
-	memcpy(&file_size, base + 24, 4);
-	memcpy(&num_chunks, base + 28, 4);
-
-	// The declared file size must fit within the buffer we were actually
-	// given - a truncated cache file must not trick us into reading past
-	// its real end:
-	if (!num_chunks || file_size < 32 || file_size > size)
-		return false;
-
-	// The chunk offset table must fit in the file (64-bit multiplication):
-	uint64_t chunk_table_end = 32 + (uint64_t)num_chunks * 4;
-	if (chunk_table_end > file_size)
-		return false;
-
-	vector<DWORD> chunk_offsets(num_chunks);
-	memcpy(chunk_offsets.data(), base + 32, (size_t)num_chunks * 4);
-
-	// Validate every chunk offset and every chunk header/length up front:
-	for (DWORD i = 0; i < num_chunks; i++) {
-		DWORD chunk_offset = chunk_offsets[i];
-		if (chunk_offset < chunk_table_end || (uint64_t)chunk_offset + 8 > file_size)
-			return false;
-
-		DWORD chunk_size;
-		memcpy(&chunk_size, base + chunk_offset + 4, 4);
-		if ((uint64_t)chunk_offset + 8 + chunk_size > file_size)
-			return false;
-	}
-
-	// Walk backwards, selecting the last SHEX/SHDR chunk:
-	for (DWORD i = num_chunks; i-- > 0; ) {
-		DWORD chunk_offset = chunk_offsets[i];
-		const byte *chunk = base + chunk_offset;
-		if (memcmp(chunk, "SHEX", 4) && memcmp(chunk, "SHDR", 4))
-			continue;
-
-		DWORD chunk_size;
-		memcpy(&chunk_size, chunk + 4, 4);
-
-		if (out_num_chunks) *out_num_chunks = num_chunks;
-		if (out_code_chunk_index) *out_code_chunk_index = i;
-		if (out_code_chunk_offset) *out_code_chunk_offset = chunk_offset;
-		if (out_code_chunk_size) *out_code_chunk_size = chunk_size;
-		if (out_code_start) *out_code_start = const_cast<byte*>(chunk);
-		return true;
-	}
-
-	// No usable code chunk - a controlled parse failure, never a garbage
-	// pointer dereference:
-	return false;
-}
-
 HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *comment,
 		int hexdump, bool d3dcompiler_46_compat,
 		bool disassemble_undecipherable_data,
@@ -2973,14 +2905,14 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 	// proving the buffer was large enough, and used a garbage codeByteStart
 	// when no SHEX/SHDR chunk was found (FIXME, C4701/C4703 at the two use
 	// sites). Bail out with a controlled failure instead:
-	DWORD numChunks = 0;
-	DWORD codeChunk = 0;
-	DWORD codeChunkOffset = 0;
-	DWORD codeChunkSize = 0;
-	byte* codeByteStart = NULL;
-	if (!find_dxbc_code_chunk(buffer->data(), buffer->size(), &numChunks,
-			&codeChunk, &codeChunkOffset, &codeChunkSize, &codeByteStart))
+	DxbcCodeChunkInfo code_chunk;
+	if (!FindDxbcCodeChunk(buffer->data(), buffer->size(), &code_chunk))
 		return S_FALSE;
+	DWORD numChunks = code_chunk.num_chunks;
+	DWORD codeChunk = code_chunk.code_chunk_index;
+	DWORD codeChunkOffset = code_chunk.code_chunk_offset;
+	DWORD codeChunkSize = code_chunk.code_chunk_size;
+	byte* codeByteStart = const_cast<byte*>(code_chunk.code_chunk);
 
 	char* asmBuffer;
 	size_t asmSize;
@@ -3001,8 +2933,13 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 
 	vector<string> lines = stringToLines(asmBuffer, asmSize);
 	DWORD* codeStart = (DWORD*)(codeByteStart + 8);
+	DWORD* codeEnd = (DWORD*)(codeByteStart + 8 + codeChunkSize);
+	auto code_words_available = [codeEnd](DWORD *pos, size_t count) {
+		return pos <= codeEnd && count <= (size_t)(codeEnd - pos);
+	};
 	bool codeStarted = false;
 	bool multiLine = false;
+	bool malformed = false;
 	int multiLines = 0;
 	string s2;
 	vector<DWORD> o;
@@ -3010,7 +2947,7 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 		uint32_t line_byte_offset = (uint32_t)((byte*)codeStart - buffer->data());
 		string s = lines[i];
 
-		if (!memcmp(s.c_str(), "//", 2)) {
+		if (s.compare(0, 2, "//") == 0) {
 			if (d3dcompiler_46_compat)
 				patch_d3dcompiler_47_rdef(&lines[i], &rdef_state);
 			if (patch_cb_offsets)
@@ -3021,6 +2958,10 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 		vector<DWORD> v;
 		if (!codeStarted) {
 			if (s.size() > 0 && s[0] != ' ') {
+				if (!code_words_available(codeStart, 2)) {
+					malformed = true;
+					break;
+				}
 				codeStarted = true;
 				v.push_back(*codeStart);
 				codeStart += 2;
@@ -3037,18 +2978,23 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 			s = s2;
 			multiLine = false;
 			multiLines++;
-			shader_ins* ins = (shader_ins*)codeStart;
-			v.push_back(*codeStart);
-			codeStart++;
-			DWORD length = *codeStart;
-			v.push_back(*codeStart);
-			codeStart++;
-			for (DWORD j = 2; j < length; j++) {
-				v.push_back(*codeStart);
-				codeStart++;
+			if (!code_words_available(codeStart, 2)) {
+				malformed = true;
+				break;
 			}
+			DWORD length = codeStart[1];
+			if (length < 2 || !code_words_available(codeStart, length)) {
+				malformed = true;
+				break;
+			}
+			v.insert(v.end(), codeStart, codeStart + length);
+			codeStart += length;
 			s = assembleAndCompare(s, v);
 			auto sLines = stringToLines(s.c_str(), s.size());
+			if (sLines.size() > (size_t)i + 1) {
+				malformed = true;
+				break;
+			}
 			size_t startLine = i - sLines.size() + 1;
 			for (size_t j = 0; j < sLines.size(); j++) {
 				lines[startLine + j] = sLines[j];
@@ -3059,14 +3005,21 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 			s2.append(s);
 			multiLines++;
 		} else if (s.size() > 0) {
-			shader_ins* ins = (shader_ins*)codeStart;
-			v.push_back(*codeStart);
-			codeStart++;
-
-			for (DWORD j = 1; j < ins->length; j++) {
-				v.push_back(*codeStart);
-				codeStart++;
+			if (!code_words_available(codeStart, 1)) {
+				malformed = true;
+				break;
 			}
+			shader_ins* ins = (shader_ins*)codeStart;
+			DWORD instruction_length = ins->length;
+			if (!instruction_length &&
+					(s == "undecipherable custom data" || *codeStart == 0x00002035))
+				instruction_length = 1;
+			if (!instruction_length || !code_words_available(codeStart, instruction_length)) {
+				malformed = true;
+				break;
+			}
+			v.insert(v.end(), codeStart, codeStart + instruction_length);
+			codeStart += instruction_length;
 			if (s == "undecipherable custom data") {
 				// Changed this to use the instruction length
 				// in the next word like the below printf
@@ -3074,10 +3027,17 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 				// to have some bits zeroed. Removed the case
 				// to skip processing custom data immediately
 				// following a ret. -DarkStarSword
+				if (!code_words_available(codeStart, 1)) {
+					malformed = true;
+					break;
+				}
 				uint32_t len = *codeStart;
-				v.push_back(*codeStart++);
-				for (uint32_t j = 1; j < len - 1; j++)
-					v.push_back(*codeStart++);
+				if (len < 2 || !code_words_available(codeStart, len - 1)) {
+					malformed = true;
+					break;
+				}
+				v.insert(v.end(), codeStart, codeStart + len - 1);
+				codeStart += len - 1;
 				if (disassemble_undecipherable_data)
 					encode_custom_data(s, v);
 				else
@@ -3085,10 +3045,17 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 			} else if (v[0] == 0x00002035) {
 				// Opcode 0x35 is custom data (specifically printf/errorf).
 				// Instruction length is in the next word instead:
+				if (!code_words_available(codeStart, 1)) {
+					malformed = true;
+					break;
+				}
 				uint32_t len = *codeStart;
-				v.push_back(*(codeStart)++);
-				for (uint32_t j = 1; j < len - 1; j++)
-					v.push_back(*(codeStart)++);
+				if (len < 2 || !code_words_available(codeStart, len - 1)) {
+					malformed = true;
+					break;
+				}
+				v.insert(v.end(), codeStart, codeStart + len - 1);
+				codeStart += len - 1;
 				s = assembleAndCompare(s, v);
 			} else {
 				s = assembleAndCompare(s, v);
@@ -3098,6 +3065,10 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 
 		if (hexdump && !multiLine)
 			hexdump_instruction(s, v, lines, &i, &multiLines, line_byte_offset, hexdump);
+	}
+	if (malformed) {
+		pDissassembly->Release();
+		return S_FALSE;
 	}
 	ret->clear();
 	for (size_t i = 0; i < lines.size(); i++) {
@@ -3272,19 +3243,20 @@ static vector<DWORD> ComputeHash(byte const* input, DWORD size)
 // origByteCode is modified in this function, so passing it by value!
 // asmFile is not modified, so passing it by pointer -DarkStarSword
 vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode,
-		vector<AssemblerParseError> *parse_errors)
+		vector<AssemblerParseError> *parse_errors, bool allow_empty_code_chunk)
 {
 	// Validate the DXBC container before trusting any of its offsets (the
 	// old code had the same unchecked header parse and garbage codeByteStart
 	// FIXME as the disassembler):
-	DWORD numChunks = 0;
-	DWORD codeChunk = 0;
-	DWORD codeChunkOffset = 0;
-	DWORD codeChunkSize = 0;
-	byte* codeByteStart = NULL;
-	if (!find_dxbc_code_chunk(origBytecode.data(), origBytecode.size(), &numChunks,
-			&codeChunk, &codeChunkOffset, &codeChunkSize, &codeByteStart))
+	DxbcCodeChunkInfo code_chunk;
+	if (!FindDxbcCodeChunk(origBytecode.data(), origBytecode.size(), &code_chunk,
+			allow_empty_code_chunk))
 		throw std::invalid_argument("assembler: Bad shader binary");
+	DWORD numChunks = code_chunk.num_chunks;
+	DWORD codeChunk = code_chunk.code_chunk_index;
+	DWORD codeChunkOffset = code_chunk.code_chunk_offset;
+	DWORD codeChunkSize = code_chunk.code_chunk_size;
+	byte* codeByteStart = const_cast<byte*>(code_chunk.code_chunk);
 
 	char* asmBuffer;
 	size_t asmSize;
@@ -3350,7 +3322,9 @@ vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode,
 	auto it = origBytecode.begin() + codeChunkOffset + 8;
 	size_t codeSize = codeChunkSize;
 	origBytecode.erase(it, it + codeSize);
-	size_t newCodeSize = 4 * o.size();
+	if (o.size() < 2 || o.size() > (std::numeric_limits<DWORD>::max)() / sizeof(DWORD))
+		throw std::invalid_argument("assembler: Invalid shader code size");
+	size_t newCodeSize = sizeof(DWORD) * o.size();
 	codeStart[1] = (DWORD)newCodeSize;
 	vector<byte> newCode(newCodeSize);
 	o[1] = (DWORD)o.size();

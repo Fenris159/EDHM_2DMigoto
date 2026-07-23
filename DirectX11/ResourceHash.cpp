@@ -1351,6 +1351,11 @@ ULONG STDMETHODCALLTYPE ResourceReleaseTracker::Release(void)
 		EnterCriticalSectionPretty(&G->mResourcesLock);
 		G->mResources.erase(resource);
 		LeaveCriticalSection(&G->mResourcesLock);
+		// A resource pointer can be reused within the same frame. Clear L3 so
+		// the new resource cannot inherit a hash keyed by the old identity.
+		// Keep the default path free of an extra lock on every resource release.
+		if (G->track_region_hashes)
+			ClearRegionHashesGlobalCache();
 		delete this;
 	}
 	return ret;
@@ -1848,8 +1853,10 @@ void RegionHashesCache::Initialize(size_t buffer_size)
 		//LogInfo("RegionHashesCache::Initialize buffer_size=%d \n", buffer_size);
 		size_t num_pages = buffer_size / PAGE_SIZE + !!(buffer_size % PAGE_SIZE);
 		size_t num_blocks = num_pages / PAGES_PER_VERSION_BLOCK + !!(num_pages % PAGES_PER_VERSION_BLOCK);
-		page_versions.assign(num_pages, 0);
-		block_versions.assign(num_blocks, 0);
+		std::vector<uint64_t> new_page_versions(num_pages, 0);
+		std::vector<uint64_t> new_block_versions(num_blocks, 0);
+		page_versions.swap(new_page_versions);
+		block_versions.swap(new_block_versions);
 		next_version = 0;
 		data_size = buffer_size;
 		if (cache)
@@ -1992,18 +1999,26 @@ void RegionHashesCache::Clear()
 
 // Initializes CPU-side snapshot buffer.
 // This buffer allows hashing without repeated GPU Map() calls.
-void ResourceHandleInfo::InitializeDataCache(size_t size, size_t offset)
+bool ResourceHandleInfo::InitializeDataCache(size_t size, size_t offset)
 {
 	//LogInfo("InitializeDataCache size=%d\n", size);
+	try {
+		if (!region_hashes_cache) {
+			std::unique_ptr<RegionHashesCache> new_cache = std::make_unique<RegionHashesCache>();
+			new_cache->Initialize(size);
+			region_hashes_cache = std::move(new_cache);
+		} else {
+			region_hashes_cache->Initialize(size);
+		}
+	} catch (const std::exception&) {
+		LogInfo("InitializeDataCache failed to allocate metadata for %zu bytes\n", size);
+		return false;
+	}
+
 	cached_data.reset();
 	cached_data_offset = offset;
 	cached_data_size = size;
-
-	// Initialize region hashes cache.
-	if (!region_hashes_cache)
-		region_hashes_cache = std::make_unique<RegionHashesCache>();
-	// Initialize region cache for this buffer size.
-	region_hashes_cache->Initialize(size);
+	return true;
 }
 
 // Copies the supplied bytes into an independently owned CPU snapshot.
@@ -2013,19 +2028,54 @@ void ResourceHandleInfo::InitializeDataCache(size_t size, size_t offset)
 // until this function returns. We must never adopt or free such a pointer:
 // mapped memory belongs to the runtime, is only valid until Unmap, and was
 // never allocated with malloc.
-void ResourceHandleInfo::SetDataCache(const void* src, size_t size)
+bool ResourceHandleInfo::CopyDataCache(const void* src, size_t size)
 {
 	if (!src || !size)
-		return;
+		return false;
 
-	InitializeDataCache(size);
+	std::shared_ptr<uint8_t[]> snapshot;
+	try {
+		snapshot = std::shared_ptr<uint8_t[]>(new uint8_t[size]);
+	} catch (const std::bad_alloc&) {
+		LogInfo("CopyDataCache failed to allocate %zu bytes\n", size);
+		return false;
+	}
 
 	// Own an independent copy of the data so it stays valid after Unmap.
-	cached_data = std::shared_ptr<uint8_t[]>(new uint8_t[size]);
-	memcpy(cached_data.get(), src, size);
+	memcpy(snapshot.get(), src, size);
+	if (!InitializeDataCache(size))
+		return false;
+	cached_data = std::move(snapshot);
 
 	//cached_data_hash = crc32c_hw(0, GetCachedData(), size);
-	//LogInfo("SetDataCache size=%d, data_hash=%08lx\n", size, cached_data_hash);
+	//LogInfo("CopyDataCache size=%d, data_hash=%08lx\n", size, cached_data_hash);
+	return true;
+}
+
+// Takes ownership of memory allocated with malloc(). The caller must not use
+// or free src after calling this function, regardless of the return value.
+bool ResourceHandleInfo::AdoptDataCache(void* src, size_t size)
+{
+	if (!src)
+		return false;
+	if (!size) {
+		free(src);
+		return false;
+	}
+
+	std::shared_ptr<uint8_t[]> adopted;
+	try {
+		adopted = std::shared_ptr<uint8_t[]>(static_cast<uint8_t*>(src), free);
+	} catch (const std::bad_alloc&) {
+		// The shared_ptr constructor invokes its supplied deleter on failure.
+		LogInfo("AdoptDataCache failed to track %zu bytes\n", size);
+		return false;
+	}
+
+	if (!InitializeDataCache(size))
+		return false;
+	cached_data = std::move(adopted);
+	return true;
 }
 
 void ResourceHandleInfo::SetDataCacheRegion(const void* src, size_t region_size, UINT offset)
@@ -2046,10 +2096,9 @@ void ResourceHandleInfo::SetDataCacheRegion(const void* src, size_t region_size,
 
 	//LogInfo("SetDataCacheRegion: offset=%d, region_size=%d!\n", offset, region_size);
 
-	// Recreate cache if it was invalidated but size is still known.
 	if (!cached_data) {
-		cached_data = std::shared_ptr<uint8_t[]>(new uint8_t[cached_data_size]);
-		cached_data_offset = 0;
+		LogInfo("SetDataCacheRegion Failed (no complete destination snapshot)\n");
+		return;
 	}
 		
 	// Update only the affected region.
@@ -2169,7 +2218,7 @@ static bool CacheBufferData(ID3D11DeviceContext* context, ID3D11Buffer* buffer, 
 	// Store a CPU copy of the entire buffer so region hashes can be
 	// computed without re-mapping the resource multiple times.
 	EnterCriticalSectionPretty(&G->mCriticalSection);
-	handle_info->SetDataCache(mapped.pData, desc.ByteWidth);
+	bool cached = handle_info->CopyDataCache(mapped.pData, desc.ByteWidth);
 	LeaveCriticalSection(&G->mCriticalSection);
 
 	context->Unmap(staging, 0);
@@ -2179,7 +2228,7 @@ static bool CacheBufferData(ID3D11DeviceContext* context, ID3D11Buffer* buffer, 
 	//handle_info->cached_data_hash = crc32c_hw(0, handle_info->cached_data, handle_info->cached_data_size);
 	//LogInfo("Fallback CacheBufferData size=%d, hash=%08lx, data_hash=%08lx, pResource=0x%p\n", desc.ByteWidth, handle_info->hash, handle_info->cached_data_hash, buffer);
 
-	return true;
+	return cached;
 }
 
 // Saturate a 64-bit byte offset/size to UINT. GetRegionHash range-checks the

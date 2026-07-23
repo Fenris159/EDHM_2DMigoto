@@ -21,6 +21,7 @@
 #include "log.h"
 #include "util.h"
 #include "D3D11Wrapper.h"
+#include "ComOutput.h"
 
 
 // This class is for a different approach than the wrapping of the system objects
@@ -343,11 +344,13 @@ static void ForceDisplayParams1(DXGI_SWAP_CHAIN_DESC1 *pDesc, DXGI_SWAP_CHAIN_FU
 
 		if (G->SCREEN_WIDTH >= 0)
 		{
-			LogOverlay(LOG_DIRE, "*** Unimplemented feature to force screen width in CreateSwapChainForHwnd\n");
+			pDesc->Width = G->SCREEN_WIDTH;
+			LogInfo("->Forcing Width to = %d\n", pDesc->Width);
 		}
 		if (G->SCREEN_HEIGHT >= 0)
 		{
-			LogOverlay(LOG_DIRE, "*** Unimplemented feature to force screen height in CreateSwapChainForHwnd\n");
+			pDesc->Height = G->SCREEN_HEIGHT;
+			LogInfo("->Forcing Height to = %d\n", pDesc->Height);
 		}
 	}
 }
@@ -556,13 +559,15 @@ HRESULT __stdcall Hooked_CreateSwapChainForHwnd(
 	/* [annotation][out] */
 	_Out_  IDXGISwapChain1 **ppSwapChain)
 {
-	if (ppSwapChain)
-		*ppSwapChain = NULL;
+	if (!ppSwapChain)
+		return E_POINTER;
+	*ppSwapChain = NULL;
 
 	if (get_tls()->hooking_quirk_protection) {
 		LogInfo("Hooking Quirk: Unexpected call back into IDXGIFactory2::CreateSwapChainForHwnd, passing through\n");
 		// No known cases
-		return fnOrigCreateSwapChainForHwnd(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
+		HRESULT hr = fnOrigCreateSwapChainForHwnd(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
+		return NormalizeComFailureOutput(hr, ppSwapChain);
 	}
 
 	HackerDevice *hackerDevice = NULL;
@@ -596,10 +601,7 @@ HRESULT __stdcall Hooked_CreateSwapChainForHwnd(
 	if (FAILED(hr))
 	{
 		LogInfo("->Failed result %#x\n\n", hr);
-		if (ppSwapChain && *ppSwapChain) {
-			(*ppSwapChain)->Release();
-			*ppSwapChain = NULL;
-		}
+		NormalizeComFailureOutput(hr, ppSwapChain);
 		goto out_release;
 	}
 	if (!ppSwapChain || !*ppSwapChain) {
@@ -645,13 +647,15 @@ HRESULT __stdcall Hooked_CreateSwapChainForCoreWindow(
 	/* [annotation][out] */
 	_COM_Outptr_  IDXGISwapChain1 **ppSwapChain)
 {
-	if (ppSwapChain)
-		*ppSwapChain = NULL;
+	if (!ppSwapChain)
+		return E_POINTER;
+	*ppSwapChain = NULL;
 
 	if (get_tls()->hooking_quirk_protection) {
 		LogInfo("Hooking Quirk: Unexpected call back into IDXGIFactory2::CreateSwapChainForCoreWindow, passing through\n");
 		// No known cases
-		return fnOrigCreateSwapChainForCoreWindow(This, pDevice, pWindow, pDesc, pRestrictToOutput, ppSwapChain);
+		HRESULT hr = fnOrigCreateSwapChainForCoreWindow(This, pDevice, pWindow, pDesc, pRestrictToOutput, ppSwapChain);
+		return NormalizeComFailureOutput(hr, ppSwapChain);
 	}
 
 	HackerDevice *hackerDevice = NULL;
@@ -674,10 +678,7 @@ HRESULT __stdcall Hooked_CreateSwapChainForCoreWindow(
 	if (FAILED(hr))
 	{
 		LogInfo("->Failed result %#x\n\n", hr);
-		if (ppSwapChain && *ppSwapChain) {
-			(*ppSwapChain)->Release();
-			*ppSwapChain = NULL;
-		}
+		NormalizeComFailureOutput(hr, ppSwapChain);
 		goto out_release;
 	}
 	if (!ppSwapChain || !*ppSwapChain) {
@@ -721,13 +722,15 @@ HRESULT __stdcall Hooked_CreateSwapChainForComposition(
 	/* [annotation][out] */
 	_COM_Outptr_  IDXGISwapChain1 **ppSwapChain)
 {
-	if (ppSwapChain)
-		*ppSwapChain = NULL;
+	if (!ppSwapChain)
+		return E_POINTER;
+	*ppSwapChain = NULL;
 
 	if (get_tls()->hooking_quirk_protection) {
 		LogInfo("Hooking Quirk: Unexpected call back into IDXGIFactory2::CreateSwapChainForComposition, passing through\n");
 		// No known cases
-		return fnOrigCreateSwapChainForComposition(This, pDevice, pDesc, pRestrictToOutput, ppSwapChain);
+		HRESULT hr = fnOrigCreateSwapChainForComposition(This, pDevice, pDesc, pRestrictToOutput, ppSwapChain);
+		return NormalizeComFailureOutput(hr, ppSwapChain);
 	}
 
 	HackerDevice *hackerDevice = NULL;
@@ -750,10 +753,7 @@ HRESULT __stdcall Hooked_CreateSwapChainForComposition(
 	if (FAILED(hr))
 	{
 		LogInfo("->Failed result %#x\n\n", hr);
-		if (ppSwapChain && *ppSwapChain) {
-			(*ppSwapChain)->Release();
-			*ppSwapChain = NULL;
-		}
+		NormalizeComFailureOutput(hr, ppSwapChain);
 		goto out_release;
 	}
 	if (!ppSwapChain || !*ppSwapChain) {

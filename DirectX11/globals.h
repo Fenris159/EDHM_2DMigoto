@@ -398,7 +398,6 @@ struct ShaderModelCacheEntry {
 struct Globals
 {
 	bool gInitialized;
-	std::string gDefaultLocale;
 	bool bIntendedTargetExe;
 	bool gReloadConfigPending;
 	bool gConfigInitialized;
@@ -452,6 +451,7 @@ struct Globals
 	time_t huntTime;
 	bool verbose_overlay;
 	bool suppress_overlay;
+	bool advanced_hunting_enabled;
 
 	bool deferred_contexts_enabled;
 
@@ -673,6 +673,7 @@ struct Globals
 		huntTime(0),
 		verbose_overlay(false),
 		suppress_overlay(false),
+		advanced_hunting_enabled(false),
 		gSelectedVertexBufferSlotId(-1),
 		gResetSelectedVertexBufferSlotId(false),
 

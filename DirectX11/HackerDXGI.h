@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <dxgi1_2.h>
 
 #include "HackerDevice.h"
@@ -24,7 +25,10 @@ void InstallSetWindowPosHook();
 class HackerSwapChain : public IDXGISwapChain1
 {
 protected:
+	virtual ~HackerSwapChain();
+
 	IDXGISwapChain1 *mOrigSwapChain1;
+	std::atomic<ULONG> mRefCount;
 	HackerDevice *mHackerDevice;
 	HackerContext *mHackerContext;
 
@@ -185,6 +189,7 @@ public:
 	HRESULT STDMETHODCALLTYPE GetRotation(
 		/* [annotation][out] */
 		_Out_  DXGI_MODE_ROTATION *pRotation);
+
 };
 
 
@@ -193,7 +198,7 @@ public:
 class HackerUpscalingSwapChain : public HackerSwapChain
 {
 private:
-	IDXGISwapChain1 *mFakeSwapChain1;
+	IDXGISwapChain *mFakeSwapChain;
 	ID3D11Texture2D *mFakeBackBuffer;
 
 	UINT mWidth;
@@ -202,7 +207,7 @@ private:
 public:
 	HackerUpscalingSwapChain::HackerUpscalingSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pHackerDevice, HackerContext *pHackerContext,
 		DXGI_SWAP_CHAIN_DESC* pFakeSwapChainDesc, UINT newWidth, UINT newHeight);
-	~HackerUpscalingSwapChain();
+	~HackerUpscalingSwapChain() override;
 
 private:
 	void CreateRenderTarget(DXGI_SWAP_CHAIN_DESC* pFakeSwapChainDesc);

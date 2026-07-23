@@ -19,6 +19,9 @@
 #include "ShaderRegex.h"
 #include "cursor.h"
 #include "WineCompat.h"
+#include "ThreadLocale.h"
+#include "LegacyDecompilerConfig.h"
+#include "utf8.h"
 #include <chrono>
 
 #include "vector"
@@ -744,18 +747,8 @@ static void InsertBuiltInIniSections()
 
 static string to_utf8(const wstring& wstr)
 {
-	if (wstr.empty() || wstr.length() > static_cast<size_t>((std::numeric_limits<int>::max)()))
-		return string();
-
-	int wchar_count = static_cast<int>(wstr.length());
-	int len = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), wchar_count, NULL, 0, NULL, NULL);
-	if (!len)
-		return string();
-
-	string utf8_str(len, 0);
-	if (!WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), wchar_count, &utf8_str[0], len, NULL, NULL))
-		return string();
-
+	string utf8_str;
+	wide_to_utf8(wstr, &utf8_str);
 	return utf8_str;
 }
 
@@ -2451,8 +2444,11 @@ static void ParseShaderOverrideSections()
 		override->backup_filter_index = override->filter_index;
 
 		if (GetIniStringAndLog(id, L"model", 0, setting, MAX_PATH)) {
-			wcstombs(override->model, setting, ARRAYSIZE(override->model));
-			override->model[ARRAYSIZE(override->model) - 1] = '\0';
+			string model;
+			if (wide_to_utf8(setting, wcslen(setting), &model))
+				strncpy_s(override->model, model.c_str(), _TRUNCATE);
+			else
+				IniWarningW(L"Invalid Unicode in model setting\n - [%ls]\n", id);
 		}
 
 		ParseCommandList(id, &override->command_list, &override->post_command_list, ShaderOverrideIniKeys);
@@ -4313,7 +4309,7 @@ void LoadConfigFile()
 
 	G->gInitialized = true;
 
-	setlocale(LC_CTYPE, "en_US.UTF-8");
+	ScopedThreadLocale locale(LC_CTYPE, ".UTF-8");
 
 	if (!GetMigotoDirectory(iniFile, ARRAYSIZE(iniFile)))
 		DoubleBeepExit();
@@ -4605,6 +4601,7 @@ void LoadConfigFile()
 	G->EXPORT_BINARY = GetIniBool(L"Rendering", L"export_binary", false, NULL);
 	G->DumpUsage = GetIniBool(L"Rendering", L"dump_usage", false, NULL);
 
+	G->decompiler_settings = DecompilerSettings();
 	G->IniParamsReg = GetIniInt(L"Rendering", L"ini_params", 120, NULL);
 	G->decompiler_settings.IniParamsReg = G->IniParamsReg;
 	if (G->IniParamsReg >= D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT) {
@@ -4622,21 +4619,15 @@ void LoadConfigFile()
 	G->decompiler_settings.recompileVs = GetIniBool(L"Rendering", L"recompile_all_vs", false, NULL);
 	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_DepthTexture1", 0, setting, MAX_PATH))
 	{
-		char buf[MAX_PATH];
-		wcstombs(buf, setting, MAX_PATH);
-		char *end = RightStripA(buf);
-		G->decompiler_settings.ZRepair_DepthTextureReg1 = *end; *(end - 1) = 0;
-		char *start = buf; while (isspace(*start)) start++;
-		G->decompiler_settings.ZRepair_DepthTexture1 = start;
+		if (!ParseDepthTextureSetting(setting, &G->decompiler_settings.ZRepair_DepthTexture1,
+				&G->decompiler_settings.ZRepair_DepthTextureReg1))
+			IniWarningW(L"Invalid fix_ZRepair_DepthTexture1 setting\n - [%ls]\n", INI_FILENAME);
 	}
 	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_DepthTexture2", 0, setting, MAX_PATH))
 	{
-		char buf[MAX_PATH];
-		wcstombs(buf, setting, MAX_PATH);
-		char *end = RightStripA(buf);
-		G->decompiler_settings.ZRepair_DepthTextureReg2 = *end; *(end - 1) = 0;
-		char *start = buf; while (isspace(*start)) start++;
-		G->decompiler_settings.ZRepair_DepthTexture2 = start;
+		if (!ParseDepthTextureSetting(setting, &G->decompiler_settings.ZRepair_DepthTexture2,
+				&G->decompiler_settings.ZRepair_DepthTextureReg2))
+			IniWarningW(L"Invalid fix_ZRepair_DepthTexture2 setting\n - [%ls]\n", INI_FILENAME);
 	}
 	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_ZPosCalc1", 0, setting, MAX_PATH))
 		G->decompiler_settings.ZRepair_ZPosCalc1 = readStringParameter(setting);
@@ -4648,39 +4639,18 @@ void LoadConfigFile()
 		G->decompiler_settings.ZRepair_WorldPosCalc = readStringParameter(setting);
 	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_Dependencies1", 0, setting, MAX_PATH))
 	{
-		char buf[MAX_PATH];
-		wcstombs(buf, setting, MAX_PATH);
-		char *start = buf; while (isspace(*start)) ++start;
-		while (*start)
-		{
-			char *end = start; while (*end != ',' && *end && *end != ' ') ++end;
-			G->decompiler_settings.ZRepair_Dependencies1.push_back(string(start, end));
-			start = end; if (*start == ',') ++start;
-		}
+		if (!ParseIdentifierList(setting, &G->decompiler_settings.ZRepair_Dependencies1))
+			IniWarningW(L"Invalid fix_ZRepair_Dependencies1 setting\n - [%ls]\n", INI_FILENAME);
 	}
 	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_Dependencies2", 0, setting, MAX_PATH))
 	{
-		char buf[MAX_PATH];
-		wcstombs(buf, setting, MAX_PATH);
-		char *start = buf; while (isspace(*start)) ++start;
-		while (*start)
-		{
-			char *end = start; while (*end != ',' && *end && *end != ' ') ++end;
-			G->decompiler_settings.ZRepair_Dependencies2.push_back(string(start, end));
-			start = end; if (*start == ',') ++start;
-		}
+		if (!ParseIdentifierList(setting, &G->decompiler_settings.ZRepair_Dependencies2))
+			IniWarningW(L"Invalid fix_ZRepair_Dependencies2 setting\n - [%ls]\n", INI_FILENAME);
 	}
 	if (GetIniStringAndLog(L"Rendering", L"fix_InvTransform", 0, setting, MAX_PATH))
 	{
-		char buf[MAX_PATH];
-		wcstombs(buf, setting, MAX_PATH);
-		char *start = buf; while (isspace(*start)) ++start;
-		while (*start)
-		{
-			char *end = start; while (*end != ',' && *end && *end != ' ') ++end;
-			G->decompiler_settings.InvTransforms.push_back(string(start, end));
-			start = end; if (*start == ',') ++start;
-		}
+		if (!ParseIdentifierList(setting, &G->decompiler_settings.InvTransforms))
+			IniWarningW(L"Invalid fix_InvTransform setting\n - [%ls]\n", INI_FILENAME);
 	}
 	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_DepthTextureHash", 0, setting, MAX_PATH))
 	{
@@ -4795,8 +4765,6 @@ void LoadConfigFile()
 	if (G->hide_cursor || G->SCREEN_UPSCALING)
 		InstallMouseHooks(G->hide_cursor);
 
-	setlocale(LC_CTYPE, G->gDefaultLocale.c_str());
-
 	emit_ini_warning_tone();
 }
 
@@ -4861,7 +4829,7 @@ void SavePersistentSettings()
 		return;
 	G->user_config_dirty = 0;
 
-	setlocale(LC_CTYPE, "en_US.UTF-8");
+	ScopedThreadLocale locale(LC_CTYPE, ".UTF-8");
 
 	// TODO: Ability to update existing file rather than overwriting:
 	//wfopen_ensuring_access(&f, G->user_config.c_str(), L"r+");
@@ -4888,7 +4856,6 @@ void SavePersistentSettings()
 
 	fclose(f);
 
-	setlocale(LC_CTYPE, G->gDefaultLocale.c_str());
 }
 
 static void WipeUserConfig()
@@ -4964,7 +4931,7 @@ void ReloadConfig(HackerDevice *device)
 
 	LoadConfigFile();
 
-	setlocale(LC_CTYPE, "en_US.UTF-8");
+	ScopedThreadLocale locale(LC_CTYPE, ".UTF-8");
 
 	optimise_command_lists(device);
 
@@ -4993,8 +4960,6 @@ void ReloadConfig(HackerDevice *device)
 		// HackerContext doesn't exist.
 		LogOverlay(LOG_DIRE, "BUG: No HackerContext at ReloadConfig - please report this\n");
 	}
-
-	setlocale(LC_CTYPE, G->gDefaultLocale.c_str());
 
 	auto stop = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<float> duration = stop - start;

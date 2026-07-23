@@ -14,9 +14,11 @@
 #include "D3D11Wrapper.h"
 #include "Globals.h"
 #include "profiling.h"
+#include "AdvancedHunting.h"
 
 #include "HackerDevice.h"
 #include "HackerContext.h"
+#include "utf8.h"
 
 #include <stdexcept>
 
@@ -727,6 +729,134 @@ void Overlay::DrawShaderInfoLines(float *y)
 		DrawShaderInfoLine("RT", GetOrigResourceHash(G->mSelectedRenderTarget), y, false);
 }
 
+void Overlay::DrawAdvancedHuntingInfo(float *y)
+{
+	AdvancedHuntingOverlayInfo info;
+	wchar_t osdString[maxstring];
+	Vector2 strSize;
+	Vector2 textPosition;
+
+	if (!AdvancedHuntingConfigured() || !GetAdvancedHuntingOverlayInfo(&info))
+		return;
+
+	if (info.selected) {
+		swprintf_s(osdString, maxstring,
+			L"Context %Iu/%Iu [%ls, %ls] matches:%u seen:%u draws/%u frames",
+			info.context_position, info.context_count, AdvancedHuntingScopeName(info.scope),
+			info.capture_locked ? L"LOCKED" : L"LIVE", info.matches_this_frame,
+			info.observations, info.observed_frames);
+	} else {
+		swprintf_s(osdString, maxstring, L"Contexts observed: %Iu [%ls, %ls] no context selected",
+			info.context_count, AdvancedHuntingScopeName(info.scope),
+			info.capture_locked ? L"LOCKED" : L"LIVE");
+	}
+	strSize = mFont->MeasureString(osdString);
+	textPosition = Vector2(max(float(mResolution.x - strSize.x) / 2, 0), *y);
+	*y += strSize.y;
+	DrawOutlinedString(mFont.get(), osdString, textPosition, DirectX::Colors::LimeGreen);
+
+	if (!info.selected)
+		goto limit_warning;
+
+	swprintf_s(osdString, maxstring, L"%ls Topo:%u | V:%u I:%u Inst:%u | FirstV:%u FirstI:%u FirstInst:%u",
+		AdvancedHuntingDrawTypeName(info.context.draw_type), static_cast<UINT>(info.context.topology),
+		info.context.vertex_count, info.context.index_count, info.context.instance_count,
+		info.context.first_vertex, info.context.first_index, info.context.first_instance);
+	strSize = mFont->MeasureString(osdString);
+	textPosition = Vector2(max(float(mResolution.x - strSize.x) / 2, 0), *y);
+	*y += strSize.y;
+	DrawOutlinedString(mFont.get(), osdString, textPosition, DirectX::Colors::LimeGreen);
+
+	if (info.verbose) {
+		wchar_t resources[maxstring];
+		wcscpy_s(resources, maxstring, L"");
+		if (info.context.index_buffer)
+			swprintf_s(resources, maxstring, L"IB:%08x ", info.context.index_buffer);
+		if (info.context.indirect_buffer) {
+			wchar_t resource[48];
+			swprintf_s(resource, ARRAYSIZE(resource), L"Args:%08x@%u ",
+				info.context.indirect_buffer, info.context.indirect_args_offset);
+			wcscat_s(resources, maxstring, resource);
+		}
+
+		unsigned displayed = 0;
+		for (UINT slot = 0; slot < D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT && displayed < 4; ++slot) {
+			if (!info.context.pixel_shader_resources[slot])
+				continue;
+			wchar_t resource[32];
+			swprintf_s(resource, ARRAYSIZE(resource), L"PS-t%u:%08x ", slot,
+				info.context.pixel_shader_resources[slot]);
+			wcscat_s(resources, maxstring, resource);
+			displayed++;
+		}
+		for (UINT slot = 0; slot < D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT && displayed < 6; ++slot) {
+			if (!info.context.vertex_buffers[slot])
+				continue;
+			wchar_t resource[32];
+			swprintf_s(resource, ARRAYSIZE(resource), L"VB%u:%08x ", slot,
+				info.context.vertex_buffers[slot]);
+			wcscat_s(resources, maxstring, resource);
+			displayed++;
+		}
+		if (info.context.render_targets[0]) {
+			wchar_t resource[32];
+			swprintf_s(resource, ARRAYSIZE(resource), L"RT0:%08x", info.context.render_targets[0]);
+			wcscat_s(resources, maxstring, resource);
+		}
+
+		if (resources[0]) {
+			strSize = mFont->MeasureString(resources);
+			textPosition = Vector2(max(float(mResolution.x - strSize.x) / 2, 0), *y);
+			*y += strSize.y;
+			DrawOutlinedString(mFont.get(), resources, textPosition, DirectX::Colors::LimeGreen);
+		}
+	}
+
+	{
+		uint32_t resource_hash = info.context.index_buffer;
+		wchar_t resource_slot[16] = L"IB";
+		if (!resource_hash && info.context.indirect_buffer) {
+			resource_hash = info.context.indirect_buffer;
+			wcscpy_s(resource_slot, ARRAYSIZE(resource_slot), L"ARGS");
+		}
+		if (!resource_hash) {
+			for (UINT slot = 0; slot < D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT; ++slot) {
+				if (info.context.pixel_shader_resources[slot]) {
+					resource_hash = info.context.pixel_shader_resources[slot];
+					swprintf_s(resource_slot, ARRAYSIZE(resource_slot), L"PS-t%u", slot);
+					break;
+				}
+			}
+		}
+
+		if (resource_hash && info.context.index_count) {
+			swprintf_s(osdString, maxstring, L"MATCH: %ls %016llx + %ls %08x + IndexCount %u",
+				AdvancedHuntingStageName(info.shader_stage), info.shader_hash, resource_slot,
+				resource_hash, info.context.index_count);
+		} else if (resource_hash) {
+			swprintf_s(osdString, maxstring, L"MATCH: %ls %016llx + %ls %08x",
+				AdvancedHuntingStageName(info.shader_stage), info.shader_hash, resource_slot,
+				resource_hash);
+		} else {
+			swprintf_s(osdString, maxstring, L"MATCH: %ls %016llx + draw signature %016llx",
+				AdvancedHuntingStageName(info.shader_stage), info.shader_hash, info.fingerprint);
+		}
+		strSize = mFont->MeasureString(osdString);
+		textPosition = Vector2(max(float(mResolution.x - strSize.x) / 2, 0), *y);
+		*y += strSize.y;
+		DrawOutlinedString(mFont.get(), osdString, textPosition, DirectX::Colors::LimeGreen);
+	}
+
+limit_warning:
+	if (info.context_limit_reached) {
+		swprintf_s(osdString, maxstring, L"Context limit reached; lock capture or increase context_max_entries");
+		strSize = mFont->MeasureString(osdString);
+		textPosition = Vector2(max(float(mResolution.x - strSize.x) / 2, 0), *y);
+		*y += strSize.y;
+		DrawOutlinedString(mFont.get(), osdString, textPosition, DirectX::Colors::Goldenrod);
+	}
+}
+
 void Overlay::DrawNotices(float *y)
 {
 	std::vector<OverlayNotice>::iterator notice;
@@ -791,7 +921,12 @@ static void CreateInfoString(wchar_t* info)
 	const wchar_t* marking_mode;
 	marking_mode = lookup_enum_name(MarkingModeNames, G->marking_mode);
 
-	swprintf_s(info, maxstring, L"Shader Hunting Mode (marking: %ls)", marking_mode);
+	AdvancedHuntingOverlayInfo advanced_info;
+	if (AdvancedHuntingConfigured() && GetAdvancedHuntingOverlayInfo(&advanced_info))
+		swprintf_s(info, maxstring, L"Context Hunting Mode (scope: %ls, marking: %ls)",
+			AdvancedHuntingScopeName(advanced_info.scope), marking_mode);
+	else
+		swprintf_s(info, maxstring, L"Shader Hunting Mode (marking: %ls)", marking_mode);
 }
 
 void Overlay::DrawOverlay(void)
@@ -830,6 +965,7 @@ void Overlay::DrawOverlay(void)
 				y += strSize.y;
 
 				DrawShaderInfoLines(&y);
+				DrawAdvancedHuntingInfo(&y);
 
 				// Bottom of screen
 				CreateInfoString(osdString);
@@ -919,7 +1055,6 @@ void LogOverlay(LogLevel level, char *fmt, ...)
 	}
 
 	char amsg[maxstring];
-	wchar_t wmsg[maxstring];
 	va_list ap;
 
 	va_start(ap, fmt);
@@ -931,11 +1066,19 @@ void LogOverlay(LogLevel level, char *fmt, ...)
 		// wrap the message, which DirectXTK doesn't appear to support, who
 		// cares if it gets cut off somewhere off screen anyway?
 		_vsnprintf_s(amsg, maxstring, _TRUNCATE, fmt, ap);
-		mbstowcs(wmsg, amsg, maxstring);
+		std::wstring wmsg;
+		if (!utf8_to_wide(amsg, strlen(amsg), &wmsg)) {
+			int input_length = static_cast<int>(strlen(amsg));
+			int length = MultiByteToWideChar(CP_ACP, 0, amsg, input_length, nullptr, 0);
+			if (length > 0) {
+				wmsg.resize(static_cast<size_t>(length));
+				MultiByteToWideChar(CP_ACP, 0, amsg, input_length, &wmsg[0], length);
+			}
+		}
 
 		EnterCriticalSectionPretty(&notices.lock);
 
-		notices.notices[level].emplace_back(wmsg);
+		notices.notices[level].emplace_back(std::move(wmsg));
 		has_notice = true;
 
 		LeaveCriticalSection(&notices.lock);

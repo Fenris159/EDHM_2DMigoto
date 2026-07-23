@@ -51,9 +51,7 @@ HackerInputLayout* HackerInputLayout::FromLayout(ID3D11InputLayout* layout)
 	return nullptr;
 }
 
-HackerInputLayout::~HackerInputLayout()
-{
-}
+HackerInputLayout::~HackerInputLayout() = default;
 
 ID3D11InputLayout* HackerInputLayout::GetOrigInputLayout() const
 {

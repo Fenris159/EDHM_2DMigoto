@@ -28,6 +28,18 @@ binaries (`*.sha256` files).
 | Deviare-InProcess (`Nektra/`) | 3Dmigoto-bundled snapshot | Nektra (https://github.com/nektra) | GPLv3 | Inherited from 3Dmigoto | Used for LoadLibraryExW / DXGI factory hooks. |
 | BinaryDecompiler / HLSLDecompiler / D3D_Shaders assembler | 3Dmigoto lineage | https://github.com/bo3b/3Dmigoto | GPLv3 | EDHM maintenance changes | Flugan-derived assembler + DXBC handling. |
 
+### Bundled PCRE2 library checksums
+
+The inherited prebuilt PCRE2 libraries are pinned by SHA-256 so future updates
+or unexpected binary drift are reviewable:
+
+| File | SHA-256 |
+|---|---|
+| `pcre2-8-32.lib` | `D6101B4BDA8A398611FC78777AFE74B21257811FD685C70932999AADA75053B6` |
+| `pcre2-8-32d.lib` | `8CA4A8C98296E256D46B3D2972FDE55A9D61ECD63D5C97AEBF5320046B976EB9` |
+| `pcre2-8-64.lib` | `B4B81B30B3C84701C6052BD7CF46278F36900AB987E481388BE7DB5408EE1731` |
+| `pcre2-8-64d.lib` | `C413668AE33345A2F48EFC9B92FDA974340E6986351169F7F4C2440BA588F922` |
+
 ## Microsoft components (not vendored here)
 
 `d3dcompiler_47.dll` packaged with releases is the Microsoft redistributable

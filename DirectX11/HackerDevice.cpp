@@ -19,7 +19,7 @@
 #include <D3Dcompiler.h>
 #include <algorithm>
 #include <cmath>
-#include <codecvt>
+#include <new>
 
 #include "log.h"
 #include "util.h"
@@ -27,6 +27,7 @@
 #include "DecompileHLSL.h"
 #include "HackerContext.h"
 #include "HackerDXGI.h"
+#include "WrappedInterfacePolicy.h"
 
 #include "D3D11Wrapper.h"
 #include "SpriteFont.h"
@@ -542,11 +543,17 @@ static void ExportOrigBinary(UINT64 hash, const wchar_t *pShaderType, const void
 			// Check if same file. Only compare data we actually managed to
 			// read in full - the old code compared uninitialized memory
 			// after a failed or short read.
-			DWORD dataSize = GetFileSize(f, 0);
+			DWORD dataSize = 0;
 			bool read_ok = false;
 			vector<char> buf;
-			if (dataSize && dataSize != INVALID_FILE_SIZE && dataSize <= MAX_SHADER_FILE_SIZE) {
-				buf.resize(dataSize);
+			if (get_file_size_with_limit(f, MAX_SHADER_FILE_SIZE, &dataSize)) {
+				try {
+					buf.resize(dataSize);
+				} catch (const std::bad_alloc&) {
+					LogInfo("  Unable to allocate %u bytes for binary comparison.\n", dataSize);
+					CloseHandle(f);
+					return;
+				}
 				DWORD readSize = 0;
 				read_ok = ReadFile(f, buf.data(), dataSize, &readSize, 0) && dataSize == readSize;
 			}
@@ -648,7 +655,7 @@ static bool LoadCachedShader(wchar_t *binPath, const wchar_t *pShaderType,
 	__out char* &pCode, SIZE_T &pCodeSize, string &pShaderModel, FILETIME &pTimeStamp)
 {
 	HANDLE f;
-	DWORD codeSize, readSize;
+	DWORD codeSize = 0, readSize;
 
 	pCode = NULL;
 	pCodeSize = 0;
@@ -666,12 +673,15 @@ static bool LoadCachedShader(wchar_t *binPath, const wchar_t *pShaderType,
 	LogInfoW(L"    Replacement binary shader found: %s\n", binPath);
 	WarnIfConflictingShaderExists(binPath, end_user_conflicting_shader_msg);
 
-	codeSize = GetFileSize(f, 0);
-	if (!codeSize || codeSize == INVALID_FILE_SIZE || codeSize > MAX_SHADER_FILE_SIZE) {
+	if (!get_file_size_with_limit(f, MAX_SHADER_FILE_SIZE, &codeSize)) {
 		LogInfo("    Invalid binary shader file size: %u\n", codeSize);
 		goto bail_close_handle;
 	}
-	pCode = new char[codeSize];
+	pCode = new (std::nothrow) char[codeSize];
+	if (!pCode) {
+		LogInfo("    Unable to allocate %u bytes for cached shader.\n", codeSize);
+		goto bail_close_handle;
+	}
 	if (!ReadFile(f, pCode, codeSize, &readSize, 0)
 		|| codeSize != readSize)
 	{
@@ -739,13 +749,20 @@ static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
 	// replacement file must never reach the compiler with uninitialized
 	// metadata, and GetFileSize failure (INVALID_FILE_SIZE) must never be
 	// used as an allocation size.
-	DWORD srcDataSize = GetFileSize(f, 0);
-	if (!srcDataSize || srcDataSize == INVALID_FILE_SIZE || srcDataSize > MAX_SHADER_FILE_SIZE) {
+	DWORD srcDataSize = 0;
+	if (!get_file_size_with_limit(f, MAX_SHADER_FILE_SIZE, &srcDataSize)) {
 		LogInfo("    Invalid HLSL replacement file size: %u\n", srcDataSize);
 		CloseHandle(f);
 		return false;
 	}
-	vector<char> srcData(srcDataSize);
+	vector<char> srcData;
+	try {
+		srcData.resize(srcDataSize);
+	} catch (const std::bad_alloc&) {
+		LogInfo("    Unable to allocate %u bytes for HLSL replacement.\n", srcDataSize);
+		CloseHandle(f);
+		return false;
+	}
 	DWORD readSize;
 	FILETIME ftWrite = {};
 	if (!ReadFile(f, srcData.data(), srcDataSize, &readSize, 0)
@@ -757,7 +774,7 @@ static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
 		return false;
 	}
 	CloseHandle(f);
-	LogInfo("    Source code loaded. Size = %d\n", srcDataSize);
+	LogInfo("    Source code loaded. Size = %u\n", srcDataSize);
 
 	// Disassemble old shader to get shader model.
 	shaderModel = GetShaderModel(pShaderBytecode, pBytecodeLength);
@@ -775,13 +792,10 @@ static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
 	// strchr could run past the end of a file with no newline). The UTF-8
 	// conversion can throw on malformed input, which must not propagate
 	// through the game's CreateXXShader call.
-	try {
-		std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf8_to_utf16;
-		vector<char>::iterator newline = find(srcData.begin(), srcData.end(), '\n');
-		pHeaderLine = utf8_to_utf16.from_bytes(srcData.data(),
-				newline == srcData.end() ? srcData.data() + srcData.size() : &*newline);
-	} catch (const std::exception &e) {
-		LogInfo("    invalid UTF-8 in first line of HLSL replacement: %s\n", e.what());
+	vector<char>::iterator newline = find(srcData.begin(), srcData.end(), '\n');
+	size_t header_size = newline == srcData.end() ? srcData.size() : static_cast<size_t>(newline - srcData.begin());
+	if (!utf8_to_wide(srcData.data(), header_size, &pHeaderLine)) {
+		LogInfo("    invalid UTF-8 in first line of HLSL replacement\n");
 		pHeaderLine.clear();
 	}
 
@@ -789,7 +803,7 @@ static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
 	// temporary variable to not modify anything already here and reduce
 	// the risk of breaking it in some subtle way:
 	const char *tmpShaderModel;
-	char apath[MAX_PATH];
+	string apath;
 
 	if (pOverrideShaderModel)
 		tmpShaderModel = pOverrideShaderModel;
@@ -807,20 +821,24 @@ static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
 	// #include will work with a relative path from the shader itself.
 	// Later we could add a custom include handler to track dependencies so
 	// that we can make reloading work better when using includes:
-	size_t apath_len = wcstombs(apath, path, MAX_PATH);
-	if (apath_len == (size_t)-1 || apath_len >= MAX_PATH) {
+	if (!wide_to_utf8(path, wcslen(path), &apath)) {
 		LogInfo("    error converting shader path for the compiler\n");
 		return false;
 	}
-	MigotoIncludeHandler include_handler(apath);
-	HRESULT ret = D3DCompile(srcData.data(), srcDataSize, apath, 0,
+	MigotoIncludeHandler include_handler(apath.c_str());
+	HRESULT ret = D3DCompile(srcData.data(), srcDataSize, apath.c_str(), 0,
 		G->recursive_include == -1 ? D3D_COMPILE_STANDARD_FILE_INCLUDE : &include_handler,
 		"main", tmpShaderModel, D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &compiledOutput, &errorMsgs);
 	if (compiledOutput)
 	{
-		pCodeSize = compiledOutput->GetBufferSize();
-		pCode = new char[pCodeSize];
-		memcpy(pCode, compiledOutput->GetBufferPointer(), pCodeSize);
+		SIZE_T compiledSize = compiledOutput->GetBufferSize();
+		pCode = new (std::nothrow) char[compiledSize];
+		if (pCode) {
+			pCodeSize = compiledSize;
+			memcpy(pCode, compiledOutput->GetBufferPointer(), pCodeSize);
+		} else {
+			LogInfo("    Unable to allocate %Iu bytes for compiled shader.\n", compiledSize);
+		}
 		compiledOutput->Release(); compiledOutput = 0;
 	}
 
@@ -901,13 +919,20 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 		LogInfo("    Replacement ASM shader found. Assembling replacement ASM code.\n");
 		WarnIfConflictingShaderExists(path, end_user_conflicting_shader_msg);
 
-		DWORD srcDataSize = GetFileSize(f, 0);
-		if (!srcDataSize || srcDataSize == INVALID_FILE_SIZE || srcDataSize > MAX_SHADER_FILE_SIZE) {
+		DWORD srcDataSize = 0;
+		if (!get_file_size_with_limit(f, MAX_SHADER_FILE_SIZE, &srcDataSize)) {
 			LogInfo("    Invalid ASM shader file size: %u\n", srcDataSize);
 			CloseHandle(f);
 			return false;
 		}
-		vector<char> asmTextBytes(srcDataSize);
+		vector<char> asmTextBytes;
+		try {
+			asmTextBytes.resize(srcDataSize);
+		} catch (const std::bad_alloc&) {
+			LogInfo("    Unable to allocate %u bytes for ASM replacement.\n", srcDataSize);
+			CloseHandle(f);
+			return false;
+		}
 		DWORD readSize;
 		FILETIME ftWrite = {};
 		if (!ReadFile(f, asmTextBytes.data(), srcDataSize, &readSize, 0)
@@ -918,7 +943,7 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 			return false;
 		}
 		CloseHandle(f);
-		LogInfo("    Asm source code loaded. Size = %d\n", srcDataSize);
+		LogInfo("    Asm source code loaded. Size = %u\n", srcDataSize);
 
 		// Disassemble old shader to get shader model.
 		shaderModel = GetShaderModel(pShaderBytecode, pBytecodeLength);
@@ -934,28 +959,26 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 			// The UTF-8 conversion can throw on malformed input; this runs
 			// on the default EDHM path (ASM replacements) and must never
 			// propagate through the game's CreateXXShader call.
-			try {
-				std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf8_to_utf16;
-				vector<char>::iterator newline = find(asmTextBytes.begin(), asmTextBytes.end(), '\n');
-				pHeaderLine = utf8_to_utf16.from_bytes(asmTextBytes.data(),
-					newline == asmTextBytes.end() ? asmTextBytes.data() + asmTextBytes.size() : &*newline);
-			} catch (const std::exception &e) {
-				LogInfo("    invalid UTF-8 in first line of ASM replacement: %s\n", e.what());
+			vector<char>::iterator newline = find(asmTextBytes.begin(), asmTextBytes.end(), '\n');
+			size_t header_size = newline == asmTextBytes.end() ? asmTextBytes.size() : static_cast<size_t>(newline - asmTextBytes.begin());
+			if (!utf8_to_wide(asmTextBytes.data(), header_size, &pHeaderLine)) {
+				LogInfo("    invalid UTF-8 in first line of ASM replacement\n");
 				pHeaderLine.clear();
 			}
-
-			vector<byte> byteCode(pBytecodeLength);
-			memcpy(byteCode.data(), pShaderBytecode, pBytecodeLength);
 
 			// Re-assemble the ASM text back to binary
 			try
 			{
+				vector<byte> byteCode(pBytecodeLength);
+				memcpy(byteCode.data(), pShaderBytecode, pBytecodeLength);
 				vector<AssemblerParseError> parse_errors;
 				byteCode = AssembleFluganWithOptionalSignatureParsing(&asmTextBytes, G->assemble_signature_comments, &byteCode, &parse_errors);
 
 				// Assuming the re-assembly worked, let's make it the active shader code.
 				pCodeSize = byteCode.size();
-				pCode = new char[pCodeSize];
+				pCode = new (std::nothrow) char[pCodeSize];
+				if (!pCode)
+					throw std::bad_alloc();
 				memcpy(pCode, byteCode.data(), pCodeSize);
 
 				// Cache binary replacement.
@@ -998,6 +1021,10 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 			}
 			catch (const exception &e)
 			{
+				delete[] pCode;
+				pCode = NULL;
+				pCodeSize = 0;
+				LogInfo("    Error assembling %S: %s\n", path, e.what());
 				LogOverlay(LOG_WARNING, "Error assembling %S: %s\n",
 						path, e.what());
 			}
@@ -1101,7 +1128,7 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 	// temporary variable to not modify anything already here and reduce
 	// the risk of breaking it in some subtle way:
 	const char *tmpShaderModel;
-	char apath[MAX_PATH];
+	string apath;
 
 	if (overrideShaderModel)
 		tmpShaderModel = overrideShaderModel;
@@ -1118,13 +1145,13 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 	// but for consistency pass the path here as well so that the standard
 	// include handler can correctly handle includes with paths relative to the
 	// shader itself:
-	if (!WideCharToMultiByte(CP_UTF8, 0, val, -1, apath, MAX_PATH, NULL, NULL)) {
-		LogInfo("    error converting shader path to UTF-8: %lu\n", GetLastError());
+	if (!wide_to_utf8(val, wcslen(val), &apath)) {
+		LogInfo("    error converting shader path to UTF-8\n");
 		if (fw)
 			fclose(fw);
 		return NULL;
 	}
-	hr = D3DCompile(decompiledCode.c_str(), decompiledCode.size(), apath, 0, D3D_COMPILE_STANDARD_FILE_INCLUDE,
+	hr = D3DCompile(decompiledCode.c_str(), decompiledCode.size(), apath.c_str(), 0, D3D_COMPILE_STANDARD_FILE_INCLUDE,
 		"main", tmpShaderModel, D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &pCompiledOutput, &pErrorMsgs);
 	LogInfo("    compile result of fixed HLSL shader: %x\n", hr);
 
@@ -1171,9 +1198,14 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 		// For just caching shaders, we return zero so it won't affect game visuals.
 		if (patched)
 		{
-			pCodeSize = pCompiledOutput->GetBufferSize();
-			pCode = new char[pCodeSize];
-			memcpy(pCode, pCompiledOutput->GetBufferPointer(), pCodeSize);
+			SIZE_T compiledSize = pCompiledOutput->GetBufferSize();
+			pCode = new (std::nothrow) char[compiledSize];
+			if (pCode) {
+				pCodeSize = compiledSize;
+				memcpy(pCode, pCompiledOutput->GetBufferPointer(), pCodeSize);
+			} else {
+				LogInfo("    Unable to allocate %Iu bytes for patched shader.\n", compiledSize);
+			}
 		}
 		pCompiledOutput->Release();
 		pCompiledOutput = NULL;
@@ -1354,7 +1386,7 @@ HRESULT HackerDevice::ReplaceShaderFromShaderFixes(UINT64 hash,
 		(hash, shaderType, *ppShader, pShaderBytecode, BytecodeLength, pClassLinkage);
 
 out_delete:
-	delete replaceShader;
+	delete[] replaceShader;
 	return hr;
 }
 
@@ -1612,13 +1644,22 @@ HRESULT STDMETHODCALLTYPE HackerDevice::QueryInterface(
 {
 	LogDebug("HackerDevice::QueryInterface(%s@%p) called with IID: %s\n", type_name(this), this, NameFromIID(riid).c_str());
 
-	if (ppvObject && IsEqualIID(riid, IID_HackerDevice)) {
+	if (!ppvObject)
+		return E_POINTER;
+	*ppvObject = NULL;
+
+	if (IsEqualIID(riid, IID_HackerDevice) || riid == __uuidof(IUnknown)) {
 		// This is a special case - only 3DMigoto itself should know
 		// this IID, so this is us checking if it has a HackerDevice.
 		// There's no need to call through to DX for this one.
 		AddRef();
 		*ppvObject = this;
 		return S_OK;
+	}
+	if (IsUnsupportedWrappedDeviceInterface(riid)) {
+		LogInfo("  returns E_NOINTERFACE for unsupported wrapped device interface: %s\n",
+			NameFromIID(riid).c_str());
+		return E_NOINTERFACE;
 	}
 
 	HRESULT hr = mOrigDevice1->QueryInterface(riid, ppvObject);
@@ -1703,6 +1744,16 @@ STDMETHODIMP HackerDevice::CreateUnorderedAccessView(THIS_
 		if (dimension != D3D11_RESOURCE_DIMENSION_BUFFER)
 			return mOrigDevice1->CreateUnorderedAccessView(pResource, pDesc, ppUAView);
 
+		D3D11_BUFFER_DESC buffer_desc;
+		static_cast<ID3D11Buffer*>(pResource)->GetDesc(&buffer_desc);
+		UINT element_stride = 0;
+		if (pDesc->Buffer.Flags & D3D11_BUFFER_UAV_FLAG_RAW)
+			element_stride = sizeof(UINT);
+		else if (buffer_desc.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED)
+			element_stride = buffer_desc.StructureByteStride;
+		else
+			element_stride = dxgi_format_size(pDesc->Format);
+
 		TextureOverrideMatches matches;
 
 		find_texture_overrides_for_resource(pResource, &matches, NULL);
@@ -1722,16 +1773,16 @@ STDMETHODIMP HackerDevice::CreateUnorderedAccessView(THIS_
 				}
 			}
 
-			// Checked arithmetic: FirstElement + NumElements must stay
-			// representable. The D3D runtime then validates the range
-			// against the buffer's actual capacity and stride and fails
-			// creation cleanly if the override is still too large.
+			uint64_t capacity = element_stride ? buffer_desc.ByteWidth / element_stride : 0;
+			uint64_t requested_end = (uint64_t)pDesc->Buffer.FirstElement + override_num_elements;
 			if (override_num_elements && pDesc->Buffer.NumElements < override_num_elements &&
-					(uint64_t)pDesc->Buffer.FirstElement + override_num_elements <= UINT_MAX) {
+					requested_end <= capacity) {
 				D3D11_UNORDERED_ACCESS_VIEW_DESC pNewDesc = *pDesc;
 				pNewDesc.Buffer.NumElements = override_num_elements;
 				//LogOverlayW(LOG_INFO, L"UAV resized: %d->%d\n", pDesc->Buffer.NumElements, override_num_elements);
 				return mOrigDevice1->CreateUnorderedAccessView(pResource, &pNewDesc, ppUAView);
+			} else if (override_num_elements && requested_end > capacity) {
+				LogDebug("  UAV element override exceeds buffer capacity; keeping original descriptor\n");
 			}
 		}
 	}
@@ -2063,7 +2114,7 @@ static UINT scale_dimension_checked(UINT dimension, float multiplier, const char
 }
 
 template <typename DescType>
-static void override_resource_desc_common_2d_3d(DescType *desc, TextureOverride *textureOverride)
+static void override_resource_desc_common_1d_2d_3d(DescType *desc, TextureOverride *textureOverride)
 {
 	if (textureOverride->format != -1) {
 		LogInfo("  setting custom format to %d\n", textureOverride->format);
@@ -2085,6 +2136,12 @@ static void override_resource_desc_common_2d_3d(DescType *desc, TextureOverride 
 		desc->Width = scale_dimension_checked(desc->Width, textureOverride->width_multiply, "width_multiply");
 		LogInfo("  multiplying custom width by %f to %d\n", textureOverride->width_multiply, desc->Width);
 	}
+}
+
+template <typename DescType>
+static void override_resource_desc_common_2d_3d(DescType *desc, TextureOverride *textureOverride)
+{
+	override_resource_desc_common_1d_2d_3d(desc, textureOverride);
 
 	if (textureOverride->height != -1) {
 		if (textureOverride->height > 0) {
@@ -2111,7 +2168,10 @@ static void override_resource_desc(D3D11_BUFFER_DESC *desc, TextureOverride *tex
 		}
 	}
 }
-static void override_resource_desc(D3D11_TEXTURE1D_DESC *desc, TextureOverride *textureOverride) {}
+static void override_resource_desc(D3D11_TEXTURE1D_DESC *desc, TextureOverride *textureOverride)
+{
+	override_resource_desc_common_1d_2d_3d(desc, textureOverride);
+}
 static void override_resource_desc(D3D11_TEXTURE2D_DESC *desc, TextureOverride *textureOverride)
 {
 	override_resource_desc_common_2d_3d(desc, textureOverride);
