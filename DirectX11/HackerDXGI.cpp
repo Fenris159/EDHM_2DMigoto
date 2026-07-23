@@ -139,6 +139,7 @@ void InstallSetWindowPosHook()
 
 HackerSwapChain::HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDevice, HackerContext *pContext) :
 	mOrigSwapChain1(pSwapChain),
+	mRefCount(1),
 	mHackerDevice(pDevice),
 	mHackerContext(pContext),
 	mOverlay(nullptr)
@@ -180,6 +181,13 @@ HackerSwapChain::HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDev
 		LogInfo("  *** Failed to create Overlay. Exception caught.\n");
 		mOverlay = NULL;
 	}
+}
+
+HackerSwapChain::~HackerSwapChain()
+{
+	// The wrapper owns the reference returned by swap-chain creation.
+	// Release it after derived and wrapper-owned state has been destroyed.
+	mOrigSwapChain1->Release();
 }
 
 IDXGISwapChain1* HackerSwapChain::GetOrigSwapChain1()
@@ -419,14 +427,14 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 
 STDMETHODIMP_(ULONG) HackerSwapChain::AddRef(THIS)
 {
-	ULONG ulRef = mOrigSwapChain1->AddRef();
+	ULONG ulRef = ++mRefCount;
 	LogInfo("HackerSwapChain::AddRef(%s@%p), counter=%d, this=%p\n", type_name(this), this, ulRef, this);
 	return ulRef;
 }
 
 STDMETHODIMP_(ULONG) HackerSwapChain::Release(THIS)
 {
-	ULONG ulRef = mOrigSwapChain1->Release();
+	ULONG ulRef = --mRefCount;
 	LogInfo("HackerSwapChain::Release(%s@%p), counter=%d, this=%p\n", type_name(this), this, ulRef, this);
 
 	if (ulRef <= 0)
