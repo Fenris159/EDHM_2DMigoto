@@ -366,6 +366,29 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 		return E_POINTER;
 	*ppvObject = NULL;
 
+	// Return interfaces implemented by this wrapper directly. QueryInterface
+	// must AddRef the exact interface pointer it returns; forwarding first and
+	// replacing that output can leak a native tear-off interface.
+	if (riid == __uuidof(IUnknown) || riid == __uuidof(IDXGIObject) ||
+			riid == __uuidof(IDXGIDeviceSubObject) || riid == __uuidof(IDXGISwapChain) ||
+			riid == __uuidof(IDXGISwapChain1))
+	{
+		if (riid == __uuidof(IUnknown))
+			*ppvObject = static_cast<IUnknown*>(this);
+		else if (riid == __uuidof(IDXGIObject))
+			*ppvObject = static_cast<IDXGIObject*>(this);
+		else if (riid == __uuidof(IDXGIDeviceSubObject))
+			*ppvObject = static_cast<IDXGIDeviceSubObject*>(this);
+		else if (riid == __uuidof(IDXGISwapChain))
+			*ppvObject = static_cast<IDXGISwapChain*>(this);
+		else
+			*ppvObject = static_cast<IDXGISwapChain1*>(this);
+
+		AddRef();
+		LogInfo("  return HackerSwapChain(%s@%p) wrapper of %p\n", type_name(this), this, mOrigSwapChain1);
+		return S_OK;
+	}
+
 	HRESULT hr = mOrigSwapChain1->QueryInterface(riid, ppvObject);
 	if (FAILED(hr) || !*ppvObject)
 	{
@@ -387,15 +410,6 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 		reinterpret_cast<IUnknown*>(*ppvObject)->Release();
 		*ppvObject = NULL;
 		return E_NOINTERFACE;
-	}
-
-	if (riid == __uuidof(IUnknown) || riid == __uuidof(IDXGIObject) ||
-			riid == __uuidof(IDXGIDeviceSubObject) || riid == __uuidof(IDXGISwapChain) ||
-			riid == __uuidof(IDXGISwapChain1))
-	{
-		*ppvObject = this;
-		LogInfo("  return HackerSwapChain(%s@%p) wrapper of %p\n", type_name(this), this, mOrigSwapChain1);
-		return hr;
 	}
 
 	LogInfo("  return unwrapped interface %s (%p).\n", NameFromIID(riid).c_str(), *ppvObject);
