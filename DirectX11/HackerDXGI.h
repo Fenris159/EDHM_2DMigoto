@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <dxgi1_2.h>
 
 #include "HackerDevice.h"
@@ -24,9 +25,10 @@ void InstallSetWindowPosHook();
 class HackerSwapChain : public IDXGISwapChain1
 {
 protected:
-	virtual ~HackerSwapChain() = default;
+	virtual ~HackerSwapChain();
 
 	IDXGISwapChain1 *mOrigSwapChain1;
+	std::atomic<ULONG> mRefCount;
 	HackerDevice *mHackerDevice;
 	HackerContext *mHackerContext;
 
