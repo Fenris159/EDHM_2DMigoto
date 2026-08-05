@@ -261,13 +261,14 @@ static bool verify_intended_target(HINSTANCE our_dll)
 	if (f == INVALID_HANDLE_VALUE)
 		return false;
 
-	filesize = GetFileSize(f, NULL);
-	// GetFileSize failure returns INVALID_FILE_SIZE (0xFFFFFFFF), and the old
-	// unchecked filesize+1 allocation would then wrap to zero bytes while
-	// ReadFile was still asked for ~4GB. A sane d3dx.ini is kilobytes; refuse
-	// anything pathological rather than allocating it under the loader lock.
-	if (filesize == INVALID_FILE_SIZE || !filesize || filesize > 16 * 1024 * 1024)
+	LARGE_INTEGER full_filesize;
+	// A sane d3dx.ini is kilobytes; refuse anything pathological rather than
+	// allocating it under the loader lock. GetFileSizeEx also prevents a file
+	// over 4 GiB from being mistaken for its low 32-bit remainder.
+	if (!GetFileSizeEx(f, &full_filesize) || full_filesize.QuadPart <= 0 ||
+			full_filesize.QuadPart > 16 * 1024 * 1024)
 		goto out_close;
+	filesize = static_cast<DWORD>(full_filesize.QuadPart);
 	buf = new (std::nothrow) char[filesize + 1];
 	if (!buf)
 		goto out_close;

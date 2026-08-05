@@ -4,7 +4,7 @@
 #include <sstream>
 #include <D3Dcompiler.h>
 #include <algorithm>
-#include <codecvt>
+#include <new>
 #include <strsafe.h>
 
 #include "ScreenGrab.h"
@@ -21,6 +21,7 @@
 #include "profiling.h"
 #include "FrameAnalysis.h"
 #include "ShaderRegex.h"
+#include "AdvancedHunting.h"
 
 // bo3b: For this routine, we have a lot of warnings in x64, from converting a size_t result into the needed
 //  DWORD type for the Write calls.  These are writing 256 byte strings, so there is never a chance that it 
@@ -401,14 +402,18 @@ void MigotoIncludeHandler::push_dir(const char *path)
 
 STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFileName, LPCVOID pParentData, LPCVOID *ppData, UINT *pBytes)
 {
-	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> codec;
 	char *buf = NULL;
-	DWORD size, read;
+	DWORD size = 0, read;
 	string apath;
 	wstring wpath;
 	HANDLE f;
 
-	LogDebug("      MigotoIncludeHandler::Open(%p, %u, %s, %p)\n", this, IncludeType, pFileName, pParentData);
+	if (!pFileName || !ppData || !pBytes || dir_stack.empty())
+		return E_INVALIDARG;
+
+	*ppData = NULL;
+	*pBytes = 0;
+	LogDebug("      MigotoIncludeHandler::Open(%p, %u, %s, %p)\n", this, (unsigned)IncludeType, pFileName, pParentData);
 
 	// For backwards compatibility with D3D_COMPILE_STANDARD_FILE_INCLUDE
 	// we only search for shaders relative to the *initial* source file by
@@ -425,11 +430,17 @@ STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFi
 	// handler would include "d" from the root instead. This might be
 	// contrived enough to ignore it and drop the option, but its safer to
 	// include the option.
-	if (G->recursive_include)
-		apath = dir_stack.back() + pFileName;
-	else
-		apath = dir_stack.front() + pFileName;
-	wpath = codec.from_bytes(apath);
+	try {
+		if (G->recursive_include)
+			apath = dir_stack.back() + pFileName;
+		else
+			apath = dir_stack.front() + pFileName;
+		if (!utf8_to_wide(apath, &wpath))
+			throw std::range_error("invalid UTF-8");
+	} catch (const std::exception&) {
+		LogInfo("      Invalid UTF-8 include path: %s\n", pFileName);
+		return E_FAIL;
+	}
 
 	f = CreateFile(wpath.c_str(), GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (f == INVALID_HANDLE_VALUE && !G->recursive_include) {
@@ -443,8 +454,14 @@ STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFi
 		// directories on different editions (e.g. FC4 / FCPrimal Steam
 		// vs UPlay), so we disallow this if recursive_include is
 		// enabled as that already disables backwards compatibility.
-		apath = pFileName;
-		wpath = codec.from_bytes(apath);
+		try {
+			apath = pFileName;
+			if (!utf8_to_wide(apath, &wpath))
+				throw std::range_error("invalid UTF-8");
+		} catch (const std::exception&) {
+			LogInfo("      Invalid UTF-8 include path: %s\n", pFileName);
+			return E_FAIL;
+		}
 		f = CreateFile(wpath.c_str(), GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	}
 	if (f == INVALID_HANDLE_VALUE) {
@@ -466,13 +483,17 @@ STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFi
 			break;
 	}
 
-	size = GetFileSize(f, 0);
-	if (!size || size == INVALID_FILE_SIZE || size > MAX_SHADER_FILE_SIZE) {
+	if (!get_file_size_with_limit(f, MAX_SHADER_FILE_SIZE, &size)) {
 		LogInfo("      Invalid included file size: %u\n", size);
 		CloseHandle(f);
 		return E_FAIL;
 	}
-	buf = new char[size];
+	buf = new (std::nothrow) char[size];
+	if (!buf) {
+		LogInfo("      Unable to allocate %u bytes for included file.\n", size);
+		CloseHandle(f);
+		return E_OUTOFMEMORY;
+	}
 
 	if (!ReadFile(f, buf, size, &read, 0) || size != read) {
 		LogInfo("      Error reading included file.\n");
@@ -497,7 +518,8 @@ STDMETHODIMP MigotoIncludeHandler::Close(LPCVOID pData)
 {
 	LogDebug("      MigotoIncludeHandler::Close(%p, %p)\n", this, pData);
 	delete [] pData;
-	dir_stack.pop_back();
+	if (dir_stack.size() > 1)
+		dir_stack.pop_back();
 	return S_OK;
 }
 
@@ -518,7 +540,7 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 	*pCode = nullptr;
 	headerLine.clear();
 	wchar_t fullName[MAX_PATH];
-	char apath[MAX_PATH];
+	string apath;
 	swprintf_s(fullName, MAX_PATH, L"%s\\%s", shaderFixPath, fileName);
 
 	WarnIfConflictingShaderExists(fullName);
@@ -532,16 +554,23 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 	}
 
 
-	DWORD srcDataSize = GetFileSize(f, 0);
-	if (!srcDataSize || srcDataSize == INVALID_FILE_SIZE)
+	DWORD srcDataSize = 0;
+	if (!get_file_size_with_limit(f, MAX_SHADER_FILE_SIZE, &srcDataSize))
 	{
 		LogInfo("    Invalid shader source file size.\n");
 		CloseHandle(f);
 		return true;
 	}
-	vector<char> srcData(srcDataSize);
+	vector<char> srcData;
+	try {
+		srcData.resize(srcDataSize);
+	} catch (const std::bad_alloc&) {
+		LogInfo("    Unable to allocate %u bytes for shader reload.\n", srcDataSize);
+		CloseHandle(f);
+		return true;
+	}
 	DWORD readSize;
-	FILETIME curFileTime;
+	FILETIME curFileTime = {};
 
 	if (!ReadFile(f, srcData.data(), srcDataSize, &readSize, 0)
 		|| !GetFileTime(f, NULL, NULL, &curFileTime)
@@ -568,7 +597,7 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 	if (wcsstr(fileName, L"_replace"))
 	{
 		LogInfo("   >Replacement shader found. Re-Loading replacement HLSL code from %ls\n", fileName);
-		LogInfo("    Reload source code loaded. Size = %d\n", srcDataSize);
+		LogInfo("    Reload source code loaded. Size = %u\n", srcDataSize);
 		LogInfo("    compiling replacement HLSL code with shader model %s\n", shaderModel);
 
 		// TODO: Add #defines for IniParams
@@ -578,12 +607,12 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 		// #include will work with a relative path from the shader itself.
 		// Later we could add a custom include handler to track dependencies so
 		// that we can make reloading work better when using includes:
-		if (!WideCharToMultiByte(CP_UTF8, 0, fullName, -1, apath, MAX_PATH, NULL, NULL)) {
-			LogInfo("    error converting shader path to UTF-8: %lu\n", GetLastError());
+		if (!wide_to_utf8(fullName, wcslen(fullName), &apath)) {
+			LogInfo("    error converting shader path to UTF-8\n");
 			return true;
 		}
-		MigotoIncludeHandler include_handler(apath);
-		HRESULT ret = D3DCompile(srcData.data(), srcDataSize, apath, 0,
+		MigotoIncludeHandler include_handler(apath.c_str());
+		HRESULT ret = D3DCompile(srcData.data(), srcDataSize, apath.c_str(), 0,
 				G->recursive_include == -1 ? D3D_COMPILE_STANDARD_FILE_INCLUDE : &include_handler,
 			"main", shaderModel, D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &pByteCode, &pErrorMsgs);
 
@@ -591,24 +620,33 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 
 		if (pErrorMsgs)
 		{
-			LPVOID errMsg = pErrorMsgs->GetBufferPointer();
+			const char *errMsg = static_cast<const char*>(pErrorMsgs->GetBufferPointer());
 			SIZE_T errSize = pErrorMsgs->GetBufferSize();
+			SIZE_T textSize = errSize;
+			if (errMsg && textSize && !errMsg[textSize - 1])
+				--textSize;
 			LogInfo("--------------------------------------------- BEGIN ---------------------------------------------\n");
-			if (FAILED(ret))
+			if (FAILED(ret) && errMsg && textSize)
 			{
 				// If there are errors they go to the overlay
-				LogOverlay(LOG_NOTICE, "%*s\n", errSize, errMsg);
+				LogOverlay(LOG_NOTICE, "%.*s\n", (int)min<SIZE_T>(textSize, INT_MAX), errMsg);
 			}
-			else if (LogFile)
+			else if (LogFile && errMsg && textSize)
 			{
 				// If there are only warnings they go to the
 				// log file, because it's too noisy to send all
 				// these to the overlay.
-				fwrite(errMsg, 1, errSize - 1, LogFile);
+				fwrite(errMsg, 1, textSize, LogFile);
 			}
 			LogInfo("---------------------------------------------- END ----------------------------------------------\n");
-			if (errText)
-				*errText = string((char*)pErrorMsgs->GetBufferPointer(), pErrorMsgs->GetBufferSize() - 1);
+			if (errText && errMsg) {
+				try {
+					errText->assign(errMsg, textSize);
+				} catch (const std::bad_alloc&) {
+					errText->clear();
+					LogInfo("    Unable to copy shader compiler diagnostics.\n");
+				}
+			}
 			pErrorMsgs->Release();
 		}
 
@@ -625,15 +663,16 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 	else
 	{
 		LogInfo("   >Replacement shader found. Re-Loading replacement ASM code from %ls\n", fileName);
-		LogInfo("    Reload source code loaded. Size = %d\n", srcDataSize);
+		LogInfo("    Reload source code loaded. Size = %u\n", srcDataSize);
 		LogInfo("    assembling replacement ASM code with shader model %s\n", shaderModel);
 
 		// We need original byte code unchanged, so make a copy.
-		vector<byte> byteCode(origByteCode->GetBufferSize());
-		memcpy(byteCode.data(), origByteCode->GetBufferPointer(), origByteCode->GetBufferSize());
+		vector<byte> byteCode;
 
 		try
 		{
+			byteCode.resize(origByteCode->GetBufferSize());
+			memcpy(byteCode.data(), origByteCode->GetBufferPointer(), origByteCode->GetBufferSize());
 			// Treat parse errors on shader reload as fatal since there should
 			// be a shaderhacker at the keyboard ready to fix their bugs.
 			byteCode = AssembleFluganWithOptionalSignatureParsing(&srcData, G->assemble_signature_comments, &byteCode);
@@ -663,10 +702,12 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 
 	// For success, let's add the first line of text from the file to the OriginalShaderInfo,
 	// so the ShaderHacker can edit the line and reload and have it live.
-	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf8_to_utf16;
 	vector<char>::iterator newline = find(srcData.begin(), srcData.end(), '\n');
-	headerLine = utf8_to_utf16.from_bytes(srcData.data(),
-		newline == srcData.end() ? srcData.data() + srcData.size() : &*newline);
+	size_t header_size = newline == srcData.end() ? srcData.size() : static_cast<size_t>(newline - srcData.begin());
+	if (!utf8_to_wide(srcData.data(), header_size, &headerLine)) {
+		LogInfo("    invalid UTF-8 in first line of reloaded shader\n");
+		headerLine.clear();
+	}
 
 	// pCode on return == NULL for error cases, valid if made it this far.
 	*pCode = pByteCode;
@@ -1460,6 +1501,9 @@ static void NextVertexBufferSlot(HackerDevice* device, void* private_data)
 }
 static void NextPixelShader(HackerDevice *device, void *private_data)
 {
+	if (AdvancedHuntingConfigured() && AdvancedHuntingActive())
+		return;
+
 	HuntNext<UINT64>("pixel shader", &G->mVisitedPixelShaders, &G->mSelectedPixelShader, &G->mSelectedPixelShaderPos);
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
@@ -1469,6 +1513,9 @@ static void NextPixelShader(HackerDevice *device, void *private_data)
 }
 static void NextVertexShader(HackerDevice *device, void *private_data)
 {
+	if (AdvancedHuntingConfigured() && AdvancedHuntingActive())
+		return;
+
 	HuntNext<UINT64>("vertex shader", &G->mVisitedVertexShaders, &G->mSelectedVertexShader, &G->mSelectedVertexShaderPos);
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
@@ -1602,6 +1649,9 @@ static void PrevIndexBuffer(HackerDevice *device, void *private_data)
 }
 static void PrevPixelShader(HackerDevice *device, void *private_data)
 {
+	if (AdvancedHuntingConfigured() && AdvancedHuntingActive())
+		return;
+
 	HuntPrev<UINT64>("pixel shader", &G->mVisitedPixelShaders, &G->mSelectedPixelShader, &G->mSelectedPixelShaderPos);
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
@@ -1611,6 +1661,9 @@ static void PrevPixelShader(HackerDevice *device, void *private_data)
 }
 static void PrevVertexShader(HackerDevice *device, void *private_data)
 {
+	if (AdvancedHuntingConfigured() && AdvancedHuntingActive())
+		return;
+
 	HuntPrev<UINT64>("vertex shader", &G->mVisitedVertexShaders, &G->mSelectedVertexShader, &G->mSelectedVertexShaderPos);
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
@@ -1794,6 +1847,14 @@ static void MarkVertexShader(HackerDevice *device, void *private_data)
 	MarkShaderEnd(device, "vertex shader", "vs", G->mSelectedVertexShader);
 }
 
+void MarkSelectedShaderForAdvancedHunting(HackerDevice* device, bool pixel_shader)
+{
+	if (pixel_shader)
+		MarkPixelShader(device, NULL);
+	else
+		MarkVertexShader(device, NULL);
+}
+
 static void MarkComputeShader(HackerDevice *device, void *private_data)
 {
 	if (!MarkShaderBegin("compute shader", G->mSelectedComputeShader))
@@ -1927,6 +1988,7 @@ static void DoneHunting(HackerDevice *device, void *private_data)
 		return;
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
+	ResetAdvancedHunting();
 
 	TimeoutHuntingBuffers();
 
@@ -1966,9 +2028,10 @@ static void DoneHunting(HackerDevice *device, void *private_data)
 
 static void ToggleHunting(HackerDevice *device, void *private_data)
 {
-	if (G->hunting == HUNTING_MODE_ENABLED)
+	if (G->hunting == HUNTING_MODE_ENABLED) {
+		ResetAdvancedHunting();
 		G->hunting = HUNTING_MODE_SOFT_DISABLED;
-	else
+	} else
 		G->hunting = HUNTING_MODE_ENABLED;
 	LogInfo("> Hunting toggled to %d\n", G->hunting);
 }
@@ -1982,6 +2045,8 @@ void ParseHuntingSection()
 	static MarkingMode prev_marking_mode = MarkingMode::INVALID;
 
 	LogInfo("[Hunting]\n");
+	ResetAdvancedHunting();
+	G->advanced_hunting_enabled = false;
 	G->hunting = GetIniInt(L"Hunting", L"hunting", 0, NULL);
 
 	// Number of frames a IB/VB buffer hash can remain in the overlay tracking
@@ -2021,6 +2086,7 @@ void ParseHuntingSection()
 	RegisterIniKeyBinding(L"Hunting", L"toggle_hunting", ToggleHunting, NULL, noRepeat, NULL);
 
 	repeat = GetIniInt(L"Hunting", L"repeat_rate", repeat, NULL);
+	ParseAdvancedHuntingSection(repeat);
 
 	// For a better user experience we avoid resetting the marking mode on
 	// config reload if the next_marking_mode key is enabled, unless

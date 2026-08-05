@@ -89,7 +89,9 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 		bool disassemble_undecipherable_data = false,
 		bool patch_cb_offsets = false);
 HRESULT disassemblerDX9(vector<byte> *buffer, vector<byte> *ret, const char *comment);
-vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode, vector<AssemblerParseError> *parse_errors = NULL);
+vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode,
+		vector<AssemblerParseError> *parse_errors = NULL,
+		bool allow_empty_code_chunk = false);
 vector<byte> assemblerDX9(vector<char> *asmFile);
 void writeLUT();
 HRESULT AssembleFluganWithSignatureParsing(vector<char> *assembly, vector<byte> *result_bytecode, vector<AssemblerParseError> *parse_errors = NULL);

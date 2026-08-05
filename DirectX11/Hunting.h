@@ -26,3 +26,4 @@ void RegisterVisitedIndexBuffer(uint32_t hash);
 void RegisterVisitedVertexBufferNoLock(uint32_t hash, uint32_t slot_id);
 void RegisterVisitedVertexBuffer(uint32_t hash, uint32_t slot_id);
 void PurgeStaleVisitedBufferHashes(HackerDevice* device);
+void MarkSelectedShaderForAdvancedHunting(HackerDevice* device, bool pixel_shader);

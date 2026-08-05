@@ -7,6 +7,7 @@
 #include "IniHandler.h"
 #include "HookedDXGI.h"
 #include "WineCompat.h"
+#include "ComOutput.h"
 
 #include <locale>
 #include <chrono>
@@ -97,9 +98,6 @@ static bool verify_intended_target_late()
 
 static bool InitializeDLL()
 {
-	const char* default_locale = setlocale(LC_CTYPE, nullptr);
-	G->gDefaultLocale = default_locale ? default_locale : "";
-
 	if (G->gInitialized)
 		return true;
 
@@ -279,7 +277,8 @@ static BOOL CALLBACK InitD311Once(PINIT_ONCE, PVOID, PVOID*)
 			// same-named DLL. Only a fully-qualified configured path is
 			// honoured here, and it is logged for auditability:
 			bool absolute = (G->CHAIN_DLL_PATH[0] == L'\\' && G->CHAIN_DLL_PATH[1] == L'\\') ||
-				(iswalpha(G->CHAIN_DLL_PATH[0]) && G->CHAIN_DLL_PATH[1] == L':');
+				(iswalpha(G->CHAIN_DLL_PATH[0]) && G->CHAIN_DLL_PATH[1] == L':' &&
+					(G->CHAIN_DLL_PATH[2] == L'\\' || G->CHAIN_DLL_PATH[2] == L'/'));
 			if (absolute) {
 				LogInfoW(L"Configured proxy was not found beside the game-local 3Dmigoto wrapper; trying absolute configured path: %ls\n",
 					G->CHAIN_DLL_PATH);
@@ -376,48 +375,68 @@ HRESULT WINAPI D3D11On12CreateDevice(
 	_COM_Outptr_opt_ ID3D11DeviceContext** ppImmediateContext,
 	_Out_opt_ D3D_FEATURE_LEVEL* pChosenFeatureLevel)
 {
+	// Out parameters carry no input ownership. Clear them before forwarding so
+	// a failing non-conforming runtime cannot make cleanup release stale caller
+	// pointers.
+	if (ppDevice)
+		*ppDevice = NULL;
+	if (ppImmediateContext)
+		*ppImmediateContext = NULL;
+	if (pChosenFeatureLevel)
+		*pChosenFeatureLevel = (D3D_FEATURE_LEVEL)0;
+
 	InitD311();
 	LogInfo("D3D11On12CreateDevice called.\n");
 	if (!_D3D11On12CreateDevice) {
 		LogInfo("*** Chained d3d11 does not export D3D11On12CreateDevice.\n");
-		if (ppDevice)
-			*ppDevice = NULL;
-		if (ppImmediateContext)
-			*ppImmediateContext = NULL;
-		if (pChosenFeatureLevel)
-			*pChosenFeatureLevel = (D3D_FEATURE_LEVEL)0;
 		return E_NOTIMPL;
 	}
 
-	return (*_D3D11On12CreateDevice)(pDevice, Flags, pFeatureLevels, FeatureLevels, ppCommandQueues, NumQueues, NodeMask, ppDevice, ppImmediateContext, pChosenFeatureLevel);
+	HRESULT hr = (*_D3D11On12CreateDevice)(pDevice, Flags, pFeatureLevels, FeatureLevels, ppCommandQueues, NumQueues, NodeMask, ppDevice, ppImmediateContext, pChosenFeatureLevel);
+	NormalizeComFailureOutput(hr, ppDevice);
+	NormalizeComFailureOutput(hr, ppImmediateContext);
+	if (SUCCEEDED(hr) && ((ppDevice && !*ppDevice) || (ppImmediateContext && !*ppImmediateContext))) {
+		hr = E_UNEXPECTED;
+		NormalizeComFailureOutput(hr, ppDevice);
+		NormalizeComFailureOutput(hr, ppImmediateContext);
+	}
+	if (FAILED(hr) && pChosenFeatureLevel)
+		*pChosenFeatureLevel = (D3D_FEATURE_LEVEL)0;
+	return hr;
 }
 
 HRESULT WINAPI CreateDirect3D11DeviceFromDXGIDevice(
-	IDXGIDevice *dxgiDevice,
-	IInspectable **graphicsDevice)
+	_In_ IDXGIDevice *dxgiDevice,
+	_COM_Outptr_ IInspectable **graphicsDevice)
 {
+	if (!graphicsDevice)
+		return E_POINTER;
+	*graphicsDevice = NULL;
+
 	InitD311();
 	if (!_CreateDirect3D11DeviceFromDXGIDevice) {
-		if (graphicsDevice)
-			*graphicsDevice = NULL;
 		return E_NOTIMPL;
 	}
 
-	return (*_CreateDirect3D11DeviceFromDXGIDevice)(dxgiDevice, graphicsDevice);
+	HRESULT hr = (*_CreateDirect3D11DeviceFromDXGIDevice)(dxgiDevice, graphicsDevice);
+	return NormalizeRequiredComOutput(hr, graphicsDevice);
 }
 
 HRESULT WINAPI CreateDirect3D11SurfaceFromDXGISurface(
-	IDXGISurface *dxgiSurface,
-	IInspectable **graphicsSurface)
+	_In_ IDXGISurface *dxgiSurface,
+	_COM_Outptr_ IInspectable **graphicsSurface)
 {
+	if (!graphicsSurface)
+		return E_POINTER;
+	*graphicsSurface = NULL;
+
 	InitD311();
 	if (!_CreateDirect3D11SurfaceFromDXGISurface) {
-		if (graphicsSurface)
-			*graphicsSurface = NULL;
 		return E_NOTIMPL;
 	}
 
-	return (*_CreateDirect3D11SurfaceFromDXGISurface)(dxgiSurface, graphicsSurface);
+	HRESULT hr = (*_CreateDirect3D11SurfaceFromDXGISurface)(dxgiSurface, graphicsSurface);
+	return NormalizeRequiredComOutput(hr, graphicsSurface);
 }
 
 int WINAPI OpenAdapter10(struct D3D10DDIARG_OPENADAPTER *adapter)

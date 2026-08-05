@@ -14,6 +14,15 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 ## [Unreleased]
 
+### Added
+
+- Added a focused audit contract test project with Release `/W4 /WX` and
+  AddressSanitizer lanes for malformed DXBC, checked UTF-8, locale restoration,
+  legacy decompiler settings, COM output rules, interface policy, and Present
+  device-loss classification.
+- Added a maintained proxy export manifest and binary-level CI check for the
+  46 names and historical ordinals supported by the EDHM proxy.
+
 ### Changed
 
 - Restored the compiled DLL product name and copyright metadata to the
@@ -22,6 +31,27 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
   runtime remains 3Dmigoto-derived software based on XXMI / 2Dmigoto.
 - Reworded DLL diagnostics to identify the wrapper as 3Dmigoto and EDHM as its
   compatibility profile and configuration target.
+- Isolated temporary locale changes to the calling thread and replaced
+  locale-sensitive shader, include, format, and overlay text conversions with
+  checked UTF-8 helpers.
+- Wrapped SwapChain2-SwapChain4 when the host runtime exposes them, and denied
+  Device2-Device5 and Context2-Context4 queries whose added methods are not
+  intercepted.
+
+### Fixed
+
+- Completed the release-readiness audit corrections for mapped-resource
+  ownership, region-cache invalidation, bounded shader/include/cache loading,
+  DXBC validation, UAV capacity, numeric overflow, proxy path resolution, and
+  COM output cleanup.
+- Fixed legacy decompiler list parsing so malformed or empty settings cannot
+  loop forever, and reset removed settings during configuration reload.
+- Stopped post-Present GPU command work after device-removed, reset, hung, or
+  driver-internal errors while preserving the original HRESULT and diagnostics.
+- Preserved interception when callers obtain a D3D11 device from the wrapped
+  swap chain.
+- Hardened optional upscaling swap-chain construction, derived destruction,
+  fake-resource ownership, and `ResizeBuffers1` handling.
 
 ### Planned
 

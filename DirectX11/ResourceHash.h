@@ -355,8 +355,9 @@ struct ResourceHandleInfo
 		D3D11_TEXTURE3D_DESC desc3D;
 	};
 
-	void InitializeDataCache(size_t size, size_t offset = 0);
-	void SetDataCache(const void* src, size_t size);
+	bool InitializeDataCache(size_t size, size_t offset = 0);
+	bool CopyDataCache(const void* src, size_t size);
+	bool AdoptDataCache(void* src, size_t size);
 	void SetDataCacheRegion(const void* src, size_t size, UINT offset);
 	// Clears cached region hashes and invalidates cached buffer data.
 	// Should be called when the underlying resource contents change.

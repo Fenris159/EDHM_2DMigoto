@@ -13,6 +13,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BinaryDecompiler", "BinaryD
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DirectXTK_Desktop_2017", "DirectXTK\DirectXTK_Desktop_2017.vcxproj", "{E0B52AE7-E160-4D32-BF3F-910B785E5A8E}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AuditTests", "AuditTests\AuditTests.vcxproj", "{7E14D620-86CE-4C0B-A244-B18A62E6D3D9}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{1693604A-42AF-4848-B892-D1540FB17FDE}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Runtime package", "Runtime package", "{83DCC342-4199-4E03-B720-80E5EDF18500}"
@@ -78,6 +80,16 @@ Global
 		{E0B52AE7-E160-4D32-BF3F-910B785E5A8E}.Zip Release|Win32.ActiveCfg = Release|Win32
 		{E0B52AE7-E160-4D32-BF3F-910B785E5A8E}.Zip Release|x64.ActiveCfg = Release|x64
 		{E0B52AE7-E160-4D32-BF3F-910B785E5A8E}.Zip Release|x64.Build.0 = Release|x64
+		{7E14D620-86CE-4C0B-A244-B18A62E6D3D9}.Debug|Win32.ActiveCfg = Debug|Win32
+		{7E14D620-86CE-4C0B-A244-B18A62E6D3D9}.Debug|Win32.Build.0 = Debug|Win32
+		{7E14D620-86CE-4C0B-A244-B18A62E6D3D9}.Debug|x64.ActiveCfg = Debug|x64
+		{7E14D620-86CE-4C0B-A244-B18A62E6D3D9}.Debug|x64.Build.0 = Debug|x64
+		{7E14D620-86CE-4C0B-A244-B18A62E6D3D9}.Release|Win32.ActiveCfg = Release|Win32
+		{7E14D620-86CE-4C0B-A244-B18A62E6D3D9}.Release|Win32.Build.0 = Release|Win32
+		{7E14D620-86CE-4C0B-A244-B18A62E6D3D9}.Release|x64.ActiveCfg = Release|x64
+		{7E14D620-86CE-4C0B-A244-B18A62E6D3D9}.Release|x64.Build.0 = Release|x64
+		{7E14D620-86CE-4C0B-A244-B18A62E6D3D9}.Zip Release|Win32.ActiveCfg = Release|Win32
+		{7E14D620-86CE-4C0B-A244-B18A62E6D3D9}.Zip Release|x64.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -8,6 +8,7 @@
 #include <WICTextureLoader.h>
 #include <algorithm>
 #include <limits>
+#include <new>
 #include <sstream>
 #include "HackerDevice.h"
 #include "HackerContext.h"
@@ -17,6 +18,7 @@
 #include "profiling.h"
 #include "Hunting.h"
 #include "cursor.h"
+#include "utf8.h"
 
 #include <D3DCompiler.h>
 
@@ -1720,7 +1722,7 @@ static bool load_cached_shader(FILETIME hlsl_timestamp, wchar_t *cache_path, ID3
 {
 	FILETIME cache_timestamp;
 	HANDLE f_cache;
-	DWORD filesize, readsize;
+	DWORD filesize = 0, readsize;
 
 	f_cache = CreateFile(cache_path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (f_cache == INVALID_HANDLE_VALUE)
@@ -1732,7 +1734,10 @@ static bool load_cached_shader(FILETIME hlsl_timestamp, wchar_t *cache_path, ID3
 		goto err_close;
 	}
 
-	filesize = GetFileSize(f_cache, 0);
+	if (!get_file_size_with_limit(f_cache, MAX_SHADER_FILE_SIZE, &filesize)) {
+		LogInfo("    Invalid cached shader size: %S\n", cache_path);
+		goto err_close;
+	}
 	if (FAILED(D3DCreateBlob(filesize, ppBytecode))) {
 		LogInfo("    D3DCreateBlob failed\n");
 		goto err_close;
@@ -1768,9 +1773,9 @@ static const D3D_SHADER_MACRO cs_macros[] = { "COMPUTE_SHADER", "", NULL, NULL }
 bool CustomShader::compile(char type, wchar_t *filename, const wstring *wname, const wstring *namespace_path)
 {
 	wchar_t wpath[MAX_PATH], cache_path[MAX_PATH];
-	char apath[MAX_PATH];
+	string apath;
 	HANDLE f;
-	DWORD srcDataSize, readSize;
+	DWORD srcDataSize = 0, readSize;
 	vector<char> srcData;
 	HRESULT hr;
 	char shaderModel[7];
@@ -1778,7 +1783,7 @@ bool CustomShader::compile(char type, wchar_t *filename, const wstring *wname, c
 	ID3DBlob *pErrorMsgs = NULL;
 	const D3D_SHADER_MACRO *macros = NULL;
 	bool found = false;
-	FILETIME timestamp;
+	FILETIME timestamp = {};
 
 	LogInfo("  %cs=%S\n", type, filename);
 
@@ -1863,14 +1868,25 @@ bool CustomShader::compile(char type, wchar_t *filename, const wstring *wname, c
 	else
 		swprintf_s(cache_path, MAX_PATH, L"%s.%S.%x.bin", wpath, shaderModel, (UINT)compile_flags);
 
-	GetFileTime(f, NULL, NULL, &timestamp);
+	if (!GetFileTime(f, NULL, NULL, &timestamp)) {
+		LogInfo("    Error reading HLSL timestamp\n");
+		goto err_close;
+	}
 	if (load_cached_shader(timestamp, cache_path, ppBytecode)) {
 		CloseHandle(f);
 		return false;
 	}
 
-	srcDataSize = GetFileSize(f, 0);
-	srcData.resize(srcDataSize);
+	if (!get_file_size_with_limit(f, MAX_SHADER_FILE_SIZE, &srcDataSize)) {
+		LogInfo("    Invalid HLSL file size: %u\n", srcDataSize);
+		goto err_close;
+	}
+	try {
+		srcData.resize(srcDataSize);
+	} catch (const std::bad_alloc&) {
+		LogInfo("    Unable to allocate %u bytes for HLSL source\n", srcDataSize);
+		goto err_close;
+	}
 
 	if (!ReadFile(f, srcData.data(), srcDataSize, &readSize, 0)
 			|| srcDataSize != readSize) {
@@ -1887,19 +1903,26 @@ bool CustomShader::compile(char type, wchar_t *filename, const wstring *wname, c
 	// #include will work with a relative path from the shader itself.
 	// Later we could add a custom include handler to track dependencies so
 	// that we can make reloading work better when using includes:
-	wcstombs(apath, wpath, MAX_PATH);
+	if (!wide_to_utf8(wpath, wcslen(wpath), &apath)) {
+		LogInfo("    Error converting custom shader path for the compiler\n");
+		goto err;
+	}
 	{
-		MigotoIncludeHandler include_handler(apath);
-		hr = D3DCompile(srcData.data(), srcDataSize, apath, macros,
+		MigotoIncludeHandler include_handler(apath.c_str());
+		hr = D3DCompile(srcData.data(), srcDataSize, apath.c_str(), macros,
 			G->recursive_include == -1 ? D3D_COMPILE_STANDARD_FILE_INCLUDE : &include_handler,
 			"main", shaderModel, (UINT)compile_flags, 0, ppBytecode, &pErrorMsgs);
 	}
 
 	if (pErrorMsgs) {
-		LPVOID errMsg = pErrorMsgs->GetBufferPointer();
+		const char *errMsg = static_cast<const char*>(pErrorMsgs->GetBufferPointer());
 		SIZE_T errSize = pErrorMsgs->GetBufferSize();
+		SIZE_T textSize = errSize;
+		if (errMsg && textSize && !errMsg[textSize - 1])
+			--textSize;
 		LogInfo("--------------------------------------------- BEGIN ---------------------------------------------\n");
-		LogOverlay(LOG_NOTICE, "%*s\n", errSize, errMsg);
+		if (errMsg && textSize)
+			LogOverlay(LOG_NOTICE, "%.*s\n", (int)min<SIZE_T>(textSize, INT_MAX), errMsg);
 		LogInfo("---------------------------------------------- END ----------------------------------------------\n");
 		pErrorMsgs->Release();
 	}
@@ -4338,13 +4361,23 @@ bool CustomResource::AddFlags(D3D11_BIND_FLAG extra_bind_flags, D3D11_RESOURCE_M
 // Takes ownership of data. Must be allocated with malloc() and must not be freed by the caller.
 void CustomResource::InitializeHandleInfo(void* data, size_t data_size)
 {
-	if (!data || !data_size)
+	if (!data)
 		return;
+	if (!data_size) {
+		free(data);
+		return;
+	}
 
 	if (!handle_info)
-		handle_info = std::make_unique<ResourceHandleInfo>();
+		try {
+			handle_info = std::make_unique<ResourceHandleInfo>();
+		} catch (const std::bad_alloc&) {
+			free(data);
+			LogInfo("InitializeHandleInfo failed to allocate resource metadata\n");
+			return;
+		}
 
-	handle_info->SetDataCache(data, data_size);
+	handle_info->AdoptDataCache(data, data_size);
 }
 
 // Creates a view into cached CPU-side data of another resource.
@@ -4377,10 +4410,18 @@ void CustomResource::SetHandleInfo(ID3D11Resource* source, size_t offset, size_t
 	}
 
 	if (!handle_info)
-		handle_info = std::make_unique<ResourceHandleInfo>();
+		try {
+			handle_info = std::make_unique<ResourceHandleInfo>();
+		} catch (const std::bad_alloc&) {
+			LeaveCriticalSection(&G->mCriticalSection);
+			return;
+		}
 
 	// Initialize cache and store view metadata (offset and size) relative to the shared cache.
-	handle_info->InitializeDataCache(view_size, src_handle_info->cached_data_offset + offset);
+	if (!handle_info->InitializeDataCache(view_size, src_handle_info->cached_data_offset + offset)) {
+		LeaveCriticalSection(&G->mCriticalSection);
+		return;
+	}
 
 	// Share ownership of the cached buffer to ensure it remains alive independently of the source.
 	handle_info->cached_data = src_handle_info->cached_data;
@@ -4463,7 +4504,7 @@ void CustomResource::Substantiate(ID3D11Device *mOrigDevice1,
 
 void CustomResource::LoadBufferFromFile(ID3D11Device *mOrigDevice1)
 {
-	DWORD size, read_size;
+	DWORD size = 0, read_size;
 	void *buf = NULL;
 	HANDLE f;
 
@@ -4473,7 +4514,10 @@ void CustomResource::LoadBufferFromFile(ID3D11Device *mOrigDevice1)
 		return;
 	}
 
-	size = GetFileSize(f, 0);
+	if (!get_file_size_with_limit(f, MAX_CUSTOM_RESOURCE_FILE_SIZE, &size)) {
+		LogOverlayW(LOG_WARNING, L"Invalid custom buffer file size for %ls\n", filename.c_str());
+		goto out_close;
+	}
 	buf = malloc(size); // malloc to allow realloc to resize it if the user overrode the size
 	if (!buf) {
 		LogOverlayW(LOG_DIRE, L"Out of memory loading %ls\n", filename.c_str());

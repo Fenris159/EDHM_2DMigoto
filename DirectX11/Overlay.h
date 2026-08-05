@@ -101,6 +101,7 @@ private:
 	HRESULT InitDrawState();
 	void DrawShaderInfoLine(char *type, UINT64 selectedShader, float *y, bool shader);
 	void DrawShaderInfoLines(float *y);
+	void DrawAdvancedHuntingInfo(float *y);
 	void DrawNotices(float *y);
 	void DrawProfiling(float *y);
 	void DrawRectangle(float x, float y, float w, float h, float r, float g, float b, float opacity);

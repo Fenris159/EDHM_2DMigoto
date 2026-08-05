@@ -71,6 +71,7 @@
 #include "CommandList.h"
 #include "profiling.h"
 #include "cursor.h" // For InstallHookLate
+#include "PresentResult.h"
 
 
 // -----------------------------------------------------------------------------
@@ -136,13 +137,13 @@ void InstallSetWindowPosHook()
 // context.  So, since we need the context for our Overlay, let's do that a litte early in
 // this case, which will save the reference for their GetImmediateContext call.
 
-HackerSwapChain::HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDevice, HackerContext *pContext)
+HackerSwapChain::HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDevice, HackerContext *pContext) :
+	mOrigSwapChain1(pSwapChain),
+	mRefCount(1),
+	mHackerDevice(pDevice),
+	mHackerContext(pContext),
+	mOverlay(nullptr)
 {
-	mOrigSwapChain1 = pSwapChain;
-
-	mHackerDevice = pDevice;
-	mHackerContext = pContext;
-
 	// Bump the refcounts on the device and context to make sure they can't
 	// be released as long as the swap chain is alive and we may be
 	// accessing them. We probably don't actually need to do this for the
@@ -180,6 +181,13 @@ HackerSwapChain::HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDev
 		LogInfo("  *** Failed to create Overlay. Exception caught.\n");
 		mOverlay = NULL;
 	}
+}
+
+HackerSwapChain::~HackerSwapChain()
+{
+	// The wrapper owns the reference returned by swap-chain creation.
+	// Release it after derived and wrapper-owned state has been destroyed.
+	mOrigSwapChain1->Release();
 }
 
 IDXGISwapChain1* HackerSwapChain::GetOrigSwapChain1()
@@ -362,6 +370,33 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 {
 	LogInfo("HackerSwapChain::QueryInterface(%s@%p) called with IID: %s\n", type_name(this), this, NameFromIID(riid).c_str());
 
+	if (!ppvObject)
+		return E_POINTER;
+	*ppvObject = NULL;
+
+	// Return interfaces implemented by this wrapper directly. QueryInterface
+	// must AddRef the exact interface pointer it returns; forwarding first and
+	// replacing that output can leak a native tear-off interface.
+	if (riid == __uuidof(IUnknown) || riid == __uuidof(IDXGIObject) ||
+			riid == __uuidof(IDXGIDeviceSubObject) || riid == __uuidof(IDXGISwapChain) ||
+			riid == __uuidof(IDXGISwapChain1))
+	{
+		if (riid == __uuidof(IUnknown))
+			*ppvObject = static_cast<IUnknown*>(this);
+		else if (riid == __uuidof(IDXGIObject))
+			*ppvObject = static_cast<IDXGIObject*>(this);
+		else if (riid == __uuidof(IDXGIDeviceSubObject))
+			*ppvObject = static_cast<IDXGIDeviceSubObject*>(this);
+		else if (riid == __uuidof(IDXGISwapChain))
+			*ppvObject = static_cast<IDXGISwapChain*>(this);
+		else
+			*ppvObject = static_cast<IDXGISwapChain1*>(this);
+
+		AddRef();
+		LogInfo("  return HackerSwapChain(%s@%p) wrapper of %p\n", type_name(this), this, mOrigSwapChain1);
+		return S_OK;
+	}
+
 	HRESULT hr = mOrigSwapChain1->QueryInterface(riid, ppvObject);
 	if (FAILED(hr) || !*ppvObject)
 	{
@@ -369,26 +404,11 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 		return hr;
 	}
 
-	// For TheDivision, only upon Win10, it will request these.  Even though the object
-	// we would return is the exact same pointer in memory, it still calls into the object
-	// with a vtable entry that does not match what they expected. Somehow they decide
-	// they are on Win10, and know these APIs ought to exist.  Does not crash on Win7.
-	//
-	// Returning an E_NOINTERFACE here seems to work, but this does call into question our 
-	// entire wrapping strategy.  If the object we've wrapped is a superclass of the
-	// object they desire, the vtable is not going to match.
-
-	if (riid == __uuidof(IDXGISwapChain2))
+	// Keep the real modern interfaces for HDR and platform compatibility. Some
+	// system components and drivers require the native DXGI object identity.
+	if (riid == __uuidof(IDXGISwapChain2) || riid == __uuidof(IDXGISwapChain3))
 	{
-		// Return interface without wrapper to support Endfield's pipeline.
-		LogInfo("  return IDXGISwapChain2 interface (%p) without wrapper.\n", ppvObject);
-		LogInfo("  returns result = %x for %p\n", hr, ppvObject);
-		return hr;
-	}
-	if (riid == __uuidof(IDXGISwapChain3))
-	{
-		// Return interface without wrapper to support HDR color space setup.
-		LogInfo("  return IDXGISwapChain3 interface (%p) without wrapper.\n", ppvObject);
+		LogInfo("  return modern swap-chain interface (%p) without wrapper.\n", *ppvObject);
 		LogInfo("  returns result = %x for %p\n", hr, ppvObject);
 		return hr;
 	}
@@ -400,44 +420,21 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 		return E_NOINTERFACE;
 	}
 
-	IUnknown* unk_this = NULL;
-	HRESULT hr_this = mOrigSwapChain1->QueryInterface(__uuidof(IUnknown), (void**)&unk_this);
-
-	IUnknown* unk_ppvObject = NULL;
-	HRESULT hr_ppvObject = reinterpret_cast<IUnknown*>(*ppvObject)->QueryInterface(__uuidof(IUnknown), (void**)&unk_ppvObject);
-	bool identity_queries_succeeded = SUCCEEDED(hr_this) && SUCCEEDED(hr_ppvObject);
-
-	if (identity_queries_succeeded)
-	{
-		// For an actual case of this->QueryInterface(this), just return our HackerSwapChain object.
-		if (unk_this == unk_ppvObject)
-			*ppvObject = this;
-	}
-	if (unk_this)
-		unk_this->Release();
-	if (unk_ppvObject)
-		unk_ppvObject->Release();
-
-	if (identity_queries_succeeded)
-	{
-		LogInfo("  return HackerSwapChain(%s@%p) wrapper of %p\n", type_name(this), this, mOrigSwapChain1);
-		return hr;
-	}
-
+	LogInfo("  return unwrapped interface %s (%p).\n", NameFromIID(riid).c_str(), *ppvObject);
 	LogInfo("  returns result = %x for %p\n", hr, ppvObject);
 	return hr;
 }
 
 STDMETHODIMP_(ULONG) HackerSwapChain::AddRef(THIS)
 {
-	ULONG ulRef = mOrigSwapChain1->AddRef();
+	ULONG ulRef = ++mRefCount;
 	LogInfo("HackerSwapChain::AddRef(%s@%p), counter=%d, this=%p\n", type_name(this), this, ulRef, this);
 	return ulRef;
 }
 
 STDMETHODIMP_(ULONG) HackerSwapChain::Release(THIS)
 {
-	ULONG ulRef = mOrigSwapChain1->Release();
+	ULONG ulRef = --mRefCount;
 	LogInfo("HackerSwapChain::Release(%s@%p), counter=%d, this=%p\n", type_name(this), this, ulRef, this);
 
 	if (ulRef <= 0)
@@ -558,8 +555,10 @@ STDMETHODIMP HackerSwapChain::GetDevice(
 {
 	LogDebug("HackerSwapChain::GetDevice(%s@%p) called with IID: %s\n", type_name(this), this, NameFromIID(riid).c_str());
 
-	HRESULT hr = mOrigSwapChain1->GetDevice(riid, ppDevice);
-	LogDebug("  returns result = %x, handle = %p\n", hr, *ppDevice);
+	// Route known D3D device interfaces through HackerDevice so GetDevice
+	// cannot bypass the same wrapper policy enforced by QueryInterface.
+	HRESULT hr = mHackerDevice ? mHackerDevice->QueryInterface(riid, ppDevice) : E_NOINTERFACE;
+	LogDebug("  returns result = %x, handle = %p\n", hr, ppDevice ? *ppDevice : NULL);
 	return hr;
 }
 
@@ -567,16 +566,11 @@ STDMETHODIMP HackerSwapChain::GetDevice(
 // -----------------------------------------------------------------------------
 /** IDXGISwapChain **/
 
-// If Present reported that the device was removed, reset or hung, log the
-// HRESULT and the device's removal reason once so field logs can identify
-// driver resets. We deliberately still run the post-present command list:
-// it restores wrapper state changed by the pre-present list, and skipping it
-// blindly could leave that state corrupted for a game that recovers.
+// Log the Present HRESULT and the device's removal reason once so field logs
+// can identify driver resets.
 static void LogPresentDeviceLossOnce(HackerDevice *device, HRESULT present_hr)
 {
-	if (present_hr != DXGI_ERROR_DEVICE_REMOVED &&
-	    present_hr != DXGI_ERROR_DEVICE_RESET &&
-	    present_hr != DXGI_ERROR_DEVICE_HUNG)
+	if (!IsDeviceLossPresentResult(present_hr))
 		return;
 
 	static LONG logged = 0;
@@ -649,10 +643,16 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
 	LogPresentDeviceLossOnce(mHackerDevice, hr);
 
 	if (!(Flags & DXGI_PRESENT_TEST)) {
+		G->bb_is_upscaling_bb = !!G->SCREEN_UPSCALING && G->upscaling_command_list_using_explicit_bb_flip;
+
+		// A removed/reset/hung device cannot accept meaningful state restoration.
+		// Let the game own recovery instead of issuing more GPU work through the
+		// invalid context after Present reports the failure.
+		if (IsDeviceLossPresentResult(hr))
+			return hr;
+
 		if (profiling)
 			Profiling::start(&profiling_state);
-
-		G->bb_is_upscaling_bb = !!G->SCREEN_UPSCALING && G->upscaling_command_list_using_explicit_bb_flip;
 
 		// Run the post present command list now, which can be used to restore
 		// state changed in the pre-present command list, or to perform some
@@ -959,10 +959,13 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 	LogPresentDeviceLossOnce(mHackerDevice, hr);
 
 	if (!(PresentFlags & DXGI_PRESENT_TEST)) {
+		G->bb_is_upscaling_bb = !!G->SCREEN_UPSCALING && G->upscaling_command_list_using_explicit_bb_flip;
+
+		if (IsDeviceLossPresentResult(hr))
+			return hr;
+
 		if (profiling)
 			Profiling::start(&profiling_state);
-
-		G->bb_is_upscaling_bb = !!G->SCREEN_UPSCALING && G->upscaling_command_list_using_explicit_bb_flip;
 
 		// Run the post present command list now, which can be used to restore
 		// state changed in the pre-present command list, or to perform some
@@ -1045,7 +1048,7 @@ STDMETHODIMP HackerSwapChain::GetRotation(THIS_
 HackerUpscalingSwapChain::HackerUpscalingSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pHackerDevice, HackerContext *pHackerContext,
 	DXGI_SWAP_CHAIN_DESC* pFakeSwapChainDesc, UINT newWidth, UINT newHeight)
 	: HackerSwapChain(pSwapChain, pHackerDevice, pHackerContext),
-	mFakeBackBuffer(nullptr), mFakeSwapChain1(nullptr), mWidth(0), mHeight(0)
+	mFakeSwapChain(nullptr), mFakeBackBuffer(nullptr), mWidth(0), mHeight(0)
 {
 	CreateRenderTarget(pFakeSwapChainDesc);
 
@@ -1056,8 +1059,8 @@ HackerUpscalingSwapChain::HackerUpscalingSwapChain(IDXGISwapChain1 *pSwapChain, 
 
 HackerUpscalingSwapChain::~HackerUpscalingSwapChain()
 {
-	if (mFakeSwapChain1)
-		mFakeSwapChain1->Release();
+	if (mFakeSwapChain)
+		mFakeSwapChain->Release();
 	if (mFakeBackBuffer)
 		mFakeBackBuffer->Release();
 }
@@ -1108,21 +1111,23 @@ void HackerUpscalingSwapChain::CreateRenderTarget(DXGI_SWAP_CHAIN_DESC* pFakeSwa
 
 		// fake swap chain should have no influence on window
 		pFakeSwapChainDesc->Flags &= ~DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-		IDXGISwapChain* swapChain;
+		IDXGISwapChain *swapChain = nullptr;
 		get_tls()->hooking_quirk_protection = true;
-		pFactory->CreateSwapChain(mHackerDevice->GetPossiblyHookedOrigDevice1(), pFakeSwapChainDesc, &swapChain);
+		hr = pFactory->CreateSwapChain(mHackerDevice->GetPossiblyHookedOrigDevice1(), pFakeSwapChainDesc, &swapChain);
 		get_tls()->hooking_quirk_protection = false;
 
 		pFactory->Release();
-
-		HRESULT res = swapChain->QueryInterface(IID_PPV_ARGS(&mFakeSwapChain1));
-		if (SUCCEEDED(res))
-			swapChain->Release();
-		else
-			mFakeSwapChain1 = reinterpret_cast<IDXGISwapChain1*>(swapChain);
-
 		// restore old state in case fall back is required ToDo: Unlikely needed now.
 		pFakeSwapChainDesc->Flags = flagBackup;
+
+		if (SUCCEEDED(hr) && swapChain)
+			mFakeSwapChain = swapChain;
+		else {
+			if (swapChain)
+				swapChain->Release();
+			if (SUCCEEDED(hr))
+				hr = E_FAIL;
+		}
 	}
 	break;
 	default:
@@ -1163,9 +1168,9 @@ STDMETHODIMP HackerUpscalingSwapChain::GetBuffer(THIS_
 		// NULL, and bumps the refcount if successful:
 		hr = mFakeBackBuffer->QueryInterface(riid, ppSurface);
 	}
-	else if (mFakeSwapChain1)
+	else if (mFakeSwapChain)
 	{
-		hr = mFakeSwapChain1->GetBuffer(Buffer, riid, ppSurface);
+		hr = mFakeSwapChain->GetBuffer(Buffer, riid, ppSurface);
 	}
 	else
 	{
@@ -1241,9 +1246,9 @@ STDMETHODIMP HackerUpscalingSwapChain::GetDesc(THIS_
 				LogDebug("->Using fake SwapChain Sizes.\n");
 			}
 
-			if (mFakeSwapChain1)
+			if (mFakeSwapChain)
 			{
-				hr = mFakeSwapChain1->GetDesc(pDesc);
+				hr = mFakeSwapChain->GetDesc(pDesc);
 			}
 		}
 
@@ -1307,10 +1312,10 @@ STDMETHODIMP HackerUpscalingSwapChain::ResizeBuffers(THIS_
 		else  // nothing to resize
 			hr = S_OK;
 	}
-	else if (mFakeSwapChain1) // UPSCALE_MODE 1
+	else if (mFakeSwapChain) // UPSCALE_MODE 1
 	{
 		// the last parameter have to be zero to avoid the influence of the faked swap chain on the resize target function 
-		hr = mFakeSwapChain1->ResizeBuffers(BufferCount, Width, Height, NewFormat, 0);
+		hr = mFakeSwapChain->ResizeBuffers(BufferCount, Width, Height, NewFormat, 0);
 	}
 	else
 	{
