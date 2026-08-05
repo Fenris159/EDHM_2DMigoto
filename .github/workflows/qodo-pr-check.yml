@@ -1,0 +1,32 @@
+name: Qodo PR check
+
+on:
+  pull_request:
+    branches: [main, xxmi-base]
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: write
+  checks: write
+
+jobs:
+  qodo:
+    name: Qodo AI review
+    if: ${{ github.event.sender.type != 'Bot' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run PR Agent review
+        uses: docker://pragent/pr-agent:0.41.0-github_action
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          github_action_config.auto_review: "true"
+          github_action_config.auto_describe: "true"
+          github_action_config.auto_improve: "true"
+          github_action_config.pr_actions: '["opened", "reopened", "ready_for_review", "synchronize"]'
