@@ -10,23 +10,37 @@ on:
       - synchronize
 
 permissions:
-  issues: write
-  pull-requests: write
-  contents: write
   checks: write
+  pull-requests: write
+  contents: read
 
 jobs:
   qodo:
     name: Qodo AI review
-    if: ${{ github.event.sender.type != 'Bot' }}
+    if: ${{ github.event.sender.type != 'Bot' && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     steps:
+      - name: Check Qodo secrets
+        id: gate
+        shell: bash
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+        run: |
+          if [ -z "${OPENAI_KEY}" ] || [ "${OPENAI_KEY}" = "dummy_key" ]; then
+            echo "run_qodo=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Qodo skipped: OPENAI_KEY is missing or invalid."
+          else
+            echo "run_qodo=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run PR Agent review
+        if: ${{ steps.gate.outputs.run_qodo == 'true' }}
         uses: docker://pragent/pr-agent:0.41.0-github_action
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "true"
-          github_action_config.auto_improve: "true"
+          github_action_config.auto_improve: "false"
           github_action_config.pr_actions: '["opened", "reopened", "ready_for_review", "synchronize"]'
