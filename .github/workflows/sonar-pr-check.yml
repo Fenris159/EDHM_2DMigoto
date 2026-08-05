@@ -1,0 +1,66 @@
+name: Sonar PR check
+
+on:
+  push:
+    branches:
+      - main
+      - xxmi-base
+  pull_request:
+    branches: [main, xxmi-base]
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Needed so the scanner can read PR metadata for SonarCloud PR decoration.
+  pull-requests: read
+
+env:
+  SONAR_ORGANIZATION: "Fenris159"
+  SONAR_PROJECT_KEY: "Fenris159_EDHM_2DMigoto"
+
+jobs:
+  analyze:
+    name: Sonar scan
+    # Skip fork PRs (no access to SONAR_TOKEN secrets on pull_request from forks).
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: SonarQube Scan (branch)
+        if: github.event_name != 'pull_request'
+        uses: SonarSource/sonarqube-scan-action@v8.2.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          args: >
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.sources=.
+            -Dsonar.branch.name=${{ github.ref_name }}
+
+      - name: SonarQube Scan (PR)
+        if: github.event_name == 'pull_request'
+        uses: SonarSource/sonarqube-scan-action@v8.2.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          args: >
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.sources=.
+            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
+            -Dsonar.pullrequest.branch=${{ github.head_ref }}
+            -Dsonar.pullrequest.base=${{ github.base_ref }}
