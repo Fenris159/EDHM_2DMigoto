@@ -77,6 +77,19 @@ HackerContext::HackerContext(ID3D11Device1 *pDevice1, ID3D11DeviceContext1 *pCon
 HackerContext::~HackerContext()
 {
 	ClearCurrentInputLayout();
+	if (mOriginalInputLayout) {
+		mOriginalInputLayout->Release();
+		mOriginalInputLayout = nullptr;
+	}
+	if (mOverrideInputLayout) {
+		mOverrideInputLayout->Release();
+		mOverrideInputLayout = nullptr;
+	}
+	mReadbackBuffers.for_each([](UINT, ID3D11Buffer* buffer)
+	{
+		if (buffer)
+			buffer->Release();
+	});
 }
 
 void HackerContext::ResetTrackedState()
@@ -101,8 +114,9 @@ void HackerContext::ResetTrackedState()
 	mCurrentGeometryShaderHandle = nullptr;
 	mCurrentPixelShader = 0;
 	mCurrentPixelShaderHandle = nullptr;
-	mCurrentComputeShader = 0;
 	mCurrentComputeShaderHandle = nullptr;
+	mOriginalInputLayout = nullptr;
+	mOverrideInputLayout = nullptr;
 }
 
 void HackerContext::ClearCurrentInputLayout()
@@ -775,9 +789,107 @@ void HackerContext::DeferredShaderReplacementBeforeDispatch()
 		(mCurrentComputeShaderHandle, mCurrentComputeShader, L"cs");
 }
 
+static UINT NextPow2(UINT v)
+{
+	// TODO: C++20
+	// return v <= 1 ? 1 : std::bit_ceil(v);
+	if (v <= 1)
+		return 1;
+
+	--v;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+
+	return ++v;
+}
+
+ID3D11Buffer* HackerContext::GetReadbackBuffer(UINT size)
+{
+	// Round the requested size up to the next power of two so buffers
+	// can be reused across similarly sized requests instead of creating
+	// a unique staging buffer for every size.
+	UINT bucket = NextPow2(size);
+
+	// Reuse an existing staging buffer for this size bucket if available.
+	ID3D11Buffer** existing = mReadbackBuffers.find_ptr(bucket);
+
+	if (existing && *existing)
+		return *existing;
+
+	D3D11_BUFFER_DESC desc = {};
+	desc.ByteWidth = bucket;
+	desc.Usage = D3D11_USAGE_STAGING;
+	desc.BindFlags = 0;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	desc.MiscFlags = 0;
+	desc.StructureByteStride = 0;
+
+	ID3D11Buffer* buffer = nullptr;
+
+	// Serialize resource creation with other device operations.
+	LockResourceCreationMode();
+	HRESULT hr = mOrigDevice1->CreateBuffer(&desc, nullptr, &buffer);
+	UnlockResourceCreationMode();
+
+	if (FAILED(hr))
+	{
+		LogInfo("GetReadbackBuffer: CreateBuffer(size=%u bucket=%u) failed hr=0x%08X\n", size, bucket, hr);
+		return nullptr;
+	}
+
+	LogDebug("GetReadbackBuffer: Created %u-byte readback buffer\n", bucket);
+
+	mReadbackBuffers.insert(bucket, buffer);
+
+	return buffer;
+}
+
+void HackerContext::DeferInputLayoutOverride(HackerInputLayout* pInputLayout)
+{
+	LogDebug("HackerContext::DeferInputLayoutOverride(%s@%p) called pInputLayout=%p\n", type_name(this), this, pInputLayout);
+
+	if (mOverrideInputLayout != nullptr)
+		mOverrideInputLayout->Release();
+
+	mOverrideInputLayout = pInputLayout;
+}
+
+void HackerContext::OverrideInputLayout()
+{
+	if (mOverrideInputLayout == nullptr || mOverrideInputLayout == mCurrentInputLayout)
+		return;
+
+	LogDebug("HackerContext::OverrideInputLayout(%s@%p) called mOverrideInputLayout=%p\n", type_name(this), this, mOverrideInputLayout);
+
+	if (mOriginalInputLayout == nullptr)
+		mOriginalInputLayout = mCurrentInputLayout;
+
+	IASetInputLayout(mOverrideInputLayout->GetOrigInputLayout());
+}
+
+void HackerContext::RestoreInputLayout()
+{
+	LogDebug("HackerContext::RestoreInputLayout(%s@%p) called mOriginalInputLayout=%p\n", type_name(this), this, mOriginalInputLayout);
+
+	if (!mOverrideInputLayout)
+		return;
+
+	mOverrideInputLayout->Release();
+
+	ID3D11InputLayout *orig = mOriginalInputLayout ? mOriginalInputLayout->GetOrigInputLayout() : nullptr;
+	IASetInputLayout(orig);
+
+	mOverrideInputLayout = nullptr;
+	mOriginalInputLayout = nullptr;
+}
 
 void HackerContext::BeforeDraw(DrawContext &data)
 {
+	draw_number++;
+
 	Profiling::State profiling_state;
 
 	if (Profiling::mode == Profiling::Mode::SUMMARY)
@@ -806,7 +918,7 @@ void HackerContext::BeforeDraw(DrawContext &data)
 				if (b.buffer && b.offset) {
 					UINT region_offset = GetIndexBufferRegionOffset(b.format, &data.call_info, b.offset);
 					UINT region_size = GetIndexBufferRegionSize(b.format, &data.call_info);
-					mCurrentIndexBuffer = GetRegionHash(mOrigContext1, b.buffer, region_offset, region_size);
+					mCurrentIndexBuffer = GetRegionHash(this, b.buffer, region_offset, region_size);
 					RegisterVisitedIndexBuffer(mCurrentIndexBuffer);
 				}
 			}
@@ -822,7 +934,7 @@ void HackerContext::BeforeDraw(DrawContext &data)
 					if (b.buffer && b.stride) {
 						UINT region_offset = GetVertexBufferRegionOffset(b.stride, &data.call_info, b.offset);
 						UINT region_size = GetVertexBufferRegionSize(b.stride, &data.call_info);
-						mCurrentVertexBuffers[i] = GetRegionHash(mOrigContext1, b.buffer, region_offset, region_size);
+						mCurrentVertexBuffers[i] = GetRegionHash(this, b.buffer, region_offset, region_size);
 					}
 				}
 				// Register Vertex Buffers hashes under the same lock.
@@ -983,6 +1095,8 @@ void HackerContext::BeforeDraw(DrawContext &data)
 			data.post_commands[4] = &i->second.post_command_list;
 			ProcessShaderOverride(&i->second, true, &data);
 		}
+
+		OverrideInputLayout();
 	}
 
 out_profile:
@@ -1020,6 +1134,11 @@ void HackerContext::AfterDraw(DrawContext &data)
 		data.oldPixelShader->Release();
 		if (ret)
 			ret->Release();
+	}
+
+	if (mOriginalInputLayout != nullptr) {
+		RestoreInputLayout();
+		mOriginalInputLayout = nullptr;
 	}
 
 	if (Profiling::mode == Profiling::Mode::SUMMARY)
@@ -1495,6 +1614,7 @@ STDMETHODIMP_(void) HackerContext::IASetInputLayout(THIS_
 	// Track side-car cache for hunting / frame analysis only. Always bind the
 	// real D3D layout pointer to the original context — never a HackerInputLayout
 	// COM wrapper (game is given only real layouts from CreateInputLayout).
+	LogDebug("HackerContext::IASetInputLayout(%s@%p) called pInputLayout=%p\n", type_name(this), this, pInputLayout);
 	ClearCurrentInputLayout();
 
 	mCurrentInputLayout = HackerInputLayout::FromLayout(pInputLayout);
@@ -1698,6 +1818,8 @@ STDMETHODIMP_(void) HackerContext::SOSetTargets(THIS_
 
 bool HackerContext::BeforeDispatch(DispatchContext *context)
 {
+	dispatch_number++;
+
 	if (G->hunting == HUNTING_MODE_ENABLED) {
 		if (G->DumpUsage)
 			RecordComputeShaderStats();

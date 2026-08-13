@@ -198,7 +198,9 @@ void HackerSwapChain::RunFrameActions()
 
 	// 64-bit ticks: GetTickCount() wraps after ~49.7 days and would freeze
 	// or glitch every elapsed-time consumer of gTime in long-lived processes.
-	G->gTime = (float)((double)(GetTickCount64() - G->ticks_at_launch) / 1000.0);
+	ULONGLONG now = GetTickCount64();
+	G->gSystemTickCount = (unsigned)now;
+	G->gTime = (float)((double)(now - G->ticks_at_launch) / 1000.0);
 
 	// Avoid fflush every Present — that undoes OS write buffering and costs
 	// measurable time when enabled=1. Debug mode keeps per-frame accuracy;
@@ -309,6 +311,7 @@ void HackerSwapChain::RunFrameActions()
 	// moment, but let's do it last, because logically it makes sense to be
 	// incremented when we call the original present call:
 	G->frame_no++;
+	mHackerContext->ResetCallCounters();
 
 	// When not hunting most keybindings won't have been registered, but
 	// still skip the below logic that only applies while hunting.

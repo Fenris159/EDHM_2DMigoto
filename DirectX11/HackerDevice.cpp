@@ -1789,7 +1789,8 @@ STDMETHODIMP HackerDevice::CreateInputLayout(THIS_
 	// location load). Classic 3Dmigoto / EDHM 1.4.5 never exposed a layout COM
 	// wrapper; XXMI's full wrap is unsafe for Elite + EDHM.
 	if (SUCCEEDED(ret) && ppInputLayout && *ppInputLayout) {
-		HackerInputLayout* layout = new HackerInputLayout(*ppInputLayout, pInputElementDescs, NumElements);
+		HackerInputLayout* layout = new HackerInputLayout(*ppInputLayout, pInputElementDescs, NumElements,
+			pShaderBytecodeWithInputSignature, BytecodeLength);
 		HRESULT attach_result = layout->GetAttachResult();
 		uint32_t layout_hash = layout->GetLayoutHash();
 		if (FAILED(attach_result))
