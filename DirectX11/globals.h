@@ -406,11 +406,13 @@ struct Globals
 	bool gLogInput;
 	bool gShowWarnings;
 	bool dump_all_profiles;
+	unsigned gSystemTickCount;
 	float gTime;
 	float gSettingsSaveTime;
 	// 64-bit so elapsed-time arithmetic does not wrap after ~49.7 days:
 	ULONGLONG ticks_at_launch;
 	std::wstring additionalForegroundWindowTitle;
+	static const std::wstring gDefaultNamespace;
 
 	wchar_t SHADER_PATH[MAX_PATH];
 	wchar_t SHADER_CACHE_PATH[MAX_PATH];
@@ -753,6 +755,7 @@ struct Globals
 		gFallbackScreenWidth(0),
 		gFallbackScreenHeight(0),
 		dump_all_profiles(false),
+		gSystemTickCount(0),
 		gTime(0)
 	{
 		int i;

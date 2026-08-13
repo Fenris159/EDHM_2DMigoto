@@ -11,3 +11,4 @@
 | [upstream-delta-map.md](upstream-delta-map.md) | Function-level EDHM differences from `xxmi-base` |
 | [upstream-sync.md](upstream-sync.md) | Fetch and selectively merge XXMI / 3Dmigoto updates |
 | [releasing.md](releasing.md) | SemVer, changelog, CI, Release / pre-release workflow |
+| [ini-command-reference.md](ini-command-reference.md) | INI / command-list language (including XXMI 0.9.5–0.9.8) |
