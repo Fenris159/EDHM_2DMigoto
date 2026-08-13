@@ -138,7 +138,7 @@ static UINT64 fnv_64_buf(const void *buf, size_t len)
 // -----------------------------------------------------------------------------------------------
 
 // Strip spaces from the right of a string.
-// Returns a pointer to the last non-NULL character of the truncated string.
+// Returns a pointer to the last non-nullptr character of the truncated string.
 static char *RightStripA(char *buf)
 {
 	char *end = buf + strlen(buf) - 1;
@@ -229,10 +229,10 @@ static int _autoicmp(const char *s1, const char *s2)
 	return _stricmp(s1, s2);
 }
 
-// To use this function be sure to terminate an EnumName_t list with {NULL, 0}
+// To use this function be sure to terminate an EnumName_t list with {nullptr, 0}
 // as it cannot use ArraySize on passed in arrays.
 template <class T1, class T2>
-static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, T2 default, bool *found=NULL)
+static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, T2 default, bool *found=nullptr)
 {
 	for (; enum_names->name; enum_names++) {
 		if (!_autoicmp(name, enum_names->name)) {
@@ -248,7 +248,7 @@ static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, T2 def
 	return default;
 }
 template <class T1, class T2>
-static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, size_t len, T2 default, bool *found=NULL)
+static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, size_t len, T2 default, bool *found=nullptr)
 {
 	for (; enum_names->name; enum_names++) {
 		if (!_wcsnicmp(name, enum_names->name, len)) {
@@ -271,7 +271,7 @@ static T1 lookup_enum_name(struct EnumName_t<T1, T2> *enum_names, T2 val)
 			return enum_names->name;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 template <class T2>
@@ -304,7 +304,7 @@ static wstring lookup_enum_bit_names(struct EnumName_t<const wchar_t*, T2> *enum
 // Parses an option string of names given by enum_names. The enum used with
 // this function should have an INVALID entry, other flags declared as powers
 // of two, and the SENSIBLE_ENUM macro used to enable the bitwise and logical
-// operators. As above, the EnumName_t list must be terminated with {NULL, 0}
+// operators. As above, the EnumName_t list must be terminated with {nullptr, 0}
 //
 // If you wish to parse an option string that contains exactly one unrecognised
 // argument, provide a pointer to a pointer in the 'unrecognised' field and the
@@ -318,7 +318,7 @@ static T2 parse_enum_option_string(struct EnumName_t<T1, T2> *enum_names, T3 opt
 	T2 tmp = T2::INVALID;
 
 	if (unrecognised)
-		*unrecognised = NULL;
+		*unrecognised = nullptr;
 
 	while (*ptr) {
 		// Skip over whitespace:
@@ -331,7 +331,7 @@ static T2 parse_enum_option_string(struct EnumName_t<T1, T2> *enum_names, T3 opt
 		for (; *ptr && *ptr != L' '; ptr++) {}
 
 		if (*ptr) {
-			// NULL terminate the current entry and advance pointer:
+			// nullptr terminate the current entry and advance pointer:
 			*ptr = L'\0';
 			ptr++;
 		}
@@ -376,7 +376,7 @@ static T2 parse_enum_option_string_prefix(struct EnumName_t<T1, T2> *enum_names,
 	size_t len;
 
 	if (unrecognised)
-		*unrecognised = NULL;
+		*unrecognised = nullptr;
 
 	while (*ptr) {
 		// Skip over whitespace:
@@ -723,7 +723,7 @@ static const char* type_name(IUnknown *object)
 	} catch (__non_rtti_object) {
 		return "<NO_RTTI>";
 	} catch(bad_typeid) {
-		return "<NULL>";
+		return "<nullptr>";
 	}
 }
 #endif // MIGOTO_DX == 11
@@ -750,7 +750,7 @@ static const char* type_name_dx9(IUnknown *object)
 		return "<NO_RTTI>";
 	}
 	catch (bad_typeid) {
-		return "<NULL>";
+		return "<nullptr>";
 	}
 }
 #endif // MIGOTO_DX == 9
@@ -937,7 +937,9 @@ static HRESULT CreateAsmTextFile(wchar_t* fileDirectory, UINT64 hash, const wcha
 
 static HRESULT CreateHLSLTextFile(UINT64 hash, string hlslText)
 {
-
+	(void)hash;
+	(void)hlslText;
+	return E_NOTIMPL;
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -1341,7 +1343,7 @@ static UINT byteSizeFromD3DType(D3DDECLTYPE type) {
 	case D3DDECLTYPE_UNUSED:
 		return 0;
 	default:
-		return NULL;
+		return nullptr;
 	}
 }
 
@@ -1354,12 +1356,12 @@ static DWORD decl_type_to_FVF(D3DDECLTYPE type, D3DDECLUSAGE usage, BYTE usageIn
 		case D3DDECLUSAGE_NORMAL:
 			return D3DFVF_NORMAL;
 		default:
-			return NULL;
+			return nullptr;
 		}
 	case D3DDECLTYPE_FLOAT4:
 		if (usage == D3DDECLUSAGE_POSITIONT)
 			return D3DFVF_XYZRHW;
-		return NULL;
+		return nullptr;
 	case D3DDECLTYPE_UBYTE4:
 		if (usage == D3DDECLUSAGE_BLENDINDICES)
 			switch (nWeights) {
@@ -1379,7 +1381,7 @@ static DWORD decl_type_to_FVF(D3DDECLTYPE type, D3DDECLUSAGE usage, BYTE usageIn
 	case D3DDECLTYPE_FLOAT1:
 		if (usage == D3DDECLUSAGE_PSIZE)
 			return D3DFVF_PSIZE;
-		return NULL;
+		return nullptr;
 	case D3DDECLTYPE_D3DCOLOR:
 		if (usage == D3DDECLUSAGE_COLOR) {
 			switch (usageIndex) {
@@ -1388,14 +1390,14 @@ static DWORD decl_type_to_FVF(D3DDECLTYPE type, D3DDECLUSAGE usage, BYTE usageIn
 			case 1:
 				return D3DFVF_SPECULAR;
 			default:
-				return NULL;
+				return nullptr;
 			}
 		}
 		else {
-			return NULL;
+			return nullptr;
 		}
 	default:
-		return NULL;
+		return nullptr;
 
 	}
 

@@ -135,7 +135,7 @@ Overlay::Overlay(HackerDevice *pDevice, HackerContext *pContext, IDXGISwapChain 
 	// handle by address to ensure we don't get some other d3d11.dll, which
 	// is of particular importance when we are injected into a Windows
 	// Store app and may not even be called that ourselves.
-	HMODULE handle = NULL;
+	HMODULE handle = nullptr;
 	GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
 			| GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
 			(LPCWSTR)LogOverlay, &handle);
@@ -316,16 +316,16 @@ void Overlay::RestoreState()
 #include <dxgi1_4.h>
 static ID3D11Texture2D* get_11on12_backbuffer(ID3D11Device *mOrigDevice, IDXGISwapChain *mOrigSwapChain)
 {
-	ID3D12Resource *d3d12_bb = NULL;
-	ID3D11Texture2D *d3d11_bb = NULL;
-	ID3D11On12Device *d3d11on12_dev = NULL;
-	IDXGISwapChain3 *swap_chain_3 = NULL;
+	ID3D12Resource *d3d12_bb = nullptr;
+	ID3D11Texture2D *d3d11_bb = nullptr;
+	ID3D11On12Device *d3d11on12_dev = nullptr;
+	IDXGISwapChain3 *swap_chain_3 = nullptr;
 	D3D11_RESOURCE_FLAGS flags = { D3D11_BIND_RENDER_TARGET };
 	UINT bb_idx;
 	HRESULT hr;
 
 	if (FAILED(mOrigDevice->QueryInterface(IID_ID3D11On12Device, (void**)&d3d11on12_dev)))
-		return NULL;
+		return nullptr;
 	LogDebug("  ID3D11On12Device: %p\n", d3d11on12_dev);
 
 	// In D3D12 we need to make sure we are writing to the correct back
@@ -411,7 +411,7 @@ out:
 
 static void flush_d3d11on12(ID3D11Device *mOrigDevice, ID3D11DeviceContext *mOrigContext)
 {
-	ID3D11On12Device *d3d11on12_dev = NULL;
+	ID3D11On12Device *d3d11on12_dev = nullptr;
 
 	if (FAILED(mOrigDevice->QueryInterface(IID_ID3D11On12Device, (void**)&d3d11on12_dev)))
 		return;
@@ -424,7 +424,7 @@ static void flush_d3d11on12(ID3D11Device *mOrigDevice, ID3D11DeviceContext *mOri
 	// it release all of them - that should be fine unless the game or
 	// another overlay is also using 11on12 and for some reason did not
 	// release a resource and isn't expecting to have to re-acquire it:
-	d3d11on12_dev->ReleaseWrappedResources(NULL, 0);
+	d3d11on12_dev->ReleaseWrappedResources(nullptr, 0);
 	d3d11on12_dev->Release();
 
 	// D3D11 Immediate context must be flushed before any further D3D12
@@ -440,7 +440,7 @@ static void flush_d3d11on12(ID3D11Device *mOrigDevice, ID3D11DeviceContext *mOri
 
 static ID3D11Texture2D* get_11on12_backbuffer(ID3D11Device *mOrigDevice, IDXGISwapChain *mOrigSwapChain)
 {
-	return NULL;
+	return nullptr;
 }
 
 static void flush_d3d11on12(ID3D11Device *mOrigDevice, ID3D11DeviceContext *mOrigContext)
@@ -479,7 +479,7 @@ HRESULT Overlay::InitDrawState()
 
 	// use the back buffer address to create the render target
 	ID3D11RenderTargetView *backbuffer;
-	hr = mOrigDevice->CreateRenderTargetView(pBackBuffer, NULL, &backbuffer);
+	hr = mOrigDevice->CreateRenderTargetView(pBackBuffer, nullptr, &backbuffer);
 
 	pBackBuffer->Release();
 
@@ -487,7 +487,7 @@ HRESULT Overlay::InitDrawState()
 		return hr;
 
 	// set the first render target as the back buffer, with no stencil
-	mOrigContext->OMSetRenderTargets(1, &backbuffer, NULL);
+	mOrigContext->OMSetRenderTargets(1, &backbuffer, nullptr);
 
 	// Holding onto a view of the back buffer can cause a crash on
 	// ResizeBuffers, so it is very important we release it here - it will
@@ -556,9 +556,12 @@ static void AppendShaderText(wchar_t *fullLine, wchar_t *type, int pos, size_t s
 		return;
 
 	// The position is zero based, so we'll make it +1 for the humans.
-	if (size != 0 && ++pos == 0)
-		size = 0;
-	else if (pos < 0)
+	if (size != 0) {
+		++pos;
+		if (pos == 0)
+			size = 0;
+	}
+	if (pos < 0)
 		pos = 0;
 
 	// Format: "VS:1/15"
@@ -615,7 +618,7 @@ static bool FindInfoText(wchar_t *info, UINT64 selectedShader)
 			// validation so it doesn't terminate us). wcsncat_s
 			// has a _TRUNCATE option that tells it to fill up as
 			// much of the buffer as possible without overflowing
-			// and will still NULL terminate the resulting string,
+			// and will still nullptr terminate the resulting string,
 			// which will work fine for this case since that will
 			// be more than we can fit on the screen anyway.
 			// wcsncat would also work, but its count field is

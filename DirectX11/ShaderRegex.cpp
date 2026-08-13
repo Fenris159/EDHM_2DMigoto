@@ -132,7 +132,7 @@ static bool update_dcl_temps(std::string *asm_text, size_t new_val)
 }
 
 ShaderRegexPattern::ShaderRegexPattern() :
-	regex(NULL),
+	regex(nullptr),
 	do_replace(false)
 {
 }
@@ -157,7 +157,7 @@ bool ShaderRegexPattern::compile(std::string *pattern)
 	regex = pcre2_compile((PCRE2_SPTR)pattern->c_str(),
 			pattern->length(), // or PCRE2_ZERO_TERMINATED
 			PCRE2_CASELESS | PCRE2_MULTILINE,
-			&err, &err_off, NULL);
+			&err, &err_off, nullptr);
 	if (!regex) {
 		log_pcre2_error_nonl(err, "  WARNING: PCRE2 regex compilation failed at offset %u", (unsigned)err_off);
 		return false;
@@ -195,7 +195,7 @@ bool ShaderRegexPattern::named_group_overlaps(ShaderRegexTemps &other_set)
 
 bool ShaderRegexPattern::matches(std::string *asm_text)
 {
-	pcre2_match_data *match_data = NULL;
+	pcre2_match_data *match_data = nullptr;
 	bool match = false;
 	int rc;
 
@@ -203,11 +203,11 @@ bool ShaderRegexPattern::matches(std::string *asm_text)
 	// insufficient. Can probably store this in the context, as that is
 	// supposed to be per-thread, or use thread local storage.
 
-	match_data = pcre2_match_data_create_from_pattern(regex, NULL);
+	match_data = pcre2_match_data_create_from_pattern(regex, nullptr);
 
 	// TODO: Consider using pcre2_jit_match - doco claims 10% faster, but
 	// has less sanity checks. TODO: Use callback to confirm JIT was used
-	rc = pcre2_match(regex, (PCRE2_SPTR)asm_text->c_str(), asm_text->length(), 0, 0, match_data, NULL);
+	rc = pcre2_match(regex, (PCRE2_SPTR)asm_text->c_str(), asm_text->length(), 0, 0, match_data, nullptr);
 	if (rc == PCRE2_ERROR_NOMATCH)
 		goto out_free;
 	if (rc < 0) {
@@ -253,10 +253,10 @@ static void substitute_temp_regs(std::string &replacement, ShaderRegexTemps *tem
 
 bool ShaderRegexPattern::patch(std::string *asm_text, ShaderRegexTemps *temp_regs, unsigned dcl_temps)
 {
-	pcre2_match_data *match_data = NULL;
+	pcre2_match_data *match_data = nullptr;
 	PCRE2_SIZE est_size, output_size;
 	std::string replace_copy;
-	PCRE2_UCHAR *buf = NULL;
+	PCRE2_UCHAR *buf = nullptr;
 	bool patch = false;
 	uint32_t options;
 	int rc;
@@ -277,14 +277,14 @@ bool ShaderRegexPattern::patch(std::string *asm_text, ShaderRegexTemps *temp_reg
 	// which needs extended substitution processing to be enabled:
 	options = PCRE2_SUBSTITUTE_EXTENDED;
 
-	match_data = pcre2_match_data_create_from_pattern(regex, NULL);
+	match_data = pcre2_match_data_create_from_pattern(regex, nullptr);
 
 	output_size = est_size = asm_text->length() + replace_copy.length() + 1024;
 	buf = new PCRE2_UCHAR[output_size];
 	rc = pcre2_substitute(regex,
 			(PCRE2_SPTR)asm_text->c_str(), asm_text->length(), 0,
 			options | PCRE2_SUBSTITUTE_OVERFLOW_LENGTH,
-			match_data, NULL,
+			match_data, nullptr,
 			(PCRE2_SPTR)replace_copy.c_str(), replace_copy.length(),
 			buf, &output_size);
 
@@ -301,7 +301,7 @@ bool ShaderRegexPattern::patch(std::string *asm_text, ShaderRegexTemps *temp_reg
 		rc = pcre2_substitute(regex,
 				(PCRE2_SPTR)asm_text->c_str(), asm_text->length(), 0,
 				options, // No PCRE2_SUBSTITUTE_OVERFLOW_LENGTH this time
-				match_data, NULL,
+				match_data, nullptr,
 				(PCRE2_SPTR)replace_copy.c_str(), replace_copy.length(),
 				buf, &output_size);
 	}
@@ -365,7 +365,7 @@ void ShaderRegexGroup::apply_regex_patterns(std::string *asm_text, bool *match, 
 
 void ShaderRegexGroup::link_command_lists_and_filter_index(UINT64 shader_hash)
 {
-	ShaderOverride *shader_override = NULL;
+	ShaderOverride *shader_override = nullptr;
 	wstring ini_section, ini_line;
 	CommandList::Commands::reverse_iterator i;
 
@@ -427,7 +427,7 @@ void ShaderRegexGroup::link_command_lists_and_filter_index(UINT64 shader_hash)
 
 bool unlink_shader_regex_command_lists_and_filter_index(UINT64 shader_hash)
 {
-	ShaderOverride *shader_override = NULL;
+	ShaderOverride *shader_override = nullptr;
 	CommandList::Commands::iterator i, next;
 	RunLinkedCommandList *link;
 	bool ret = false;
@@ -484,13 +484,13 @@ ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type
 	wchar_t path[MAX_PATH];
 	uint32_t *match_ids;
 	DWORD size, size2;
-	byte *buf = NULL;
+	byte *buf = nullptr;
 	size_t suffix;
 	uint32_t i;
 
 	suffix = swprintf_s(path, MAX_PATH, L"%ls\\%016llx-%ls_regex.", G->SHADER_CACHE_PATH, hash, shader_type);
 	wcscpy_s(path+suffix, MAX_PATH-suffix, L"dat");
-	meta_f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	meta_f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (meta_f == INVALID_HANDLE_VALUE)
 		return ret;
 
@@ -500,7 +500,7 @@ ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type
 
 	buf = new byte[size];
 
-	if (!ReadFile(meta_f, buf, size, &size2, NULL) || size != size2)
+	if (!ReadFile(meta_f, buf, size, &size2, nullptr) || size != size2)
 		goto out;
 
 	header = (ShaderRegexCacheHeader*)buf;
@@ -542,12 +542,12 @@ ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type
 
 	if (header->patched) {
 		wcscpy_s(path+suffix, MAX_PATH-suffix, L"bin");
-		bin_f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		bin_f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 		if (bin_f == INVALID_HANDLE_VALUE)
 			goto out;
 		size = GetFileSize(bin_f, 0);
 		bytecode->resize(size);
-		if (!size || !ReadFile(bin_f, bytecode->data(), size, &size2, NULL) || size != size2)
+		if (!size || !ReadFile(bin_f, bytecode->data(), size, &size2, nullptr) || size != size2)
 			goto out;
 		ret = ShaderRegexCache::PATCH;
 	} else
@@ -568,7 +568,7 @@ static void save_shader_regex_cache_meta(UINT64 hash, const wchar_t *shader_type
 {
 	ShaderRegexCacheHeader header;
 	wchar_t path[MAX_PATH];
-	FILE *f = NULL;
+	FILE *f = nullptr;
 	size_t suffix;
 
 	if (!G->SHADER_CACHE_PATH[0] || (!G->CACHE_SHADERS && !G->EXPORT_FIXED))
@@ -629,7 +629,7 @@ static void save_shader_regex_cache_meta(UINT64 hash, const wchar_t *shader_type
 void save_shader_regex_cache_bin(UINT64 hash, const wchar_t *shader_type, vector<byte> *bytecode)
 {
 	wchar_t path[MAX_PATH];
-	FILE *f = NULL;
+	FILE *f = nullptr;
 
 	if (!G->CACHE_SHADERS || !G->SHADER_CACHE_PATH[0])
 		return;

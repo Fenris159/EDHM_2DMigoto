@@ -155,31 +155,31 @@ static void DumpUsageRegister(HANDLE f, char *tag, int id, const ResourceSnapsho
 	char buf[256];
 	DWORD written;
 
-	sprintf(buf, "  <%s", tag);
+	sprintf_s(buf, sizeof(buf), "  <%s", tag);
 	WriteFile(f, buf, castStrLen(buf), &written, 0);
 
 	if (id != -1) {
-		sprintf(buf, " id=%d", id);
+		sprintf_s(buf, sizeof(buf), " id=%d", id);
 		WriteFile(f, buf, castStrLen(buf), &written, 0);
 	}
 
-	sprintf(buf, " handle=%p", info.handle);
+	sprintf_s(buf, sizeof(buf), " handle=%p", info.handle);
 	WriteFile(f, buf, castStrLen(buf), &written, 0);
 
 	if (info.orig_hash != info.hash) {
-		sprintf(buf, " orig_hash=%08lx", info.orig_hash);
+		sprintf_s(buf, sizeof(buf), " orig_hash=%08lx", info.orig_hash);
 		WriteFile(f, buf, castStrLen(buf), &written, 0);
 	}
 
 	try {
 		if (G->mResourceInfo.at(info.orig_hash).hash_contaminated) {
-			sprintf(buf, " hash_contaminated=true");
+			sprintf_s(buf, sizeof(buf), " hash_contaminated=true");
 			WriteFile(f, buf, castStrLen(buf), &written, 0);
 		}
 	} catch (std::out_of_range) {
 	}
 
-	sprintf(buf, ">%08lx</%s>\n", info.hash, tag);
+	sprintf_s(buf, sizeof(buf), ">%08lx</%s>\n", info.hash, tag);
 	WriteFile(f, buf, castStrLen(buf), &written, 0);
 }
 
@@ -196,7 +196,7 @@ static void DumpShaderUsageInfo(HANDLE f, std::map<UINT64, ShaderInfoData> *info
 	int pos;
 
 	for (i = info_map->begin(); i != info_map->end(); ++i) {
-		sprintf(buf, "<%s hash=\"%016llx\">\n", tag, i->first);
+		sprintf_s(buf, sizeof(buf), "<%s hash=\"%016llx\">\n", tag, i->first);
 		WriteFile(f, buf, castStrLen(buf), &written, 0);
 
 		// Does not apply to compute shaders:
@@ -205,7 +205,7 @@ static void DumpShaderUsageInfo(HANDLE f, std::map<UINT64, ShaderInfoData> *info
 			WriteFile(f, PEER_HEADER, castStrLen(PEER_HEADER), &written, 0);
 
 			for (j = i->second.PeerShaders.begin(); j != i->second.PeerShaders.end(); ++j) {
-				sprintf(buf, "%016llx ", *j);
+				sprintf_s(buf, sizeof(buf), "%016llx ", *j);
 				WriteFile(f, buf, castStrLen(buf), &written, 0);
 			}
 			const char *REG_HEADER = "</PeerShaders>\n";
@@ -234,7 +234,7 @@ static void DumpShaderUsageInfo(HANDLE f, std::map<UINT64, ShaderInfoData> *info
 				DumpUsageRegister(f, "UAV", k->first, *o);
 		}
 
-		sprintf(buf, "</%s>\n", tag);
+		sprintf_s(buf, sizeof(buf), "</%s>\n", tag);
 		WriteFile(f, buf, castStrLen(buf), &written, 0);
 	}
 }
@@ -259,7 +259,7 @@ void DumpUsage(wchar_t *dir)
 	}
 	if (FAILED(StringCchCatW(path, MAX_PATH, L"ShaderUsage.txt")))
 		return;
-	HANDLE f = CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	HANDLE f = CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (f == INVALID_HANDLE_VALUE) {
 		LogInfo("Error dumping ShaderUsage.txt\n");
 		return;
@@ -402,7 +402,7 @@ void MigotoIncludeHandler::push_dir(const char *path)
 STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFileName, LPCVOID pParentData, LPCVOID *ppData, UINT *pBytes)
 {
 	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> codec;
-	char *buf = NULL;
+	char *buf = nullptr;
 	DWORD size, read;
 	string apath;
 	wstring wpath;
@@ -431,7 +431,7 @@ STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFi
 		apath = dir_stack.front() + pFileName;
 	wpath = codec.from_bytes(apath);
 
-	f = CreateFile(wpath.c_str(), GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	f = CreateFile(wpath.c_str(), GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (f == INVALID_HANDLE_VALUE && !G->recursive_include) {
 		// If the included file is not found relative to the includer
 		// D3D_COMPILE_STANDARD_FILE_INCLUDE falls back to trying to
@@ -445,7 +445,7 @@ STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFi
 		// enabled as that already disables backwards compatibility.
 		apath = pFileName;
 		wpath = codec.from_bytes(apath);
-		f = CreateFile(wpath.c_str(), GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		f = CreateFile(wpath.c_str(), GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 	}
 	if (f == INVALID_HANDLE_VALUE) {
 		LogInfo("      Error opening included file: %s\n", apath.c_str());
@@ -523,7 +523,7 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 
 	WarnIfConflictingShaderExists(fullName);
 
-	HANDLE f = CreateFile(fullName, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	HANDLE f = CreateFile(fullName, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (f == INVALID_HANDLE_VALUE)
 	{
 		LogInfo("    ReloadShader shader not found: %ls\n", fullName);
@@ -544,7 +544,7 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 	FILETIME curFileTime;
 
 	if (!ReadFile(f, srcData.data(), srcDataSize, &readSize, 0)
-		|| !GetFileTime(f, NULL, NULL, &curFileTime)
+		|| !GetFileTime(f, nullptr, nullptr, &curFileTime)
 		|| srcDataSize != readSize)
 	{
 		LogInfo("    Error reading txt file.\n");
@@ -578,7 +578,7 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 		// #include will work with a relative path from the shader itself.
 		// Later we could add a custom include handler to track dependencies so
 		// that we can make reloading work better when using includes:
-		if (!WideCharToMultiByte(CP_UTF8, 0, fullName, -1, apath, MAX_PATH, NULL, NULL)) {
+		if (!WideCharToMultiByte(CP_UTF8, 0, fullName, -1, apath, MAX_PATH, nullptr, nullptr)) {
 			LogInfo("    error converting shader path to UTF-8: %lu\n", GetLastError());
 			return true;
 		}
@@ -668,7 +668,7 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 	headerLine = utf8_to_utf16.from_bytes(srcData.data(),
 		newline == srcData.end() ? srcData.data() + srcData.size() : &*newline);
 
-	// pCode on return == NULL for error cases, valid if made it this far.
+	// pCode on return == nullptr for error cases, valid if made it this far.
 	*pCode = pByteCode;
 
 	return true;
@@ -707,9 +707,8 @@ static bool RegenerateShader(wchar_t *shaderFixPath, wchar_t *fileName, const ch
 static bool ReloadShader(wchar_t *shaderPath, wchar_t *fileName, HackerDevice *device, string *errText)
 {
 	UINT64 hash;
-	ShaderOverrideMap::iterator override;
-	ID3D11DeviceChild* oldShader = NULL;
-	ID3D11DeviceChild* replacement = NULL;
+	ID3D11DeviceChild* oldShader = nullptr;
+	ID3D11DeviceChild* replacement = nullptr;
 	ID3D11ClassLinkage* classLinkage;
 	ID3DBlob* shaderCode;
 	string shaderModel;
@@ -721,7 +720,7 @@ static bool ReloadShader(wchar_t *shaderPath, wchar_t *fileName, HackerDevice *d
 
 	// Extract hash from first 16 characters of file name so we can look up details by hash
 	wstring ws = fileName;
-	hash = stoull(ws.substr(0, 16), NULL, 16);
+	hash = stoull(ws.substr(0, 16), nullptr, 16);
 
 	// This is probably unnecessary, because we modify already existing map entries, but
 	// for consistency, we'll wrap this.
@@ -746,7 +745,7 @@ static bool ReloadShader(wchar_t *shaderPath, wchar_t *fileName, HackerDevice *d
 
 			// If we didn't find an original shader, that is OK, because it might not have been loaded yet.
 			// Just skip it in that case, because the new version will be loaded when it is used.
-			if (oldShader == NULL)
+			if (oldShader == nullptr)
 			{
 				LogInfo("> failed to find original shader in mReloadedShaders: %ls\n", fileName);
 				continue;
@@ -761,10 +760,10 @@ static bool ReloadShader(wchar_t *shaderPath, wchar_t *fileName, HackerDevice *d
 			G->mReloadedShaders[oldShader].found = true;
 
 			// Check if the user has overridden the shader model:
-			ShaderOverrideMap::iterator override = lookup_shaderoverride(hash);
-			if (override != G->mShaderOverrideMap.end()) {
-				if (override->second.model[0])
-					shaderModel = override->second.model;
+			ShaderOverrideMap::iterator shader_override = lookup_shaderoverride(hash);
+			if (shader_override != G->mShaderOverrideMap.end()) {
+				if (shader_override->second.model[0])
+					shaderModel = shader_override->second.model;
 			}
 
 			// If shaderModel is "bin", that means the original was loaded as a binary object, and thus shaderModel is unknown.
@@ -778,19 +777,19 @@ static bool ReloadShader(wchar_t *shaderPath, wchar_t *fileName, HackerDevice *d
 			}
 
 			// Compile anew. If timestamp is unchanged, the code is unchanged, continue to next shader.
-			ID3DBlob *pShaderBytecode = NULL;
+			ID3DBlob *pShaderBytecode = nullptr;
 			if (!RegenerateShader(shaderPath, fileName, shaderModel.c_str(), hash, shaderType, shaderCode, &timeStamp, headerLine, &pShaderBytecode, errText))
 				continue;
 
 			// If we compiled but got nothing, that's a fatal error we need to report.
-			if (pShaderBytecode == NULL)
+			if (pShaderBytecode == nullptr)
 				goto err;
 
 			// Update timestamp, since we have an edited file.
 			G->mReloadedShaders[oldShader].timeStamp = timeStamp;
 			G->mReloadedShaders[oldShader].infoText = headerLine;
 
-			replacement = NULL;
+			replacement = nullptr;
 			// This needs to call the real CreateVertexShader, not our wrapped version
 			if (shaderType.compare(L"vs") == 0)
 			{
@@ -834,7 +833,7 @@ static bool ReloadShader(wchar_t *shaderPath, wchar_t *fileName, HackerDevice *d
 
 			// If we have an older reloaded shader, let's release it to avoid a memory leak.  This only happens after 1st reload.
 			// New shader is loaded on GPU and ready to be used as override in VSSetShader or PSSetShader
-			if (G->mReloadedShaders[oldShader].replacement != NULL)
+			if (G->mReloadedShaders[oldShader].replacement != nullptr)
 				G->mReloadedShaders[oldShader].replacement->Release();
 			G->mReloadedShaders[oldShader].replacement = replacement;
 
@@ -861,7 +860,7 @@ err:
 }
 
 static bool WriteASM(string *asmText, string *hlslText, string *errText,
-		UINT64 hash, OriginalShaderInfo shader_info, HackerDevice *device, wstring *tagline = NULL)
+		UINT64 hash, OriginalShaderInfo shader_info, HackerDevice *device, wstring *tagline = nullptr)
 {
 	wchar_t fileName[MAX_PATH];
 	wchar_t fullName[MAX_PATH];
@@ -908,7 +907,7 @@ static bool WriteASM(string *asmText, string *hlslText, string *errText,
 
 	// Lastly, reload the shader generated, to check for decompile errors, set it as the active
 	// shader code, in case there are visual errors, and make it the match the code in the file.
-	return ReloadShader(G->SHADER_PATH, fileName, device, NULL);
+	return ReloadShader(G->SHADER_PATH, fileName, device, nullptr);
 }
 
 // Write the decompiled text as HLSL source code to the txt file.
@@ -1062,7 +1061,7 @@ static void CopyToFixes(UINT64 hash, HackerDevice *device)
 				}
 
 				if (patched) {
-					success = WriteASM(&asmText, NULL, NULL, hash, iter.second, device, &tagline);
+					success = WriteASM(&asmText, nullptr, nullptr, hash, iter.second, device, &tagline);
 					break;
 				}
 			}
@@ -1122,7 +1121,7 @@ static void CopyToFixes(UINT64 hash, HackerDevice *device)
 // in a shader we actually don't need so we don't need to restart the game.
 static void RevertMissingShaders()
 {
-	ID3D11DeviceChild* replacement = NULL;
+	ID3D11DeviceChild* replacement = nullptr;
 	ShaderReloadMap::iterator i;
 
 	for (i = G->mReloadedShaders.begin(); i != G->mReloadedShaders.end(); i++) {
@@ -1134,7 +1133,7 @@ static void RevertMissingShaders()
 			continue;
 		replacement = j->second;
 
-		if ((i->second.replacement == NULL && i->first == replacement)
+		if ((i->second.replacement == nullptr && i->first == replacement)
 			|| replacement == i->second.replacement) {
 			continue;
 		}
@@ -1196,7 +1195,7 @@ static void ReloadFixes(HackerDevice *device, void *private_data)
 		if (hFind != INVALID_HANDLE_VALUE)
 		{
 			do {
-				success = ReloadShader(G->SHADER_PATH, findFileData.cFileName, device, NULL) && success;
+				success = ReloadShader(G->SHADER_PATH, findFileData.cFileName, device, nullptr) && success;
 			} while (FindNextFile(hFind, &findFileData));
 			FindClose(hFind);
 		}
@@ -1249,7 +1248,7 @@ static void _AnalyseFrameStop()
 
 static void AnalyseFrame(HackerDevice *device, void *private_data)
 {
-	FrameAnalysisContext *factx = NULL;
+	FrameAnalysisContext *factx = nullptr;
 	wchar_t path[MAX_PATH], subdir[MAX_PATH];
 	time_t ltime;
 	struct tm tm;
@@ -1656,7 +1655,7 @@ static void HashToClipboard(char *type, HashType hash)
 	_snprintf_s((char*)GlobalLock(hMem), nt_len, nt_len, "%0*llx", hash_len, (UINT64)hash);
 	GlobalUnlock(hMem);
 
-	if (!OpenClipboard(NULL))
+	if (!OpenClipboard(nullptr))
 		goto err_free;
 
 	EmptyClipboard();
@@ -1695,7 +1694,7 @@ static void MarkVertexBuffer(HackerDevice *device, void *private_data)
 		LogInfo("     visited vertex shader hash = %016I64x\n", *i);
 
 	if (G->DumpUsage)
-		DumpUsage(NULL);
+		DumpUsage(nullptr);
 
 	LeaveCriticalSection(&G->mCriticalSection);
 }
@@ -1719,7 +1718,7 @@ static void MarkIndexBuffer(HackerDevice *device, void *private_data)
 		LogInfo("     visited vertex shader hash = %016I64x\n", *i);
 
 	if (G->DumpUsage)
-		DumpUsage(NULL);
+		DumpUsage(nullptr);
 
 	LeaveCriticalSection(&G->mCriticalSection);
 }
@@ -1759,7 +1758,7 @@ static void MarkShaderEnd(HackerDevice *device, char *long_type, char *short_typ
 	}
 
 	if (G->DumpUsage)
-		DumpUsage(NULL);
+		DumpUsage(nullptr);
 
 	LeaveCriticalSection(&G->mCriticalSection);
 }
@@ -1870,7 +1869,7 @@ static void MarkRenderTarget(HackerDevice *device, void *private_data)
 		LogRenderTarget(*i, "       ");
 
 	if (G->DumpUsage)
-		DumpUsage(NULL);
+		DumpUsage(nullptr);
 
 	if (G->marking_actions & MarkingAction::CLIPBOARD)
 		HashToClipboard("render target", hash);
@@ -1982,13 +1981,13 @@ void ParseHuntingSection()
 	static MarkingMode prev_marking_mode = MarkingMode::INVALID;
 
 	LogInfo("[Hunting]\n");
-	G->hunting = GetIniInt(L"Hunting", L"hunting", 0, NULL);
+	G->hunting = GetIniInt(L"Hunting", L"hunting", 0, nullptr);
 
 	// Number of frames a IB/VB buffer hash can remain in the overlay tracking
 	// cache without being encountered again before it is purged.
 	// If >= 0, stale hashes are removed by PurgeStaleVisitedBufferHashes() once per
 	// frame at the start of HackerSwapChain::Present().
-	G->overlay_buffer_hash_lifetime = GetIniInt(L"Hunting", L"overlay_buffer_hash_lifetime", -1, NULL);
+	G->overlay_buffer_hash_lifetime = GetIniInt(L"Hunting", L"overlay_buffer_hash_lifetime", -1, nullptr);
 	if (G->track_region_hashes && G->overlay_buffer_hash_lifetime < 0)
 		G->overlay_buffer_hash_lifetime = 0;
 
@@ -1998,15 +1997,15 @@ void ParseHuntingSection()
 	// performance hit with hunting on, or where a broken effect is
 	// discovered while playing normally where it may not be easy/fast to
 	// find the effect again later.
-	G->config_reloadable = RegisterIniKeyBinding(L"Hunting", L"reload_config", FlagConfigReload, NULL, noRepeat, NULL);
-	G->config_reloadable = RegisterIniKeyBinding(L"Hunting", L"wipe_user_config", FlagConfigReload, NULL, noRepeat, (void*)true);
+	G->config_reloadable = RegisterIniKeyBinding(L"Hunting", L"reload_config", FlagConfigReload, nullptr, noRepeat, nullptr);
+	G->config_reloadable = RegisterIniKeyBinding(L"Hunting", L"wipe_user_config", FlagConfigReload, nullptr, noRepeat, (void*)true);
 
 	// We're interested in performance measurements even in release mode
 	// (possibly even especially in release mode), particularly if we want
 	// a user to send us a screenshot of the profiling info:
-	RegisterIniKeyBinding(L"Hunting", L"monitor_performance", AnalysePerf, NULL, noRepeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"freeze_performance_monitor", FreezePerf, NULL, noRepeat, NULL);
-	Profiling::interval = (INT64)(GetIniFloat(L"Hunting", L"monitor_performance_interval", 1.0f, NULL) * 1000000);
+	RegisterIniKeyBinding(L"Hunting", L"monitor_performance", AnalysePerf, nullptr, noRepeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"freeze_performance_monitor", FreezePerf, nullptr, noRepeat, nullptr);
+	Profiling::interval = (INT64)(GetIniFloat(L"Hunting", L"monitor_performance_interval", 1.0f, nullptr) * 1000000);
 
 	// Don't register hunting keys when hard disabled. In this case the
 	// only way to turn hunting on is to edit the ini file and reload it.
@@ -2018,91 +2017,91 @@ void ParseHuntingSection()
 	}
 
 	// Let's also allow an easy toggle of hunting itself, for speed and playability.
-	RegisterIniKeyBinding(L"Hunting", L"toggle_hunting", ToggleHunting, NULL, noRepeat, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"toggle_hunting", ToggleHunting, nullptr, noRepeat, nullptr);
 
-	repeat = GetIniInt(L"Hunting", L"repeat_rate", repeat, NULL);
+	repeat = GetIniInt(L"Hunting", L"repeat_rate", repeat, nullptr);
 
 	// For a better user experience we avoid resetting the marking mode on
 	// config reload if the next_marking_mode key is enabled, unless
 	// marking_mode was actually changed since the last config reload:
-	new_marking_mode = GetIniEnumClass(L"Hunting", L"marking_mode", MarkingMode::INVALID, NULL, MarkingModeNames);
+	new_marking_mode = GetIniEnumClass(L"Hunting", L"marking_mode", MarkingMode::INVALID, nullptr, MarkingModeNames);
 	if (new_marking_mode != prev_marking_mode)
 		G->marking_mode = prev_marking_mode = new_marking_mode;
-	RegisterIniKeyBinding(L"Hunting", L"next_marking_mode", NextMarkingMode, NULL, noRepeat, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"next_marking_mode", NextMarkingMode, nullptr, noRepeat, nullptr);
 
 	if (GetIniStringAndLog(L"Hunting", L"marking_actions", 0, buf, MAX_PATH)) {
 		G->marking_actions = parse_enum_option_string<const wchar_t *, MarkingAction>
-			(MarkingActionNames, buf, NULL);
+			(MarkingActionNames, buf, nullptr);
 	} else
 		G->marking_actions = MarkingAction::DEFAULT;
 
-	RegisterIniKeyBinding(L"Hunting", L"next_pixelshader", NextPixelShader, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"previous_pixelshader", PrevPixelShader, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"mark_pixelshader", MarkPixelShader, NULL, noRepeat, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"next_pixelshader", NextPixelShader, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"previous_pixelshader", PrevPixelShader, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"mark_pixelshader", MarkPixelShader, nullptr, noRepeat, nullptr);
 
-	RegisterIniKeyBinding(L"Hunting", L"next_vertexbuffer", NextVertexBuffer, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"previous_vertexbuffer", PrevVertexBuffer, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"mark_vertexbuffer", MarkVertexBuffer, NULL, noRepeat, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"next_vertexbuffer", NextVertexBuffer, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"previous_vertexbuffer", PrevVertexBuffer, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"mark_vertexbuffer", MarkVertexBuffer, nullptr, noRepeat, nullptr);
 
-	RegisterIniKeyBinding(L"Hunting", L"next_vertexbuffer_slot", NextVertexBufferSlot, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"previous_vertexbuffer_slot", PrevVertexBufferSlot, NULL, repeat, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"next_vertexbuffer_slot", NextVertexBufferSlot, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"previous_vertexbuffer_slot", PrevVertexBufferSlot, nullptr, repeat, nullptr);
 
-	RegisterIniKeyBinding(L"Hunting", L"next_indexbuffer", NextIndexBuffer, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"previous_indexbuffer", PrevIndexBuffer, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"mark_indexbuffer", MarkIndexBuffer, NULL, noRepeat, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"next_indexbuffer", NextIndexBuffer, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"previous_indexbuffer", PrevIndexBuffer, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"mark_indexbuffer", MarkIndexBuffer, nullptr, noRepeat, nullptr);
 
-	RegisterIniKeyBinding(L"Hunting", L"next_vertexshader", NextVertexShader, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"previous_vertexshader", PrevVertexShader, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"mark_vertexshader", MarkVertexShader, NULL, noRepeat, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"next_vertexshader", NextVertexShader, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"previous_vertexshader", PrevVertexShader, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"mark_vertexshader", MarkVertexShader, nullptr, noRepeat, nullptr);
 
-	RegisterIniKeyBinding(L"Hunting", L"next_computeshader", NextComputeShader, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"previous_computeshader", PrevComputeShader, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"mark_computeshader", MarkComputeShader, NULL, noRepeat, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"next_computeshader", NextComputeShader, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"previous_computeshader", PrevComputeShader, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"mark_computeshader", MarkComputeShader, nullptr, noRepeat, nullptr);
 
-	RegisterIniKeyBinding(L"Hunting", L"next_geometryshader", NextGeometryShader, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"previous_geometryshader", PrevGeometryShader, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"mark_geometryshader", MarkGeometryShader, NULL, noRepeat, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"next_geometryshader", NextGeometryShader, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"previous_geometryshader", PrevGeometryShader, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"mark_geometryshader", MarkGeometryShader, nullptr, noRepeat, nullptr);
 
-	RegisterIniKeyBinding(L"Hunting", L"next_domainshader", NextDomainShader, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"previous_domainshader", PrevDomainShader, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"mark_domainshader", MarkDomainShader, NULL, noRepeat, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"next_domainshader", NextDomainShader, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"previous_domainshader", PrevDomainShader, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"mark_domainshader", MarkDomainShader, nullptr, noRepeat, nullptr);
 
-	RegisterIniKeyBinding(L"Hunting", L"next_hullshader", NextHullShader, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"previous_hullshader", PrevHullShader, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"mark_hullshader", MarkHullShader, NULL, noRepeat, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"next_hullshader", NextHullShader, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"previous_hullshader", PrevHullShader, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"mark_hullshader", MarkHullShader, nullptr, noRepeat, nullptr);
 
-	RegisterIniKeyBinding(L"Hunting", L"next_rendertarget", NextRenderTarget, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"previous_rendertarget", PrevRenderTarget, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"mark_rendertarget", MarkRenderTarget, NULL, noRepeat, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"next_rendertarget", NextRenderTarget, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"previous_rendertarget", PrevRenderTarget, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"mark_rendertarget", MarkRenderTarget, nullptr, noRepeat, nullptr);
 
-	RegisterIniKeyBinding(L"Hunting", L"done_hunting", DoneHunting, NULL, noRepeat, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"done_hunting", DoneHunting, nullptr, noRepeat, nullptr);
 
-	RegisterIniKeyBinding(L"Hunting", L"reload_fixes", ReloadFixes, NULL, noRepeat, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"reload_fixes", ReloadFixes, nullptr, noRepeat, nullptr);
 
-	G->show_original_enabled = RegisterIniKeyBinding(L"Hunting", L"show_original", DisableFix, EnableFix, noRepeat, NULL);
+	G->show_original_enabled = RegisterIniKeyBinding(L"Hunting", L"show_original", DisableFix, EnableFix, noRepeat, nullptr);
 
-	G->frame_analysis_registered = RegisterIniKeyBinding(L"Hunting", L"analyse_frame", AnalyseFrame, AnalyseFrameStop, noRepeat, NULL);
+	G->frame_analysis_registered = RegisterIniKeyBinding(L"Hunting", L"analyse_frame", AnalyseFrame, AnalyseFrameStop, noRepeat, nullptr);
 	if (GetIniStringAndLog(L"Hunting", L"analyse_options", 0, buf, MAX_PATH)) {
 		G->def_analyse_options = parse_enum_option_string<wchar_t *, FrameAnalysisOptions>
-			(FrameAnalysisOptionNames, buf, NULL);
+			(FrameAnalysisOptionNames, buf, nullptr);
 	} else
 		G->def_analyse_options = FrameAnalysisOptions::INVALID;
 
 	// Quick hacks to see if DX11 features that we only have limited support for are responsible for anything important:
-	RegisterIniKeyBinding(L"Hunting", L"kill_deferred", DisableDeferred, EnableDeferred, noRepeat, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"kill_deferred", DisableDeferred, EnableDeferred, noRepeat, nullptr);
 
-	G->ENABLE_TUNE = GetIniBool(L"Hunting", L"tune_enable", false, NULL);
-	G->gTuneStep = GetIniFloat(L"Hunting", L"tune_step", 1.0f, NULL);
+	G->ENABLE_TUNE = GetIniBool(L"Hunting", L"tune_enable", false, nullptr);
+	G->gTuneStep = GetIniFloat(L"Hunting", L"tune_step", 1.0f, nullptr);
 
 	for (i = 0; i < 4; i++) {
 		_snwprintf(buf, 16, L"tune%Ii_up", i + 1);
-		RegisterIniKeyBinding(L"Hunting", buf, TuneUp, NULL, repeat, (void*)i);
+		RegisterIniKeyBinding(L"Hunting", buf, TuneUp, nullptr, repeat, (void*)i);
 
 		_snwprintf(buf, 16, L"tune%Ii_down", i + 1);
-		RegisterIniKeyBinding(L"Hunting", buf, TuneDown, NULL, repeat, (void*)i);
+		RegisterIniKeyBinding(L"Hunting", buf, TuneDown, nullptr, repeat, (void*)i);
 	}
 
-	G->verbose_overlay = GetIniBool(L"Hunting", L"verbose_overlay", false, NULL);
+	G->verbose_overlay = GetIniBool(L"Hunting", L"verbose_overlay", false, nullptr);
 }
 
 void RegisterVisitedIndexBufferNoLock(uint32_t hash)

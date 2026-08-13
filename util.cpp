@@ -39,7 +39,7 @@ static SECURITY_ATTRIBUTES* init_security_attributes(SECURITY_ATTRIBUTES *sa)
 {
 	sa->nLength = sizeof(SECURITY_ATTRIBUTES);
 	sa->bInheritHandle = FALSE;
-	sa->lpSecurityDescriptor = NULL;
+	sa->lpSecurityDescriptor = nullptr;
 
 	if (ConvertStringSecurityDescriptorToSecurityDescriptor(
 			L"D:" // Discretionary ACL
@@ -48,17 +48,17 @@ static SECURITY_ATTRIBUTES* init_security_attributes(SECURITY_ATTRIBUTES *sa)
 			L"(A;OICI;GA;;;AU)" // Allow full control to authenticated users (GRGWGX is not enough to delete contents?)
 			// Using "CO" for Creator/Owner instead of "AU" seems ineffective
 			L"(A;OICI;GA;;;BA)" // Allow full control to administrators
-			, SDDL_REVISION_1, &sa->lpSecurityDescriptor, NULL)) {
+			, SDDL_REVISION_1, &sa->lpSecurityDescriptor, nullptr)) {
 		return sa;
 	}
 
 	LogInfo("ConvertStringSecurityDescriptorToSecurityDescriptor failed\n");
-	return NULL;
+	return nullptr;
 }
 
 BOOL CreateDirectoryEnsuringAccess(LPCWSTR path)
 {
-	SECURITY_ATTRIBUTES sa, *psa = NULL;
+	SECURITY_ATTRIBUTES sa, *psa = nullptr;
 	BOOL ret = false;
 
 	psa = init_security_attributes(&sa);
@@ -74,15 +74,15 @@ BOOL CreateDirectoryEnsuringAccess(LPCWSTR path)
 // read it back later.
 errno_t wfopen_ensuring_access(FILE** pFile, const wchar_t *filename, const wchar_t *mode)
 {
-	SECURITY_ATTRIBUTES sa, *psa = NULL;
-	HANDLE fh = NULL;
+	SECURITY_ATTRIBUTES sa, *psa = nullptr;
+	HANDLE fh = nullptr;
 	int fd = -1;
-	FILE *fp = NULL;
+	FILE *fp = nullptr;
 	int osf_flags = 0;
 
-	*pFile = NULL;
+	*pFile = nullptr;
 
-	if (wcsstr(mode, L"w") == NULL) {
+	if (wcsstr(mode, L"w") == nullptr) {
 		// This function is for creating new files for now. We could
 		// make it do some heroics on read/append as well, but I don't
 		// want to push this further than we need to.
@@ -90,7 +90,7 @@ errno_t wfopen_ensuring_access(FILE** pFile, const wchar_t *filename, const wcha
 		DoubleBeepExit();
 	}
 
-	if (wcsstr(mode, L"b") == NULL)
+	if (wcsstr(mode, L"b") == nullptr)
 		osf_flags |= _O_TEXT;
 
 	// We use _wfopen_s so that we can use formatted print routines, but to
@@ -99,7 +99,7 @@ errno_t wfopen_ensuring_access(FILE** pFile, const wchar_t *filename, const wcha
 	// convert the resulting handle into a C file descriptor, then a FILE*
 	// that can be used as per usual.
 	psa = init_security_attributes(&sa);
-	fh = CreateFile(filename, GENERIC_WRITE, 0, psa, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	fh = CreateFile(filename, GENERIC_WRITE, 0, psa, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 	LocalFree(sa.lpSecurityDescriptor);
 	if (fh == INVALID_HANDLE_VALUE) {
 		// FIXME: Map GetLastError() to appropriate errno
@@ -135,11 +135,11 @@ void set_file_last_write_time(wchar_t *path, FILETIME *ftWrite, DWORD flags)
 {
 	HANDLE f;
 
-	f = CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | flags, NULL);
+	f = CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | flags, nullptr);
 	if (f == INVALID_HANDLE_VALUE)
 		return;
 
-	SetFileTime(f, NULL, NULL, ftWrite);
+	SetFileTime(f, nullptr, nullptr, ftWrite);
 	CloseHandle(f);
 }
 
@@ -306,7 +306,7 @@ std::string NameFromIID(IID id)
 	if (SUCCEEDED(StringFromGUID2(id, wiid, 128)))
 	{
 		char iid[128];
-		if (WideCharToMultiByte(CP_UTF8, 0, wiid, -1, iid, ARRAYSIZE(iid), NULL, NULL))
+		if (WideCharToMultiByte(CP_UTF8, 0, wiid, -1, iid, ARRAYSIZE(iid), nullptr, nullptr))
 			iidString = iid;
 		else
 			iidString = "unknown";
@@ -392,7 +392,7 @@ float get_effective_dpi()
 			LogInfo("Obsolete Windows version, SetThreadDpiAwarenessContext() unavailable, effective_dpi will be at the mercy of the process DPI awareness\n");
 		if (fnGetProcessDpiAwareness) {
 			PROCESS_DPI_AWARENESS awareness;
-			fnGetProcessDpiAwareness(NULL, &awareness);
+			fnGetProcessDpiAwareness(nullptr, &awareness);
 			LogInfo("Process DPI Awareness: %u\n", awareness);
 		}
 		init_done = true;
@@ -470,7 +470,7 @@ void save_om_state(IDirect3DDevice9 *device, struct OMState *state)
 		state->rtvs.resize(caps.NumSimultaneousRTs);
 	state->NumRTVs = 0;
 	for (i = 0; i < caps.NumSimultaneousRTs; i++) {
-		IDirect3DSurface9 *rt = NULL;
+		IDirect3DSurface9 *rt = nullptr;
 		device->GetRenderTarget(i, &rt);
 		state->rtvs[i] = rt;
 		if (rt) {
@@ -519,7 +519,7 @@ void save_om_state(ID3D11DeviceContext *context, struct OMState *state)
 	// Finally get all the UAVs. Since we already retrieved the RTVs and
 	// DSV we can skip getting them:
 	if (state->NumUAVs)
-		context->OMGetRenderTargetsAndUnorderedAccessViews(0, NULL, NULL, state->UAVStartSlot, state->NumUAVs, state->uavs);
+		context->OMGetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, state->UAVStartSlot, state->NumUAVs, state->uavs);
 }
 
 void restore_om_state(ID3D11DeviceContext *context, struct OMState *state)
@@ -569,7 +569,7 @@ static DWORD WINAPI crash_handler_switch_to_window(_In_ LPVOID lpParameter)
 		LogInfo("Attempting emergency switch to windowed mode on swap chain %p\n",
 				last_fullscreen_swap_chain);
 
-		last_fullscreen_swap_chain->SetFullscreenState(FALSE, NULL);
+		last_fullscreen_swap_chain->SetFullscreenState(FALSE, nullptr);
 		//last_fullscreen_swap_chain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
 	}
 
@@ -664,7 +664,7 @@ static LONG WINAPI migoto_exception_filter(_In_ struct _EXCEPTION_POINTERS *Exce
 	// this could fail - if we really want a robust crash handler we could
 	// bring in something like breakpad
 
-	ltime = time(NULL);
+	ltime = time(nullptr);
 	localtime_s(&timestruct, &ltime);
 	wcsftime(path, MAX_PATH, L"3DM-%Y%m%d%H%M%S.dmp", &timestruct);
 
@@ -673,7 +673,7 @@ static LONG WINAPI migoto_exception_filter(_In_ struct _EXCEPTION_POINTERS *Exce
 	EnterCriticalSectionPretty(&crash_handler_lock);
 
 	auto fp = CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ,
-			0, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+			0, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (fp != INVALID_HANDLE_VALUE) {
 		LogInfo("Writing minidump to %S...\n", path);
 
@@ -681,7 +681,7 @@ static LONG WINAPI migoto_exception_filter(_In_ struct _EXCEPTION_POINTERS *Exce
 			{ GetCurrentThreadId(), ExceptionInfo, FALSE };
 
 		if (MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(),
-				fp, MiniDumpWithHandleData, &dump_info, NULL, NULL))
+				fp, MiniDumpWithHandleData, &dump_info, nullptr, nullptr))
 			LogInfo("Succeeded\n");
 		else
 			LogInfo("Failed :(\n");

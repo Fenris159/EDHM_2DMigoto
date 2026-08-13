@@ -60,20 +60,20 @@ static void LogHooking(char *fmt, ...)
 // ----------------------------------------------------------------------------
 static HRESULT InstallHookDLLMain(LPCWSTR moduleName, char *func, void **trampoline, void *hook)
 {
-	HINSTANCE module;
+	HINSTANCE hModule;
 	SIZE_T hook_id;
 	DWORD dwOsErr;
 	void *fnOrig;
 
-	module = NktHookLibHelpers::GetModuleBaseAddress(moduleName);
-	if (module == NULL)
+	hModule = NktHookLibHelpers::GetModuleBaseAddress(moduleName);
+	if (hModule == nullptr)
 	{
 		LogHooking("*** Failed to GetModuleBaseAddress for %s\n", moduleName);
 		return E_FAIL;
 	}
 
-	fnOrig = NktHookLibHelpers::GetProcedureAddress(module, func);
-	if (fnOrig == NULL) {
+	fnOrig = NktHookLibHelpers::GetProcedureAddress(hModule, func);
+	if (fnOrig == nullptr) {
 		LogHooking("*** Failed to get address of %s\n", func);
 		return E_FAIL;
 	}
@@ -184,7 +184,7 @@ static bool verify_intended_target(HINSTANCE our_dll)
 
 	if (!GetModuleFileName(our_dll, our_path, MAX_PATH))
 		return false;
-	if (!GetModuleFileName(NULL, exe_path, MAX_PATH))
+	if (!GetModuleFileName(nullptr, exe_path, MAX_PATH))
 		return false;
 
 	our_basename = wcsrchr(our_path, L'\\');
@@ -257,11 +257,11 @@ static bool verify_intended_target(HINSTANCE our_dll)
 	// structures as yet, so we can bail out of unwanted targets sooner.
 
 	wcsncat_s(our_path, MAX_PATH, L"\\d3dx.ini", _TRUNCATE);
-	f = CreateFile(our_path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	f = CreateFile(our_path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (f == INVALID_HANDLE_VALUE)
 		return false;
 
-	filesize = GetFileSize(f, NULL);
+	filesize = GetFileSize(f, nullptr);
 	// GetFileSize failure returns INVALID_FILE_SIZE (0xFFFFFFFF), and the old
 	// unchecked filesize+1 allocation would then wrap to zero bytes while
 	// ReadFile was still asked for ~4GB. A sane d3dx.ini is kilobytes; refuse
@@ -319,7 +319,7 @@ static bool verify_intended_target(HINSTANCE our_dll)
 	if (rc) {
 		// Bump our refcount so we don't get unloaded if the injector
 		// application exits before the game has started initialising DirectX
-		HMODULE handle = NULL;
+		HMODULE handle = nullptr;
 		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
 				(LPCWSTR)verify_intended_target, &handle);
 	}
@@ -391,7 +391,7 @@ BOOL WINAPI DllMain(
 			// During process termination Windows has already stopped the other
 			// threads and will reclaim process resources. Avoid hook removal,
 			// TLS cleanup, file I/O and settings writes under the loader lock.
-			if (lpvReserved != NULL)
+			if (lpvReserved != nullptr)
 				break;
 
 			RemoveHooks();

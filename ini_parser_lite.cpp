@@ -26,7 +26,7 @@ static const char* next_line(const char *buf)
 
 // Returns a pointer to the first non-whitespace character on the line
 // following [section_name] (which may be a pointer to the zero terminator if
-// EOF is encountered), or NULL if the section is not found. section_name must
+// EOF is encountered), or nullptr if the section is not found. section_name must
 // be lower case.
 const char* find_ini_section_lite(const char *buf, const char *section_name)
 {

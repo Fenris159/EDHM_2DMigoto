@@ -66,13 +66,13 @@ static bool verify_intended_target_late()
 	wchar_t target[MAX_PATH];
 	size_t target_len, exe_len;
 
-	if (!GetIniBool(L"Loader", L"check_target_even_without_loader", false, NULL))
+	if (!GetIniBool(L"Loader", L"check_target_even_without_loader", false, nullptr))
 		return true;
 
-	if (GetIniString(L"Loader", L"Target", NULL, target, MAX_PATH) == 0)
+	if (GetIniString(L"Loader", L"Target", nullptr, target, MAX_PATH) == 0)
 		return true;
 
-	if (!GetModuleFileName(NULL, exe_path, MAX_PATH))
+	if (!GetModuleFileName(nullptr, exe_path, MAX_PATH))
 		return false;
 
 	// If we are loading into an application with a generic name like
@@ -183,56 +183,56 @@ static INIT_ONCE d3d11_init_once = INIT_ONCE_STATIC_INIT;
 PFN_D3D11ON12_CREATE_DEVICE _D3D11On12CreateDevice;
 #endif
 
-static void LogChainedD3D11Module(HMODULE module, const char *via)
+static void LogChainedD3D11Module(HMODULE hModule, const char *via)
 {
 	wchar_t path[MAX_PATH] = {};
-	if (!module) {
+	if (!hModule) {
 		LogInfo("Chained d3d11: (null) via %s\n", via ? via : "?");
 		return;
 	}
-	if (GetModuleFileNameW(module, path, MAX_PATH))
+	if (GetModuleFileNameW(hModule, path, MAX_PATH))
 		LogInfoW(L"Chained d3d11 loaded via %hs: %ls\n", via ? via : "?", path);
 	else
-		LogInfo("Chained d3d11 loaded via %s: (path unknown) handle=%p\n", via ? via : "?", module);
+		LogInfo("Chained d3d11 loaded via %s: (path unknown) handle=%p\n", via ? via : "?", hModule);
 }
 
-static HMODULE ValidateChainedD3D11Module(HMODULE module, const char *via)
+static HMODULE ValidateChainedD3D11Module(HMODULE hModule, const char *via)
 {
-	if (!module)
-		return NULL;
+	if (!hModule)
+		return nullptr;
 
-	if (module == migoto_handle) {
+	if (hModule == migoto_handle) {
 		LogInfo("*** Rejected chained d3d11 via %s because it resolved back to this 3Dmigoto wrapper.\n",
 			via ? via : "?");
-		FreeLibrary(module);
-		return NULL;
+		FreeLibrary(hModule);
+		return nullptr;
 	}
-	if (GetProcAddress(module, "CBTProc")) {
+	if (GetProcAddress(hModule, "CBTProc")) {
 		LogInfo("*** Rejected chained d3d11 via %s because it is another 3DMigoto wrapper.\n",
 			via ? via : "?");
-		FreeLibrary(module);
-		return NULL;
+		FreeLibrary(hModule);
+		return nullptr;
 	}
 
 	PFN_D3D11_CREATE_DEVICE create_device =
-		(PFN_D3D11_CREATE_DEVICE)GetProcAddress(module, "D3D11CreateDevice");
+		(PFN_D3D11_CREATE_DEVICE)GetProcAddress(hModule, "D3D11CreateDevice");
 	PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN create_device_and_swap_chain =
-		(PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN)GetProcAddress(module, "D3D11CreateDeviceAndSwapChain");
+		(PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN)GetProcAddress(hModule, "D3D11CreateDeviceAndSwapChain");
 
 	if (!create_device || !create_device_and_swap_chain) {
-		LogChainedD3D11Module(module, via);
+		LogChainedD3D11Module(hModule, via);
 		LogInfo("*** Rejected chained d3d11: required exports are missing "
 			"(CreateDevice=%p CreateDeviceAndSwapChain=%p)\n",
 			create_device, create_device_and_swap_chain);
-		FreeLibrary(module);
-		return NULL;
+		FreeLibrary(hModule);
+		return nullptr;
 	}
 
 	_D3D11CreateDevice = create_device;
 	_D3D11CreateDeviceAndSwapChain = create_device_and_swap_chain;
-	LogChainedD3D11Module(module, via);
+	LogChainedD3D11Module(hModule, via);
 	LogInfo("Chained d3d11 exports OK\n");
-	return module;
+	return hModule;
 }
 
 static BOOL CALLBACK InitD311Once(PINIT_ONCE, PVOID, PVOID*)
@@ -252,7 +252,7 @@ static BOOL CALLBACK InitD311Once(PINIT_ONCE, PVOID, PVOID*)
 	// zero, otherwise the proxy d3d11.dll will call back into us, and create
 	// an infinite loop.
 
-	HMODULE candidate = NULL;
+	HMODULE candidate = nullptr;
 	bool tried_original_d3d11 = false;
 
 	if (G->CHAIN_DLL_PATH[0])
@@ -270,7 +270,7 @@ static BOOL CALLBACK InitD311Once(PINIT_ONCE, PVOID, PVOID*)
 			slash[1] = 0;
 			if (wcscat_s(proxy_path, MAX_PATH, G->CHAIN_DLL_PATH) == 0) {
 				LogInfoW(L"Trying configured proxy beside the game-local 3Dmigoto wrapper: %ls\n", proxy_path);
-				candidate = LoadLibraryExW(proxy_path, NULL, 0);
+				candidate = LoadLibraryExW(proxy_path, nullptr, 0);
 			}
 		}
 		if (!candidate) {
@@ -283,7 +283,7 @@ static BOOL CALLBACK InitD311Once(PINIT_ONCE, PVOID, PVOID*)
 			if (absolute) {
 				LogInfoW(L"Configured proxy was not found beside the game-local 3Dmigoto wrapper; trying absolute configured path: %ls\n",
 					G->CHAIN_DLL_PATH);
-				candidate = LoadLibraryExW(G->CHAIN_DLL_PATH, NULL, 0);
+				candidate = LoadLibraryExW(G->CHAIN_DLL_PATH, nullptr, 0);
 			} else {
 				LogInfoW(L"Configured proxy path \"%ls\" is not absolute; refusing search-order fallback\n",
 					G->CHAIN_DLL_PATH);
@@ -303,13 +303,13 @@ static BOOL CALLBACK InitD311Once(PINIT_ONCE, PVOID, PVOID*)
 		if (!G->wine_compat_profile_applied) {
 			LogInfo("Trying to load original_d3d11.dll\n");
 			tried_original_d3d11 = true;
-			candidate = LoadLibraryExW(L"original_d3d11.dll", NULL, 0);
+			candidate = LoadLibraryExW(L"original_d3d11.dll", nullptr, 0);
 			hD3D11 = ValidateChainedD3D11Module(candidate, "original_d3d11.dll");
 		} else {
 			LogInfo("WineCompat: skipping legacy original_d3d11.dll and using prefix/system D3D11\n");
 		}
 
-		if (hD3D11 == NULL)
+		if (hD3D11 == nullptr)
 		{
 			wchar_t libPath[MAX_PATH];
 			if (tried_original_d3d11)
@@ -320,18 +320,18 @@ static BOOL CALLBACK InitD311Once(PINIT_ONCE, PVOID, PVOID*)
 			// Fall back to using the full path after suppressing 3DMigoto's
 			// redirect to make sure we don't get a reference to ourselves:
 
-			LoadLibraryEx(L"SUPPRESS_3DMIGOTO_REDIRECT", NULL, 0);
+			LoadLibraryEx(L"SUPPRESS_3DMIGOTO_REDIRECT", nullptr, 0);
 
 			ret = GetSystemDirectoryW(libPath, ARRAYSIZE(libPath));
 			if (ret != 0 && ret < ARRAYSIZE(libPath)) {
 				wcscat_s(libPath, MAX_PATH, L"\\d3d11.dll");
 				LogInfoW(L"Trying to load %ls\n", libPath);
-				candidate = LoadLibraryExW(libPath, NULL, 0);
+				candidate = LoadLibraryExW(libPath, nullptr, 0);
 				hD3D11 = ValidateChainedD3D11Module(candidate, "system32 d3d11.dll");
 			}
 		}
 	}
-	if (hD3D11 == NULL)
+	if (hD3D11 == nullptr)
 	{
 		LogInfo("*** LoadLibrary on original or chained d3d11.dll failed.\n");
 		LogInfo("*** If this is Wine/Proton, ensure the 3Dmigoto d3d11.dll used by EDHM is next to EliteDangerous64.exe\n");
@@ -358,7 +358,7 @@ static BOOL CALLBACK InitD311Once(PINIT_ONCE, PVOID, PVOID*)
 
 void InitD311()
 {
-	if (!InitOnceExecuteOnce(&d3d11_init_once, InitD311Once, NULL, NULL)) {
+	if (!InitOnceExecuteOnce(&d3d11_init_once, InitD311Once, nullptr, nullptr)) {
 		LogInfo("*** One-time D3D11 initialization failed (GetLastError=%lu).\n", GetLastError());
 		DoubleBeepExit();
 	}
@@ -381,9 +381,9 @@ HRESULT WINAPI D3D11On12CreateDevice(
 	if (!_D3D11On12CreateDevice) {
 		LogInfo("*** Chained d3d11 does not export D3D11On12CreateDevice.\n");
 		if (ppDevice)
-			*ppDevice = NULL;
+			*ppDevice = nullptr;
 		if (ppImmediateContext)
-			*ppImmediateContext = NULL;
+			*ppImmediateContext = nullptr;
 		if (pChosenFeatureLevel)
 			*pChosenFeatureLevel = (D3D_FEATURE_LEVEL)0;
 		return E_NOTIMPL;
@@ -399,7 +399,7 @@ HRESULT WINAPI CreateDirect3D11DeviceFromDXGIDevice(
 	InitD311();
 	if (!_CreateDirect3D11DeviceFromDXGIDevice) {
 		if (graphicsDevice)
-			*graphicsDevice = NULL;
+			*graphicsDevice = nullptr;
 		return E_NOTIMPL;
 	}
 
@@ -413,7 +413,7 @@ HRESULT WINAPI CreateDirect3D11SurfaceFromDXGISurface(
 	InitD311();
 	if (!_CreateDirect3D11SurfaceFromDXGISurface) {
 		if (graphicsSurface)
-			*graphicsSurface = NULL;
+			*graphicsSurface = nullptr;
 		return E_NOTIMPL;
 	}
 
@@ -751,11 +751,11 @@ HRESULT WINAPI D3D11CreateDevice(
 	_Out_opt_       ID3D11DeviceContext **ppImmediateContext)
 {
 	if (ppDevice)
-		*ppDevice = NULL;
+		*ppDevice = nullptr;
 	if (pFeatureLevel)
 		*pFeatureLevel = (D3D_FEATURE_LEVEL)0;
 	if (ppImmediateContext)
-		*ppImmediateContext = NULL;
+		*ppImmediateContext = nullptr;
 
 	if (get_tls()->hooking_quirk_protection) {
 		LogInfo("Hooking Quirk: Unexpected call back into D3D11CreateDevice, passing through\n");
@@ -881,13 +881,13 @@ HRESULT WINAPI D3D11CreateDeviceAndSwapChain(
 	_Out_opt_			ID3D11DeviceContext  **ppImmediateContext)
 {
 	if (ppSwapChain)
-		*ppSwapChain = NULL;
+		*ppSwapChain = nullptr;
 	if (ppDevice)
-		*ppDevice = NULL;
+		*ppDevice = nullptr;
 	if (pFeatureLevel)
 		*pFeatureLevel = (D3D_FEATURE_LEVEL)0;
 	if (ppImmediateContext)
-		*ppImmediateContext = NULL;
+		*ppImmediateContext = nullptr;
 
 	if (get_tls()->hooking_quirk_protection) {
 		LogInfo("Hooking Quirk: Unexpected call back into D3D11CreateDeviceAndSwapChain, passing through\n");
@@ -988,7 +988,7 @@ static HMODULE ReplaceOnMatch(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dwFlags
 
 	ret = GetSystemDirectoryW(fullPath, ARRAYSIZE(fullPath));
 	if (ret == 0 || ret >= ARRAYSIZE(fullPath))
-		return NULL;
+		return nullptr;
 	wcscat_s(fullPath, MAX_PATH, L"\\");
 	wcscat_s(fullPath, MAX_PATH, library);
 
@@ -1035,7 +1035,7 @@ static HMODULE ReplaceOnMatch(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dwFlags
 		return fnOrigLoadLibraryExW(library, hFile, dwFlags);
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 // Function called for every LoadLibraryExW call once we have hooked it.
@@ -1053,11 +1053,11 @@ static HMODULE ReplaceOnMatch(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dwFlags
 //
 // There three use cases:
 // x32 game on x32 OS
-//	 LoadLibraryExW("C:\Windows\system32\d3d11.dll", NULL, 0)
+//	 LoadLibraryExW("C:\Windows\system32\d3d11.dll", nullptr, 0)
 // x64 game on x64 OS
-//	 LoadLibraryExW("C:\Windows\system32\d3d11.dll", NULL, 0)
+//	 LoadLibraryExW("C:\Windows\system32\d3d11.dll", nullptr, 0)
 // x32 game on x64 OS
-//	 LoadLibraryExW("C:\Windows\SysWOW64\d3d11.dll", NULL, 0)
+//	 LoadLibraryExW("C:\Windows\SysWOW64\d3d11.dll", nullptr, 0)
 //
 // To be general and simplify the init, we are going to specifically do the bypass
 // for all variants, even though we only know of this happening on x64 games.
@@ -1079,7 +1079,7 @@ HMODULE(__stdcall *fnOrigLoadLibraryExW)(
 
 HMODULE __stdcall Hooked_LoadLibraryExW(_In_ LPCWSTR lpLibFileName, _Reserved_ HANDLE hFile, _In_ DWORD dwFlags)
 {
-	HMODULE module;
+	HMODULE hModule;
 	TLS *tls = get_tls();
 
 	if (!lpLibFileName)
@@ -1095,7 +1095,7 @@ HMODULE __stdcall Hooked_LoadLibraryExW(_In_ LPCWSTR lpLibFileName, _Reserved_ H
 		// them a reference to themselves. Subsequent calls will be
 		// armed again in case we still need the redirect.
 		tls->suppress_d3d11_redirect_once = true;
-		return NULL;
+		return nullptr;
 	}
 
 	// Only do these overrides if they are specified in the d3dx.ini file.
@@ -1106,9 +1106,9 @@ HMODULE __stdcall Hooked_LoadLibraryExW(_In_ LPCWSTR lpLibFileName, _Reserved_ H
 
 		if (G->load_library_redirect > 1)
 		{
-			module = ReplaceOnMatch(lpLibFileName, hFile, dwFlags, L"original_d3d11.dll", L"d3d11.dll");
-			if (module)
-				return module;
+			hModule = ReplaceOnMatch(lpLibFileName, hFile, dwFlags, L"original_d3d11.dll", L"d3d11.dll");
+			if (hModule)
+				return hModule;
 		}
 	} else {
 		tls->suppress_d3d11_redirect_once = false;

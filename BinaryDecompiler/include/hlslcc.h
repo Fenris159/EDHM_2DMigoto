@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <utility>
 
 #if defined (_WIN32) && defined(HLSLCC_DYNLIB)
     #define HLSLCC_APIENTRY __stdcall
@@ -246,8 +247,51 @@ struct ShaderVarType {
   ShaderVarType *Members;
 
   ShaderVarType() :
-	  Members(NULL)
+	  Members(nullptr)
   {}
+
+  ShaderVarType(const ShaderVarType&) = default;
+  ShaderVarType& operator=(const ShaderVarType&) = default;
+
+  ShaderVarType(ShaderVarType&& other) noexcept
+	  : Class(other.Class),
+	    Type(other.Type),
+	    Rows(other.Rows),
+	    Columns(other.Columns),
+	    Elements(other.Elements),
+	    MemberCount(other.MemberCount),
+	    Offset(other.Offset),
+	    Name(std::move(other.Name)),
+	    ParentCount(other.ParentCount),
+	    Parent(other.Parent),
+	    FullName(std::move(other.FullName)),
+	    Members(other.Members)
+  {
+	  other.Members = nullptr;
+	  other.Parent = nullptr;
+  }
+
+  ShaderVarType& operator=(ShaderVarType&& other) noexcept
+  {
+	  if (this != &other) {
+		  delete[] Members;
+		  Class = other.Class;
+		  Type = other.Type;
+		  Rows = other.Rows;
+		  Columns = other.Columns;
+		  Elements = other.Elements;
+		  MemberCount = other.MemberCount;
+		  Offset = other.Offset;
+		  Name = std::move(other.Name);
+		  ParentCount = other.ParentCount;
+		  Parent = other.Parent;
+		  FullName = std::move(other.FullName);
+		  Members = other.Members;
+		  other.Members = nullptr;
+		  other.Parent = nullptr;
+	  }
+	  return *this;
+  }
 
   ~ShaderVarType()
   {
@@ -265,6 +309,12 @@ struct ShaderVar
     uint32_t ui32Size;
 
     ShaderVarType sType;
+
+    ShaderVar() = default;
+    ShaderVar(const ShaderVar&) = default;
+    ShaderVar& operator=(const ShaderVar&) = default;
+    ShaderVar(ShaderVar&&) noexcept = default;
+    ShaderVar& operator=(ShaderVar&&) noexcept = default;
 };
 
 struct ConstantBuffer

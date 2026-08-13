@@ -37,7 +37,7 @@ FrameAnalysisContext::FrameAnalysisContext(ID3D11Device1 *pDevice, ID3D11DeviceC
 	analyse_options = FrameAnalysisOptions::INVALID;
 	oneshot_analyse_options = FrameAnalysisOptions::INVALID;
 	oneshot_valid = false;
-	frame_analysis_log = NULL;
+	frame_analysis_log = nullptr;
 	draw_call = 0;
 	non_draw_call_dump_counter = 0;
 }
@@ -58,7 +58,7 @@ void FrameAnalysisContext::vFrameAnalysisLog(char *fmt, va_list ap)
 	if (!G->analyse_frame) {
 		if (frame_analysis_log)
 			fclose(frame_analysis_log);
-		frame_analysis_log = NULL;
+		frame_analysis_log = nullptr;
 		return;
 	}
 
@@ -111,7 +111,7 @@ void FrameAnalysisContext::vFrameAnalysisLogW(wchar_t* fmt, va_list ap)
 	if (!G->analyse_frame) {
 		if (frame_analysis_log)
 			fclose(frame_analysis_log);
-		frame_analysis_log = NULL;
+		frame_analysis_log = nullptr;
 		return;
 	}
 
@@ -293,7 +293,7 @@ void FrameAnalysisContext::FrameAnalysisLogView(int slot, char *slot_name, ID3D1
 	if (!resource)
 		return;
 
-	FrameAnalysisLogResource(-1, NULL, resource);
+	FrameAnalysisLogResource(-1, nullptr, resource);
 
 	resource->Release();
 }
@@ -306,7 +306,7 @@ void FrameAnalysisContext::FrameAnalysisLogResourceArray(UINT start, UINT len, I
 		return;
 
 	for (i = 0; i < len; i++)
-		FrameAnalysisLogResource(start + i, NULL, ppResources[i]);
+		FrameAnalysisLogResource(start + i, nullptr, ppResources[i]);
 }
 
 void FrameAnalysisContext::FrameAnalysisLogViewArray(UINT start, UINT len, ID3D11View *const *ppViews)
@@ -317,7 +317,7 @@ void FrameAnalysisContext::FrameAnalysisLogViewArray(UINT start, UINT len, ID3D1
 		return;
 
 	for (i = 0; i < len; i++)
-		FrameAnalysisLogView(start + i, NULL, ppViews[i]);
+		FrameAnalysisLogView(start + i, nullptr, ppViews[i]);
 }
 
 void FrameAnalysisContext::FrameAnalysisLogMiscArray(UINT start, UINT len, void *const *array)
@@ -331,7 +331,7 @@ void FrameAnalysisContext::FrameAnalysisLogMiscArray(UINT start, UINT len, void 
 	for (i = 0; i < len; i++) {
 		item = array[i];
 		if (item) {
-			FrameAnalysisLogSlot(frame_analysis_log, start + i, NULL);
+			FrameAnalysisLogSlot(frame_analysis_log, start + i, nullptr);
 			fprintf(frame_analysis_log, " handle=0x%p\n", item);
 		}
 	}
@@ -485,7 +485,7 @@ void FrameAnalysisContext::FrameAnalysisLogConstantBufferArray(UINT start, UINT 
 		return;
 
 	for (i = 0; i < len; i++)
-		FrameAnalysisLogConstantBuffer(start + i, NULL, ppResources[i], pFirstConstant ? pFirstConstant[i] : 0, pNumConstants ? pNumConstants[i] : 0);
+		FrameAnalysisLogConstantBuffer(start + i, nullptr, ppResources[i], pFirstConstant ? pFirstConstant[i] : 0, pNumConstants ? pNumConstants[i] : 0);
 }
 
 ID3D11DeviceContext* FrameAnalysisContext::GetDumpingContext()
@@ -644,7 +644,7 @@ HRESULT FrameAnalysisContext::CreateStagingResource(ID3D11Texture2D **resource,
 
 	LockResourceCreationMode();
 
-	hr = GetHackerDevice()->GetPassThroughOrigDevice1()->CreateTexture2D(&desc, NULL, resource);
+	hr = GetHackerDevice()->GetPassThroughOrigDevice1()->CreateTexture2D(&desc, nullptr, resource);
 
 	UnlockResourceCreationMode();
 
@@ -654,11 +654,11 @@ HRESULT FrameAnalysisContext::CreateStagingResource(ID3D11Texture2D **resource,
 HRESULT FrameAnalysisContext::ResolveMSAA(ID3D11Texture2D *src,
 		D3D11_TEXTURE2D_DESC *srcDesc, ID3D11Texture2D **dst, DXGI_FORMAT format)
 {
-	ID3D11Texture2D *resolved = NULL;
+	ID3D11Texture2D *resolved = nullptr;
 	UINT item, level, index;
 	HRESULT hr;
 
-	*dst = NULL;
+	*dst = nullptr;
 
 	if (srcDesc->SampleDesc.Count <= 1)
 		return S_OK;
@@ -699,11 +699,11 @@ err_release:
 HRESULT FrameAnalysisContext::StageResource(ID3D11Texture2D *src,
 		D3D11_TEXTURE2D_DESC *srcDesc, ID3D11Texture2D **dst, DXGI_FORMAT format)
 {
-	ID3D11Texture2D *staging = NULL;
-	ID3D11Texture2D *resolved = NULL;
+	ID3D11Texture2D *staging = nullptr;
+	ID3D11Texture2D *resolved = nullptr;
 	HRESULT hr;
 
-	*dst = NULL;
+	*dst = nullptr;
 
 	hr = CreateStagingResource(&staging, *srcDesc, false, format);
 	if (FAILED(hr)) {
@@ -742,7 +742,7 @@ static void copy_until_extension(wchar_t *txt_filename, const wchar_t *bin_filen
 	else
 		ext_pos = wcslen(bin_filename);
 
-	StringCchPrintfExW(txt_filename, size, pos, rem, NULL, L"%.*s", (int)ext_pos, bin_filename);
+	StringCchPrintfExW(txt_filename, size, pos, rem, 0, L"%.*s", (int)ext_pos, bin_filename);
 }
 
 void FrameAnalysisContext::dedupe_buf_filename_txt(const wchar_t *bin_filename,
@@ -755,13 +755,13 @@ void FrameAnalysisContext::dedupe_buf_filename_txt(const wchar_t *bin_filename,
 	copy_until_extension(txt_filename, bin_filename, MAX_PATH, &pos, &rem);
 
 	if (idx != -1)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-%cb%i", type, idx);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-%cb%i", type, idx);
 
 	if (offset)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-offset=%u", offset);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-offset=%u", offset);
 
 	if (stride)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-stride=%u", stride);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-stride=%u", stride);
 
 	if (FAILED(StringCchPrintfW(pos, rem, L".txt")))
 		FALogErr(L"Failed to create buffer filename\n");
@@ -775,7 +775,7 @@ void FrameAnalysisContext::dedupe_buf_filename_txt(const wchar_t *bin_filename,
 void FrameAnalysisContext::DumpBufferTxt(wchar_t *filename, D3D11_MAPPED_SUBRESOURCE *map,
 		UINT size, char type, int idx, UINT stride, UINT offset)
 {
-	FILE *fd = NULL;
+	FILE *fd = nullptr;
 	char *components = "xyzw";
 	float *buf = (float*)map->pData;
 	UINT i, c;
@@ -863,33 +863,33 @@ void FrameAnalysisContext::dedupe_buf_filename_vb_txt(const wchar_t *bin_filenam
 
 	copy_until_extension(txt_filename, bin_filename, MAX_PATH, &pos, &rem);
 
-	StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-vb%i", idx);
+	StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-vb%i", idx);
 
 	if (layout) {
 		uint32_t layout_hash = layout->GetLayoutHash();
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-layout=%08x", layout_hash);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-layout=%08x", layout_hash);
 	}
 
 	if (topology != D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-topology=%S", TopologyStr(topology));
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-topology=%S", TopologyStr(topology));
 
 	if (offset)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-offset=%u", offset);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-offset=%u", offset);
 
 	if (stride)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-stride=%u", stride);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-stride=%u", stride);
 
 	if (first)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-first=%u", first);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-first=%u", first);
 
 	if (count)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-count=%u", count);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-count=%u", count);
 
 	if (call_info && call_info->FirstInstance)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-first_inst=%u", call_info->FirstInstance);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-first_inst=%u", call_info->FirstInstance);
 
 	if (call_info && call_info->InstanceCount)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-inst_count=%u", call_info->InstanceCount);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-inst_count=%u", call_info->InstanceCount);
 
 	if (FAILED(StringCchPrintfW(pos, rem, L".txt")))
 		FALogErr(L"Failed to create vertex buffer filename\n");
@@ -1356,9 +1356,9 @@ void FrameAnalysisContext::DumpVBTxt(wchar_t *filename, D3D11_MAPPED_SUBRESOURCE
 		UINT size, int slot, UINT stride, UINT offset, UINT first, UINT count, HackerInputLayout *layout,
 		D3D11_PRIMITIVE_TOPOLOGY topology, DrawCallInfo *call_info)
 {
-	FILE *fd = NULL;
+	FILE *fd = nullptr;
 	errno_t err;
-	const D3D11_INPUT_ELEMENT_DESC *layout_desc = NULL;
+	const D3D11_INPUT_ELEMENT_DESC *layout_desc = nullptr;
 	size_t layout_elements = 0;
 	bool per_vert = false, per_inst = false;
 
@@ -1422,22 +1422,22 @@ void FrameAnalysisContext::dedupe_buf_filename_ib_txt(const wchar_t *bin_filenam
 
 	copy_until_extension(txt_filename, bin_filename, MAX_PATH, &pos, &rem);
 
-	StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-ib");
+	StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-ib");
 
 	if (ib_fmt != DXGI_FORMAT_UNKNOWN)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-format=%S", TexFormatStr(ib_fmt));
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-format=%S", TexFormatStr(ib_fmt));
 
 	if (topology != D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-topology=%S", TopologyStr(topology));
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-topology=%S", TopologyStr(topology));
 
 	if (offset)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-offset=%u", offset);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-offset=%u", offset);
 
 	if (first)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-first=%u", first);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-first=%u", first);
 
 	if (count)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-count=%u", count);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-count=%u", count);
 
 	if (FAILED(StringCchPrintfW(pos, rem, L".txt")))
 		FALogErr(L"Failed to create index buffer filename\n");
@@ -1447,7 +1447,7 @@ void FrameAnalysisContext::DumpIBTxt(wchar_t *filename, D3D11_MAPPED_SUBRESOURCE
 		UINT size, DXGI_FORMAT format, UINT offset, UINT first, UINT count,
 		D3D11_PRIMITIVE_TOPOLOGY topology)
 {
-	FILE *fd = NULL;
+	FILE *fd = nullptr;
 	uint16_t *buf16 = (uint16_t*)map->pData;
 	uint32_t *buf32 = (uint32_t*)map->pData;
 	UINT start, end, i;
@@ -1525,7 +1525,7 @@ void FrameAnalysisContext::DumpIBTxt(wchar_t *filename, D3D11_MAPPED_SUBRESOURCE
 template <typename DescType>
 void FrameAnalysisContext::DumpDesc(DescType *desc, const wchar_t *filename)
 {
-	FILE *fd = NULL;
+	FILE *fd = nullptr;
 	char buf[256];
 	errno_t err;
 
@@ -1728,7 +1728,7 @@ void FrameAnalysisContext::DumpBufferImmediateCtx(ID3D11Buffer *staging, D3D11_B
 	wchar_t bin_filename[MAX_PATH], txt_filename[MAX_PATH];
 	D3D11_MAPPED_SUBRESOURCE map;
 	HRESULT hr;
-	FILE *fd = NULL;
+	FILE *fd = nullptr;
 	wchar_t *bin_ext;
 	size_t ext;
 	errno_t err;
@@ -1823,7 +1823,7 @@ void FrameAnalysisContext::DumpBuffer(ID3D11Buffer *buffer, wchar_t *filename,
 		ID3D11Buffer **staged_ib_ret, ID3D11Buffer *staged_ib_for_vb, UINT ib_off_for_vb)
 {
 	D3D11_BUFFER_DESC desc, orig_desc;
-	ID3D11Buffer *staging = NULL;
+	ID3D11Buffer *staging = nullptr;
 	HRESULT hr;
 
 	// Process key inputs to allow user to abort long running frame
@@ -1842,7 +1842,7 @@ void FrameAnalysisContext::DumpBuffer(ID3D11Buffer *buffer, wchar_t *filename,
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 
 	LockResourceCreationMode();
-	hr = GetHackerDevice()->GetPassThroughOrigDevice1()->CreateBuffer(&desc, NULL, &staging);
+	hr = GetHackerDevice()->GetPassThroughOrigDevice1()->CreateBuffer(&desc, nullptr, &staging);
 	UnlockResourceCreationMode();
 	if (FAILED(hr)) {
 		FALogErr(L"DumpBuffer failed to create staging buffer: 0x%x\n", hr);
@@ -1881,7 +1881,7 @@ void FrameAnalysisContext::DumpResource(ID3D11Resource *resource, wchar_t *filen
 		case D3D11_RESOURCE_DIMENSION_BUFFER:
 			if (analyse_options & FrameAnalysisOptions::FMT_BUF_MASK)
 				DumpBuffer((ID3D11Buffer*)resource, filename, buf_type_mask, idx, format, stride, offset,
-						0, 0, NULL, D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED, NULL, NULL, NULL, 0);
+						0, 0, nullptr, D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED, nullptr, nullptr, nullptr, 0);
 			else
 				FALogInfo(L"Skipped dumping Buffer (No buffer formats enabled): %ls\n", filename);
 			break;
@@ -1891,7 +1891,7 @@ void FrameAnalysisContext::DumpResource(ID3D11Resource *resource, wchar_t *filen
 		case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
 			if (analyse_options & FrameAnalysisOptions::FMT_2D_MASK) {
 				if (analyse_options & FrameAnalysisOptions::MONO)
-					Dump2DResource((ID3D11Texture2D*)resource, filename, NULL, format);
+					Dump2DResource((ID3D11Texture2D*)resource, filename, nullptr, format);
 			} else
 				FALogInfo(L"Skipped dumping Texture2D (No Texture2D formats enabled): %ls\n", filename);
 			break;
@@ -1945,9 +1945,9 @@ HRESULT FrameAnalysisContext::FrameAnalysisFilename(wchar_t *filename, size_t si
 	size_t rem;
 	HRESULT hr;
 
-	StringCchPrintfExW(filename, size, &pos, &rem, NULL, L"%ls\\", G->ANALYSIS_PATH);
+	StringCchPrintfExW(filename, size, &pos, &rem, 0, L"%ls\\", G->ANALYSIS_PATH);
 	if (GetPassThroughOrigContext1()->GetType() == D3D11_DEVICE_CONTEXT_DEFERRED) {
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"ctx-0x%p\\", this);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"ctx-0x%p\\", this);
 		if (!CreateDeferredFADirectory(filename))
 			return E_FAIL;
 	}
@@ -1956,24 +1956,24 @@ HRESULT FrameAnalysisContext::FrameAnalysisFilename(wchar_t *filename, size_t si
 		// We don't allow hold to be changed mid-frame due to potential
 		// for filename conflicts, so use def_analyse_options:
 		if (G->def_analyse_options & FrameAnalysisOptions::HOLD)
-			StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"%i.", G->analyse_frame_no);
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"%06i-", draw_call);
+			StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"%i.", G->analyse_frame_no);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"%06i-", draw_call);
 	}
 
 	if (shader_type)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"%cs-", shader_type);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"%cs-", shader_type);
 
-	StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"%ls", reg);
+	StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"%ls", reg);
 	if (idx != -1)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"%i", idx);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"%i", idx);
 
 	if (analyse_options & FrameAnalysisOptions::FILENAME_REG) {
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-");
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-");
 		// We don't allow hold to be changed mid-frame due to potential
 		// for filename conflicts, so use def_analyse_options:
 		if (G->def_analyse_options & FrameAnalysisOptions::HOLD)
-			StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"%i.", G->analyse_frame_no);
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"%06i", draw_call);
+			StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"%i.", G->analyse_frame_no);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"%06i", draw_call);
 	}
 
 	EnterCriticalSectionPretty(&G->mResourcesLock);
@@ -2000,40 +2000,40 @@ HRESULT FrameAnalysisContext::FrameAnalysisFilename(wchar_t *filename, size_t si
 		try {
 			info = &G->mResourceInfo.at(orig_hash);
 			if (info->hash_contaminated) {
-				StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"=!");
+				StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"=!");
 				if (!info->map_contamination.empty())
-					StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"M");
+					StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"M");
 				if (!info->update_contamination.empty())
-					StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"U");
+					StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"U");
 				if (!info->copy_contamination.empty())
-					StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"C");
+					StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"C");
 				if (!info->region_contamination.empty())
-					StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"S");
-				StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"!");
+					StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"S");
+				StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"!");
 			}
 		} catch (std::out_of_range) {}
 
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"=%08x", hash);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"=%08x", hash);
 
 		if (hash != orig_hash)
-			StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"(%08x)", orig_hash);
+			StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"(%08x)", orig_hash);
 	}
 	if (analyse_options & FrameAnalysisOptions::FILENAME_HANDLE)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"@%p", handle);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"@%p", handle);
 
 	if (compute) {
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-cs=%016I64x", mCurrentComputeShader);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-cs=%016I64x", mCurrentComputeShader);
 	} else {
 		if (mCurrentVertexShader)
-			StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-vs=%016I64x", mCurrentVertexShader);
+			StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-vs=%016I64x", mCurrentVertexShader);
 		if (mCurrentHullShader)
-			StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-hs=%016I64x", mCurrentHullShader);
+			StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-hs=%016I64x", mCurrentHullShader);
 		if (mCurrentDomainShader)
-			StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-ds=%016I64x", mCurrentDomainShader);
+			StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-ds=%016I64x", mCurrentDomainShader);
 		if (mCurrentGeometryShader)
-			StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-gs=%016I64x", mCurrentGeometryShader);
+			StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-gs=%016I64x", mCurrentGeometryShader);
 		if (mCurrentPixelShader)
-			StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"-ps=%016I64x", mCurrentPixelShader);
+			StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"-ps=%016I64x", mCurrentPixelShader);
 	}
 
 	hr = StringCchPrintfW(pos, rem, L".XXX");
@@ -2054,9 +2054,9 @@ HRESULT FrameAnalysisContext::FrameAnalysisFilenameResource(wchar_t *filename, s
 	size_t rem;
 	HRESULT hr;
 
-	StringCchPrintfExW(filename, size, &pos, &rem, NULL, L"%ls\\", G->ANALYSIS_PATH);
+	StringCchPrintfExW(filename, size, &pos, &rem, 0, L"%ls\\", G->ANALYSIS_PATH);
 	if (GetPassThroughOrigContext1()->GetType() == D3D11_DEVICE_CONTEXT_DEFERRED) {
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"ctx-0x%p\\", this);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"ctx-0x%p\\", this);
 		if (!CreateDeferredFADirectory(filename))
 			return E_FAIL;
 	}
@@ -2064,10 +2064,10 @@ HRESULT FrameAnalysisContext::FrameAnalysisFilenameResource(wchar_t *filename, s
 	// We don't allow hold to be changed mid-frame due to potential
 	// for filename conflicts, so use def_analyse_options:
 	if (G->def_analyse_options & FrameAnalysisOptions::HOLD)
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"%i.", G->analyse_frame_no);
-	StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"%06i.%i-", draw_call, non_draw_call_dump_counter);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"%i.", G->analyse_frame_no);
+	StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"%06i.%i-", draw_call, non_draw_call_dump_counter);
 
-	StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"%s", type);
+	StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"%s", type);
 
 	EnterCriticalSectionPretty(&G->mResourcesLock);
 	try {
@@ -2082,28 +2082,28 @@ HRESULT FrameAnalysisContext::FrameAnalysisFilenameResource(wchar_t *filename, s
 		try {
 			info = &G->mResourceInfo.at(orig_hash);
 			if (info->hash_contaminated) {
-				StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"=!");
+				StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"=!");
 				if (!info->map_contamination.empty())
-					StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"M");
+					StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"M");
 				if (!info->update_contamination.empty())
-					StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"U");
+					StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"U");
 				if (!info->copy_contamination.empty())
-					StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"C");
+					StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"C");
 				if (!info->region_contamination.empty())
-					StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"S");
-				StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"!");
+					StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"S");
+				StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"!");
 			}
 		} catch (std::out_of_range) {}
 
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"=%08x", hash);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"=%08x", hash);
 
 		if (hash != orig_hash)
-			StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"(%08x)", orig_hash);
+			StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"(%08x)", orig_hash);
 	}
 
 	// Always do this for update/unmap resource dumps since hashes are likely to clash:
 	if (force_filename_handle || (analyse_options & FrameAnalysisOptions::FILENAME_HANDLE))
-		StringCchPrintfExW(pos, rem, &pos, &rem, NULL, L"@%p", handle);
+		StringCchPrintfExW(pos, rem, &pos, &rem, 0, L"@%p", handle);
 
 	hr = StringCchPrintfW(pos, rem, L".XXX");
 	if (FAILED(hr))
@@ -2261,8 +2261,8 @@ void FrameAnalysisContext::rotate_when_nearing_hard_link_limit(const wchar_t *de
 	// handle any cases where the limit may be lower for some reason.
 
 	f = CreateFile(dedupe_filename, GENERIC_READ, FILE_SHARE_READ |
-			FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
-			OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+			FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+			OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (f == INVALID_HANDLE_VALUE)
 		return;
 
@@ -2283,7 +2283,7 @@ static bool create_shortcut(const wchar_t *filename, const wchar_t *dedupe_filen
 	EnsureCOM();
 
 	// https://msdn.microsoft.com/en-us/library/aa969393.aspx#Shellink_Creating_Shortcut
-	HRESULT hr = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLink, (LPVOID*)&psl);
+	HRESULT hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLink, (LPVOID*)&psl);
 	if (SUCCEEDED(hr)) {
 		psl->SetPath(dedupe_filename);
 		hr = psl->QueryInterface(IID_IPersistFile, (LPVOID*)&ppf);
@@ -2322,11 +2322,11 @@ void FrameAnalysisContext::link_deduplicated_files(const wchar_t *filename, cons
 	}
 
 	rotate_when_nearing_hard_link_limit(dedupe_filename);
-	if (CreateHardLink(filename, dedupe_filename, NULL))
+	if (CreateHardLink(filename, dedupe_filename, nullptr))
 		return;
 	if (GetLastError() == ERROR_TOO_MANY_LINKS) {
 		rotate_deduped_file(dedupe_filename);
-		if (CreateHardLink(filename, dedupe_filename, NULL))
+		if (CreateHardLink(filename, dedupe_filename, nullptr))
 			return;
 	}
 
@@ -2449,7 +2449,7 @@ void FrameAnalysisContext::DumpMesh(DrawCallInfo *call_info)
 {
 	bool dump_ibs = !!(analyse_options & FrameAnalysisOptions::DUMP_IB);
 	bool dump_vbs = !!(analyse_options & FrameAnalysisOptions::DUMP_VB);
-	ID3D11Buffer *staged_ib = NULL;
+	ID3D11Buffer *staged_ib = nullptr;
 	DXGI_FORMAT ib_fmt = DXGI_FORMAT_UNKNOWN;
 	UINT ib_off = 0;
 
@@ -2523,8 +2523,10 @@ void FrameAnalysisContext::DumpVBs(DrawCallInfo *call_info, ID3D11Buffer *staged
 			continue;
 
 		// Skip this vertex buffer if it is not used in the IA layout:
-		if (!vb_slot_in_layout(i, layout))
-			goto continue_release;
+		if (!vb_slot_in_layout(i, layout)) {
+			buffers[i]->Release();
+			continue;
+		}
 
 		uint32_t region_hash = 0;
 		if (G->track_region_hashes && strides[i]) {
@@ -2533,16 +2535,15 @@ void FrameAnalysisContext::DumpVBs(DrawCallInfo *call_info, ID3D11Buffer *staged
 			region_hash = GetRegionHash(GetPassThroughOrigContext1(), buffers[i], region_offset, region_size);
 		}
 
-		hr = FrameAnalysisFilename(filename, MAX_PATH, false, L"vb", NULL, i, buffers[i], region_hash);
+		hr = FrameAnalysisFilename(filename, MAX_PATH, false, L"vb", 0, i, buffers[i], region_hash);
 		if (SUCCEEDED(hr)) {
 			DumpBuffer(buffers[i], filename,
 				FrameAnalysisOptions::DUMP_VB, i,
 				ib_fmt, strides[i], offsets[i],
 				first, count, layout, topology,
-				call_info, NULL, staged_ib, ib_off);
+				call_info, nullptr, staged_ib, ib_off);
 		}
 
-continue_release:
 		buffers[i]->Release();
 	}
 
@@ -2552,7 +2553,7 @@ continue_release:
 
 void FrameAnalysisContext::DumpIB(DrawCallInfo *call_info, ID3D11Buffer **staged_ib, DXGI_FORMAT *format, UINT *offset)
 {
-	ID3D11Buffer *buffer = NULL;
+	ID3D11Buffer *buffer = nullptr;
 	wchar_t filename[MAX_PATH];
 	HRESULT hr;
 	UINT first = 0, count = 0;
@@ -2575,12 +2576,12 @@ void FrameAnalysisContext::DumpIB(DrawCallInfo *call_info, ID3D11Buffer **staged
 		region_hash = GetRegionHash(GetPassThroughOrigContext1(), buffer, region_offset, region_size);
 	}
 
-	hr = FrameAnalysisFilename(filename, MAX_PATH, false, L"ib", NULL, -1, buffer, region_hash);
+	hr = FrameAnalysisFilename(filename, MAX_PATH, false, L"ib", 0, -1, buffer, region_hash);
 	if (SUCCEEDED(hr)) {
 		DumpBuffer(buffer, filename,
 				FrameAnalysisOptions::DUMP_IB, -1,
-				*format, 0, *offset, first, count, NULL,
-				topology, call_info, staged_ib, NULL, 0);
+				*format, 0, *offset, first, count, nullptr,
+				topology, call_info, staged_ib, nullptr, 0);
 	}
 
 	buffer->Release();
@@ -2628,7 +2629,7 @@ void FrameAnalysisContext::DumpRenderTargets()
 	wchar_t filename[MAX_PATH];
 	HRESULT hr;
 
-	GetPassThroughOrigContext1()->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, rtvs, NULL);
+	GetPassThroughOrigContext1()->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, rtvs, nullptr);
 
 	for (i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT && G->analyse_frame; ++i) {
 		if (!rtvs[i])
@@ -2647,7 +2648,7 @@ void FrameAnalysisContext::DumpRenderTargets()
 		// have no idea how to determine which of the entries in the
 		// two D3D11_BUFFER_RTV unions will be valid.
 
-		hr = FrameAnalysisFilename(filename, MAX_PATH, false, L"o", NULL, i, resource);
+		hr = FrameAnalysisFilename(filename, MAX_PATH, false, L"o", 0, i, resource);
 		if (SUCCEEDED(hr)) {
 			DumpResource(resource, filename,
 					FrameAnalysisOptions::DUMP_RT, i,
@@ -2661,13 +2662,13 @@ void FrameAnalysisContext::DumpRenderTargets()
 
 void FrameAnalysisContext::DumpDepthStencilTargets()
 {
-	ID3D11DepthStencilView *dsv = NULL;
-	ID3D11Resource *resource = NULL;
+	ID3D11DepthStencilView *dsv = nullptr;
+	ID3D11Resource *resource = nullptr;
 	D3D11_DEPTH_STENCIL_VIEW_DESC view_desc;
 	wchar_t filename[MAX_PATH];
 	HRESULT hr;
 
-	GetPassThroughOrigContext1()->OMGetRenderTargets(0, NULL, &dsv);
+	GetPassThroughOrigContext1()->OMGetRenderTargets(0, nullptr, &dsv);
 	if (!dsv)
 		return;
 
@@ -2679,7 +2680,7 @@ void FrameAnalysisContext::DumpDepthStencilTargets()
 
 	dsv->GetDesc(&view_desc);
 
-	hr = FrameAnalysisFilename(filename, MAX_PATH, false, L"oD", NULL, -1, resource);
+	hr = FrameAnalysisFilename(filename, MAX_PATH, false, L"oD", 0, -1, resource);
 	if (SUCCEEDED(hr)) {
 		DumpResource(resource, filename, FrameAnalysisOptions::DUMP_DEPTH,
 				-1, view_desc.Format, 0, 0);
@@ -2701,7 +2702,7 @@ void FrameAnalysisContext::DumpUAVs(bool compute)
 	if (compute)
 		GetPassThroughOrigContext1()->CSGetUnorderedAccessViews(0, D3D11_PS_CS_UAV_REGISTER_COUNT, uavs);
 	else
-		GetPassThroughOrigContext1()->OMGetRenderTargetsAndUnorderedAccessViews(0, NULL, NULL, 0, D3D11_PS_CS_UAV_REGISTER_COUNT, uavs);
+		GetPassThroughOrigContext1()->OMGetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, 0, D3D11_PS_CS_UAV_REGISTER_COUNT, uavs);
 
 	for (i = 0; i < D3D11_PS_CS_UAV_REGISTER_COUNT && G->analyse_frame; ++i) {
 		if (!uavs[i])
@@ -2718,7 +2719,7 @@ void FrameAnalysisContext::DumpUAVs(bool compute)
 		// TODO: process description to get offset & size for buffer
 		// type UAVs and pass down to dump routines.
 
-		hr = FrameAnalysisFilename(filename, MAX_PATH, compute, L"u", NULL, i, resource);
+		hr = FrameAnalysisFilename(filename, MAX_PATH, compute, L"u", 0, i, resource);
 		if (SUCCEEDED(hr)) {
 			DumpResource(resource, filename,
 					FrameAnalysisOptions::DUMP_RT, i,
@@ -2733,7 +2734,7 @@ void FrameAnalysisContext::DumpUAVs(bool compute)
 void FrameAnalysisContext::FrameAnalysisClearRT(ID3D11RenderTargetView *target)
 {
 	FLOAT colour[4] = {0,0,0,0};
-	ID3D11Resource *resource = NULL;
+	ID3D11Resource *resource = nullptr;
 
 	// FIXME: Do this before each draw call instead of when render targets
 	// are assigned to fix assigned render targets not being cleared, and
@@ -2760,7 +2761,7 @@ void FrameAnalysisContext::FrameAnalysisClearRT(ID3D11RenderTargetView *target)
 void FrameAnalysisContext::FrameAnalysisClearUAV(ID3D11UnorderedAccessView *uav)
 {
 	UINT values[4] = {0,0,0,0};
-	ID3D11Resource *resource = NULL;
+	ID3D11Resource *resource = nullptr;
 
 	// FIXME: Do this before each draw/dispatch call instead of when UAVs
 	// are assigned to fix assigned render targets not being cleared, and
@@ -3370,7 +3371,7 @@ STDMETHODIMP_(void) FrameAnalysisContext::Dispatch(THIS_
 	HackerContext::Dispatch(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
 
 	if (G->analyse_frame)
-		FrameAnalysisAfterDraw(true, NULL);
+		FrameAnalysisAfterDraw(true, nullptr);
 	oneshot_valid = false;
 	non_draw_call_dump_counter = 0;
 }
@@ -3388,7 +3389,7 @@ STDMETHODIMP_(void) FrameAnalysisContext::DispatchIndirect(THIS_
 	HackerContext::DispatchIndirect(pBufferForArgs, AlignedByteOffsetForArgs);
 
 	if (G->analyse_frame)
-		FrameAnalysisAfterDraw(true, NULL);
+		FrameAnalysisAfterDraw(true, nullptr);
 	oneshot_valid = false;
 	non_draw_call_dump_counter = 0;
 }
@@ -4043,7 +4044,7 @@ STDMETHODIMP_(void) FrameAnalysisContext::GetPredication(THIS_
 
 	FrameAnalysisLogNoNL("GetPredication(ppPredicate:0x%p, pPredicateValue:0x%p)",
 			ppPredicate, pPredicateValue);
-	FrameAnalysisLogAsyncQuery(ppPredicate ? *ppPredicate : NULL);
+	FrameAnalysisLogAsyncQuery(ppPredicate ? *ppPredicate : nullptr);
 }
 
 STDMETHODIMP_(void) FrameAnalysisContext::GSGetShaderResources(THIS_
@@ -4433,7 +4434,7 @@ STDMETHODIMP FrameAnalysisContext::FinishCommandList(THIS_
 {
 	HRESULT ret = HackerContext::FinishCommandList(RestoreDeferredContextState, ppCommandList);
 
-	FrameAnalysisLog("FinishCommandList(ppCommandList:0x%p -> 0x%p) = %u\n", ppCommandList, ppCommandList ? *ppCommandList : NULL, ret);
+	FrameAnalysisLog("FinishCommandList(ppCommandList:0x%p -> 0x%p) = %u\n", ppCommandList, ppCommandList ? *ppCommandList : nullptr, ret);
 
 	if (ppCommandList)
 		finish_deferred_resources(*ppCommandList);
@@ -4498,7 +4499,7 @@ STDMETHODIMP_(void) FrameAnalysisContext::DrawIndexed(THIS_
 	HackerContext::DrawIndexed(IndexCount, StartIndexLocation, BaseVertexLocation);
 
 	if (G->analyse_frame) {
-		DrawCallInfo call_info(DrawCall::DrawIndexed, 0, IndexCount, 0, BaseVertexLocation, StartIndexLocation, 0, NULL, 0);
+		DrawCallInfo call_info(DrawCall::DrawIndexed, 0, IndexCount, 0, BaseVertexLocation, StartIndexLocation, 0, nullptr, 0);
 		FrameAnalysisAfterDraw(false, &call_info);
 	}
 	oneshot_valid = false;
@@ -4517,7 +4518,7 @@ STDMETHODIMP_(void) FrameAnalysisContext::Draw(THIS_
 	HackerContext::Draw(VertexCount, StartVertexLocation);
 
 	if (G->analyse_frame) {
-		DrawCallInfo call_info(DrawCall::Draw, VertexCount, 0, 0, StartVertexLocation, 0, 0, NULL, 0);
+		DrawCallInfo call_info(DrawCall::Draw, VertexCount, 0, 0, StartVertexLocation, 0, 0, nullptr, 0);
 		FrameAnalysisAfterDraw(false, &call_info);
 	}
 	oneshot_valid = false;
@@ -4558,7 +4559,7 @@ STDMETHODIMP_(void) FrameAnalysisContext::DrawIndexedInstanced(THIS_
 			BaseVertexLocation, StartInstanceLocation);
 
 	if (G->analyse_frame) {
-		DrawCallInfo call_info(DrawCall::DrawIndexedInstanced, 0, IndexCountPerInstance, InstanceCount, BaseVertexLocation, StartIndexLocation, StartInstanceLocation, NULL, 0);
+		DrawCallInfo call_info(DrawCall::DrawIndexedInstanced, 0, IndexCountPerInstance, InstanceCount, BaseVertexLocation, StartIndexLocation, StartInstanceLocation, nullptr, 0);
 		FrameAnalysisAfterDraw(false, &call_info);
 	}
 	oneshot_valid = false;
@@ -4581,7 +4582,7 @@ STDMETHODIMP_(void) FrameAnalysisContext::DrawInstanced(THIS_
 	HackerContext::DrawInstanced(VertexCountPerInstance, InstanceCount, StartVertexLocation, StartInstanceLocation);
 
 	if (G->analyse_frame) {
-		DrawCallInfo call_info(DrawCall::DrawInstanced, VertexCountPerInstance, 0, InstanceCount, StartVertexLocation, 0, StartInstanceLocation, NULL, 0);
+		DrawCallInfo call_info(DrawCall::DrawInstanced, VertexCountPerInstance, 0, InstanceCount, StartVertexLocation, 0, StartInstanceLocation, nullptr, 0);
 		FrameAnalysisAfterDraw(false, &call_info);
 	}
 	oneshot_valid = false;
@@ -4679,7 +4680,7 @@ STDMETHODIMP_(void) FrameAnalysisContext::DrawAuto(THIS)
 	HackerContext::DrawAuto();
 
 	if (G->analyse_frame) {
-		DrawCallInfo call_info(DrawCall::DrawAuto, 0, 0, 0, 0, 0, 0, NULL, 0);
+		DrawCallInfo call_info(DrawCall::DrawAuto, 0, 0, 0, 0, 0, 0, nullptr, 0);
 		FrameAnalysisAfterDraw(false, &call_info);
 	}
 	oneshot_valid = false;

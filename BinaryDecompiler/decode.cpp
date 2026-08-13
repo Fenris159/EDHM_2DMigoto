@@ -650,8 +650,8 @@ const uint32_t* DecodeDeclaration(Shader* psShader, const uint32_t* pui32Token, 
         }
         case OPCODE_DCL_UNORDERED_ACCESS_VIEW_RAW:
         {
-            ResourceBinding* psBinding = NULL;
-            ConstantBuffer* psBuffer = NULL;
+            ResourceBinding* psBinding = nullptr;
+            ConstantBuffer* psBuffer = nullptr;
 
             psDecl->ui32NumOperands = 1;
             psDecl->sUAV.ui32GloballyCoherentAccess = DecodeAccessCoherencyFlags(*pui32Token);
@@ -665,8 +665,8 @@ const uint32_t* DecodeDeclaration(Shader* psShader, const uint32_t* pui32Token, 
         }
         case OPCODE_DCL_UNORDERED_ACCESS_VIEW_STRUCTURED:
         {
-            ResourceBinding* psBinding = NULL;
-            ConstantBuffer* psBuffer = NULL;
+            ResourceBinding* psBinding = nullptr;
+            ConstantBuffer* psBuffer = nullptr;
 
             psDecl->ui32NumOperands = 1;
             psDecl->sUAV.ui32GloballyCoherentAccess = DecodeAccessCoherencyFlags(*pui32Token);
@@ -675,7 +675,7 @@ const uint32_t* DecodeDeclaration(Shader* psShader, const uint32_t* pui32Token, 
             DecodeOperand(pui32Token+ui32OperandOffset, &psDecl->asOperands[0]);
 			
             // Upstream dropped the 'if' here when they reworked
-            // StructuredBuffers, leading to a NULL pointer dereference on
+            // StructuredBuffers, leading to a nullptr pointer dereference on
             // psBinding and crash. A version suitable for pushing upstream is here:
             // https://github.com/DarkStarSword/HLSLCrossCompiler/tree/rw_struct_buf_crash_fix
             // However, upstream may really need more work to not crash on
@@ -713,8 +713,8 @@ const uint32_t* DecodeDeclaration(Shader* psShader, const uint32_t* pui32Token, 
         }
         case OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_STRUCTURED:
         {
-            ResourceBinding* psBinding = NULL;
-            ConstantBuffer* psBuffer = NULL;
+            ResourceBinding* psBinding = nullptr;
+            ConstantBuffer* psBuffer = nullptr;
 
             psDecl->ui32NumOperands = 1;
             psDecl->sUAV.ui32GloballyCoherentAccess = 0;
@@ -727,8 +727,8 @@ const uint32_t* DecodeDeclaration(Shader* psShader, const uint32_t* pui32Token, 
         }
         case OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_RAW:
         {
-            ResourceBinding* psBinding = NULL;
-            ConstantBuffer* psBuffer = NULL;
+            ResourceBinding* psBinding = nullptr;
+            ConstantBuffer* psBuffer = nullptr;
 
             psDecl->ui32NumOperands = 1;
             psDecl->sUAV.ui32GloballyCoherentAccess = 0;
@@ -1398,14 +1398,14 @@ Shader* DecodeDXBC(uint32_t* data)
 		return 0;
 	}
 
-    refChunks.pui32Inputs = NULL;
-    refChunks.pui32Interfaces = NULL;
-    refChunks.pui32Outputs = NULL;
-    refChunks.pui32Resources = NULL;
-	refChunks.pui32Inputs11 = NULL;
-	refChunks.pui32Outputs11 = NULL;
-	refChunks.pui32OutputsWithStreams = NULL;
-	refChunks.pui32PatchConstants = NULL;
+    refChunks.pui32Inputs = nullptr;
+    refChunks.pui32Interfaces = nullptr;
+    refChunks.pui32Outputs = nullptr;
+    refChunks.pui32Resources = nullptr;
+	refChunks.pui32Inputs11 = nullptr;
+	refChunks.pui32Outputs11 = nullptr;
+	refChunks.pui32OutputsWithStreams = nullptr;
+	refChunks.pui32PatchConstants = nullptr;
 
 	chunkOffsets = (uint32_t*)(header + 1);
 
