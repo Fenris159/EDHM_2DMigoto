@@ -28,7 +28,7 @@
 // return it whenever something (including our own software mouse
 // implementation) asks for it.
 
-HCURSOR current_cursor = NULL;
+HCURSOR current_cursor = nullptr;
 
 typedef LRESULT(WINAPI *lpfnDefWindowProc)(_In_ HWND hWnd,
 	_In_ UINT Msg, _In_ WPARAM wParam, _In_ LPARAM lParam);
@@ -49,7 +49,7 @@ static BOOL(WINAPI* trampoline_GetClientRect)(_In_ HWND hWnd, _Out_ LPRECT lpRec
 // is called.
 static HCURSOR InvisibleCursor()
 {
-	static HCURSOR cursor = NULL;
+	static HCURSOR cursor = nullptr;
 	int width, height;
 	unsigned pitch, size;
 	char *and, *xor;
@@ -66,7 +66,7 @@ static HCURSOR InvisibleCursor()
 		memset(and, 0xff, size);
 		memset(xor, 0x00, size);
 
-		cursor = CreateCursor(GetModuleHandle(NULL), 0, 0, width, height, and, xor);
+		cursor = CreateCursor(GetModuleHandle(nullptr), 0, 0, width, height, and, xor);
 
 		delete[] and;
 		delete[] xor;
@@ -173,7 +173,7 @@ static BOOL WINAPI Hooked_GetClientRect(_In_ HWND hWnd, _Out_ LPRECT lpRect)
 {
 	BOOL rc = trampoline_GetClientRect(hWnd, lpRect);
 
-	if (G->upscaling_hooks_armed && rc && G->SCREEN_UPSCALING > 0 && lpRect != NULL)
+	if (G->upscaling_hooks_armed && rc && G->SCREEN_UPSCALING > 0 && lpRect != nullptr)
 	{
 		lpRect->right = G->GAME_INTERNAL_WIDTH;
 		lpRect->bottom = G->GAME_INTERNAL_HEIGHT;
@@ -239,8 +239,8 @@ static LRESULT WINAPI Hooked_DefWindowProc(
 	lpfnDefWindowProc trampoline_DefWindowProc)
 {
 
-	HWND parent = NULL;
-	HCURSOR cursor = NULL;
+	HWND parent = nullptr;
+	HCURSOR cursor = nullptr;
 	LPARAM ret = 0;
 
 	if (Msg == WM_SETCURSOR) {
@@ -299,7 +299,7 @@ static LRESULT WINAPI Hooked_DefWindowProcW(_In_ HWND hWnd, _In_ UINT Msg, _In_ 
 }
 
 
-int InstallHookLate(HINSTANCE module, char *func, void **trampoline, void *hook)
+int InstallHookLate(HINSTANCE hModule, char *func, void **trampoline, void *hook)
 {
 	SIZE_T hook_id;
 	DWORD dwOsErr;
@@ -307,11 +307,11 @@ int InstallHookLate(HINSTANCE module, char *func, void **trampoline, void *hook)
 
 	// Early exit with error so the caller doesn't need to explicitly deal
 	// with errors getting the module handle:
-	if (!module)
+	if (!hModule)
 		return 1;
 
-	fnOrig = NktHookLibHelpers::GetProcedureAddress(module, func);
-	if (fnOrig == NULL) {
+	fnOrig = NktHookLibHelpers::GetProcedureAddress(hModule, func);
+	if (fnOrig == nullptr) {
 		LogInfo("Failed to get address of %s\n", func);
 		return 1;
 	}

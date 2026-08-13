@@ -612,7 +612,7 @@ SENSIBLE_ENUM(ResourceCPUAccessFlags);
 static EnumName_t<const wchar_t *, ResourceCPUAccessFlags> ResourceCPUAccessFlagNames[] = {
 	{L"write", ResourceCPUAccessFlags::WRITE},
 	{L"read", ResourceCPUAccessFlags::READ},
-	{NULL, ResourceCPUAccessFlags::INVALID} // End of list marker
+	{nullptr, ResourceCPUAccessFlags::INVALID} // End of list marker
 };
 
 enum class ResourceMiscFlags {
@@ -654,7 +654,7 @@ static EnumName_t<const wchar_t *, ResourceMiscFlags> ResourceMiscFlagNames[] = 
 	{L"tile_pool", ResourceMiscFlags::TILE_POOL},
 	{L"tiled", ResourceMiscFlags::TILED},
 	{L"hw_protected", ResourceMiscFlags::HW_PROTECTED},
-	{NULL, ResourceMiscFlags::INVALID} // End of list marker
+	{nullptr, ResourceMiscFlags::INVALID} // End of list marker
 };
 
 enum class FuzzyMatchOp {

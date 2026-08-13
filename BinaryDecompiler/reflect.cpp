@@ -384,6 +384,8 @@ static void ReadResources(const uint32_t* pui32Tokens,//in
 			//Find the constant buffer whose name matches the resource at the given resource binding point
 			for(cbufIndex=0; cbufIndex < psShaderInfo->ui32NumConstantBuffers; cbufIndex++)
 			{
+				if(cbufIndex >= ui32NumConstantBuffers)
+					break;
 				if(psConstantBuffers[cbufIndex].Name == psResBindings[i].Name)
 				{
 					psShaderInfo->aui32ResourceMap[eRGroup][psResBindings[i].ui32BindPoint] = cbufIndex;
@@ -552,7 +554,7 @@ uint32_t ShaderVarSize(ShaderVarType* psType, uint32_t* singularSize)
 	if(psType->Class == SVC_STRUCT)
 	{
 		for(m=0; m < psType->MemberCount; ++m)
-			thisSize += ShaderVarSize(psType->Members + m, NULL);
+			thisSize += ShaderVarSize(psType->Members + m, nullptr);
 	}
 	else
 		thisSize = psType->Columns * psType->Rows * 4;
@@ -598,7 +600,7 @@ static int IsOffsetInType(ShaderVarType* psType,
 {
 	uint32_t thisOffset = parentOffset + psType->Offset;
 	// DarkStarSword: Changed this line to calculate arrays and nested struct sizes properly:
-	uint32_t thisSize = ShaderVarSize(psType, NULL);
+	uint32_t thisSize = ShaderVarSize(psType, nullptr);
 
 	if((offsetToFind >= thisOffset) &&
 		offsetToFind < (thisOffset + thisSize))

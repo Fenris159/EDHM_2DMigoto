@@ -160,7 +160,7 @@ HackerSwapChain::HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDev
 	if (mHackerContext) {
 		mHackerContext->AddRef();
 	} else {
-		ID3D11DeviceContext *tmpContext = NULL;
+		ID3D11DeviceContext *tmpContext = nullptr;
 		// GetImmediateContext will bump the refcount for us.
 		// In the case of hooking, GetImmediateContext will not return
 		// a HackerContext, so we don't use it's return directly, but
@@ -178,7 +178,7 @@ HackerSwapChain::HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDev
 	}
 	catch (...) {
 		LogInfo("  *** Failed to create Overlay. Exception caught.\n");
-		mOverlay = NULL;
+		mOverlay = nullptr;
 	}
 }
 
@@ -217,7 +217,7 @@ void HackerSwapChain::RunFrameActions()
 	// a pre-present command list. We have a separate post-present command
 	// list after the present call in case we need to restore state or
 	// affect something at the start of the frame.
-	RunCommandList(mHackerDevice, mHackerContext, &G->present_command_list, NULL, false);
+	RunCommandList(mHackerDevice, mHackerContext, &G->present_command_list, nullptr, false);
 
 	if (G->analyse_frame) {
 		// We don't allow hold to be changed mid-frame due to potential
@@ -317,7 +317,7 @@ void HackerSwapChain::RunFrameActions()
 
 	// Update the huntTime whenever we get fresh user input.
 	if (newEvent)
-		G->huntTime = time(NULL);
+		G->huntTime = time(nullptr);
 
 	// Clear buffers after some user idle time.  This allows the buffers to be
 	// stable during a hunt, and cleared after one minute of idle time.  The idea
@@ -329,7 +329,7 @@ void HackerSwapChain::RunFrameActions()
 	// The arrays will be continually filled by the SetShader sections, but should 
 	// rapidly converge upon all active shaders.
 
-	if (difftime(time(NULL), G->huntTime) > 60) {
+	if (difftime(time(nullptr), G->huntTime) > 60) {
 		EnterCriticalSectionPretty(&G->mCriticalSection);
 		TimeoutHuntingBuffers();
 		LeaveCriticalSection(&G->mCriticalSection);
@@ -396,14 +396,14 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 	{
 		LogInfo("***  returns E_NOINTERFACE as error for IDXGISwapChain4.\n");
 		reinterpret_cast<IUnknown*>(*ppvObject)->Release();
-		*ppvObject = NULL;
+		*ppvObject = nullptr;
 		return E_NOINTERFACE;
 	}
 
-	IUnknown* unk_this = NULL;
+	IUnknown* unk_this = nullptr;
 	HRESULT hr_this = mOrigSwapChain1->QueryInterface(__uuidof(IUnknown), (void**)&unk_this);
 
-	IUnknown* unk_ppvObject = NULL;
+	IUnknown* unk_ppvObject = nullptr;
 	HRESULT hr_ppvObject = reinterpret_cast<IUnknown*>(*ppvObject)->QueryInterface(__uuidof(IUnknown), (void**)&unk_ppvObject);
 	bool identity_queries_succeeded = SUCCEEDED(hr_this) && SUCCEEDED(hr_ppvObject);
 
@@ -458,7 +458,7 @@ STDMETHODIMP_(ULONG) HackerSwapChain::Release(THIS)
 			delete mOverlay;
 
 		if (last_fullscreen_swap_chain == mOrigSwapChain1)
-			last_fullscreen_swap_chain = NULL;
+			last_fullscreen_swap_chain = nullptr;
 
 		LogInfo("  counter=%d, this=%p, deleting self.\n", ulRef, this);
 
@@ -657,7 +657,7 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
 		// Run the post present command list now, which can be used to restore
 		// state changed in the pre-present command list, or to perform some
 		// action at the start of a frame:
-		RunCommandList(mHackerDevice, mHackerContext, &G->post_present_command_list, NULL, true);
+		RunCommandList(mHackerDevice, mHackerContext, &G->post_present_command_list, nullptr, true);
 
 		if (profiling)
 			Profiling::end(&profiling_state, &Profiling::present_overhead);
@@ -967,7 +967,7 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 		// Run the post present command list now, which can be used to restore
 		// state changed in the pre-present command list, or to perform some
 		// action at the start of a frame:
-		RunCommandList(mHackerDevice, mHackerContext, &G->post_present_command_list, NULL, true);
+		RunCommandList(mHackerDevice, mHackerContext, &G->post_present_command_list, nullptr, true);
 
 		if (profiling)
 			Profiling::end(&profiling_state, &Profiling::present_overhead);
@@ -1160,7 +1160,7 @@ STDMETHODIMP HackerUpscalingSwapChain::GetBuffer(THIS_
 	{
 		// Use QueryInterface on mFakeBackBuffer, which validates that
 		// the requested interface is supported, that ppSurface is not
-		// NULL, and bumps the refcount if successful:
+		// nullptr, and bumps the refcount if successful:
 		hr = mFakeBackBuffer->QueryInterface(riid, ppSurface);
 	}
 	else if (mFakeSwapChain1)
@@ -1355,7 +1355,7 @@ STDMETHODIMP HackerUpscalingSwapChain::ResizeTarget(THIS_
 		dmScreenSettings.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
 
 		// Change the display settings to full screen.
-		LONG displ_chainge_res = ChangeDisplaySettingsEx(NULL, &dmScreenSettings, nullptr, CDS_FULLSCREEN, 0);
+		LONG displ_chainge_res = ChangeDisplaySettingsEx(nullptr, &dmScreenSettings, nullptr, CDS_FULLSCREEN, 0);
 		hr = displ_chainge_res == 0 ? S_OK : DXGI_ERROR_INVALID_CALL;
 	}
 	else if (G->SCREEN_UPSCALING == 1)

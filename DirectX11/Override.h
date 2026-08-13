@@ -20,7 +20,7 @@ static EnumName_t<const wchar_t *, KeyOverrideType> KeyOverrideTypeNames[] = {
 	{L"hold", KeyOverrideType::HOLD},
 	{L"toggle", KeyOverrideType::TOGGLE},
 	{L"cycle", KeyOverrideType::CYCLE},
-	{NULL, KeyOverrideType::INVALID} // End of list marker
+	{nullptr, KeyOverrideType::INVALID} // End of list marker
 };
 
 enum class TransitionType {
@@ -31,7 +31,7 @@ enum class TransitionType {
 static EnumName_t<const char *, TransitionType> TransitionTypeNames[] = {
 	{"linear", TransitionType::LINEAR},
 	{"cosine", TransitionType::COSINE},
-	{NULL, TransitionType::INVALID} // End of list marker
+	{nullptr, TransitionType::INVALID} // End of list marker
 };
 
 struct OverrideParam
@@ -49,7 +49,7 @@ struct OverrideParam
 	{
 		// Oh come on C++, a pointer to member is just an offset you
 		// could test directly... Fine, let's dance:
-		switch ((uintptr_t)&((DirectX::XMFLOAT4*)(NULL)->*component)) {
+		switch ((uintptr_t)&((DirectX::XMFLOAT4*)(nullptr)->*component)) {
 			case (offsetof(DirectX::XMFLOAT4, x)): return 'x';
 			case (offsetof(DirectX::XMFLOAT4, y)): return 'y';
 			case (offsetof(DirectX::XMFLOAT4, z)): return 'z';
@@ -62,8 +62,8 @@ static inline bool operator<(const OverrideParam &lhs, const OverrideParam &rhs)
 {
 	if (lhs.idx != rhs.idx)
 		return (lhs.idx < rhs.idx);
-	return ((uintptr_t)&((DirectX::XMFLOAT4*)(NULL)->*(lhs.component)) <
-	        (uintptr_t)&((DirectX::XMFLOAT4*)(NULL)->*(rhs.component)));
+	return ((uintptr_t)&((DirectX::XMFLOAT4*)(nullptr)->*(lhs.component)) <
+	        (uintptr_t)&((DirectX::XMFLOAT4*)(nullptr)->*(rhs.component)));
 }
 typedef std::map<OverrideParam, float> OverrideParams;
 typedef std::map<CommandListVariable*, float> OverrideVars;
@@ -97,6 +97,10 @@ public:
 	OverrideVars mSavedVars;
 
 	Override();
+	Override(const Override&) = default;
+	Override& operator=(const Override&) = default;
+	Override(Override&&) noexcept = default;
+	Override& operator=(Override&&) noexcept = default;
 	Override(OverrideParams *params, OverrideVars *vars, int transition, int release_transition,
 		 TransitionType transition_type,
 		 TransitionType release_transition_type,

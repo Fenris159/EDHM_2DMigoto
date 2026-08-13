@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "float.h"
+#include <cstring>
 
 #if MIGOTO_DX == 9
 #include <d3dx9shader.h>
@@ -88,10 +89,11 @@ static string convertF(DWORD original)
 {
 	char buf[80];
 	char scientific[80];
-	char *scientific_exp = NULL;
+	char *scientific_exp = nullptr;
 	int exp;
 
-	float fOriginal = reinterpret_cast<float &>(original);
+	float fOriginal;
+	std::memcpy(&fOriginal, &original, sizeof(fOriginal));
 
 	// This printf produces different results depending on the toolchain
 	// and/or SDK we are using. e.g. the value 0x3CAAAAAB will produce:
@@ -1445,7 +1447,7 @@ static vector<DWORD> assemble_printf(string &s, vector<DWORD> &v, vector<string>
 		v.insert(v.end(), os.begin(), os.end());
 	}
 
-	// Resize large enough to fit the message with a NULL
+	// Resize large enough to fit the message with a nullptr
 	// terminator, rounded up for padding:
 	uintptr_t msgOff = (uintptr_t)v.size() * 4;
 	insLen = (msgLen + 4) / 4 + (uint32_t)v.size();
@@ -2857,16 +2859,16 @@ HRESULT disassemblerDX9(vector<byte> *buffer, vector<byte> *ret, const char *com
 	char* asmBuffer;
 	size_t asmSize;
 	vector<byte> asmBuf;
-	ID3DBlob* pDissassembly = NULL;
-	LPD3DXBUFFER pD3DXDissassembly = NULL;
+	ID3DBlob* pDissassembly = nullptr;
+	LPD3DXBUFFER pD3DXDissassembly = nullptr;
 	HRESULT ok = D3DDisassemble(buffer->data(), buffer->size(), D3D_DISASM_ENABLE_DEFAULT_VALUE_PRINTS, comment, &pDissassembly);
 	if (FAILED(ok))
-		ok = D3DDisassemble(buffer->data(), buffer->size(), NULL, comment, &pDissassembly);
+		ok = D3DDisassemble(buffer->data(), buffer->size(), nullptr, comment, &pDissassembly);
 	if (FAILED(ok))
 		ok = D3DDisassemble(buffer->data(), buffer->size(), D3D_DISASM_DISABLE_DEBUG_INFO, comment, &pDissassembly);
 	if (FAILED(ok)){
 		//below sometimes give an access violation for some reason
-		//ok = D3DXDisassembleShader((DWORD*)buffer->data(), false, NULL, &pD3DXDissassembly);
+		//ok = D3DXDisassembleShader((DWORD*)buffer->data(), false, nullptr, &pD3DXDissassembly);
 		//if (FAILED(ok))
 			return ok;
 		//asmBuffer = (char*)pD3DXDissassembly->GetBufferPointer();
@@ -2985,7 +2987,7 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 	char* asmBuffer;
 	size_t asmSize;
 	vector<byte> asmBuf;
-	ID3DBlob* pDissassembly = NULL;
+	ID3DBlob* pDissassembly = nullptr;
 
 	// We disable debug info in the disassembler as it interferes with our
 	// ability to match assembly lines with bytecode below
@@ -3374,7 +3376,7 @@ vector<byte> assemblerDX9(vector<char> *asmFile)
 {
 	vector<byte> ret;
 	LPD3DXBUFFER pAssembly;
-	HRESULT hr = D3DXAssembleShader(asmFile->data(), (UINT)asmFile->size(), NULL, NULL, 0, &pAssembly, NULL);
+	HRESULT hr = D3DXAssembleShader(asmFile->data(), (UINT)asmFile->size(), nullptr, nullptr, 0, &pAssembly, nullptr);
 	if (!FAILED(hr)) {
 		size_t size = pAssembly->GetBufferSize();
 		LPVOID buffer = pAssembly->GetBufferPointer();

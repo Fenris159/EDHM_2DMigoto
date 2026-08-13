@@ -23,9 +23,9 @@ Override::Override()
 
 void Override::ParseIniSection(LPCWSTR section)
 {
-	IniSectionVector *section_vec = NULL;
+	IniSectionVector *section_vec = nullptr;
 	IniSectionVector::iterator entry;
-	CommandListVariable *var = NULL;
+	CommandListVariable *var = nullptr;
 	float DirectX::XMFLOAT4::*param_component;
 	int param_idx;
 	float val;
@@ -37,7 +37,7 @@ void Override::ParseIniSection(LPCWSTR section)
 	GetIniSection(&section_vec, section);
 	for (entry = section_vec->begin(); entry < section_vec->end(); entry++) {
 		if (ParseIniParamName(entry->first.c_str(), &param_idx, &param_component)) {
-			val = GetIniFloat(section, entry->first.c_str(), FLT_MAX, NULL);
+			val = GetIniFloat(section, entry->first.c_str(), FLT_MAX, nullptr);
 			if (val != FLT_MAX) {
 				// Reserve space in IniParams for this variable:
 				G->iniParamsReserved = max(G->iniParamsReserved, param_idx + 1);
@@ -50,25 +50,25 @@ void Override::ParseIniSection(LPCWSTR section)
 				continue;
 			}
 
-			val = GetIniFloat(section, entry->first.c_str(), FLT_MAX, NULL);
+			val = GetIniFloat(section, entry->first.c_str(), FLT_MAX, nullptr);
 			if (val != FLT_MAX) {
 				mOverrideVars[var] = val;
 			}
 		}
 	}
 
-	transition = GetIniInt(section, L"transition", 0, NULL);
-	release_transition = GetIniInt(section, L"release_transition", 0, NULL);
+	transition = GetIniInt(section, L"transition", 0, nullptr);
+	release_transition = GetIniInt(section, L"release_transition", 0, nullptr);
 
-	transition_type = GetIniEnumClass(section, L"transition_type", TransitionType::LINEAR, NULL, TransitionTypeNames);
-	release_transition_type = GetIniEnumClass(section, L"release_transition_type", TransitionType::LINEAR, NULL, TransitionTypeNames);
+	transition_type = GetIniEnumClass(section, L"transition_type", TransitionType::LINEAR, nullptr, TransitionTypeNames);
+	release_transition_type = GetIniEnumClass(section, L"release_transition_type", TransitionType::LINEAR, nullptr, TransitionTypeNames);
 
 	if (GetIniStringAndLog(section, L"condition", 0, buf, MAX_PATH)) {
 		wstring sbuf(buf);
 		// Expressions are case insensitive:
 		std::transform(sbuf.begin(), sbuf.end(), sbuf.begin(), ::towlower);
 
-		if (!condition.parse(&sbuf, &ini_namespace, NULL)) {
+		if (!condition.parse(&sbuf, &ini_namespace, nullptr)) {
 			LogOverlayW(LOG_WARNING, L"Invalid condition = \"%ls\"\n - [%ls] @ [%ls]\n", buf, section, ini_namespace.c_str());
 		} else {
 			is_conditional = true;
@@ -83,10 +83,10 @@ void Override::ParseIniSection(LPCWSTR section)
 	// subset of the command list syntax it does not itself make it any
 	// harder to turn the entire section into a command list if we wanted
 	// to in the future, provided we can deal with the other problems.
-	if (GetIniStringAndLog(section, L"run", NULL, buf, MAX_PATH)) {
+	if (GetIniStringAndLog(section, L"run", nullptr, buf, MAX_PATH)) {
 		wstring sbuf(buf);
 
-		if (!ParseRunExplicitCommandList(section, L"run", &sbuf, NULL, &activate_command_list, &deactivate_command_list, &ini_namespace))
+		if (!ParseRunExplicitCommandList(section, L"run", &sbuf, nullptr, &activate_command_list, &deactivate_command_list, &ini_namespace))
 			LogOverlayW(LOG_WARNING, L"Invalid run=\"%ls\"\n - [%ls] @ [%ls]\n", sbuf.c_str(), section, ini_namespace.c_str());
 	}
 }
@@ -98,7 +98,7 @@ struct KeyOverrideCycleParam
 	const char *ptr;
 
 	KeyOverrideCycleParam() :
-		ptr(NULL)
+		ptr(nullptr)
 	{}
 
 	bool next()
@@ -200,7 +200,7 @@ struct KeyOverrideCycleParam
 		// Expressions are case insensitive:
 		std::transform(scur.begin(), scur.end(), scur.begin(), ::towlower);
 
-		if (!expression->parse(&scur, &ini_namespace, NULL)) {
+		if (!expression->parse(&scur, &ini_namespace, nullptr)) {
 			LogOverlayW(LOG_WARNING, L"Invalid condition=\"%S\"\n - [%ls] @ [%ls]\n", cur.c_str(), section, ini_namespace.c_str());
 			return false;
 		}
@@ -220,7 +220,7 @@ struct KeyOverrideCycleParam
 
 		get_section_namespace(section, &ini_namespace);
 
-		if (!ParseRunExplicitCommandList(section, L"run", &scur, NULL, pre_command_list, deactivate_command_list, &ini_namespace))
+		if (!ParseRunExplicitCommandList(section, L"run", &scur, nullptr, pre_command_list, deactivate_command_list, &ini_namespace))
 			LogOverlayW(LOG_WARNING, L"Invalid run=\"%S\"\n - [%ls] @ [%ls]\n", cur.c_str(), section, ini_namespace.c_str());
 	}
 };
@@ -243,15 +243,15 @@ void KeyOverrideCycle::ParseIniSection(LPCWSTR section)
 	bool is_conditional;
 	CommandListExpression condition_expression;
 	CommandList activate_command_list, deactivate_command_list;
-	IniSectionVector *section_vec = NULL;
+	IniSectionVector *section_vec = nullptr;
 	IniSectionVector::iterator entry;
-	CommandListVariable *var = NULL;
+	CommandListVariable *var = nullptr;
 	float DirectX::XMFLOAT4::*param_component;
 	int param_idx;
 	float val;
 
-	wrap = GetIniBool(section, L"wrap", true, NULL);
-	smart = GetIniBool(section, L"smart", true, NULL);
+	wrap = GetIniBool(section, L"wrap", true, nullptr);
+	smart = GetIniBool(section, L"smart", true, nullptr);
 
 	GetIniSection(&section_vec, section);
 	for (entry = section_vec->begin(); entry < section_vec->end(); entry++) {
@@ -450,7 +450,7 @@ std::vector<CommandList*> pending_post_command_lists;
 
 void Override::Activate(HackerDevice *device, bool override_has_deactivate_condition)
 {
-	if (is_conditional && condition.evaluate(NULL, device) == 0) {
+	if (is_conditional && condition.evaluate(nullptr, device) == 0) {
 		LogInfo("Skipping override activation: condition not met\n");
 		return;
 	}
@@ -468,7 +468,7 @@ void Override::Activate(HackerDevice *device, bool override_has_deactivate_condi
 			transition,
 			transition_type);
 
-	RunCommandList(device, device->GetHackerContext(), &activate_command_list, NULL, false);
+	RunCommandList(device, device->GetHackerContext(), &activate_command_list, nullptr, false);
 	if (!override_has_deactivate_condition) {
 		// type=activate or type=cycle that don't have an explicit deactivate
 		// We run their post lists after the upcoming UpdateTransitions() so
@@ -495,12 +495,12 @@ void Override::Deactivate(HackerDevice *device)
 			release_transition,
 			release_transition_type);
 
-	RunCommandList(device, device->GetHackerContext(), &deactivate_command_list, NULL, true);
+	RunCommandList(device, device->GetHackerContext(), &deactivate_command_list, nullptr, true);
 }
 
 void Override::Toggle(HackerDevice *device)
 {
-	if (is_conditional && condition.evaluate(NULL, device) == 0) {
+	if (is_conditional && condition.evaluate(nullptr, device) == 0) {
 		LogInfo("Skipping toggle override: condition not met\n");
 		return;
 	}
@@ -697,7 +697,7 @@ void OverrideTransition::UpdateTransitions(HackerDevice *wrapper)
 	// Run any post command lists from type=activate / cycle now so that
 	// they can see the first frame of the updated value:
 	for (auto i : pending_post_command_lists)
-		RunCommandList(wrapper, wrapper->GetHackerContext(), i, NULL, true);
+		RunCommandList(wrapper, wrapper->GetHackerContext(), i, nullptr, true);
 	pending_post_command_lists.clear();
 }
 

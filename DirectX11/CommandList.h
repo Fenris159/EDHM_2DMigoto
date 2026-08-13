@@ -85,6 +85,13 @@ public:
 	unsigned pre_executions;
 	unsigned post_executions;
 
+	CommandListCommand() :
+		pre_time_spent(),
+		post_time_spent(),
+		pre_executions(0),
+		post_executions(0)
+	{}
+
 	virtual ~CommandListCommand() {};
 
 	virtual void run(CommandListState*) = 0;
@@ -103,7 +110,7 @@ static EnumName_t<const wchar_t *, VariableFlags> VariableFlagNames[] = {
 	{L"global", VariableFlags::GLOBAL},
 	{L"persist", VariableFlags::PERSIST},
 
-	{NULL, VariableFlags::INVALID} // End of list marker
+	{nullptr, VariableFlags::INVALID} // End of list marker
 };
 
 class CommandListVariable {
@@ -161,7 +168,7 @@ public:
 
 	CommandList() :
 		post(false),
-		scope(NULL)
+		scope(nullptr)
 	{}
 };
 
@@ -179,7 +186,7 @@ public:
 	bool exclude;
 
 	PresetCommand() :
-		preset(NULL),
+		preset(nullptr),
 		exclude(false)
 	{}
 
@@ -202,7 +209,7 @@ public:
 	bool run_pre_and_post_together;
 
 	RunExplicitCommandList() :
-		command_list_section(NULL),
+		command_list_section(nullptr),
 		run_pre_and_post_together(false)
 	{}
 
@@ -277,7 +284,7 @@ static EnumName_t<const wchar_t *, D3DCompileFlags> D3DCompileFlagNames[] = {
 	{L"resources_may_alias", D3DCompileFlags::RESOURCES_MAY_ALIAS},
 	{L"enable_unbounded_descriptor_tables", D3DCompileFlags::ENABLE_UNBOUNDED_DESCRIPTOR_TABLES},
 	{L"all_resources_bound", D3DCompileFlags::ALL_RESOURCES_BOUND},
-	{NULL, D3DCompileFlags::INVALID} // End of list marker
+	{nullptr, D3DCompileFlags::INVALID} // End of list marker
 };
 
 class CustomShader
@@ -347,7 +354,7 @@ public:
 	CustomShader *custom_shader;
 
 	RunCustomShaderCommand() :
-		custom_shader(NULL)
+		custom_shader(nullptr)
 	{}
 
 	void run(CommandListState*) override;
@@ -411,7 +418,7 @@ static EnumName_t<const wchar_t *, CustomResourceType> CustomResourceTypeNames[]
 	{L"RWTexture2D", CustomResourceType::TEXTURE2D},
 	{L"RWTexture3D", CustomResourceType::TEXTURE3D},
 
-	{NULL, CustomResourceType::INVALID} // End of list marker
+	{nullptr, CustomResourceType::INVALID} // End of list marker
 };
 
 // The bind flags are usually set automatically, but there are cases where
@@ -446,7 +453,7 @@ static EnumName_t<const wchar_t *, CustomResourceBindFlags> CustomResourceBindFl
 	{L"unordered_access", CustomResourceBindFlags::UNORDERED_ACCESS},
 	{L"decoder", CustomResourceBindFlags::DECODER},
 	{L"video_encoder", CustomResourceBindFlags::VIDEO_ENCODER},
-	{NULL, CustomResourceBindFlags::INVALID} // End of list marker
+	{nullptr, CustomResourceBindFlags::INVALID} // End of list marker
 };
 
 // The ResourcePool holds a pool of cached resources for when a single copy
@@ -564,7 +571,7 @@ enum class PoolIndexType {
 static EnumName_t<const wchar_t*, PoolIndexType> PoolIndexTypeNames[] = {
 	{L"ring", PoolIndexType::RING},
 	{L"fifo", PoolIndexType::FIFO},
-	{NULL, PoolIndexType::INVALID} // End of list marker
+	{nullptr, PoolIndexType::INVALID} // End of list marker
 };
 
 struct PoolSlot
@@ -668,7 +675,7 @@ static EnumName_t<const wchar_t*, ResourceCopyTargetType> ResourceCopyTargetType
 	{L"FakeSwapChain", ResourceCopyTargetType::FAKE_SWAP_CHAIN},
 	{L"CPU", ResourceCopyTargetType::CPU},
 
-	{NULL, ResourceCopyTargetType::INVALID} // End of list marker
+	{nullptr, ResourceCopyTargetType::INVALID} // End of list marker
 };
 
 enum class ResourceCopyTargetEvaluationMode : uint16_t {
@@ -748,9 +755,9 @@ public:
 		evaluation_mode(ResourceCopyTargetEvaluationMode::RESOURCE),
 		shader_type(L'\0'),
 		slot(0),
-		_custom_resource(NULL),
-		custom_resource_pool(NULL),
-		custom_resource_pool_index_var(NULL),
+		_custom_resource(nullptr),
+		custom_resource_pool(nullptr),
+		custom_resource_pool_index_var(nullptr),
 		member_args{},
 		forbid_view_cache(false)
 	{}
@@ -772,7 +779,7 @@ public:
 			UINT *offset,
 			DXGI_FORMAT *format,
 			UINT *buf_size,
-			ResourceCopyTarget *dst=NULL);
+			ResourceCopyTarget *dst=nullptr);
 	void SetResource(CommandListState *state,
 			ID3D11Resource *res,
 			ID3D11View *view,
@@ -790,7 +797,7 @@ public:
 	float GetResourceSize(CommandListState* state);
 	float GetResourceOffset(CommandListState* state);
 	float GetResourceRegionHash(CommandListState* state);
-	D3D11_BIND_FLAG BindFlags(CommandListState *state, D3D11_RESOURCE_MISC_FLAG *misc_flags=NULL);
+	D3D11_BIND_FLAG BindFlags(CommandListState *state, D3D11_RESOURCE_MISC_FLAG *misc_flags=nullptr);
 };
 
 enum class ResourceCopyOptions {
@@ -828,7 +835,7 @@ static EnumName_t<wchar_t *, ResourceCopyOptions> ResourceCopyOptionNames[] = {
 	// using a shader to resolve any unsupported formats.
 	{L"resolve_msaa", ResourceCopyOptions::RESOLVE_MSAA},
 
-	{NULL, ResourceCopyOptions::INVALID} // End of list marker
+	{nullptr, ResourceCopyOptions::INVALID} // End of list marker
 };
 // TODO: Add support for more behaviour modifiers, here's a few ideas
 // off the top of my head - I don't intend to implement all these
@@ -891,8 +898,8 @@ class CommandListEvaluatable {
 public:
 	virtual ~CommandListEvaluatable() {}; // Because C++
 
-	virtual float evaluate(CommandListState *state, HackerDevice *device=NULL) = 0;
-	virtual bool static_evaluate(float *ret, HackerDevice *device=NULL) = 0;
+	virtual float evaluate(CommandListState *state, HackerDevice *device=nullptr) = 0;
+	virtual bool static_evaluate(float *ret, HackerDevice *device=nullptr) = 0;
 	virtual bool optimise(HackerDevice *device, std::shared_ptr<CommandListEvaluatable> *replacement) = 0;
 };
 
@@ -972,8 +979,8 @@ public:
 	{}
 
 	std::shared_ptr<CommandListEvaluatable> finalise() override;
-	float evaluate(CommandListState *state, HackerDevice *device=NULL) override;
-	bool static_evaluate(float *ret, HackerDevice *device=NULL) override;
+	float evaluate(CommandListState *state, HackerDevice *device=nullptr) override;
+	bool static_evaluate(float *ret, HackerDevice *device=nullptr) override;
 	bool optimise(HackerDevice *device, std::shared_ptr<CommandListEvaluatable> *replacement) override;
 	Walk walk() override;
 
@@ -1098,7 +1105,7 @@ static EnumName_t<const wchar_t *, ParamOverrideType> ParamOverrideTypeNames[] =
 	{L"sli", ParamOverrideType::SLI},
 	{L"stereo_active", ParamOverrideType::STEREO_ACTIVE},
 	{L"stereo_available", ParamOverrideType::STEREO_AVAILABLE},
-	{NULL, ParamOverrideType::INVALID} // End of list marker
+	{nullptr, ParamOverrideType::INVALID} // End of list marker
 };
 class CommandListOperand :
 	public CommandListToken,
@@ -1129,15 +1136,15 @@ public:
 		CommandListToken(pos, token),
 		type(ParamOverrideType::INVALID),
 		val(FLT_MAX),
-		param_component(NULL),
+		param_component(nullptr),
 		param_idx(0),
-		var_ftarget(NULL),
+		var_ftarget(nullptr),
 		scissor(0)
 	{}
 
 	bool parse(const wstring *operand, const wstring *ini_namespace, CommandListScope *scope);
-	float evaluate(CommandListState *state, HackerDevice *device=NULL) override;
-	bool static_evaluate(float *ret, HackerDevice *device=NULL) override;
+	float evaluate(CommandListState *state, HackerDevice *device=nullptr) override;
+	bool static_evaluate(float *ret, HackerDevice *device=nullptr) override;
 	bool optimise(HackerDevice *device, std::shared_ptr<CommandListEvaluatable> *replacement) override;
 };
 
@@ -1146,8 +1153,8 @@ public:
 	std::shared_ptr<CommandListEvaluatable> evaluatable;
 
 	bool parse(const wstring *expression, const wstring *ini_namespace, CommandListScope *scope);
-	float evaluate(CommandListState *state, HackerDevice *device=NULL);
-	bool static_evaluate(float *ret, HackerDevice *device=NULL);
+	float evaluate(CommandListState *state, HackerDevice *device=nullptr);
+	bool static_evaluate(float *ret, HackerDevice *device=nullptr);
 	bool optimise(HackerDevice *device);
 };
 
@@ -1165,7 +1172,7 @@ public:
 
 	ParamOverride() :
 		param_idx(-1),
-		param_component(NULL)
+		param_component(nullptr)
 	{}
 
 	void run(CommandListState*) override;
@@ -1176,7 +1183,7 @@ public:
 	CommandListVariable *var;
 
 	VariableAssignment() :
-		var(NULL)
+		var(nullptr)
 	{}
 
 	void run(CommandListState*) override;
@@ -1284,7 +1291,9 @@ public:
 	wstring ini_section;
 
 	StoreCommand() :
-		var(NULL)
+		var(nullptr),
+		options(ResourceCopyOptions::INVALID),
+		loc(-1)
 	{}
 
 	void run(CommandListState*) override;
@@ -1324,8 +1333,8 @@ public:
 	CustomResource *resource;
 
 	ResetPerFrameLimitsCommand() :
-		shader(NULL),
-		resource(NULL)
+		shader(nullptr),
+		resource(nullptr)
 	{}
 
 	void run(CommandListState*) override;

@@ -477,7 +477,7 @@ Keyboard::Keyboard()
 
 
 // Move constructor.
-Keyboard::Keyboard(Keyboard&& moveFrom)
+Keyboard::Keyboard(Keyboard&& moveFrom) noexcept
     : pImpl(std::move(moveFrom.pImpl))
 {
     pImpl->mOwner = this;
@@ -485,7 +485,7 @@ Keyboard::Keyboard(Keyboard&& moveFrom)
 
 
 // Move assignment.
-Keyboard& Keyboard::operator= (Keyboard&& moveFrom)
+Keyboard& Keyboard::operator= (Keyboard&& moveFrom) noexcept
 {
     pImpl = std::move(moveFrom.pImpl);
     pImpl->mOwner = this;

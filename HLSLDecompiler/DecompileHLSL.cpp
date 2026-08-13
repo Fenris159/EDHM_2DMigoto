@@ -268,7 +268,7 @@ public:
 		const char *startPos = c + pos;
 		const char *eolPos = strchr(startPos, '\n');
 		std::string line(startPos, eolPos);
-		sprintf(buffer, "%s\n", line.c_str());
+		sprintf_s(buffer, sizeof(buffer), "%s\n", line.c_str());
 		appendOutput(buffer);
 	}
 
@@ -471,12 +471,12 @@ public:
 					strcpy(format2, format);
 			// Already used?
 			char registerName[32];
-			sprintf(registerName, "v%d", slot);
+			sprintf_s(registerName, sizeof(registerName), "v%d", slot);
 			string regNameStr = registerName;
 			map<string, DataType>::iterator i = usedInputRegisters.find(regNameStr);
 			if (i != usedInputRegisters.end())
 			{
-				sprintf(registerName, "w%d.", slot);
+				sprintf_s(registerName, sizeof(registerName), "w%d.", slot);
 				const char *INDEX_MASK = "xyzw";
 				string newName = registerName;
 				for (size_t j = 0; j < strlen(mask); ++j)
@@ -493,7 +493,7 @@ public:
 						mRemappedInputRegisters.push_back(pair<string, string>(oldName, newName));
 					}
 				}
-				sprintf(registerName, "w%d", slot);
+				sprintf_s(registerName, sizeof(registerName), "w%d", slot);
 				regNameStr = registerName;
 			}
 			else
@@ -506,7 +506,7 @@ public:
 
 			// Write, e.g.  centroid  float4 v4 : TEXCOORD2,
 			char buffer[256];
-			sprintf(buffer, "  %s%s %s : %s%d,\n", modifier.c_str(), format2, regNameStr.c_str(), name, index);
+			sprintf_s(buffer, sizeof(buffer), "  %s%s %s : %s%d,\n", modifier.c_str(), format2, regNameStr.c_str(), name, index);
 			mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 			NextLine(c, pos, size);
 			// End?
@@ -563,12 +563,12 @@ public:
 						strcpy(format2, format);
 				// Already used?
 				char registerName[32];
-				sprintf(registerName, "o%d", slot);
+				sprintf_s(registerName, sizeof(registerName), "o%d", slot);
 				string regNameStr = registerName;
 				map<string, DataType>::iterator i = mOutputRegisterType.find(regNameStr);
 				if (i != mOutputRegisterType.end())
 				{
-					sprintf(registerName, "p%d.", slot);
+					sprintf_s(registerName, sizeof(registerName), "p%d.", slot);
 					const char *INDEX_MASK = "xyzw";
 					string newName = registerName;
 					for (size_t j = 0; j < strlen(mask); ++j)
@@ -585,12 +585,12 @@ public:
 							mRemappedOutputRegisters[oldName] = newName;
 						}
 					}
-					sprintf(registerName, "p%d", slot);
+					sprintf_s(registerName, sizeof(registerName), "p%d", slot);
 					regNameStr = registerName;
 				}
 				// Write.
 				char buffer[256];
-				sprintf(buffer, "  out %s %s : %s%d,\n", format2, regNameStr.c_str(), name, index);
+				sprintf_s(buffer, sizeof(buffer), "  out %s %s : %s%d,\n", format2, regNameStr.c_str(), name, index);
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 				if (!strcmp(name, "SV_Position"))
 					mSV_Position = regNameStr;
@@ -606,7 +606,7 @@ public:
 				// SV_Depth                 0    N/A   oDepth    DEPTH   float    YES
 				numRead = sscanf_s(c + pos, "// %s %d %s %s %s %s",
 					name, UCOUNTOF(name), &index, mask, UCOUNTOF(mask), reg, UCOUNTOF(reg), sysValue, UCOUNTOF(sysValue), format, UCOUNTOF(format));
-				sprintf(buffer, "  out %s %s : %s,\n", format, reg, name);
+				sprintf_s(buffer, sizeof(buffer), "  out %s %s : %s,\n", format, reg, name);
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 			}
 			if (numRead != 6)
@@ -660,12 +660,12 @@ public:
 			{
 				// Already used?
 				char registerName[32];
-				sprintf(registerName, "o%d", slot);
+				sprintf_s(registerName, sizeof(registerName), "o%d", slot);
 				string regNameStr = registerName;
 				set<string>::iterator i = outputRegister.find(regNameStr);
 				if (i != outputRegister.end())
 				{
-					sprintf(registerName, "p%d", slot);
+					sprintf_s(registerName, sizeof(registerName), "p%d", slot);
 					regNameStr = registerName;
 				}
 				else
@@ -674,7 +674,7 @@ public:
 				}
 				// Write.
 				char buffer[256];
-				sprintf(buffer, "  %s = 0;\n", regNameStr.c_str());
+				sprintf_s(buffer, sizeof(buffer), "  %s = 0;\n", regNameStr.c_str());
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 			}
 			else if (numRead == 3)
@@ -684,7 +684,7 @@ public:
 					name, UCOUNTOF(name), &index, mask, UCOUNTOF(mask), sysValue, UCOUNTOF(sysValue), format2, UCOUNTOF(format2), format, UCOUNTOF(format));
 				// Write.
 				char buffer[256];
-				sprintf(buffer, "  %s = 0;\n", sysValue);
+				sprintf_s(buffer, sizeof(buffer), "  %s = 0;\n", sysValue);
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 			}
 			if (numRead != 6)
@@ -904,7 +904,7 @@ public:
 				if (arraySize > 1)
 					for (int i = 0; i < arraySize; ++i)
 					{
-					sprintf(name, "%s[%d]", baseName.c_str(), i);
+					sprintf_s(name, sizeof(name), "%s[%d]", baseName.c_str(), i);
 					mSamplerNames[slot + i] = name;
 					}
 			}
@@ -918,7 +918,7 @@ public:
 				if (arraySize > 1)
 					for (int i = 0; i < arraySize; ++i)
 					{
-					sprintf(name, "%s[%d]", baseName.c_str(), i);
+					sprintf_s(name, sizeof(name), "%s[%d]", baseName.c_str(), i);
 					mSamplerComparisonNames[slot + i] = name;
 					}
 			}
@@ -944,7 +944,7 @@ public:
 				if (arraySize > 1)
 					for (int i = 0; i < arraySize; ++i)
 					{
-					sprintf(name, "%s[%d]", baseName.c_str(), i);
+					sprintf_s(name, sizeof(name), "%s[%d]", baseName.c_str(), i);
 					(*mNames)[slot + i] = name;
 					}
 				if (!strcmp(dim, "1d"))
@@ -971,9 +971,9 @@ public:
 					char buffer[256];
 					scanned = sscanf_s(dim + 4, "%d", &msnumber);
 					if (scanned == 1)
-						sprintf(buffer, "Texture2DMS<%s,%d>", format, msnumber);
+						sprintf_s(buffer, sizeof(buffer), "Texture2DMS<%s,%d>", format, msnumber);
 					else
-						sprintf(buffer, "Texture2DMS<%s>", format);
+						sprintf_s(buffer, sizeof(buffer), "Texture2DMS<%s>", format);
 					(*mType)[slot] = rw + buffer;
 				}
 				// Two new ones for Mordor.
@@ -1005,9 +1005,9 @@ public:
 		{
 			if (mSamplerNamesArraySize[i->first] == 1)
 			{
-				sprintf(buffer, "SamplerState %s : register(s%d);\n", i->second.c_str(), i->first);
+				sprintf_s(buffer, sizeof(buffer), "SamplerState %s : register(s%d);\n", i->second.c_str(), i->first);
 				/*
-				sprintf(buffer, "SamplerState %s : register(s%d)\n"
+				sprintf_s(buffer, sizeof(buffer), "SamplerState %s : register(s%d)\n"
 				"{\n"
 				"  AddressU = wrap;\n"
 				"  AddressV = wrap;\n"
@@ -1023,7 +1023,7 @@ public:
 			else if (mSamplerNamesArraySize[i->first] > 1)
 			{
 				string baseName = i->second.substr(0, i->second.find('['));
-				sprintf(buffer, "SamplerState %s[%d] : register(s%d);\n", baseName.c_str(), mSamplerNamesArraySize[i->first], i->first);
+				sprintf_s(buffer, sizeof(buffer), "SamplerState %s[%d] : register(s%d);\n", baseName.c_str(), mSamplerNamesArraySize[i->first], i->first);
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 			}
 		}
@@ -1031,9 +1031,9 @@ public:
 		{
 			if (mSamplerComparisonNamesArraySize[i->first] == 1)
 			{
-				sprintf(buffer, "SamplerComparisonState %s : register(s%d);\n", i->second.c_str(), i->first);
+				sprintf_s(buffer, sizeof(buffer), "SamplerComparisonState %s : register(s%d);\n", i->second.c_str(), i->first);
 				/*
-				sprintf(buffer, "SamplerComparisonState %s : register(s%d)\n"
+				sprintf_s(buffer, sizeof(buffer), "SamplerComparisonState %s : register(s%d)\n"
 				"{\n"
 				"  AddressU = wrap;\n"
 				"  AddressV = wrap;\n"
@@ -1049,7 +1049,7 @@ public:
 			else if (mSamplerComparisonNamesArraySize[i->first] > 1)
 			{
 				string baseName = i->second.substr(0, i->second.find('['));
-				sprintf(buffer, "SamplerComparisonState %s[%d] : register(s%d);\n", baseName.c_str(), mSamplerComparisonNamesArraySize[i->first], i->first);
+				sprintf_s(buffer, sizeof(buffer), "SamplerComparisonState %s[%d] : register(s%d);\n", baseName.c_str(), mSamplerComparisonNamesArraySize[i->first], i->first);
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 			}
 		}
@@ -1057,13 +1057,13 @@ public:
 		{
 			if (mTextureNamesArraySize[i->first] == 1)
 			{
-				sprintf(buffer, "%s %s : register(t%d);\n", mTextureType[i->first].c_str(), i->second.c_str(), i->first);
+				sprintf_s(buffer, sizeof(buffer), "%s %s : register(t%d);\n", mTextureType[i->first].c_str(), i->second.c_str(), i->first);
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 			}
 			else if (mTextureNamesArraySize[i->first] > 1)
 			{
 				string baseName = i->second.substr(0, i->second.find('['));
-				sprintf(buffer, "%s %s[%d] : register(t%d);\n", mTextureType[i->first].c_str(), baseName.c_str(), mTextureNamesArraySize[i->first], i->first);
+				sprintf_s(buffer, sizeof(buffer), "%s %s[%d] : register(t%d);\n", mTextureType[i->first].c_str(), baseName.c_str(), mTextureNamesArraySize[i->first], i->first);
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 			}
 		}
@@ -1071,13 +1071,13 @@ public:
 		{
 			if (mUAVNamesArraySize[i->first] == 1)
 			{
-				sprintf(buffer, "%s %s : register(u%d);\n", mUAVType[i->first].c_str(), i->second.c_str(), i->first);
+				sprintf_s(buffer, sizeof(buffer), "%s %s : register(u%d);\n", mUAVType[i->first].c_str(), i->second.c_str(), i->first);
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 			}
 			else if (mUAVNamesArraySize[i->first] > 1)
 			{
 				string baseName = i->second.substr(0, i->second.find('['));
-				sprintf(buffer, "%s %s[%d] : register(u%d);\n", mUAVType[i->first].c_str(), baseName.c_str(), mUAVNamesArraySize[i->first], i->first);
+				sprintf_s(buffer, sizeof(buffer), "%s %s[%d] : register(u%d);\n", mUAVType[i->first].c_str(), baseName.c_str(), mUAVNamesArraySize[i->first], i->first);
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 			}
 		}
@@ -1275,7 +1275,7 @@ public:
 							structSize += getDataTypeSize(mCBufferData[*j].bt);
 						for (int i = arraySize - 1; i >= 0; --i)
 						{
-							sprintf(buffer, "%s[%d].", structName.c_str(), i);
+							sprintf_s(buffer, sizeof(buffer), "%s[%d].", structName.c_str(), i);
 							for (vector<int>::iterator j = pendingStructAttributes[structLevel].begin(); j != pendingStructAttributes[structLevel].end(); ++j)
 							{
 								mCBufferData[*j + i * structSize].Name = buffer + mCBufferData[*j].Name;
@@ -1399,7 +1399,7 @@ public:
 
 					for (int i = 0; i < numElements; ++i)
 					{
-						sprintf(buffer, "%s[%d]", baseName.c_str(), i);
+						sprintf_s(buffer, sizeof(buffer), "%s[%d]", baseName.c_str(), i);
 						e.Name = buffer;
 						int offsetPos;
 
@@ -1480,12 +1480,12 @@ public:
 						if (structLevel < 0)
 						{
 							if (suboffset == 0)
-								sprintf(buffer, "  %s%s %s : packoffset(c%d) = %s;\n", modifier.c_str(), type, name, packoffset, bString.c_str());
+								sprintf_s(buffer, sizeof(buffer), "  %s%s %s : packoffset(c%d) = %s;\n", modifier.c_str(), type, name, packoffset, bString.c_str());
 							else
-								sprintf(buffer, "  %s%s %s : packoffset(c%d.%c) = %s;\n", modifier.c_str(), type, name, packoffset, INDEX_MASK[suboffset], bString.c_str());
+								sprintf_s(buffer, sizeof(buffer), "  %s%s %s : packoffset(c%d.%c) = %s;\n", modifier.c_str(), type, name, packoffset, INDEX_MASK[suboffset], bString.c_str());
 						}
 						else
-							sprintf(buffer, "  %s%s%s %s = %s;\n", structSpacing.c_str(), modifier.c_str(), type, name, bString.c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s%s%s %s = %s;\n", structSpacing.c_str(), modifier.c_str(), type, name, bString.c_str());
 						mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 					}
 					// Special int case, to avoid converting to float badly, creating #QNAN instead. 
@@ -1499,21 +1499,21 @@ public:
 						if (structLevel < 0)
 						{
 							if (suboffset == 0)
-								sprintf(buffer, "  %s%s %s : packoffset(c%d) = {", modifier.c_str(), type, name, packoffset);
+								sprintf_s(buffer, sizeof(buffer), "  %s%s %s : packoffset(c%d) = {", modifier.c_str(), type, name, packoffset);
 							else
-								sprintf(buffer, "  %s%s %s : packoffset(c%d.%c) = {", modifier.c_str(), type, name, packoffset, INDEX_MASK[suboffset]);
+								sprintf_s(buffer, sizeof(buffer), "  %s%s %s : packoffset(c%d.%c) = {", modifier.c_str(), type, name, packoffset, INDEX_MASK[suboffset]);
 						}
 						else
-							sprintf(buffer, "  %s%s%s %s = {", structSpacing.c_str(), modifier.c_str(), type, name);
+							sprintf_s(buffer, sizeof(buffer), "  %s%s%s %s = {", structSpacing.c_str(), modifier.c_str(), type, name);
 						
 						mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 
 						for (int i = 0; i < numRead - 1; ++i)
 						{
-							sprintf(buffer, "%i,", in[i]);
+							sprintf_s(buffer, sizeof(buffer), "%i,", in[i]);
 							mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 						}
-						sprintf(buffer, "%i};\n", in[numRead - 1]);
+						sprintf_s(buffer, sizeof(buffer), "%i};\n", in[numRead - 1]);
 						mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 					}
 					else if (e.bt == DT_float || e.bt == DT_float2 || e.bt == DT_float3 || e.bt == DT_float4)
@@ -1525,21 +1525,21 @@ public:
 						if (structLevel < 0)
 						{
 							if (suboffset == 0)
-								sprintf(buffer, "  %s%s %s : packoffset(c%d) = {", modifier.c_str(), type, name, packoffset);
+								sprintf_s(buffer, sizeof(buffer), "  %s%s %s : packoffset(c%d) = {", modifier.c_str(), type, name, packoffset);
 							else
-								sprintf(buffer, "  %s%s %s : packoffset(c%d.%c) = {", modifier.c_str(), type, name, packoffset, INDEX_MASK[suboffset]);
+								sprintf_s(buffer, sizeof(buffer), "  %s%s %s : packoffset(c%d.%c) = {", modifier.c_str(), type, name, packoffset, INDEX_MASK[suboffset]);
 						}
 						else
-							sprintf(buffer, "  %s%s%s %s = {", structSpacing.c_str(), modifier.c_str(), type, name);
+							sprintf_s(buffer, sizeof(buffer), "  %s%s%s %s = {", structSpacing.c_str(), modifier.c_str(), type, name);
 
 						mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 
 						for (int i = 0; i < numRead - 1; ++i)
 						{
-							sprintf(buffer, "%.9g,", v[i]);
+							sprintf_s(buffer, sizeof(buffer), "%.9g,", v[i]);
 							mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 						}
-						sprintf(buffer, "%.9g};\n", v[numRead - 1]);
+						sprintf_s(buffer, sizeof(buffer), "%.9g};\n", v[numRead - 1]);
 						mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 					}
 					// Only 4x4 for now, not sure this is all working, so going with known needed case.
@@ -1560,30 +1560,30 @@ public:
 						if (structLevel < 0)
 						{
 							if (suboffset == 0)
-								sprintf(buffer, "  %s%s %s : packoffset(c%d) = {", modifier.c_str(), type, name, packoffset);
+								sprintf_s(buffer, sizeof(buffer), "  %s%s %s : packoffset(c%d) = {", modifier.c_str(), type, name, packoffset);
 							else
-								sprintf(buffer, "  %s%s %s : packoffset(c%d.%c) = {", modifier.c_str(), type, name, packoffset, INDEX_MASK[suboffset]);
+								sprintf_s(buffer, sizeof(buffer), "  %s%s %s : packoffset(c%d.%c) = {", modifier.c_str(), type, name, packoffset, INDEX_MASK[suboffset]);
 						}
 						else
-							sprintf(buffer, "  %s%s%s %s = {", structSpacing.c_str(), modifier.c_str(), type, name);
+							sprintf_s(buffer, sizeof(buffer), "  %s%s%s %s = {", structSpacing.c_str(), modifier.c_str(), type, name);
 
 						mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 
 						for (int i = 0; i < 16 - 1; ++i)
 						{
-							sprintf(buffer, "%.9g,", v[i]);
+							sprintf_s(buffer, sizeof(buffer), "%.9g,", v[i]);
 							mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 						}
-						sprintf(buffer, "%.9g};\n", v[15]);
+						sprintf_s(buffer, sizeof(buffer), "%.9g};\n", v[15]);
 						mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 					}
 					// If we don't know what the initializer is, let's not just keep reading through it.  Let's now scan 
 					// them and output them, with a bad line in between for hand-fixing.  But, the shader will be generated.
 					else
 					{
-						sprintf(buffer, "  %s%s %s : packoffset(c%d) = {", modifier.c_str(), type, name, packoffset);
+						sprintf_s(buffer, sizeof(buffer), "  %s%s %s : packoffset(c%d) = {", modifier.c_str(), type, name, packoffset);
 						appendOutput(buffer);
-						sprintf(buffer, "Unknown bad code for initializer (needs manual fix):\n");
+						sprintf_s(buffer, sizeof(buffer), "Unknown bad code for initializer (needs manual fix):\n");
 						appendOutput(buffer);
 
 						ASMLineOut(c, pos, size);
@@ -1604,12 +1604,12 @@ public:
 					if (structLevel < 0)
 					{
 						if (suboffset == 0)
-							sprintf(buffer, "  %s%s %s : packoffset(c%d);\n", modifier.c_str(), type, name, packoffset);
+							sprintf_s(buffer, sizeof(buffer), "  %s%s %s : packoffset(c%d);\n", modifier.c_str(), type, name, packoffset);
 						else
-							sprintf(buffer, "  %s%s %s : packoffset(c%d.%c);\n", modifier.c_str(), type, name, packoffset, INDEX_MASK[suboffset]);
+							sprintf_s(buffer, sizeof(buffer), "  %s%s %s : packoffset(c%d.%c);\n", modifier.c_str(), type, name, packoffset, INDEX_MASK[suboffset]);
 					}
 					else
-						sprintf(buffer, "  %s%s%s %s;\n", structSpacing.c_str(), modifier.c_str(), type, name);
+						sprintf_s(buffer, sizeof(buffer), "  %s%s%s %s;\n", structSpacing.c_str(), modifier.c_str(), type, name);
 					mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 				}
 			} while (strncmp(c + pos, "// }", 4));
@@ -1893,7 +1893,7 @@ public:
 			// FIXME: Refactor this into a dedicated function
 
 			char * result = strrchr(right, '.');
-			if (result == NULL)		//if don't have swizzle info，add .xyzw
+			if (result == nullptr)		//if don't have swizzle info，add .xyzw
 			{
 				strcat_s(right, opcodeSize, ".xyzw");
 			}
@@ -1904,7 +1904,7 @@ public:
 			pos = strlen(right2);
 			// Single value?
 			if (strlen(right) - strlen(right2) == 1)
-				strcpy(right2, right);
+				strcpy_s(right2, sizeof(right2), right);
 			else
 			{
 				for (int i = 0; idx[i] >= 0 && i < 4; ++i)
@@ -1921,7 +1921,7 @@ public:
 			char buff[opcodeSize];
 			char suffix[opcodeSize];
 			char * pos = strchr(right2, '.');
-			if (pos != NULL)
+			if (pos != nullptr)
 			{
 				strncpy(buff, right2, pos - right2);
 				buff[pos - right2] = 0;
@@ -1984,7 +1984,7 @@ public:
 		{
 			//dx9
 			char * result = strrchr(right, '.');
-			if (result == NULL)		//if don't have swizzle info，add .xyzw
+			if (result == nullptr)		//if don't have swizzle info，add .xyzw
 			{
 				strcat_s(right, opcodeSize, ".xyzw");
 			}
@@ -1993,7 +1993,7 @@ public:
 			strPos = strrchr(right, '.') + 1;
 			if (strPos == (const char *)1) {
 				// If there's no '.' in the string, strrchr
-				// will have returned a NULL pointer. If we
+				// will have returned a nullptr pointer. If we
 				// were to continue we would write a 0 to a
 				// random location since right2[1-right] will
 				// run off the start of the buffer.
@@ -2010,7 +2010,7 @@ public:
 			pos = strlen(right2);
 			// Single value?
 			if (strlen(right) - strlen(right2) == 1)
-				strcpy(right2, right);
+				strcpy_s(right2, sizeof(right2), right);
 			else
 			{
 				for (int i = 0; idx[i] >= 0 && i < 4; ++i)
@@ -2168,7 +2168,7 @@ public:
 					StringStringMap::iterator isCorrected = mCorrectedIndexRegisters.find(indexRegisterName);
 					if (isCorrected != mCorrectedIndexRegisters.end())
 					{
-						char newOperand[opcodeSize]; strcpy(newOperand, isCorrected->second.c_str());
+						char newOperand[opcodeSize]; strcpy_s(newOperand, sizeof(newOperand), isCorrected->second.c_str());
 						applySwizzle(regAndSwiz, newOperand, true);
 						sprintf_s(right3 + strlen(right3), sizeof(right3) - strlen(right3), "[%s]", newOperand);
 					}
@@ -2177,7 +2177,7 @@ public:
 						i->second.bt == DT_float3x4 || i->second.bt == DT_float3x3) &&
 						mMulOperand.substr(0, mMulOperand.find(".")) != indexRegisterName) // We can't use the old non-multiplied index variable if it was the same one overwritten with the result of the multiplication. TestShaders/GameExamples/DOAXVV/ba2ad61fa36ff709-vs.bin
 					{
-						char newOperand[opcodeSize]; strcpy(newOperand, mMulOperand.c_str());
+						char newOperand[opcodeSize]; strcpy_s(newOperand, sizeof(newOperand), mMulOperand.c_str());
 						applySwizzle(regAndSwiz, newOperand, true);
 						sprintf_s(right3 + strlen(right3), sizeof(right3) - strlen(right3), "[%s]", newOperand);
 						mCorrectedIndexRegisters[indexRegisterName] = mMulOperand;
@@ -2222,7 +2222,7 @@ public:
 							base.replace(left, length, regAndOffset);
 						}
 
-						strcpy(right3, base.c_str());
+						strcpy_s(right3, sizeof(right3), base.c_str());
 					}
 				}
 				if (i->second.bt != DT_float && i->second.bt != DT_bool && i->second.bt != DT_uint && i->second.bt != DT_int)
@@ -2258,7 +2258,7 @@ public:
 						strcat(right3, strPos + 1);
 					}
 				}
-				strcpy(right2, right3);
+				strcpy_s(right2, sizeof(right2), right3);
 			}
 		}
 		if (absolute && negative)
@@ -2400,7 +2400,7 @@ public:
 		if (floor(number) != number)
 			return input;
 		char buffer[64];
-		sprintf(buffer, "%d", (int)number);
+		sprintf_s(buffer, sizeof(buffer), "%d", (int)number);
 		return buffer;
 	}
 
@@ -2666,7 +2666,7 @@ public:
 			sscanf_s(target + isMinus, "float%d(%f,%f,%f,%f)", &size, &f0, &f1, &f2, &f3);
 
 			buffer[0] = 0;
-			if (isMinus) strcpy(buffer, "-");
+			if (isMinus) strcpy_s(buffer, sizeof(buffer), "-");
 
 			if (size == 2) sprintf_s(buffer + strlen(buffer), opcodeSize - strlen(buffer), "int2(%d,%d)", (int)f0, (int)f1);
 			else if (size == 3) sprintf_s(buffer + strlen(buffer), opcodeSize - strlen(buffer), "int3(%d,%d,%d)", (int)f0, (int)f1, (int)f2);
@@ -2709,7 +2709,7 @@ public:
 			sscanf_s(target + isMinus, "float%d(%f,%f,%f,%f)", &size, &f0, &f1, &f2, &f3);
 
 			buffer[0] = 0;
-			if (isMinus) strcpy(buffer, "-");
+			if (isMinus) strcpy_s(buffer, sizeof(buffer), "-");
 
 			if (size == 2) sprintf_s(buffer + strlen(buffer), opcodeSize - strlen(buffer), "uint2(%d,%d)", (int)f0, (int)f1);
 			else if (size == 3) sprintf_s(buffer + strlen(buffer), opcodeSize - strlen(buffer), "uint3(%d,%d,%d)", (int)f0, (int)f1, (int)f2);
@@ -2924,9 +2924,9 @@ public:
 					// Add view direction calculation.
 					char buf[512];
 					if (screenToWorldMatrix1)
-						sprintf(buf, "  viewDirection = float3(%s);\n", G->BackProject_Vector1.c_str());
+						sprintf_s(buf, sizeof(buf), "  viewDirection = float3(%s);\n", G->BackProject_Vector1.c_str());
 					else
-						sprintf(buf, "  viewDirection = float3(%s);\n", G->BackProject_Vector2.c_str());
+						sprintf_s(buf, sizeof(buf), "  viewDirection = float3(%s);\n", G->BackProject_Vector2.c_str());
 					mOutput.insert(mOutput.end() - 1, buf, buf + strlen(buf));
 					mPatched = true;
 
@@ -2938,7 +2938,7 @@ public:
 						mOutput.insert(writePos, StereoDecl, StereoDecl + strlen(StereoDecl));
 						stereoParamsWritten = true;
 						char buffer[256];
-						sprintf(buffer, "%s.x -= separation * (%s.w - convergence);\n", mSV_Position.c_str(), mSV_Position.c_str());
+						sprintf_s(buffer, sizeof(buffer), "%s.x -= separation * (%s.w - convergence);\n", mSV_Position.c_str(), mSV_Position.c_str());
 						mOutput.insert(mOutput.end() - 1, buffer, buffer + strlen(buffer));
 					}
 				}
@@ -2991,7 +2991,7 @@ public:
 							char buffer[256];
 							string outputReg = i->first;
 							if (outputReg.find('.') != string::npos) outputReg = outputReg.substr(0, outputReg.find('.'));
-							sprintf(buffer, "\n%s.x += separation * (%s.w - convergence);", outputReg.c_str(), outputReg.c_str());
+							sprintf_s(buffer, sizeof(buffer), "\n%s.x += separation * (%s.w - convergence);", outputReg.c_str(), outputReg.c_str());
 							mOutput.insert(writePos, buffer, buffer + strlen(buffer));
 							mPatched = true;
 						}
@@ -3041,14 +3041,14 @@ public:
 						char buf[512];
 						if (!wposAvailable)
 						{
-							sprintf(buf, "float4 zpos4 = %s;\n"
+							sprintf_s(buf, sizeof(buf), "float4 zpos4 = %s;\n"
 								"float zTex = zpos4.%c;\n"
 								"float zpos = %s;\n"
 								"float wpos = 1.0 / zpos;\n", depthBufferStatement.c_str(), G->ZRepair_DepthTextureReg1, G->ZRepair_ZPosCalc1.c_str());
 						}
 						else
 						{
-							sprintf(buf, "zpos4 = %s;\n"
+							sprintf_s(buf, sizeof(buf), "zpos4 = %s;\n"
 								"zTex = zpos4.%c;\n"
 								"zpos = %s;\n"
 								"wpos = 1.0 / zpos;\n", depthBufferStatement.c_str(), G->ZRepair_DepthTextureReg1, G->ZRepair_ZPosCalc1.c_str());
@@ -3118,7 +3118,7 @@ public:
 							const char ZPOS_REG[] = "zpos4";
 							wpos = mOutput.insert(wpos, ZPOS_REG, ZPOS_REG + strlen(ZPOS_REG));
 							char buf[256];
-							sprintf(buf, "float4 zpos4 = %s;\n"
+							sprintf_s(buf, sizeof(buf), "float4 zpos4 = %s;\n"
 								"float zTex = zpos4.%c;\n"
 								"float zpos = %s;\n"
 								"float wpos = 1.0 / zpos;\n", depthBufferStatement.c_str(), G->ZRepair_DepthTextureReg2, G->ZRepair_ZPosCalc2.c_str());
@@ -3183,8 +3183,8 @@ public:
 						buf[pos - (bpos + 1)] = 0;
 						applySwizzle(".xyz", buf);
 						char calcStatement[256];
-						sprintf(calcStatement, G->ZRepair_WorldPosCalc.c_str(), buf);
-						sprintf(buf, "\nfloat3 worldPos = %s;"
+						sprintf_s(calcStatement, sizeof(calcStatement), G->ZRepair_WorldPosCalc.c_str(), buf);
+						sprintf_s(buf, sizeof(buf), "\nfloat3 worldPos = %s;"
 							"\nfloat zpos = worldPos.z;"
 							"\nfloat wpos = 1.0 / zpos;", calcStatement);
 						pos = strchr(pos, '\n');
@@ -3228,7 +3228,7 @@ public:
 				// It seems to be fine, if not exactly correct, to have it as first parameter.
 
 				while (*++pos != '\n');
-				assert(pos != NULL);
+				assert(pos != nullptr);
 
 				const char *PARAM_HEADER = "\nfloat4 injectedScreenPos : SV_Position,";
 				mOutput.insert(mOutput.begin() + (pos - mOutput.data()), PARAM_HEADER, PARAM_HEADER + strlen(PARAM_HEADER));
@@ -3269,7 +3269,7 @@ public:
 					for (vector<string>::iterator invT = G->InvTransforms.begin(); invT != G->InvTransforms.end(); ++invT)
 					{
 						char buf[128];
-						sprintf(buf, " %s._m00", invT->c_str());
+						sprintf_s(buf, sizeof(buf), " %s._m00", invT->c_str());
 						char *pos = strstr(mOutput.data(), buf);
 						if (pos)
 						{
@@ -3284,7 +3284,7 @@ public:
 								size_t dotPos = regName.rfind('.');
 								if (dotPos >= 0) regName = regName.substr(0, dotPos + 2);
 								while (*mpos != '\n') --mpos;
-								sprintf(buf, "\n%s -= separation * (wpos - convergence);", regName.c_str());
+								sprintf_s(buf, sizeof(buf), "\n%s -= separation * (wpos - convergence);", regName.c_str());
 								mOutput.insert(mOutput.begin() + (mpos - mOutput.data()), buf, buf + strlen(buf));
 								mPatched = true;
 							}
@@ -3300,7 +3300,7 @@ public:
 									size_t dotPos = regName.rfind('.');
 									if (dotPos >= 0) regName = regName.substr(0, dotPos + 2);
 									while (*mpos != '\n') --mpos;
-									sprintf(buf, "\n%s -= separation * (wpos - convergence);", regName.c_str());
+									sprintf_s(buf, sizeof(buf), "\n%s -= separation * (wpos - convergence);", regName.c_str());
 									mOutput.insert(mOutput.begin() + (mpos - mOutput.data()), buf, buf + strlen(buf));
 									mPatched = true;
 								}
@@ -3340,7 +3340,7 @@ public:
 								char buf[512];
 								if (G->ObjectPos_MUL1.empty())
 									G->ObjectPos_MUL1 = string("1,1,1");
-								sprintf(buf, "\nfloat3 stereoPos%dMul = float3(%s);"
+								sprintf_s(buf, sizeof(buf), "\nfloat3 stereoPos%dMul = float3(%s);"
 									"\n%s += viewDirection.%c * separation * (wpos - convergence) * stereoPos%dMul.x;"
 									"\n%s += viewDirection.%c * separation * (wpos - convergence) * stereoPos%dMul.y;"
 									"\n%s += viewDirection.%c * separation * (wpos - convergence) * stereoPos%dMul.z;",
@@ -3395,7 +3395,7 @@ public:
 								char buf[512];
 								if (G->ObjectPos_MUL2.empty())
 									G->ObjectPos_MUL2 = string("1,1,1");
-								sprintf(buf, "\nfloat3 stereoPos%dMul = float3(%s);"
+								sprintf_s(buf, sizeof(buf), "\nfloat3 stereoPos%dMul = float3(%s);"
 									"\n%s += viewDirection.%c * separation * (wpos - convergence) * stereoPos%dMul.x;"
 									"\n%s += viewDirection.%c * separation * (wpos - convergence) * stereoPos%dMul.y;"
 									"\n%s += viewDirection.%c * separation * (wpos - convergence) * stereoPos%dMul.z;",
@@ -3457,7 +3457,7 @@ public:
 								char *posParam1 = strstr(mOutput.data(), ParamPos1);
 								char *posParam2 = strstr(mOutput.data(), ParamPos2);
 								char *posParam = posParam1 ? posParam1 : posParam2;
-								if (posParam != NULL)
+								if (posParam != nullptr)
 								{
 									while (*posParam != '\n') --posParam;
 									mOutput.insert(mOutput.begin() + (posParam - mOutput.data()), NewParam, NewParam + strlen(NewParam));
@@ -3483,7 +3483,7 @@ public:
 		char buffer[128];
 		char format[16] = {};
 
-		sprintf(buffer, "t%d", bufIndex);
+		sprintf_s(buffer, sizeof(buffer), "t%d", bufIndex);
 		mTextureNames[bufIndex] = buffer;
 
 		if (sscanf_s(op1, "(%[^,]", format, 16) != 1) { // Match first xx of (xx,xx,xx,xx)
@@ -3493,7 +3493,7 @@ public:
 		string form4 = string(format) + "4";	// Grim. Known to fail sometimes.
 		mTextureType[bufIndex] = texType + "<" + form4 + ">";
 
-		sprintf(buffer, "%s t%d : register(t%d);\n\n", mTextureType[bufIndex].c_str(), bufIndex, bufIndex);
+		sprintf_s(buffer, sizeof(buffer), "%s t%d : register(t%d);\n\n", mTextureType[bufIndex].c_str(), bufIndex, bufIndex);
 		mOutput.insert(mOutput.begin(), buffer, buffer + strlen(buffer));
 		mCodeStartPos += strlen(buffer);
 	}
@@ -3502,8 +3502,8 @@ public:
 	// When we see a '{' or '}' we'll increase or decrease the indent.
 	void appendOutput(char* line)
 	{
-		bool open = (strchr(line, '{') != NULL);
-		bool close = (strchr(line, '}') != NULL);
+		bool open = (strchr(line, '{') != nullptr);
+		bool close = (strchr(line, '}') != nullptr);
 
 		if (close)
 			nestCount--;
@@ -3583,7 +3583,7 @@ public:
 	static const char * shadervar_offset2swiz(ShaderVarType *var, int offset)
 	{
 		if (!var)
-			return "<NULL>";
+			return "<nullptr>";
 
 		switch (var->Class) {
 			case SVC_SCALAR:
@@ -3698,7 +3698,7 @@ public:
 
 			struct_type_i = mStructuredBufferTypes.find(bindInfo->Name);
 			if (struct_type_i == mStructuredBufferTypes.end()) {
-				sprintf(buffer, "// BUG: Cannot locate struct type:\n");
+				sprintf_s(buffer, sizeof(buffer), "// BUG: Cannot locate struct type:\n");
 				appendOutput(buffer);
 				ASMLineOut(c, pos, size);
 				return false;
@@ -3711,10 +3711,10 @@ public:
 				if (sscanf_s(off, "%d", &swiz_offset) == 1)
 				{
 					// Static offset:
-					ConstantBuffer *bufInfo = NULL;
+					ConstantBuffer *bufInfo = nullptr;
 					GetConstantBufferFromBindingPoint(group, texture->ui32RegisterNumber, shader->sInfo, &bufInfo);
 					if (!bufInfo) {
-						sprintf(buffer, "// BUG: Cannot locate struct layout:\n");
+						sprintf_s(buffer, sizeof(buffer), "// BUG: Cannot locate struct layout:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
 						return false;
@@ -3722,7 +3722,7 @@ public:
 
 					for (uint32_t component = 0; component < 4; component++)
 					{
-						ShaderVarType *var = NULL;
+						ShaderVarType *var = nullptr;
 						int32_t byte_offset = swiz_offsets[component] + swiz_offset;
 						uint32_t swiz = byte_offset % 16 / 4;
 						int32_t index = -1;
@@ -3734,7 +3734,7 @@ public:
 
 						GetShaderVarFromOffset(byte_offset / 16, &swiz, bufInfo, &var, &index, &rebase);
 						if (!var) {
-							sprintf(buffer, "// BUG: Cannot locate variable in structure:\n");
+							sprintf_s(buffer, sizeof(buffer), "// BUG: Cannot locate variable in structure:\n");
 							appendOutput(buffer);
 							ASMLineOut(c, pos, size);
 							return false;
@@ -3742,7 +3742,7 @@ public:
 
 						var_txt = shadervar_name(var, byte_offset);
 
-						sprintf(buffer, "%s[%s].%s",
+						sprintf_s(buffer, sizeof(buffer), "%s[%s].%s",
 								bindInfo->Name.c_str(),
 								ci(idx).c_str(),
 								var_txt.c_str());
@@ -3750,7 +3750,7 @@ public:
 					}
 					return true;
 				} else {
-					sprintf(buffer, "// Structured buffer using dynamic offset (needs manual fix):\n");
+					sprintf_s(buffer, sizeof(buffer), "// Structured buffer using dynamic offset (needs manual fix):\n");
 					appendOutput(buffer);
 					ASMLineOut(c, pos, size);
 					return false;
@@ -3767,7 +3767,7 @@ public:
 					// Static offset:
 					for (int component = 0; component < 4; component++)
 						swiz_offsets[component] += swiz_offset;
-					sprintf(buffer, "%s[%s].%s%s%s%s",
+					sprintf_s(buffer, sizeof(buffer), "%s[%s].%s%s%s%s",
 							bindInfo->Name.c_str(), ci(idx).c_str(),
 							(dst0.ui32CompMask & 0x1 ? offset2swiz(struct_type, swiz_offsets[0]) : ""),
 							(dst0.ui32CompMask & 0x2 ? offset2swiz(struct_type, swiz_offsets[1]) : ""),
@@ -3776,12 +3776,12 @@ public:
 				} else {
 					// Dynamic offset, use [] syntax:
 					if (strcmp(strchr(reg, '.'), ".x")) {
-						sprintf(buffer, "// Unexpected swizzle used with dynamic offset (needs manual fix):\n");
+						sprintf_s(buffer, sizeof(buffer), "// Unexpected swizzle used with dynamic offset (needs manual fix):\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
 						return false;
 					}
-					sprintf(buffer, "%s[%s][%s/4]",
+					sprintf_s(buffer, sizeof(buffer), "%s[%s][%s/4]",
 							bindInfo->Name.c_str(), ci(idx).c_str(), ci(off).c_str());
 				}
 				// Returning all components combined together:
@@ -3823,7 +3823,7 @@ public:
 				// offsets. We could pre-compute static offsets to clean up the
 				// output, but since we've lost the swizzle by using fake types
 				// it may actually be more informative to use this way:
-				sprintf(buffer, "%s[%s].val[%s/4%s]",
+				sprintf_s(buffer, sizeof(buffer), "%s[%s].val[%s/4%s]",
 						reg,
 						ci(idx).c_str(),
 						ci(off).c_str(),
@@ -3897,14 +3897,14 @@ public:
 
 		if (translate_structured_var(shader, c, pos, size, instr, translated, &combined, idx, off, reg, &texture, swiz_offsets)) {
 			if (combined) {
-				sprintf(buffer, "  %s = %s;\n", writeTarget(dst), translated[0].c_str());
+				sprintf_s(buffer, sizeof(buffer), "  %s = %s;\n", writeTarget(dst), translated[0].c_str());
 				appendOutput(buffer);
 			} else {
 				stripMask(dst);
 				for (int component = 0; component < 4; component++) {
 					if (!(dst0.ui32CompMask & (1 << component)))
 						continue;
-					sprintf(buffer, "  %s.%c = %s;\n",
+					sprintf_s(buffer, sizeof(buffer), "  %s.%c = %s;\n",
 							writeTarget(dst),
 							component == 3 ? 'w' : 'x' + component,
 							translated[component].c_str());
@@ -3933,7 +3933,7 @@ public:
 		if (translate_structured_var(shader, c, pos, size, instr, translated, &combined, idx, off, dst, &dst0, swiz_offsets)) {
 			if (combined) {
 				applySwizzle(dst, src);
-				sprintf(buffer, "  %s = %s;\n", translated[0].c_str(), ci(src).c_str());
+				sprintf_s(buffer, sizeof(buffer), "  %s = %s;\n", translated[0].c_str(), ci(src).c_str());
 				appendOutput(buffer);
 			} else {
 				for (int component = 0; component < 4; component++) {
@@ -3948,7 +3948,7 @@ public:
 						case 3: applySwizzle(".w", op5); break;
 					}
 
-					sprintf(buffer, "  %s = %s;\n", translated[component].c_str(), ci(op5).c_str());
+					sprintf_s(buffer, sizeof(buffer), "  %s = %s;\n", translated[component].c_str(), ci(op5).c_str());
 					appendOutput(buffer);
 				}
 			}
@@ -3959,7 +3959,7 @@ public:
 	//get component from Instruction
 	string GetComponentStrFromInstruction(Instruction * instr, int opIndex)
 	{
-		assert(instr != NULL);
+		assert(instr != nullptr);
 		char * componentX = "x";
 		char * componentY = "y";
 		char * componentZ = "z";
@@ -4009,7 +4009,7 @@ public:
 	}
 
 	//0 different, 1 same, 2 same but sign different
-	int IsInstructionOperandSame(Instruction * instr1, int opIndex1, Instruction * instr2, int opIndex2, const char * instr1Op1 = NULL, const char * instr2Op1 = NULL)
+	int IsInstructionOperandSame(Instruction * instr1, int opIndex1, Instruction * instr2, int opIndex2, const char * instr1Op1 = nullptr, const char * instr2Op1 = nullptr)
 	{
 		Operand & op1 = instr1->asOperands[opIndex1];
 		Operand & op2 = instr2->asOperands[opIndex2];
@@ -4023,16 +4023,16 @@ public:
 		sprintf_s(buff2, opcodeSize, "r%d.%s", op2.ui32RegisterNumber, component2.c_str());
 
 
-		if (instr1Op1 != NULL)
+		if (instr1Op1 != nullptr)
 		{
 			char buff3[opcodeSize];
 			sprintf_s(buff3, opcodeSize, ".%s", instr1Op1);
 			applySwizzle(buff3, buff1);
 		}
 
-		if (instr2Op1 != NULL)
+		if (instr2Op1 != nullptr)
 		{
-			if (instr1Op1 == NULL)
+			if (instr1Op1 == nullptr)
 			{
 				applySwizzle(".xyz", buff1);
 			}
@@ -4156,7 +4156,7 @@ public:
 			} //dx9
 			else if (!strcmp(statement, "dcl_immediateConstantBuffer"))
 			{
-				sprintf(buffer, "  const float4 icb[] =");
+				sprintf_s(buffer, sizeof(buffer), "  const float4 icb[] =");
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 				pos += strlen(statement);
 				while (c[pos] != 0x0a && pos < size)
@@ -4200,7 +4200,7 @@ public:
 						e.bt = DT_float4;
 						e.matrixRow = 0;
 						e.isRowMajor = false;
-						sprintf(buffer, "cbuffer cb%d : register(b%d)\n"
+						sprintf_s(buffer, sizeof(buffer), "cbuffer cb%d : register(b%d)\n"
 							"{\n"
 							"  float4 cb%d[%d];\n"
 							"}\n\n", bufIndex, bufIndex, bufIndex, bufSize);
@@ -4208,7 +4208,7 @@ public:
 						mCodeStartPos += strlen(buffer);
 						for (int j = 0; j < bufSize; ++j)
 						{
-							sprintf(buffer, "cb%d[%d]", bufIndex, j);
+							sprintf_s(buffer, sizeof(buffer), "cb%d[%d]", bufIndex, j);
 							e.Name = buffer;
 							mCBufferData[(bufIndex << 16) + j * 16] = e;
 						}
@@ -4239,7 +4239,7 @@ public:
 				// a model where we do reinterpret casts whenever we need something other than a float.
 				if (mStructuredBufferTypes.empty())
 				{
-					sprintf(buffer, "struct %c%d_t {\n"
+					sprintf_s(buffer, sizeof(buffer), "struct %c%d_t {\n"
 						"  float val[%d];\n"
 						"};\n"
 						"%sStructuredBuffer<%c%d_t> %c%d : register(%c%d);\n\n",
@@ -4253,7 +4253,7 @@ public:
 						// (or a pair of 2x32bit fields in the case of a double). Half types and minimum
 						// precision types can theoretically be 16 bits on embedded implementations,
 						// but in practice are 32bits on PC. If it does happen we need to know about it:
-						sprintf(buffer, "FIXME: StructuredBuffer t%d stride %d is not a multiple of 4\n\n",
+						sprintf_s(buffer, sizeof(buffer), "FIXME: StructuredBuffer t%d stride %d is not a multiple of 4\n\n",
 								bufIndex, bufStride);
 						mOutput.insert(mOutput.begin(), buffer, buffer + strlen(buffer));
 						mCodeStartPos += strlen(buffer);
@@ -4283,7 +4283,7 @@ public:
 				// HLSL accepts the register(gN) syntax, but seems to disregard it, and
 				// doesn't matter anyway since these don't correspond to any externally
 				// bound resources. Use an inline type definition for conciseness:
-				sprintf(buffer, "groupshared struct { float val[%d]; } g%d[%d];\n",
+				sprintf_s(buffer, sizeof(buffer), "groupshared struct { float val[%d]; } g%d[%d];\n",
 					bufStride / 4, bufIndex, bufCount);
 				mOutput.insert(mOutput.begin(), buffer, buffer + strlen(buffer));
 				mCodeStartPos += strlen(buffer);
@@ -4305,9 +4305,9 @@ public:
 						map<int, string>::iterator i = mSamplerNames.find(bufIndex);
 						if (i == mSamplerNames.end())
 						{
-							sprintf(buffer, "s%d_s", bufIndex);
+							sprintf_s(buffer, sizeof(buffer), "s%d_s", bufIndex);
 							mSamplerNames[bufIndex] = buffer;
-							sprintf(buffer, "SamplerState %s : register(s%d);\n\n", mSamplerNames[bufIndex].c_str(), bufIndex);
+							sprintf_s(buffer, sizeof(buffer), "SamplerState %s : register(s%d);\n\n", mSamplerNames[bufIndex].c_str(), bufIndex);
 							mOutput.insert(mOutput.begin(), buffer, buffer + strlen(buffer));
 							mCodeStartPos += strlen(buffer);
 						}
@@ -4317,9 +4317,9 @@ public:
 						map<int, string>::iterator i = mSamplerComparisonNames.find(bufIndex);
 						if (i == mSamplerComparisonNames.end())
 						{
-							sprintf(buffer, "s%d_s", bufIndex);
+							sprintf_s(buffer, sizeof(buffer), "s%d_s", bufIndex);
 							mSamplerComparisonNames[bufIndex] = buffer;
-							sprintf(buffer, "SamplerComparisonState %s : register(s%d);\n\n", mSamplerComparisonNames[bufIndex].c_str(), bufIndex);
+							sprintf_s(buffer, sizeof(buffer), "SamplerComparisonState %s : register(s%d);\n\n", mSamplerComparisonNames[bufIndex].c_str(), bufIndex);
 							mOutput.insert(mOutput.begin(), buffer, buffer + strlen(buffer));
 							mCodeStartPos += strlen(buffer);
 						}
@@ -4395,7 +4395,7 @@ public:
 					map<int, string>::iterator i = mTextureNames.find(bufIndex);
 					if (i == mTextureNames.end())
 					{
-						sprintf(buffer, "t%d", bufIndex);
+						sprintf_s(buffer, sizeof(buffer), "t%d", bufIndex);
 						mTextureNames[bufIndex] = buffer;
 
 						char format[16] = {};
@@ -4407,9 +4407,9 @@ public:
 						mTextureType[bufIndex] = "Texture2DMS<" + form4 + ">";
 
 						if (dim == 0)
-							sprintf(buffer, "Texture2DMS<%s> t%d : register(t%d);\n\n", form4.c_str(), bufIndex, bufIndex);
+							sprintf_s(buffer, sizeof(buffer), "Texture2DMS<%s> t%d : register(t%d);\n\n", form4.c_str(), bufIndex, bufIndex);
 						else
-							sprintf(buffer, "Texture2DMS<%s,%d> t%d : register(t%d);\n\n", form4.c_str(), dim, bufIndex, bufIndex);
+							sprintf_s(buffer, sizeof(buffer), "Texture2DMS<%s,%d> t%d : register(t%d);\n\n", form4.c_str(), dim, bufIndex, bufIndex);
 						mOutput.insert(mOutput.begin(), buffer, buffer + strlen(buffer));
 						mCodeStartPos += strlen(buffer);
 					}
@@ -4505,7 +4505,7 @@ public:
 			{
 				int numIndex = 0;
 				sscanf_s(op2, "%d", &numIndex);
-				sprintf(buffer, "  float4 v[%d] = { ", numIndex);
+				sprintf_s(buffer, sizeof(buffer), "  float4 v[%d] = { ", numIndex);
 				for (int i = 0; i < numIndex; ++i)
 					sprintf_s(buffer + strlen(buffer), sizeof(buffer) - strlen(buffer), "v%d,", i);
 				buffer[strlen(buffer) - 1] = 0;
@@ -4519,7 +4519,7 @@ public:
 				int numIndex = 0;
 				char varName[opcodeSize];
 				sscanf_s(op1, "%[^[][%d]", varName, opcodeSize, &numIndex);
-				sprintf(buffer, "  float4 %s[%d];\n", varName, numIndex);
+				sprintf_s(buffer, sizeof(buffer), "  float4 %s[%d];\n", varName, numIndex);
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 			}
 			else if (!strcmp(statement, "dcl_input"))
@@ -4530,7 +4530,7 @@ public:
 				{
 					char *pos = strstr(mOutput.data(), "void main(");
 					while (*pos != 0x0a) pos++; pos++;
-					sprintf(buffer, "  uint vCoverage : SV_Coverage,\n");
+					sprintf_s(buffer, sizeof(buffer), "  uint vCoverage : SV_Coverage,\n");
 					mOutput.insert(mOutput.begin() + (pos - mOutput.data()), buffer, buffer + strlen(buffer));
 				}
 			}
@@ -4542,7 +4542,7 @@ public:
 				sscanf_s(c + pos, "%s %d", statement, UCOUNTOF(statement), &numTemps);
 				for (int i = 0; i < numTemps; ++i)
 				{
-					sprintf(buffer, "r%d,", i);
+					sprintf_s(buffer, sizeof(buffer), "r%d,", i);
 					mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 				}
 				mOutput.pop_back();
@@ -4555,14 +4555,14 @@ public:
 			else if (!strcmp(statement, "dcl_stream"))
 			{
 				// Write out original ASM, inline, for reference.
-				sprintf(buffer, "// Needs manual fix for instruction:  \n//");
+				sprintf_s(buffer, sizeof(buffer), "// Needs manual fix for instruction:  \n//");
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 				ASMLineOut(c, pos, size);
 				// Move back to input section and output something close to right
 				char *main_ptr = strstr(mOutput.data(), "void main(");
 				size_t offset = main_ptr - mOutput.data();
 				NextLine(mOutput.data(), offset, mOutput.size());
-				sprintf(buffer, "  inout TriangleStream<float> m0,\n");
+				sprintf_s(buffer, sizeof(buffer), "  inout TriangleStream<float> m0,\n");
 				mOutput.insert(mOutput.begin() + offset , buffer, buffer + strlen(buffer));
 			}
 			// For Geometry Shaders, e.g. dcl_maxout n
@@ -4570,7 +4570,7 @@ public:
 			{
 				char *main_ptr = strstr(mOutput.data(), "void main(");
 				size_t offset = main_ptr - mOutput.data();
-				sprintf(buffer, "[maxvertexcount(%s)]\n", op1);
+				sprintf_s(buffer, sizeof(buffer), "[maxvertexcount(%s)]\n", op1);
 				mOutput.insert(mOutput.begin() + offset, buffer, buffer + strlen(buffer));
 			}
 			else if (!strncmp(statement, "dcl_", 4))
@@ -4585,9 +4585,9 @@ public:
 					strcmp(statement, "dcl_input_ps_siv"))
 				{
 					// Other declarations, unforeseen.
-					sprintf(buffer, "// Needs manual fix for instruction:\n");
+					sprintf_s(buffer, sizeof(buffer), "// Needs manual fix for instruction:\n");
 					mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
-					sprintf(buffer, "// unknown dcl_: ");
+					sprintf_s(buffer, sizeof(buffer), "// unknown dcl_: ");
 					mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 					ASMLineOut(c, pos, size);
 				}
@@ -4606,14 +4606,14 @@ public:
 					case OPCODE_ITOF:
 						remapTarget(op1);
 						applySwizzle(op1, fixImm(op2, instr->asOperands[1]));
-						sprintf(buffer, "  %s = %s;\n", writeTarget(op1), ci(convertToInt(op2)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = %s;\n", writeTarget(op1), ci(convertToInt(op2)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
 					case OPCODE_UTOF:
 						remapTarget(op1);
 						applySwizzle(op1, fixImm(op2, instr->asOperands[1]));
-						sprintf(buffer, "  %s = %s;\n", writeTarget(op1), ci(convertToUInt(op2)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = %s;\n", writeTarget(op1), ci(convertToUInt(op2)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -4622,9 +4622,9 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, fixImm(op2, instr->asOperands[1]));
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = %s;\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s;\n", writeTarget(op1), ci(op2).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(%s);\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(%s);\n", writeTarget(op1), ci(op2).c_str());
 						appendOutput(buffer);
 						if (op1[0] == 'o')
 						{
@@ -4639,23 +4639,23 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = rcp(%s);\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = rcp(%s);\n", writeTarget(op1), ci(op2).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(rcp(%s));\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(rcp(%s));\n", writeTarget(op1), ci(op2).c_str());
 						appendOutput(buffer);
 						break;
 
 					case OPCODE_NOT:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
-						sprintf(buffer, "  %s = ~%s;\n", writeTarget(op1), ci(convertToInt(op2)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = ~%s;\n", writeTarget(op1), ci(convertToInt(op2)).c_str());
 						appendOutput(buffer);
 						break;
 
 					case OPCODE_INEG:
 						remapTarget(op1);
 						applySwizzle(op1, op2, true);
-						sprintf(buffer, "  %s = -%s;\n", writeTarget(op1), ci(convertToInt(op2)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = -%s;\n", writeTarget(op1), ci(convertToInt(op2)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -4663,7 +4663,7 @@ public:
 					case OPCODE_F32TOF16:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
-						sprintf(buffer, "  %s = f32tof16(%s);\n", writeTarget(op1), ci(op2).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = f32tof16(%s);\n", writeTarget(op1), ci(op2).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -4671,7 +4671,7 @@ public:
 					case OPCODE_F16TOF32:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
-						sprintf(buffer, "  %s = f16tof32(%s);\n", writeTarget(op1), ci(op2).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = f16tof32(%s);\n", writeTarget(op1), ci(op2).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -4680,9 +4680,9 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = frac(%s);\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = frac(%s);\n", writeTarget(op1), ci(op2).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(frac(%s));\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(frac(%s));\n", writeTarget(op1), ci(op2).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -4693,9 +4693,9 @@ public:
 						applySwizzle(op1, fixImm(op3, instr->asOperands[2]));
 						mMulOperand = op3; mMulOperand2 = op2; mMulTarget = op1;
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = %s * %s;\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s * %s;\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(%s * %s);\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(%s * %s);\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -4705,7 +4705,7 @@ public:
 						applySwizzle(op2, op3, true);
 						applySwizzle(op2, op4, true);
 						mMulOperand = strncmp(op3, "int", 3) ? op3 : op4;
-						sprintf(buffer, "  %s = %s * %s;\n", writeTarget(op2), ci(convertToInt(op3)).c_str(), ci(convertToInt(op4)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = %s * %s;\n", writeTarget(op2), ci(convertToInt(op3)).c_str(), ci(convertToInt(op4)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -4715,9 +4715,9 @@ public:
 						applySwizzle(op1, fixImm(op2, instr->asOperands[1]));
 						applySwizzle(op1, fixImm(op3, instr->asOperands[2]));
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = %s / %s;\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s / %s;\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(%s / %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(%s / %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -4755,7 +4755,7 @@ public:
 							convertToUInt(op13);
 							convertToUInt(op14);
 
-							sprintf(buffer, "  %s = %s / %s;\n", divOut, ci(op13).c_str(), ci(op14).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s / %s;\n", divOut, ci(op13).c_str(), ci(op14).c_str());
 							appendOutput(buffer);
 						}
 						if (instr->asOperands[1].eType != OPERAND_TYPE_NULL)
@@ -4765,12 +4765,12 @@ public:
 							convertToUInt(op3);
 							convertToUInt(op4);
 
-							sprintf(buffer, "  %s = %s %% %s;\n", writeTarget(op2), ci(op3).c_str(), ci(op4).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s %% %s;\n", writeTarget(op2), ci(op3).c_str(), ci(op4).c_str());
 							appendOutput(buffer);
 						}
 						if (instr->asOperands[0].eType != OPERAND_TYPE_NULL)
 						{
-							sprintf(buffer, "  %s = %s;\n", writeTarget(op1), divOut);
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s;\n", writeTarget(op1), divOut);
 							appendOutput(buffer);
 						}
 						removeBoolean(op1);
@@ -4798,11 +4798,11 @@ public:
 							// should be mathematically equivelent, but I seem
 							// to recall Bo3b noticing that this order tends to
 							// produce assembly closer to the original. -DSS
-							sprintf(buffer, "  %s = %s + %s;\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
-							//sprintf(buffer, "  %s = %s + %s;\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str()); //dx9
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s + %s;\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
+							//sprintf_s(buffer, sizeof(buffer), "  %s = %s + %s;\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str()); //dx9
 						} else {
-							sprintf(buffer, "  %s = saturate(%s + %s);\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
-							//sprintf(buffer, "  %s = saturate(%s + %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str()); //dx9
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(%s + %s);\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
+							//sprintf_s(buffer, sizeof(buffer), "  %s = saturate(%s + %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str()); //dx9
 						}
 						appendOutput(buffer);
 						removeBoolean(op1);
@@ -4821,7 +4821,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2, true);
 						applySwizzle(op1, op3, true);
-						sprintf(buffer, "  %s = %s + %s;\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = %s + %s;\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -4850,12 +4850,12 @@ public:
 							applySwizzle(op1, op13);
 							char *cmp = isBoolean(op2) ? op12 : op13;
 							char *arg = isBoolean(op2) ? op13 : op12;
-							sprintf(buffer, "  %s = %s ? %s : 0;\n", writeTarget(op1), ci(cmp).c_str(), ci(arg).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s ? %s : 0;\n", writeTarget(op1), ci(cmp).c_str(), ci(arg).c_str());
 							appendOutput(buffer);
 						}
 						else
 						{
-							sprintf(buffer, "  %s = %s & %s;\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s & %s;\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
 							appendOutput(buffer);
 						}
 						break;
@@ -4864,7 +4864,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						applySwizzle(op1, op3);
-						sprintf(buffer, "  %s = %s | %s;\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = %s | %s;\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
 						appendOutput(buffer);
 						break;
 
@@ -4872,7 +4872,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						applySwizzle(op1, op3);
-						sprintf(buffer, "  %s = %s ^ %s;\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = %s ^ %s;\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
 						appendOutput(buffer);
 						break;
 
@@ -4885,7 +4885,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2, true);
 						applySwizzle(op1, op3, true);
-						sprintf(buffer, "  %s = %s >> %s;\n", writeTarget(op1), ci(convertToUInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = %s >> %s;\n", writeTarget(op1), ci(convertToUInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -4894,7 +4894,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2, true);
 						applySwizzle(op1, op3, true);
-						sprintf(buffer, "  %s = %s << %s;\n", writeTarget(op1), ci(convertToUInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = %s << %s;\n", writeTarget(op1), ci(convertToUInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -4905,7 +4905,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2, true);
 						applySwizzle(op1, op3, true);
-						sprintf(buffer, "  %s = %s >> %s;\n", writeTarget(op1), ci(convertToUInt(op2)).c_str(), ci(convertToUInt(op3)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = %s >> %s;\n", writeTarget(op1), ci(convertToUInt(op2)).c_str(), ci(convertToUInt(op3)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -4914,7 +4914,7 @@ public:
 					case OPCODE_COUNTBITS:
 						remapTarget(op1);
 						applySwizzle(op1, op2, true);
-						sprintf(buffer, "  %s = countbits(%s);\n", writeTarget(op1), ci(convertToUInt(op2)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = countbits(%s);\n", writeTarget(op1), ci(convertToUInt(op2)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -4924,21 +4924,21 @@ public:
 					case OPCODE_FIRSTBIT_HI:
 						remapTarget(op1);
 						applySwizzle(op1, op2, true);
-						sprintf(buffer, "  %s = firstbithigh(%s);\n", writeTarget(op1), ci(convertToUInt(op2)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = firstbithigh(%s);\n", writeTarget(op1), ci(convertToUInt(op2)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
 					case OPCODE_FIRSTBIT_LO:
 						remapTarget(op1);
 						applySwizzle(op1, op2, true);
-						sprintf(buffer, "  %s = firstbitlow(%s);\n", writeTarget(op1), ci(convertToUInt(op2)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = firstbitlow(%s);\n", writeTarget(op1), ci(convertToUInt(op2)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
 					case OPCODE_FIRSTBIT_SHI:
 						remapTarget(op1);
 						applySwizzle(op1, op2, true);
-						sprintf(buffer, "  %s = firstbithigh(%s);\n", writeTarget(op1), ci(convertToInt(op2)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = firstbithigh(%s);\n", writeTarget(op1), ci(convertToInt(op2)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -4960,13 +4960,13 @@ public:
 						while (*++pop1)
 						{
 							sprintf(op5, "%s.%c", op1, *pop1);
-							sprintf(buffer, "  if (%s == 0) %s = 0; else if (%s+%s < 32) { ",
+							sprintf_s(buffer, sizeof(buffer), "  if (%s == 0) %s = 0; else if (%s+%s < 32) { ",
 								ci(GetSuffix(op2, idx)).c_str(), writeTarget(op5), ci(GetSuffix(op2, idx)).c_str(), ci(GetSuffix(op3, idx)).c_str());
 							appendOutput(buffer);
 							// FIXME: May need fixup for read from constant buffer of unidentified type?
-							sprintf(buffer, "%s = (uint)%s << (32-(%s + %s)); %s = (uint)%s >> (32-%s); ", writeTarget(op5), ci(GetSuffix(op4, idx)).c_str(), ci(GetSuffix(op2, idx)).c_str(), ci(GetSuffix(op3, idx)).c_str(), writeTarget(op5), writeTarget(op5), ci(GetSuffix(op2, idx)).c_str());
+							sprintf_s(buffer, sizeof(buffer), "%s = (uint)%s << (32-(%s + %s)); %s = (uint)%s >> (32-%s); ", writeTarget(op5), ci(GetSuffix(op4, idx)).c_str(), ci(GetSuffix(op2, idx)).c_str(), ci(GetSuffix(op3, idx)).c_str(), writeTarget(op5), writeTarget(op5), ci(GetSuffix(op2, idx)).c_str());
 							appendOutput(buffer);
-							sprintf(buffer, " } else %s = (uint)%s >> %s;\n",
+							sprintf_s(buffer, sizeof(buffer), " } else %s = (uint)%s >> %s;\n",
 								writeTarget(op5), ci(GetSuffix(op4, idx)).c_str(), ci(GetSuffix(op3, idx)).c_str());
 							appendOutput(buffer);
 							++idx;
@@ -4983,7 +4983,7 @@ public:
 							applySwizzle(op1, op2, true);
 							applySwizzle(op1, op3, true);
 							applySwizzle(op1, op4);
-							sprintf(buffer, "  %s = (%s == 0 ? 0 : ("
+							sprintf_s(buffer, sizeof(buffer), "  %s = (%s == 0 ? 0 : ("
 										"%s + %s < 32 ? ("
 											"((int%s)%s << (32 - %s - %s)) >> (32 - %s)"
 										") : ("
@@ -5002,7 +5002,7 @@ public:
 					case OPCODE_BFREV:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
-						sprintf(buffer, "  %s = reversebits(%s);\n", writeTarget(op1), ci(convertToUInt(op2)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = reversebits(%s);\n", writeTarget(op1), ci(convertToUInt(op2)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5011,9 +5011,9 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = exp2(%s);\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = exp2(%s);\n", writeTarget(op1), ci(op2).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(exp2(%s));\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(exp2(%s));\n", writeTarget(op1), ci(op2).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5056,7 +5056,7 @@ public:
 									}
 								}
 
-								sprintf(buffer, "  r%d.%s%s%s = pow(r%d.%s%s%s, %s);\n", nextIns[3]->asOperands[0].ui32RegisterNumber, GetComponentStrFromInstruction(nextIns[3], 0).c_str(),
+								sprintf_s(buffer, sizeof(buffer), "  r%d.%s%s%s = pow(r%d.%s%s%s, %s);\n", nextIns[3]->asOperands[0].ui32RegisterNumber, GetComponentStrFromInstruction(nextIns[3], 0).c_str(),
 									GetComponentStrFromInstruction(nextIns[4], 0).c_str(), GetComponentStrFromInstruction(nextIns[5], 0).c_str(),
 									instr->asOperands[1].ui32RegisterNumber, GetComponentStrFromInstruction(instr, 1).c_str(), GetComponentStrFromInstruction(nextIns[0], 1).c_str(),
 									GetComponentStrFromInstruction(nextIns[1], 1).c_str(), op3Str.c_str());
@@ -5073,9 +5073,9 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = log2(%s);\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = log2(%s);\n", writeTarget(op1), ci(op2).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(log2(%s));\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(log2(%s));\n", writeTarget(op1), ci(op2).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5092,9 +5092,9 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = sqrt(%s);\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = sqrt(%s);\n", writeTarget(op1), ci(op2).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(sqrt(%s));\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(sqrt(%s));\n", writeTarget(op1), ci(op2).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5106,9 +5106,9 @@ public:
 						applySwizzle(op1, fixImm(op2, instr->asOperands[1]));
 						applySwizzle(op1, fixImm(op3, instr->asOperands[2]));
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = min(%s, %s);\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = min(%s, %s);\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(min(%s, %s));\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(min(%s, %s));\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5118,7 +5118,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, fixImm(op2, instr->asOperands[1]));
 						applySwizzle(op1, fixImm(op3, instr->asOperands[2]));
-						sprintf(buffer, "  %s = min(%s, %s);\n", writeTarget(op1), ci(convertToUInt(op3)).c_str(), ci(convertToUInt(op2)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = min(%s, %s);\n", writeTarget(op1), ci(convertToUInt(op3)).c_str(), ci(convertToUInt(op2)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5128,7 +5128,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, fixImm(op2, instr->asOperands[1]));
 						applySwizzle(op1, fixImm(op3, instr->asOperands[2]));
-						sprintf(buffer, "  %s = max(%s, %s);\n", writeTarget(op1), ci(convertToUInt(op3)).c_str(), ci(convertToUInt(op2)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = max(%s, %s);\n", writeTarget(op1), ci(convertToUInt(op3)).c_str(), ci(convertToUInt(op2)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5138,190 +5138,190 @@ public:
 						// Opcodes found in Witcher3 Compute Shader, manual fix needed.
 					case OPCODE_ATOMIC_AND:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedAnd(dest, value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedAnd(dest, value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_ATOMIC_OR:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedOr(dest, value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedOr(dest, value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_ATOMIC_XOR:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedXor(dest, value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedXor(dest, value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_ATOMIC_CMP_STORE:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedCompareStore(dest, value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedCompareStore(dest, value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_ATOMIC_IADD:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedAdd(dest, value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedAdd(dest, value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_ATOMIC_IMAX:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedMax(dest, value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedMax(dest, value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_ATOMIC_IMIN:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedMin(dest, value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedMin(dest, value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_ATOMIC_UMAX:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedMax(dest, value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedMax(dest, value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_ATOMIC_UMIN:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedMin(dest, value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedMin(dest, value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_IMM_ATOMIC_ALLOC:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedExchange ?(dest, value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedExchange ?(dest, value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_IMM_ATOMIC_CONSUME:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  Interlocked... ?(dest, value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  Interlocked... ?(dest, value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_IMM_ATOMIC_IADD:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedAdd(dest, imm_value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedAdd(dest, imm_value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_IMM_ATOMIC_AND:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedAnd(dest, imm_value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedAnd(dest, imm_value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_IMM_ATOMIC_OR:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedOr(dest, imm_value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedOr(dest, imm_value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_IMM_ATOMIC_XOR:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedXor(dest, imm_value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedXor(dest, imm_value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_IMM_ATOMIC_EXCH:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedExchange(dest, imm_value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedExchange(dest, imm_value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_IMM_ATOMIC_CMP_EXCH:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedCompareExchange(dest, compare_value, imm_value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedCompareExchange(dest, compare_value, imm_value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_IMM_ATOMIC_IMAX:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedMax(dest, imm_value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedMax(dest, imm_value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_IMM_ATOMIC_IMIN:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedMin(dest, imm_value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedMin(dest, imm_value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_IMM_ATOMIC_UMAX:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedMax(dest, imm_value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedMax(dest, imm_value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
 					case OPCODE_IMM_ATOMIC_UMIN:
 					{
-						sprintf(buffer, "  // Needs manual fix for instruction:\n");
+						sprintf_s(buffer, sizeof(buffer), "  // Needs manual fix for instruction:\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "  InterlockedMin(dest, imm_value, orig_value);\n");
+						sprintf_s(buffer, sizeof(buffer), "  InterlockedMin(dest, imm_value, orig_value);\n");
 						appendOutput(buffer);
 						break;
 					}
@@ -5335,7 +5335,7 @@ public:
 							Instruction * nextIns = &(*instructions)[iNr + 1];
 							if (nextIns->eOpcode == OPCODE_MAD &&
 								IsInstructionOperandSame(instr, 3, nextIns, 3, GetComponentStrFromInstruction(instr, 0).c_str(), GetComponentStrFromInstruction(nextIns, 0).c_str()) == 2 &&
-								IsInstructionOperandSame(instr, 0, nextIns, 2, NULL, GetComponentStrFromInstruction(nextIns, 0).c_str()) == 1)
+								IsInstructionOperandSame(instr, 0, nextIns, 2, nullptr, GetComponentStrFromInstruction(nextIns, 0).c_str()) == 1)
 							{
 								applySwizzle(op1, op2);
 								applySwizzle(op1, op3);
@@ -5372,9 +5372,9 @@ public:
 						applySwizzle(op1, fixImm(op2, instr->asOperands[1]));
 						applySwizzle(op1, fixImm(op3, instr->asOperands[2]));
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = max(%s, %s);\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = max(%s, %s);\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(max(%s, %s));\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(max(%s, %s));\n", writeTarget(op1), ci(op3).c_str(), ci(op2).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5384,9 +5384,9 @@ public:
 						applySwizzle(op1, fixImm(op2, instr->asOperands[1]), true);
 						applySwizzle(op1, fixImm(op3, instr->asOperands[2]), true);
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = min(%s, %s);\n", writeTarget(op1), ci(convertToInt(op3)).c_str(), ci(convertToInt(op2)).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = min(%s, %s);\n", writeTarget(op1), ci(convertToInt(op3)).c_str(), ci(convertToInt(op2)).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(min(%s, %s));\n", writeTarget(op1), ci(convertToInt(op3)).c_str(), ci(convertToInt(op2)).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(min(%s, %s));\n", writeTarget(op1), ci(convertToInt(op3)).c_str(), ci(convertToInt(op2)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5395,9 +5395,9 @@ public:
 						applySwizzle(op1, fixImm(op2, instr->asOperands[1]), true);
 						applySwizzle(op1, fixImm(op3, instr->asOperands[2]), true);
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = max(%s, %s);\n", writeTarget(op1), ci(convertToInt(op3)).c_str(), ci(convertToInt(op2)).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = max(%s, %s);\n", writeTarget(op1), ci(convertToInt(op3)).c_str(), ci(convertToInt(op2)).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(max(%s, %s));\n", writeTarget(op1), ci(convertToInt(op3)).c_str(), ci(convertToInt(op2)).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(max(%s, %s));\n", writeTarget(op1), ci(convertToInt(op3)).c_str(), ci(convertToInt(op2)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5415,9 +5415,9 @@ public:
 						sprintf(op4 + ((op4[0] == '-') ? 1 : 0), "(%s * %s)", mMulOperand.c_str(), mMulOperand2.c_str());
 						*/
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = %s * %s + %s;\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str(), ci(op4).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s * %s + %s;\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str(), ci(op4).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(%s * %s + %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str(), ci(op4).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(%s * %s + %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str(), ci(op4).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5427,7 +5427,7 @@ public:
 						applySwizzle(op1, op2, true);
 						applySwizzle(op1, op3, true);
 						applySwizzle(op1, op4, true);
-						sprintf(buffer, "  %s = mad(%s, %s, %s);\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str(), ci(convertToInt(op4)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = mad(%s, %s, %s);\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str(), ci(convertToInt(op4)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5436,7 +5436,7 @@ public:
 						applySwizzle(op1, op2, true);
 						applySwizzle(op1, op3, true);
 						applySwizzle(op1, op4, true);
-						sprintf(buffer, "  %s = mad(%s, %s, %s);\n", writeTarget(op1), ci(convertToUInt(op2)).c_str(), ci(convertToUInt(op3)).c_str(), ci(convertToUInt(op4)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = mad(%s, %s, %s);\n", writeTarget(op1), ci(convertToUInt(op2)).c_str(), ci(convertToUInt(op3)).c_str(), ci(convertToUInt(op4)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5446,9 +5446,9 @@ public:
 						applySwizzle(".xy", fixImm(op2, instr->asOperands[1]));
 						applySwizzle(".xy", fixImm(op3, instr->asOperands[2]));
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = dot(%s, %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = dot(%s, %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(dot(%s, %s));\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(dot(%s, %s));\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5469,7 +5469,7 @@ public:
 							if (nextIns[0]->eOpcode == OPCODE_ADD && nextIns[1]->eOpcode == OPCODE_MAD &&
 								IsInstructionOperandSame(instr, 0, nextIns[0], 1) == 1 && IsInstructionOperandSame(instr, 0, nextIns[0], 2) == 1 &&
 								IsInstructionOperandSame(nextIns[0], 0, nextIns[1], 2) == 2 &&
-								IsInstructionOperandSame(instr, 1, nextIns[1], 3, NULL, outputOp1.c_str()) == 1 && IsInstructionOperandSame(instr, 2, nextIns[1], 1, NULL, outputOp1.c_str()) == 1)
+								IsInstructionOperandSame(instr, 1, nextIns[1], 3, nullptr, outputOp1.c_str()) == 1 && IsInstructionOperandSame(instr, 2, nextIns[1], 1, nullptr, outputOp1.c_str()) == 1)
 							{
 								//read next instruction
 								for (int i = 0; i < lookahead; i++)
@@ -5489,7 +5489,7 @@ public:
 								applySwizzle(op1, op2);
 								applySwizzle(op1, op3);
 
-								sprintf(buffer, "  %s = reflect(%s, %s);\n", writeTarget(op1), op2, op3);
+								sprintf_s(buffer, sizeof(buffer), "  %s = reflect(%s, %s);\n", writeTarget(op1), op2, op3);
 
 								appendOutput(buffer);
 
@@ -5504,9 +5504,9 @@ public:
 						applySwizzle(".xyz", fixImm(op2, instr->asOperands[1]));
 						applySwizzle(".xyz", fixImm(op3, instr->asOperands[2]));
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = dot(%s, %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = dot(%s, %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(dot(%s, %s));\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(dot(%s, %s));\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5525,7 +5525,7 @@ public:
 							if (nextInstr->eOpcode == OPCODE_RSQ && outputOp0.size() == 3)
 							{
 								applySwizzle(op1, op2);
-								sprintf(buffer, "  %s = normalize(%s);\n", writeTarget(op1), ci(op2).c_str());
+								sprintf_s(buffer, sizeof(buffer), "  %s = normalize(%s);\n", writeTarget(op1), ci(op2).c_str());
 								appendOutput(buffer);
 
 								//asm just one line，don't need call ReadStatement
@@ -5541,9 +5541,9 @@ public:
 								applySwizzle(".xyzw", fixImm(op2, instr->asOperands[1]));
 								applySwizzle(".xyzw", fixImm(op3, instr->asOperands[2]));
 								if (!instr->bSaturate)
-									sprintf(buffer, "  %s = dot(%s, %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
+									sprintf_s(buffer, sizeof(buffer), "  %s = dot(%s, %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
 								else
-									sprintf(buffer, "  %s = saturate(dot(%s, %s));\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
+									sprintf_s(buffer, sizeof(buffer), "  %s = saturate(dot(%s, %s));\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
 								appendOutput(buffer);
 								// XXX NOTE Duplicated code below!!!
 							}
@@ -5555,9 +5555,9 @@ public:
 							applySwizzle(".xyzw", fixImm(op2, instr->asOperands[1]));
 							applySwizzle(".xyzw", fixImm(op3, instr->asOperands[2]));
 							if (!instr->bSaturate)
-								sprintf(buffer, "  %s = dot(%s, %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
+								sprintf_s(buffer, sizeof(buffer), "  %s = dot(%s, %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
 							else
-								sprintf(buffer, "  %s = saturate(dot(%s, %s));\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
+								sprintf_s(buffer, sizeof(buffer), "  %s = saturate(dot(%s, %s));\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
 							appendOutput(buffer);
 							removeBoolean(op1);
 							// XXX NOTE Duplicated code above!!!
@@ -5569,7 +5569,7 @@ public:
 						applySwizzle(".xy", op2);
 						applySwizzle(".xy", op3);
 						applySwizzle(".xy", op4);
-						sprintf(buffer, "  %s = dot2(%s, %s) + %s;\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str(), ci(op4).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = dot2(%s, %s) + %s;\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str(), ci(op4).c_str());
 						appendOutput(buffer);
 
 						//dx9
@@ -5581,7 +5581,7 @@ public:
 						applySwizzle(op1, op2);
 						applySwizzle(op1, op3);
 						applySwizzle(op1, op4);
-						sprintf(buffer, "  %s = lerp(%s, %s, %s);\n", writeTarget(op1), ci(op4).c_str(), ci(op3).c_str(), ci(op2).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = lerp(%s, %s, %s);\n", writeTarget(op1), ci(op4).c_str(), ci(op3).c_str(), ci(op2).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5590,7 +5590,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						applySwizzle(op1, op3);
-						sprintf(buffer, "  %s = pow(%s, %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = pow(%s, %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
 						appendOutput(buffer);
 						break;
 						//dx9
@@ -5611,9 +5611,9 @@ public:
 							// support is clearly unfinished and no explanation
 							// for this change was provided.
 							//
-							sprintf(buffer, "  %s = rsqrt(%s);\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = rsqrt(%s);\n", writeTarget(op1), ci(op2).c_str());
 						} else {
-							sprintf(buffer, "  %s = saturate(rsqrt(%s));\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(rsqrt(%s));\n", writeTarget(op1), ci(op2).c_str());
 						}
 						appendOutput(buffer);
 						removeBoolean(op1);
@@ -5626,9 +5626,9 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = floor(%s);\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = floor(%s);\n", writeTarget(op1), ci(op2).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(floor(%s));\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(floor(%s));\n", writeTarget(op1), ci(op2).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5638,9 +5638,9 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = ceil(%s);\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = ceil(%s);\n", writeTarget(op1), ci(op2).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(ceil(%s));\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(ceil(%s));\n", writeTarget(op1), ci(op2).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5654,9 +5654,9 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = trunc(%s);\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = trunc(%s);\n", writeTarget(op1), ci(op2).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(trunc(%s));\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(trunc(%s));\n", writeTarget(op1), ci(op2).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5670,9 +5670,9 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = round(%s);\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = round(%s);\n", writeTarget(op1), ci(op2).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(round(%s));\n", writeTarget(op1), ci(op2).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(round(%s));\n", writeTarget(op1), ci(op2).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5680,7 +5680,7 @@ public:
 					case OPCODE_FTOI:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
-						sprintf(buffer, "  %s = %s;\n", writeTarget(op1), ci(castToInt(op2)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = %s;\n", writeTarget(op1), ci(castToInt(op2)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5688,7 +5688,7 @@ public:
 					case OPCODE_FTOU:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
-						sprintf(buffer, "  %s = %s;\n", writeTarget(op1), ci(castToUInt(op2)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = %s;\n", writeTarget(op1), ci(castToUInt(op2)).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
@@ -5701,11 +5701,11 @@ public:
 						else
 							applySwizzle(op1, op3);
 						if (!strncmp(op1, "null", 4))
-							sprintf(buffer, "  %s = cos(%s);\n", writeTarget(op2), ci(op3).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = cos(%s);\n", writeTarget(op2), ci(op3).c_str());
 						else if (!strncmp(op2, "null", 4))
-							sprintf(buffer, "  %s = sin(%s);\n", writeTarget(op1), ci(op3).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = sin(%s);\n", writeTarget(op1), ci(op3).c_str());
 						else
-							sprintf(buffer, "  sincos(%s, %s, %s);\n", ci(op3).c_str(), writeTarget(op1), writeTarget(op2));
+							sprintf_s(buffer, sizeof(buffer), "  sincos(%s, %s, %s);\n", ci(op3).c_str(), writeTarget(op1), writeTarget(op2));
 						appendOutput(buffer);
 						removeBoolean(op1);
 						removeBoolean(op2);
@@ -5727,9 +5727,9 @@ public:
 						applySwizzle(op1, fixImm(op3, instr->asOperands[2]));
 						applySwizzle(op1, fixImm(op4, instr->asOperands[3]));
 						if (!instr->bSaturate)
-							sprintf(buffer, "  %s = %s ? %s : %s;\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str(), ci(op4).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s ? %s : %s;\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str(), ci(op4).c_str());
 						else
-							sprintf(buffer, "  %s = saturate(%s ? %s : %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str(), ci(op4).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  %s = saturate(%s ? %s : %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str(), ci(op4).c_str());
 						appendOutput(buffer);
 
 						//int idx = 0;
@@ -5740,9 +5740,9 @@ public:
 						//if (pop1) sprintf(op5, "%s.%c", op1, *pop1); else sprintf(op5, "%s", op1);
 						//if (pop2) sprintf(op6, "%s.%c", op2, *++pop2); else sprintf(op6, "%s", op2);
 						//if (!instr->bSaturate)
-						//	sprintf(buffer, "  %s = %s ? %s : %s;\n", writeTarget(op5), ci(op6).c_str(), ci(GetSuffix(op3, idx)).c_str(), ci(GetSuffix(op4, idx)).c_str());
+						//	sprintf_s(buffer, sizeof(buffer), "  %s = %s ? %s : %s;\n", writeTarget(op5), ci(op6).c_str(), ci(GetSuffix(op3, idx)).c_str(), ci(GetSuffix(op4, idx)).c_str());
 						//else
-						//	sprintf(buffer, "  %s = saturate(%s ? %s : %s);\n", writeTarget(op5), ci(op6).c_str(), ci(GetSuffix(op3, idx)).c_str(), ci(GetSuffix(op4, idx)).c_str());
+						//	sprintf_s(buffer, sizeof(buffer), "  %s = saturate(%s ? %s : %s);\n", writeTarget(op5), ci(op6).c_str(), ci(GetSuffix(op3, idx)).c_str(), ci(GetSuffix(op4, idx)).c_str());
 						//appendOutput(buffer);
 						//	++idx;
 						//}
@@ -5758,7 +5758,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						applySwizzle(op1, op3);
-						sprintf(buffer, "  %s = cmp(%s != %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = cmp(%s != %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
 						appendOutput(buffer);
 						addBoolean(op1);
 						break;
@@ -5768,7 +5768,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2, true);
 						applySwizzle(op1, op3, true);
-						sprintf(buffer, "  %s = cmp(%s != %s);\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = cmp(%s != %s);\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
 						appendOutput(buffer);
 						addBoolean(op1);
 						break;
@@ -5778,7 +5778,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						applySwizzle(op1, op3);
-						sprintf(buffer, "  %s = cmp(%s == %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = cmp(%s == %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
 						appendOutput(buffer);
 						addBoolean(op1);
 						break;
@@ -5788,7 +5788,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2, true);
 						applySwizzle(op1, op3, true);
-						sprintf(buffer, "  %s = cmp(%s == %s);\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = cmp(%s == %s);\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
 						appendOutput(buffer);
 						addBoolean(op1);
 						break;
@@ -5798,7 +5798,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, fixImm(op2, instr->asOperands[1]));
 						applySwizzle(op1, fixImm(op3, instr->asOperands[2]));
-						sprintf(buffer, "  %s = cmp(%s < %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = cmp(%s < %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
 						appendOutput(buffer);
 						addBoolean(op1);
 						break;
@@ -5808,7 +5808,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2, true);
 						applySwizzle(op1, op3, true);
-						sprintf(buffer, "  %s = cmp(%s < %s);\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = cmp(%s < %s);\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
 						appendOutput(buffer);
 						addBoolean(op1);
 						break;
@@ -5818,7 +5818,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2, true);
 						applySwizzle(op1, op3, true);
-						sprintf(buffer, "  %s = cmp(%s < %s);\n", writeTarget(op1), ci(convertToUInt(op2)).c_str(), ci(convertToUInt(op3)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = cmp(%s < %s);\n", writeTarget(op1), ci(convertToUInt(op2)).c_str(), ci(convertToUInt(op3)).c_str());
 						appendOutput(buffer);
 						addBoolean(op1);
 						break;
@@ -5828,7 +5828,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, fixImm(op2, instr->asOperands[1]));
 						applySwizzle(op1, fixImm(op3, instr->asOperands[2]));
-						sprintf(buffer, "  %s = cmp(%s >= %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = cmp(%s >= %s);\n", writeTarget(op1), ci(op2).c_str(), ci(op3).c_str());
 						appendOutput(buffer);
 						addBoolean(op1);
 						break;
@@ -5838,7 +5838,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2, true);
 						applySwizzle(op1, op3, true);
-						sprintf(buffer, "  %s = cmp(%s >= %s);\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = cmp(%s >= %s);\n", writeTarget(op1), ci(convertToInt(op2)).c_str(), ci(convertToInt(op3)).c_str());
 						appendOutput(buffer);
 						addBoolean(op1);
 						break;
@@ -5848,7 +5848,7 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2, true);
 						applySwizzle(op1, op3, true);
-						sprintf(buffer, "  %s = cmp(%s >= %s);\n", writeTarget(op1), ci(convertToUInt(op2)).c_str(), ci(convertToUInt(op3)).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  %s = cmp(%s >= %s);\n", writeTarget(op1), ci(convertToUInt(op2)).c_str(), ci(convertToUInt(op3)).c_str());
 						appendOutput(buffer);
 						addBoolean(op1);
 						break;
@@ -5856,78 +5856,78 @@ public:
 
 					// Switch statement in HLSL was missing. Added because AC4 uses it.
 					case OPCODE_SWITCH:
-						sprintf(buffer, "  switch (%s) {\n", ci(op1).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  switch (%s) {\n", ci(op1).c_str());
 						appendOutput(buffer);
 						break;
 					case OPCODE_CASE:
-						sprintf(buffer, "  case %s :", ci(op1).substr(2, 1).c_str());
+						sprintf_s(buffer, sizeof(buffer), "  case %s :", ci(op1).substr(2, 1).c_str());
 						appendOutput(buffer);
 						break;
 					case OPCODE_ENDSWITCH:
-						sprintf(buffer, "  }\n");
+						sprintf_s(buffer, sizeof(buffer), "  }\n");
 						appendOutput(buffer);
 						break;
 					case OPCODE_DEFAULT:
-						sprintf(buffer, "  default :\n");
+						sprintf_s(buffer, sizeof(buffer), "  default :\n");
 						appendOutput(buffer);
 						break;
 
 					case OPCODE_IF:
 						applySwizzle(".x", op1);
 						if (instr->eBooleanTestType == INSTRUCTION_TEST_ZERO)
-							sprintf(buffer, "  if (%s == 0) {\n", ci(op1).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  if (%s == 0) {\n", ci(op1).c_str());
 						else
-							sprintf(buffer, "  if (%s != 0) {\n", ci(op1).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  if (%s != 0) {\n", ci(op1).c_str());
 						appendOutput(buffer);
 						break;
 					case OPCODE_ELSE:
-						sprintf(buffer, "  } else {\n");
+						sprintf_s(buffer, sizeof(buffer), "  } else {\n");
 						appendOutput(buffer);
 						break;
 					case OPCODE_ENDIF:
-						sprintf(buffer, "  }\n");
+						sprintf_s(buffer, sizeof(buffer), "  }\n");
 						appendOutput(buffer);
 						break;
 
 					case OPCODE_LOOP:
-						sprintf(buffer, "  while (true) {\n");
+						sprintf_s(buffer, sizeof(buffer), "  while (true) {\n");
 						appendOutput(buffer);
 						break;
 					case OPCODE_BREAK:
-						sprintf(buffer, "  break;\n");
+						sprintf_s(buffer, sizeof(buffer), "  break;\n");
 						appendOutput(buffer);
 						break;
 					case OPCODE_BREAKC:
 						applySwizzle(".x", op1);
 						if (instr->eBooleanTestType == INSTRUCTION_TEST_ZERO)
-							sprintf(buffer, "  if (%s == 0) break;\n", ci(op1).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  if (%s == 0) break;\n", ci(op1).c_str());
 						else
-							sprintf(buffer, "  if (%s != 0) break;\n", ci(op1).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  if (%s != 0) break;\n", ci(op1).c_str());
 						appendOutput(buffer);
 						break;
 					case OPCODE_CONTINUE:
-						sprintf(buffer, "  continue;\n");
+						sprintf_s(buffer, sizeof(buffer), "  continue;\n");
 						appendOutput(buffer);
 						break;
 					case OPCODE_CONTINUEC:
 						applySwizzle(".x", op1);
 						if (instr->eBooleanTestType == INSTRUCTION_TEST_ZERO)
-							sprintf(buffer, "  if (%s == 0) continue;\n", ci(op1).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  if (%s == 0) continue;\n", ci(op1).c_str());
 						else
-							sprintf(buffer, "  if (%s != 0) continue;\n", ci(op1).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  if (%s != 0) continue;\n", ci(op1).c_str());
 						appendOutput(buffer);
 						break;
 					case OPCODE_ENDLOOP:
-						sprintf(buffer, "  }\n");
+						sprintf_s(buffer, sizeof(buffer), "  }\n");
 						appendOutput(buffer);
 						break;
 					
 						// Found in Witcher3 Compute Shaders 
 					case OPCODE_SYNC:
 						if (!strcmp(statement, "sync_g_t"))
-							sprintf(buffer, "  GroupMemoryBarrierWithGroupSync();\n");
+							sprintf_s(buffer, sizeof(buffer), "  GroupMemoryBarrierWithGroupSync();\n");
 						else
-							sprintf(buffer, "  Unknown sync instruction;\n");
+							sprintf_s(buffer, sizeof(buffer), "  Unknown sync instruction;\n");
 						appendOutput(buffer);
 						break;
 
@@ -5950,7 +5950,7 @@ public:
 							if (pop2) sprintf(op7, "%s.%c", op2, *++pop2); else sprintf(op7, "%s", op2);
 							if (pop3) sprintf(op8, "%s.%c", op3, *++pop3); else sprintf(op8, "%s", op3);
 							// FIXME: May need fixup for read from constant buffer of unidentified type
-							sprintf(buffer, "  %s = (int)%s ? %s : %s; %s = (int)%s ? %s : %s;\n",
+							sprintf_s(buffer, sizeof(buffer), "  %s = (int)%s ? %s : %s; %s = (int)%s ? %s : %s;\n",
 								writeTarget(op6), ci(op8).c_str(), ci(GetSuffix(op5, idx)).c_str(), ci(GetSuffix(op4, idx)).c_str(),
 								writeTarget(op7), ci(op8).c_str(), ci(GetSuffix(op4, idx)).c_str(), ci(GetSuffix(op5, idx)).c_str());
 							appendOutput(buffer);
@@ -5981,7 +5981,7 @@ public:
 							// Fails: bitmask.%c = (((1 << %s) - 1) << %s) & 0xffffffff;
 
 							// FIXME: May need fixup for read from constant buffer of unidentified type
-							sprintf(buffer, "  bitmask.%c = ((~(-1 << %s)) << %s) & 0xffffffff;"
+							sprintf_s(buffer, sizeof(buffer), "  bitmask.%c = ((~(-1 << %s)) << %s) & 0xffffffff;"
 								"  %s = (((uint)%s << %s) & bitmask.%c) | ((uint)%s & ~bitmask.%c);\n",
 								*pop1, ci(GetSuffix(op2, idx)).c_str(), ci(GetSuffix(op3, idx)).c_str(),
 								writeTarget(op6), ci(GetSuffix(op4, idx)).c_str(), ci(GetSuffix(op3, idx)).c_str(), *pop1, ci(GetSuffix(op5, idx)).c_str(), *pop1);
@@ -6000,7 +6000,7 @@ public:
 							applySwizzle(".xyzw", op2);
 
 							int textureId = atoi(&op3[1]);
-							sprintf(buffer, "  %s = %s.Sample(%s);\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.Sample(%s);\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), ci(op2).c_str());
 
 							appendOutput(buffer);
@@ -6018,13 +6018,13 @@ public:
 							truncateTextureSwiz(op1, mTextureType[textureId].c_str());
 							truncateTextureSwiz(op3, mTextureType[textureId].c_str());
 							if (!instr->bAddressOffset)
-								sprintf(buffer, "  %s = %s.Sample(%s, %s)%s;\n", writeTarget(op1),
+								sprintf_s(buffer, sizeof(buffer), "  %s = %s.Sample(%s, %s)%s;\n", writeTarget(op1),
 									mTextureNames[textureId].c_str(), mSamplerNames[samplerId].c_str(), ci(op2).c_str(), strrchr(op3, '.'));
 							else
 							{
 								int offsetx = 0, offsety = 0, offsetz = 0;
 								sscanf_s(statement, "sample_aoffimmi(%d,%d,%d", &offsetx, &offsety, &offsetz);
-								sprintf(buffer, "  %s = %s.Sample(%s, %s, int2(%d, %d))%s;\n", writeTarget(op1),
+								sprintf_s(buffer, sizeof(buffer), "  %s = %s.Sample(%s, %s, int2(%d, %d))%s;\n", writeTarget(op1),
 									mTextureNames[textureId].c_str(), mSamplerNames[samplerId].c_str(), ci(op2).c_str(),
 									offsetx, offsety, strrchr(op3, '.'));
 							}
@@ -6049,13 +6049,13 @@ public:
 						truncateTextureSwiz(op1, mTextureType[textureId].c_str());
 						truncateTextureSwiz(op3, mTextureType[textureId].c_str());
 						if (!instr->bAddressOffset)
-							sprintf(buffer, "  %s = %s.SampleBias(%s, %s, %s)%s;\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.SampleBias(%s, %s, %s)%s;\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerNames[samplerId].c_str(), ci(op2).c_str(), ci(op5).c_str(), strrchr(op3, '.'));
 						else
 						{
 							int offsetx = 0, offsety = 0, offsetz = 0;
 							sscanf_s(statement, "sample_b_aoffimmi_indexable(%d,%d,%d", &offsetx, &offsety, &offsetz);
-							sprintf(buffer, "  %s = %s.SampleBias(%s, %s, %s, int2(%d, %d))%s;\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.SampleBias(%s, %s, %s, int2(%d, %d))%s;\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerNames[samplerId].c_str(), ci(op2).c_str(), ci(op5).c_str(),
 								offsetx, offsety, strrchr(op3, '.'));
 						}
@@ -6076,13 +6076,13 @@ public:
 						truncateTextureSwiz(op1, mTextureType[textureId].c_str());
 						truncateTextureSwiz(op3, mTextureType[textureId].c_str());
 						if (!instr->bAddressOffset)
-							sprintf(buffer, "  %s = %s.SampleLevel(%s, %s, %s)%s;\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.SampleLevel(%s, %s, %s)%s;\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerNames[samplerId].c_str(), ci(op2).c_str(), ci(op5).c_str(), strrchr(op3, '.'));
 						else
 						{
 							int offsetx = 0, offsety = 0, offsetz = 0;
 							sscanf_s(statement, "sample_l_aoffimmi_indexable(%d,%d,%d", &offsetx, &offsety, &offsetz);
-							sprintf(buffer, "  %s = %s.SampleLevel(%s, %s, %s, int2(%d, %d))%s;\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.SampleLevel(%s, %s, %s, int2(%d, %d))%s;\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerNames[samplerId].c_str(), ci(op2).c_str(), ci(op5).c_str(),
 								offsetx, offsety, strrchr(op3, '.'));
 						}
@@ -6104,13 +6104,13 @@ public:
 						truncateTextureSwiz(op1, mTextureType[textureId].c_str());
 						truncateTextureSwiz(op3, mTextureType[textureId].c_str());
 						if (!instr->bAddressOffset)
-							sprintf(buffer, "  %s = %s.SampleGrad(%s, %s, %s, %s)%s;\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.SampleGrad(%s, %s, %s, %s)%s;\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerNames[samplerId].c_str(), ci(op2).c_str(), ci(op5).c_str(), ci(op6).c_str(), strrchr(op3, '.'));
 						else
 						{
 							int offsetx = 0, offsety = 0, offsetz = 0;
 							sscanf_s(statement, "sample_d_aoffimmi_indexable(%d,%d,%d", &offsetx, &offsety, &offsetz);
-							sprintf(buffer, "  %s = %s.SampleGrad(%s, %s, %s, %s, int2(%d, %d))%s;\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.SampleGrad(%s, %s, %s, %s, int2(%d, %d))%s;\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerNames[samplerId].c_str(), ci(op2).c_str(), ci(op5).c_str(), ci(op6).c_str(),
 								offsetx, offsety, strrchr(op3, '.'));
 						}
@@ -6131,13 +6131,13 @@ public:
 						truncateTextureSwiz(op1, mTextureType[textureId].c_str());
 						truncateTextureSwiz(op3, mTextureType[textureId].c_str());
 						if (!instr->bAddressOffset)
-							sprintf(buffer, "  %s = %s.SampleCmp(%s, %s, %s)%s;\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.SampleCmp(%s, %s, %s)%s;\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerComparisonNames[samplerId].c_str(), ci(op2).c_str(), ci(op5).c_str(), strrchr(op3, '.'));
 						else
 						{
 							int offsetx = 0, offsety = 0, offsetz = 0;
 							sscanf_s(statement, "sample_c_aoffimmi_indexable(%d,%d,%d", &offsetx, &offsety, &offsetz);
-							sprintf(buffer, "  %s = %s.SampleCmp(%s, %s, %s, int2(%d, %d))%s;\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.SampleCmp(%s, %s, %s, int2(%d, %d))%s;\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerComparisonNames[samplerId].c_str(), ci(op2).c_str(), ci(op5).c_str(),
 								offsetx, offsety, strrchr(op3, '.'));
 						}
@@ -6159,13 +6159,13 @@ public:
 						truncateTextureSwiz(op1, mTextureType[textureId].c_str());
 						truncateTextureSwiz(op3, mTextureType[textureId].c_str());
 						if (!instr->bAddressOffset)
-							sprintf(buffer, "  %s = %s.SampleCmpLevelZero(%s, %s, %s)%s;\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.SampleCmpLevelZero(%s, %s, %s)%s;\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerComparisonNames[samplerId].c_str(), ci(op2).c_str(), ci(op5).c_str(), strrchr(op3, '.'));
 						else
 						{
 							int offsetx = 0, offsety = 0, offsetz = 0;
 							sscanf_s(statement, "sample_c_lz_aoffimmi_indexable(%d,%d,%d", &offsetx, &offsety, &offsetz);
-							sprintf(buffer, "  %s = %s.SampleCmpLevelZero(%s, %s, %s, int2(%d, %d))%s;\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.SampleCmpLevelZero(%s, %s, %s, int2(%d, %d))%s;\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerComparisonNames[samplerId].c_str(), ci(op2).c_str(), ci(op5).c_str(),
 								offsetx, offsety, strrchr(op3, '.'));
 						}
@@ -6182,7 +6182,7 @@ public:
 						applySwizzle(op1, op3);
 						int textureId;
 						sscanf_s(op2, "t%d.", &textureId);
-						sprintf(buffer, "  %s = %s.GetSamplePosition(%s);\n", writeTarget(op1),
+						sprintf_s(buffer, sizeof(buffer), "  %s = %s.GetSamplePosition(%s);\n", writeTarget(op1),
 							mTextureNames[textureId].c_str(), ci(op3).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
@@ -6206,10 +6206,10 @@ public:
 						truncateTexturePos(op2, mTextureType[textureId].c_str());
 						char *clamped = strrchr(op3, '.') + 1;
 						if (*clamped == 'x')
-							sprintf(buffer, "  %s = %s.CalculateLevelOfDetail(%s, %s);\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.CalculateLevelOfDetail(%s, %s);\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerNames[samplerId].c_str(), ci(op2).c_str());
 						else
-							sprintf(buffer, "  %s = %s.CalculateLevelOfDetailUnclamped(%s, %s);\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.CalculateLevelOfDetailUnclamped(%s, %s);\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerNames[samplerId].c_str(), ci(op2).c_str());
 						appendOutput(buffer);
 						removeBoolean(op1);
@@ -6226,13 +6226,13 @@ public:
 						sscanf_s(op4, "s%d", &samplerId);
 						truncateTexturePos(op2, mTextureType[textureId].c_str());
 						if (!instr->bAddressOffset)
-							sprintf(buffer, "  %s = %s.Gather(%s, %s)%s;\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.Gather(%s, %s)%s;\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerNames[samplerId].c_str(), ci(op2).c_str(), strrchr(op3, '.'));
 						else
 						{
 							int offsetx = 0, offsety = 0, offsetz = 0;
 							sscanf_s(statement, "gather4_aoffimmi_indexable(%d,%d,%d", &offsetx, &offsety, &offsetz);
-							sprintf(buffer, "  %s = %s.Gather(%s, %s, int2(%d, %d))%s;\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.Gather(%s, %s, int2(%d, %d))%s;\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerNames[samplerId].c_str(), ci(op2).c_str(),
 								offsetx, offsety, strrchr(op3, '.'));
 						}
@@ -6251,13 +6251,13 @@ public:
 						sscanf_s(op4, "s%d", &samplerId);
 						truncateTexturePos(op2, mTextureType[textureId].c_str());
 						if (!instr->bAddressOffset)
-							sprintf(buffer, "  %s = %s.GatherCmp(%s, %s, %s)%s;\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.GatherCmp(%s, %s, %s)%s;\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerComparisonNames[samplerId].c_str(), ci(op2).c_str(), ci(op5).c_str(), strrchr(op3, '.'));
 						else
 						{
 							int offsetx = 0, offsety = 0, offsetz = 0;
 							sscanf_s(statement, "gather4_c_aoffimmi_indexable(%d,%d,%d", &offsetx, &offsety, &offsetz);
-							sprintf(buffer, "  %s = %s.GatherCmp(%s, %s, %s, int2(%d,%d))%s;\n", writeTarget(op1),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.GatherCmp(%s, %s, %s, int2(%d,%d))%s;\n", writeTarget(op1),
 								mTextureNames[textureId].c_str(), mSamplerComparisonNames[samplerId].c_str(), ci(op2).c_str(), ci(op5).c_str(),
 								offsetx, offsety, strrchr(op3, '.'));
 						}
@@ -6279,7 +6279,7 @@ public:
 						sscanf_s(op4, "t%d.", &textureId);
 						sscanf_s(op5, "s%d", &samplerId);
 						truncateTexturePos(op2, mTextureType[textureId].c_str());
-						sprintf(buffer, "  %s = %s.Gather(%s, %s, %s)%s;\n", writeTarget(op1), mTextureNames[textureId].c_str(), 
+						sprintf_s(buffer, sizeof(buffer), "  %s = %s.Gather(%s, %s, %s)%s;\n", writeTarget(op1), mTextureNames[textureId].c_str(), 
 							mSamplerNames[samplerId].c_str(), ci(op2).c_str(), ci(op3).c_str(), strrchr(op4, '.'));
 						appendOutput(buffer);
 						removeBoolean(op1);
@@ -6297,7 +6297,7 @@ public:
 						sscanf_s(op4, "t%d.", &textureId);
 						sscanf_s(op5, "s%d", &samplerId);
 						truncateTexturePos(op2, mTextureType[textureId].c_str());
-						sprintf(buffer, "  %s = %s.GatherCmp(%s, %s, %s, %s)%s;\n", writeTarget(op1), mTextureNames[textureId].c_str(), 
+						sprintf_s(buffer, sizeof(buffer), "  %s = %s.GatherCmp(%s, %s, %s, %s)%s;\n", writeTarget(op1), mTextureNames[textureId].c_str(), 
 							mSamplerComparisonNames[samplerId].c_str(), ci(op2).c_str(), ci(op6).c_str(), ci(op3).c_str(), strrchr(op4, '.'));
 						appendOutput(buffer);
 						removeBoolean(op1);
@@ -6320,11 +6320,11 @@ public:
 						truncateTextureSwiz(op1, mTextureType[textureId].c_str());
 						truncateTextureSwiz(op3, mTextureType[textureId].c_str());
 						if (!instr->bAddressOffset)
-							sprintf(buffer, "  %s = %s.Load(%s)%s;\n", writeTarget(op1), mTextureNames[textureId].c_str(), ci(op2).c_str(), strrchr(op3, '.'));
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.Load(%s)%s;\n", writeTarget(op1), mTextureNames[textureId].c_str(), ci(op2).c_str(), strrchr(op3, '.'));
 						else {
 							int offsetU = 0, offsetV = 0, offsetW = 0;
 							sscanf_s(statement, "ld_aoffimmi(%d,%d,%d", &offsetU, &offsetV, &offsetW);
-							sprintf(buffer, "  %s = %s.Load(%s, int3(%d, %d, %d))%s;\n", writeTarget(op1), mTextureNames[textureId].c_str(), ci(op2).c_str(),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.Load(%s, int3(%d, %d, %d))%s;\n", writeTarget(op1), mTextureNames[textureId].c_str(), ci(op2).c_str(),
 								offsetU, offsetV, offsetW, strrchr(op3, '.'));
 						}
 						appendOutput(buffer);
@@ -6343,11 +6343,11 @@ public:
 						truncateTextureSwiz(op1, mTextureType[textureId].c_str());
 						truncateTextureSwiz(op3, mTextureType[textureId].c_str());
 						if (!instr->bAddressOffset)
-							sprintf(buffer, "  %s = %s.Load(%s, %s)%s;\n", writeTarget(op1), mTextureNames[textureId].c_str(), ci(op2).c_str(), ci(op4).c_str(), strrchr(op3, '.'));
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.Load(%s, %s)%s;\n", writeTarget(op1), mTextureNames[textureId].c_str(), ci(op2).c_str(), ci(op4).c_str(), strrchr(op3, '.'));
 						else{
 							int offsetU = 0, offsetV = 0, offsetW = 0;
 							sscanf_s(statement, "ld_aoffimmi(%d,%d,%d", &offsetU, &offsetV, &offsetW);
-							sprintf(buffer, "  %s = %s.Load(%s, %s, int3(%d, %d, %d))%s;\n", writeTarget(op1), mTextureNames[textureId].c_str(), ci(op2).c_str(), ci(op4).c_str(),
+							sprintf_s(buffer, sizeof(buffer), "  %s = %s.Load(%s, %s, int3(%d, %d, %d))%s;\n", writeTarget(op1), mTextureNames[textureId].c_str(), ci(op2).c_str(), ci(op4).c_str(),
 								offsetU, offsetV, offsetW, strrchr(op3, '.'));
 						}
 						appendOutput(buffer);
@@ -6375,7 +6375,7 @@ public:
 					case OPCODE_LD_RAW:
 					case OPCODE_STORE_RAW:
 					{
-						sprintf(buffer, "// No code for instruction (needs manual fix):\n");
+						sprintf_s(buffer, sizeof(buffer), "// No code for instruction (needs manual fix):\n");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
 						break;
@@ -6384,9 +6384,9 @@ public:
 					case OPCODE_DISCARD:
 						applySwizzle(".x", op1);
 						if (instr->eBooleanTestType == INSTRUCTION_TEST_ZERO)
-							sprintf(buffer, "  if (%s == 0) discard;\n", ci(op1).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  if (%s == 0) discard;\n", ci(op1).c_str());
 						else
-							sprintf(buffer, "  if (%s != 0) discard;\n", ci(op1).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  if (%s != 0) discard;\n", ci(op1).c_str());
 						appendOutput(buffer);
 						break;
 
@@ -6427,7 +6427,7 @@ public:
 						ResourceBinding bindInfo;
 						ResourceBinding *bindInfoPtr = &bindInfo;
 
-						memset(&bindInfo, 0, sizeof(bindInfo));
+						bindInfo = ResourceBinding();
 						int bindstate = GetResourceFromBindingPoint(RGROUP_TEXTURE, texReg, shader->sInfo, &bindInfoPtr);
 						bool bindStripped = (bindstate == 0);
 
@@ -6499,27 +6499,27 @@ public:
 							if (bindInfoPtr->eDimension == REFLECT_RESOURCE_DIMENSION_TEXTURE2D)
 							{
 								if (returnType == RESINFO_INSTRUCTION_RETURN_UINT)
-									sprintf(buffer, "  %s.GetDimensions(0, uiDest.x, uiDest.y, uiDest.z);\n", bindInfoPtr->Name.c_str());
+									sprintf_s(buffer, sizeof(buffer), "  %s.GetDimensions(0, uiDest.x, uiDest.y, uiDest.z);\n", bindInfoPtr->Name.c_str());
 								else
-									sprintf(buffer, "  %s.GetDimensions(0, fDest.x, fDest.y, fDest.z);\n", bindInfoPtr->Name.c_str());
+									sprintf_s(buffer, sizeof(buffer), "  %s.GetDimensions(0, fDest.x, fDest.y, fDest.z);\n", bindInfoPtr->Name.c_str());
 								appendOutput(buffer);
 								unknownVariant = false;
 							}
 							else if (bindInfoPtr->eDimension == REFLECT_RESOURCE_DIMENSION_TEXTURE2DMS)
 							{
 								if (returnType == RESINFO_INSTRUCTION_RETURN_UINT)
-									sprintf(buffer, "  %s.GetDimensions(uiDest.x, uiDest.y, uiDest.z);\n", bindInfoPtr->Name.c_str());
+									sprintf_s(buffer, sizeof(buffer), "  %s.GetDimensions(uiDest.x, uiDest.y, uiDest.z);\n", bindInfoPtr->Name.c_str());
 								else
-									sprintf(buffer, "  %s.GetDimensions(fDest.x, fDest.y, fDest.z);\n", bindInfoPtr->Name.c_str());
+									sprintf_s(buffer, sizeof(buffer), "  %s.GetDimensions(fDest.x, fDest.y, fDest.z);\n", bindInfoPtr->Name.c_str());
 								appendOutput(buffer);
 								unknownVariant = false;
 							}
 							else if (bindInfoPtr->eDimension == REFLECT_RESOURCE_DIMENSION_TEXTURE2DARRAY)
 							{
 								if (returnType == RESINFO_INSTRUCTION_RETURN_UINT)
-									sprintf(buffer, "  %s.GetDimensions(0, uiDest.x, uiDest.y, uiDest.z, uiDest.w);\n", bindInfoPtr->Name.c_str());
+									sprintf_s(buffer, sizeof(buffer), "  %s.GetDimensions(0, uiDest.x, uiDest.y, uiDest.z, uiDest.w);\n", bindInfoPtr->Name.c_str());
 								else
-									sprintf(buffer, "  %s.GetDimensions(0, fDest.x, fDest.y, fDest.z, fDest.w);\n", bindInfoPtr->Name.c_str());
+									sprintf_s(buffer, sizeof(buffer), "  %s.GetDimensions(0, fDest.x, fDest.y, fDest.z, fDest.w);\n", bindInfoPtr->Name.c_str());
 								appendOutput(buffer);
 								unknownVariant = false;
 							}
@@ -6534,7 +6534,7 @@ public:
 								char dest[opcodeSize] = "uiDest.xyzw";
 								applySwizzle(op3, dest);
 								applySwizzle(op1, dest);
-								sprintf(buffer, "  %s = %s;\n", op1, dest);
+								sprintf_s(buffer, sizeof(buffer), "  %s = %s;\n", op1, dest);
 								appendOutput(buffer);
 							}
 							else
@@ -6542,7 +6542,7 @@ public:
 								char dest[opcodeSize] = "fDest.xyzw";
 								applySwizzle(op3, dest);
 								applySwizzle(op1, dest);
-								sprintf(buffer, "  %s = %s;\n", op1, dest);
+								sprintf_s(buffer, sizeof(buffer), "  %s = %s;\n", op1, dest);
 								appendOutput(buffer);
 							}
 						}
@@ -6551,18 +6551,18 @@ public:
 							// Completely new variant, write out the reminder.
 							string line = string(c + pos);
 							line = line.substr(0, line.find('\n'));
-							sprintf(buffer, "// Unknown use of GetDimensions for resinfo_ from missing reflection info, need manual fix.\n");
+							sprintf_s(buffer, sizeof(buffer), "// Unknown use of GetDimensions for resinfo_ from missing reflection info, need manual fix.\n");
 							appendOutput(buffer);
-							sprintf(buffer, "// %s\n", line.c_str());
+							sprintf_s(buffer, sizeof(buffer), "// %s\n", line.c_str());
 							appendOutput(buffer);
-							sprintf(buffer, "// Example for texture2d type, uint return:\n");
+							sprintf_s(buffer, sizeof(buffer), "// Example for texture2d type, uint return:\n");
 							appendOutput(buffer);
-							sprintf(buffer, "tx.GetDimensions(0, uiDest.x, uiDest.y, uiDest.z);\n");
+							sprintf_s(buffer, sizeof(buffer), "tx.GetDimensions(0, uiDest.x, uiDest.y, uiDest.z);\n");
 							appendOutput(buffer);
-							sprintf(buffer, "rx = uiDest;\n");
+							sprintf_s(buffer, sizeof(buffer), "rx = uiDest;\n");
 							appendOutput(buffer);
 
-							sprintf(buffer, " state=%d, constZero.eType=%d, returnType=%d, texture.eType=%d, afImmediates[0]=%f\n", bindstate, constZero.eType, returnType, texture.eType, constZero.afImmediates[0]);
+							sprintf_s(buffer, sizeof(buffer), " state=%d, constZero.eType=%d, returnType=%d, texture.eType=%d, afImmediates[0]=%f\n", bindstate, constZero.eType, returnType, texture.eType, constZero.afImmediates[0]);
 							appendOutput(buffer);
 
 							//logDecompileError("Unknown _resinfo variant: " + line);
@@ -6574,68 +6574,68 @@ public:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						applySwizzle(".x", fixImm(op3, instr->asOperands[2]), true);
-						sprintf(buffer, "  %s = EvaluateAttributeAtSample(%s, %s);\n", writeTarget(op1), op2, op3);
+						sprintf_s(buffer, sizeof(buffer), "  %s = EvaluateAttributeAtSample(%s, %s);\n", writeTarget(op1), op2, op3);
 						appendOutput(buffer);
 						break;
 					case OPCODE_EVAL_CENTROID:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
-						sprintf(buffer, "  %s = EvaluateAttributeCentroid(%s);\n", writeTarget(op1), op2);
+						sprintf_s(buffer, sizeof(buffer), "  %s = EvaluateAttributeCentroid(%s);\n", writeTarget(op1), op2);
 						appendOutput(buffer);
 						break;
 					case OPCODE_EVAL_SNAPPED:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
 						applySwizzle(".xy", fixImm(op3, instr->asOperands[2]), true);
-						sprintf(buffer, "  %s = EvaluateAttributeSnapped(%s, %s);\n", writeTarget(op1), op2, op3);
+						sprintf_s(buffer, sizeof(buffer), "  %s = EvaluateAttributeSnapped(%s, %s);\n", writeTarget(op1), op2, op3);
 						appendOutput(buffer);
 						break;
 
 					case OPCODE_DERIV_RTX_COARSE:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
-						sprintf(buffer, "  %s = ddx_coarse(%s);\n", writeTarget(op1), op2);
+						sprintf_s(buffer, sizeof(buffer), "  %s = ddx_coarse(%s);\n", writeTarget(op1), op2);
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
 					case OPCODE_DERIV_RTX_FINE:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
-						sprintf(buffer, "  %s = ddx_fine(%s);\n", writeTarget(op1), op2);
+						sprintf_s(buffer, sizeof(buffer), "  %s = ddx_fine(%s);\n", writeTarget(op1), op2);
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
 					case OPCODE_DERIV_RTY_COARSE:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
-						sprintf(buffer, "  %s = ddy_coarse(%s);\n", writeTarget(op1), op2);
+						sprintf_s(buffer, sizeof(buffer), "  %s = ddy_coarse(%s);\n", writeTarget(op1), op2);
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
 					case OPCODE_DERIV_RTY_FINE:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
-						sprintf(buffer, "  %s = ddy_fine(%s);\n", writeTarget(op1), op2);
+						sprintf_s(buffer, sizeof(buffer), "  %s = ddy_fine(%s);\n", writeTarget(op1), op2);
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
 					case OPCODE_DERIV_RTX:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
-						sprintf(buffer, "  %s = ddx(%s);\n", writeTarget(op1), op2);
+						sprintf_s(buffer, sizeof(buffer), "  %s = ddx(%s);\n", writeTarget(op1), op2);
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
 					case OPCODE_DERIV_RTY:
 						remapTarget(op1);
 						applySwizzle(op1, op2);
-						sprintf(buffer, "  %s = ddy(%s);\n", writeTarget(op1), op2);
+						sprintf_s(buffer, sizeof(buffer), "  %s = ddy(%s);\n", writeTarget(op1), op2);
 						appendOutput(buffer);
 						removeBoolean(op1);
 						break;
 
 					case OPCODE_RET:
-						sprintf(buffer, "  return;\n");
+						sprintf_s(buffer, sizeof(buffer), "  return;\n");
 						appendOutput(buffer);
 						break;
 
@@ -6643,25 +6643,25 @@ public:
 					case OPCODE_RETC:
 						applySwizzle(".x", op1);
 						if (instr->eBooleanTestType == INSTRUCTION_TEST_ZERO)
-							sprintf(buffer, "  if (%s == 0) return;\n", ci(op1).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  if (%s == 0) return;\n", ci(op1).c_str());
 						else
-							sprintf(buffer, "  if (%s != 0) return;\n", ci(op1).c_str());
+							sprintf_s(buffer, sizeof(buffer), "  if (%s != 0) return;\n", ci(op1).c_str());
 						appendOutput(buffer);
 						break;
 
 						// FarCry4 GeometryShader
 					case OPCODE_EMIT_STREAM:
-						sprintf(buffer, "// Needs manual fix for instruction, maybe. \n//");
+						sprintf_s(buffer, sizeof(buffer), "// Needs manual fix for instruction, maybe. \n//");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "m0.Append(0);\n");
+						sprintf_s(buffer, sizeof(buffer), "m0.Append(0);\n");
 						appendOutput(buffer);
 						break;
 					case OPCODE_CUT_STREAM:
-						sprintf(buffer, "// Needs manual fix for instruction, maybe. \n//");
+						sprintf_s(buffer, sizeof(buffer), "// Needs manual fix for instruction, maybe. \n//");
 						appendOutput(buffer);
 						ASMLineOut(c, pos, size);
-						sprintf(buffer, "m0.RestartStrip();\n");
+						sprintf_s(buffer, sizeof(buffer), "m0.RestartStrip();\n");
 						appendOutput(buffer);
 						break;
 

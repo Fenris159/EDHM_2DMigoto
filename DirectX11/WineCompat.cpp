@@ -172,7 +172,7 @@ void LogHostCompatReport()
 	wchar_t exe_path[MAX_PATH] = {};
 
 	DWORD migoto_path_len = GetModuleFileNameW(migoto_handle, migoto_path, MAX_PATH);
-	DWORD exe_path_len = GetModuleFileNameW(NULL, exe_path, MAX_PATH);
+	DWORD exe_path_len = GetModuleFileNameW(nullptr, exe_path, MAX_PATH);
 	if (!migoto_path_len || migoto_path_len >= MAX_PATH)
 		wcscpy_s(migoto_path, L"(unknown)");
 	if (!exe_path_len || exe_path_len >= MAX_PATH)

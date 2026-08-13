@@ -41,7 +41,7 @@ struct DrawCallInfo
 		ThreadGroupCountX(0),
 		ThreadGroupCountY(0),
 		ThreadGroupCountZ(0),
-		indirect_buffer(NULL),
+		indirect_buffer(nullptr),
 		args_offset(0),
 		skip(false),
 		hunting_skip(false)

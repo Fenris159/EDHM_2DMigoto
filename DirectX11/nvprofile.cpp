@@ -482,7 +482,7 @@ static wchar_t* lookup_setting_name(unsigned id)
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 static int lookup_setting_id(const wchar_t *name, NvU32 *id)
@@ -679,7 +679,7 @@ static void _identify_internal_settings(NvDRSSessionHandle session,
 {
 	internal_setting_map_type::iterator i;
 
-	*internal_settings = NULL;
+	*internal_settings = nullptr;
 
 	i = internal_setting_map.find(wstring(profile_name));
 	if (i == internal_setting_map.end())
@@ -695,7 +695,7 @@ static void identify_internal_settings(NvDRSSessionHandle session,
 	NvAPI_Status status = NVAPI_OK;
 	NVDRS_PROFILE info = {0};
 
-	*internal_settings = NULL;
+	*internal_settings = nullptr;
 
 	info.version = NVDRS_PROFILE_VER;
 	status = NvAPI_DRS_GetProfileInfo(session, profile, &info);
@@ -752,7 +752,7 @@ void decode_internal_string(unsigned id, NvAPI_UnicodeString val)
 		    | internal_setting_key[(off+0) % 256];
 		// LogInfo("Decoded SettingString ID=%08x Off=%u Key=%04x Enc=%04x Dec=%04x\n", id, off, key, val[i], key ^ val[i]);
 		val[i] = val[i] ^ key;
-		if (!val[i]) // Decoded the NULL terminator
+		if (!val[i]) // Decoded the nullptr terminator
 			break;
 	}
 }
@@ -765,10 +765,10 @@ void decode_internal_string(unsigned id, NvAPI_UnicodeString val)
 // opened in anything more sophisticated than notepad!
 void _log_nv_profile(NvDRSSessionHandle session, NvDRSProfileHandle profile, NVDRS_PROFILE *info)
 {
-	std::unordered_set<unsigned> *internal_settings = NULL;
+	std::unordered_set<unsigned> *internal_settings = nullptr;
 	NvAPI_Status status = NVAPI_OK;
-	NVDRS_APPLICATION *apps = NULL;
-	NVDRS_SETTING *settings = NULL;
+	NVDRS_APPLICATION *apps = nullptr;
+	NVDRS_SETTING *settings = nullptr;
 	unsigned len, dval = 0;
 	wchar_t *name;
 	bool internal;
@@ -954,7 +954,7 @@ static void log_relevant_nv_profiles(NvDRSSessionHandle session, NvDRSProfileHan
 	NVDRS_PROFILE global_info = {0};
 	NvAPI_Status status = NVAPI_OK;
 	NvU32 len = 0;
-	char *default_stereo_profile = NULL;
+	char *default_stereo_profile = nullptr;
 
 	LogInfo("----------- Driver profile settings -----------\n");
 
@@ -1312,7 +1312,7 @@ static void spawn_privileged_profile_helper_task()
 	wchar_t game_path[MAX_PATH];
 	wstring params;
 	SHELLEXECUTEINFO info = {0};
-	HMODULE module;
+	HMODULE hModule;
 	DWORD rc;
 	bool do_rm = false;
 
@@ -1324,11 +1324,11 @@ static void spawn_privileged_profile_helper_task()
 	// some other d3d11.dll
 	if (!GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
 			| GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-			(LPCWSTR)spawn_privileged_profile_helper_task, &module)) {
+			(LPCWSTR)spawn_privileged_profile_helper_task, &hModule)) {
 		goto err;
 	}
 
-	if (!GetModuleFileName(module, migoto_long_path, MAX_PATH))
+	if (!GetModuleFileName(hModule, migoto_long_path, MAX_PATH))
 		goto err;
 
 	// rundll requires the short path to ensure there are no spaces or
@@ -1382,7 +1382,7 @@ static void spawn_privileged_profile_helper_task()
 	info.nShow = SW_HIDE;
 
 	// ShellExecuteEx may require COM, though will probably be ok without it:
-	if (FAILED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE)))
+	if (FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE)))
 		LogInfo("spawn_privileged_profile_helper_task: CoInitializeEx failed\n");
 
 	LogInfo("Spawning helper task to install driver profile...\n");
@@ -1500,7 +1500,7 @@ static bool compare_setting(NvDRSSessionHandle session,
 
 static bool need_profile_update(NvDRSSessionHandle session, NvDRSProfileHandle profile)
 {
-	std::unordered_set<unsigned> *internal_settings = NULL;
+	std::unordered_set<unsigned> *internal_settings = nullptr;
 	ProfileSettings::iterator i;
 
 	if (profile_settings.empty())
@@ -1611,7 +1611,7 @@ static NvDRSProfileHandle create_profile(NvDRSSessionHandle session)
 
 static int update_profile(NvDRSSessionHandle session, NvDRSProfileHandle profile)
 {
-	std::unordered_set<unsigned> *internal_settings = NULL;
+	std::unordered_set<unsigned> *internal_settings = nullptr;
 	ProfileSettings::iterator i;
 	NvAPI_Status status = NVAPI_OK;
 	NVDRS_SETTING *migoto_setting;

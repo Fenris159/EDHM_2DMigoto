@@ -532,7 +532,7 @@ static void DefineDX9(Shader* psShader,
     psDecl->eOpcode = OPCODE_SPECIAL_DCL_IMMCONST;
     psDecl->ui32NumOperands = 2;
 
-    memset(&psDecl->asOperands[0], 0, sizeof(Operand));
+    psDecl->asOperands[0] = Operand();
 	psDecl->asOperands[0].eType = OPERAND_TYPE_SPECIAL_IMMCONST;
 
 	psDecl->asOperands[0].ui32RegisterNumber = ui32RegNum;
@@ -544,7 +544,7 @@ static void DefineDX9(Shader* psShader,
 
 	aui32ImmediateConst[ui32RegNum] |= ui32Flags;
 
-    memset(&psDecl->asOperands[1], 0, sizeof(Operand));
+    psDecl->asOperands[1] = Operand();
     psDecl->asOperands[1].eType = OPERAND_TYPE_IMMEDIATE32;
     psDecl->asOperands[1].iNumComponents = 4;
 	psDecl->asOperands[1].iIntegerImmediate = (ui32Flags & (DX9_DECODE_OPERAND_IS_ICONST|DX9_DECODE_OPERAND_IS_BCONST)) ? 1 : 0;
@@ -565,7 +565,7 @@ static void CreateD3D10Instruction(
     uint32_t ui32Src;
     uint32_t ui32Offset = 1;
 
-    memset(psInst, 0, sizeof(Instruction));
+    *psInst = Instruction();
 
 #ifdef _DEBUG
     psInst->id = instructionID++;
@@ -879,13 +879,13 @@ Shader* DecodeDX9BC(const uint32_t* pui32Tokens)
                     //rsq RESULT, RESULT
 
                     CreateD3D10Instruction(psShader, &psInst[inst], OPCODE_DP4, 1, 1, pui32CurrentToken);
-                    memcpy(&psInst[inst].asOperands[2],&psInst[inst].asOperands[1], sizeof(Operand));
+                    psInst[inst].asOperands[2] = psInst[inst].asOperands[1];
 					psInst[inst].ui32NumOperands++;
                     ++inst;
 
                     CreateD3D10Instruction(psShader, &psInst[inst], OPCODE_RSQ, 0, 0, pui32CurrentToken);
-                    memcpy(&psInst[inst].asOperands[0],&psInst[inst-1].asOperands[0], sizeof(Operand));
-					memcpy(&psInst[inst].asOperands[1], &psInst[inst - 1].asOperands[0], sizeof(Operand));
+                    psInst[inst].asOperands[0] = psInst[inst-1].asOperands[0];
+					psInst[inst].asOperands[1] = psInst[inst - 1].asOperands[0];
 					psInst[inst].ui32NumOperands++;
 					psInst[inst].ui32NumOperands++;
 					break;
@@ -909,10 +909,10 @@ Shader* DecodeDX9BC(const uint32_t* pui32Tokens)
                     psInst[inst].ui32NumOperands = 3;
 
                     //Set the angle
-                    memcpy(&psInst[inst].asOperands[2],&psInst[inst].asOperands[1], sizeof(Operand));
+                    psInst[inst].asOperands[2] = psInst[inst].asOperands[1];
 
                     //Set the cosine dest
-                    memcpy(&psInst[inst].asOperands[1],&psInst[inst].asOperands[0], sizeof(Operand));
+                    psInst[inst].asOperands[1] = psInst[inst].asOperands[0];
 
                     //Set write masks
                     psInst[inst].asOperands[0].ui32CompMask &= ~OPERAND_4_COMPONENT_MASK_Y;
@@ -968,7 +968,7 @@ Shader* DecodeDX9BC(const uint32_t* pui32Tokens)
 					psInst[inst].asOperands[2].ui32RegisterNumber = 0;
 
 					//Lod comes from fourth coordinate of address.
-					memcpy(&psInst[inst].asOperands[4], &psInst[inst].asOperands[1], sizeof(Operand));
+					psInst[inst].asOperands[4] = psInst[inst].asOperands[1];
 
 					psInst[inst].ui32NumOperands = 5;
 					
@@ -1039,8 +1039,8 @@ Shader* DecodeDX9BC(const uint32_t* pui32Tokens)
 					CreateD3D10Instruction(psShader, &psInst[inst], OPCODE_SAMPLE_D, 1, 4, pui32CurrentToken);
 
 					// Move the gradients one slot up
-					memcpy(&psInst[inst].asOperands[5], &psInst[inst].asOperands[4], sizeof(Operand));
-					memcpy(&psInst[inst].asOperands[4], &psInst[inst].asOperands[3], sizeof(Operand));
+					psInst[inst].asOperands[5] = psInst[inst].asOperands[4];
+					psInst[inst].asOperands[4] = psInst[inst].asOperands[3];
 
 					// Sampler register
 					psInst[inst].asOperands[3].ui32RegisterNumber = 0;

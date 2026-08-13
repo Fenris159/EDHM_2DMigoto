@@ -339,7 +339,6 @@ private:
     private:
         ComPtr<ID3D11VertexShader> mVertexShaders[DGSLEffectTraits::VertexShaderCount];
         ComPtr<ID3D11PixelShader> mPixelShaders[DGSLEffectTraits::PixelShaderCount];
-        ComPtr<ID3D11ShaderResourceView> mDefaultTexture;
     };
 
     // Per-device resources.
@@ -572,13 +571,13 @@ DGSLEffect::DGSLEffect(_In_ ID3D11Device* device, _In_opt_ ID3D11PixelShader* pi
 }
 
 
-DGSLEffect::DGSLEffect(DGSLEffect&& moveFrom)
+DGSLEffect::DGSLEffect(DGSLEffect&& moveFrom) noexcept
     : pImpl(std::move(moveFrom.pImpl))
 {
 }
 
 
-DGSLEffect& DGSLEffect::operator= (DGSLEffect&& moveFrom)
+DGSLEffect& DGSLEffect::operator= (DGSLEffect&& moveFrom) noexcept
 {
     pImpl = std::move(moveFrom.pImpl);
     return *this;

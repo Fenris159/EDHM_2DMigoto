@@ -660,7 +660,7 @@ static uint32_t hash_tex2d_data(uint32_t hash, const void *data, size_t length,
 	size_t msize = min(row_pitch, mapped_row_pitch);
 
 	signed padding = (signed)mapped_row_pitch - (signed)row_pitch;
-	uint8_t *zeroes = NULL;
+	uint8_t *zeroes = nullptr;
 	if (zero_padding && padding > 0) {
 		zeroes = new uint8_t[padding];
 		memset(zeroes, 0, padding);
@@ -816,7 +816,7 @@ uint32_t CalcTexture2DDataHashAccurate(
 ResourceHandleInfo* GetResourceHandleInfo(ID3D11Resource *resource)
 {
 	std::unordered_map<ID3D11Resource *, ResourceHandleInfo>::iterator j;
-	ResourceHandleInfo* ret = NULL;
+	ResourceHandleInfo* ret = nullptr;
 
 	EnterCriticalSectionPretty(&G->mResourcesLock);
 
@@ -976,7 +976,7 @@ void MarkResourceHashContaminated(ID3D11Resource *dest, UINT DstSubresource,
 		UINT DstX, UINT DstY, UINT DstZ, const D3D11_BOX *SrcBox)
 {
 	ResourceHandleInfo *dst_handle_info;
-	struct ResourceHashInfo *dstInfo, *srcInfo = NULL;
+	struct ResourceHashInfo *dstInfo, *srcInfo = nullptr;
 	uint32_t srcHash = 0, dstHash = 0;
 	UINT srcWidth = 1, srcHeight = 1, srcDepth = 1, srcMip = 0, srcIdx = 0, srcArraySize = 1;
 	UINT dstWidth = 1, dstHeight = 1, dstDepth = 1, dstMip = 0, dstIdx = 0, dstArraySize = 1;
@@ -1106,7 +1106,7 @@ void UpdateResourceHashFromCPU(ID3D11Resource *resource,
 	D3D11_TEXTURE2D_DESC *desc2D;
 	D3D11_TEXTURE3D_DESC *desc3D;
 	uint32_t old_data_hash, old_hash;
-	ResourceHandleInfo *info = NULL;
+	ResourceHandleInfo *info = nullptr;
 	Profiling::State profiling_state;
 
 	if (!resource || !data)
@@ -1252,7 +1252,7 @@ out_unlock:
 bool MapTrackResourceHashUpdate(ID3D11Resource *pResource, UINT Subresource)
 {
 	if (G->hunting && G->track_texture_updates != 2) { // Any hunting mode - want to catch hash contamination even while soft disabled
-		MarkResourceHashContaminated(pResource, Subresource, NULL, 0, 'M', 0, 0, 0, NULL);
+		MarkResourceHashContaminated(pResource, Subresource, nullptr, 0, 'M', 0, 0, 0, nullptr);
 	}
 
 	// TODO: If track_texture_updated is disabled, but we are in hunting
@@ -1298,7 +1298,7 @@ HRESULT STDMETHODCALLTYPE ResourceReleaseTracker::QueryInterface(REFIID riid, _C
 
 	if (!ppvObject)
 		return E_POINTER;
-	*ppvObject = NULL;
+	*ppvObject = nullptr;
 
 	// The only interface we support is IUnknown
 	if (IsEqualIID(riid, IID_IUnknown)) {
@@ -2127,7 +2127,7 @@ static bool CacheBufferData(ID3D11DeviceContext* context, ID3D11Buffer* buffer, 
 	// WARNING: Everything below may cause GPU/CPU sync and stall.
 	// This is the slow path and should be rare.
 
-	ID3D11Device* dev = NULL;
+	ID3D11Device* dev = nullptr;
 	context->GetDevice(&dev);
 	if (!dev)
 		return false;
@@ -2144,9 +2144,9 @@ static bool CacheBufferData(ID3D11DeviceContext* context, ID3D11Buffer* buffer, 
 	stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 	stagingDesc.MiscFlags = 0;
 
-	ID3D11Buffer* staging = NULL;
+	ID3D11Buffer* staging = nullptr;
 	LockResourceCreationMode();
-	HRESULT hr = dev->CreateBuffer(&stagingDesc, NULL, &staging);
+	HRESULT hr = dev->CreateBuffer(&stagingDesc, nullptr, &staging);
 	UnlockResourceCreationMode();
 	if (FAILED(hr)) {
 		dev->Release();
