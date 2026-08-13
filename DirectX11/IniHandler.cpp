@@ -1241,9 +1241,10 @@ bool ParseFloatValue(const wchar_t* section, const wchar_t* key, const wstring& 
 	
 	if (*end == L'\0')
 	{
-		if (errno == ERANGE)
+		if (errno == ERANGE && std::isinf(out))
 		{
-			// Treat floating-point overflow as ▒infinity.
+			// Overflow only: keep signed infinity. Underflow (e.g. 1e-50)
+			// stays a finite near-zero result from wcstof.
 			out = std::signbit(out) ? -std::numeric_limits<float>::infinity() : std::numeric_limits<float>::infinity();
 		}
 		return true;
@@ -2407,7 +2408,7 @@ static void ParseCommandList(const wchar_t *id,
 
 CommandListVariable* RegisterGlobalVariable(wstring& name, float* fval, VariableFlags flags)
 {
-	std::pair<CommandListVariables::iterator, bool> inserted = command_list_globals.emplace(name, CommandListVariable{ name, *fval, flags });
+	std::pair<CommandListVariables::iterator, bool> inserted = command_list_globals.emplace(name, CommandListVariable{ name, fval ? *fval : 0.0f, flags });
 	if (!inserted.second) {
 		return nullptr;
 	}

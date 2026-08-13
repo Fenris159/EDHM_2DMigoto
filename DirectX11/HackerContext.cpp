@@ -71,6 +71,8 @@ HackerContext::HackerContext(ID3D11Device1 *pDevice1, ID3D11DeviceContext1 *pCon
 	mHackerDevice = nullptr;
 	mOwnsHackerDeviceReference = false;
 	mCurrentInputLayout = nullptr;
+	mOriginalInputLayout = nullptr;
+	mOverrideInputLayout = nullptr;
 	ResetTrackedState();
 }
 
@@ -115,8 +117,15 @@ void HackerContext::ResetTrackedState()
 	mCurrentPixelShader = 0;
 	mCurrentPixelShaderHandle = nullptr;
 	mCurrentComputeShaderHandle = nullptr;
-	mOriginalInputLayout = nullptr;
-	mOverrideInputLayout = nullptr;
+	// mOriginalInputLayout holds its own AddRef from OverrideInputLayout.
+	if (mOriginalInputLayout) {
+		mOriginalInputLayout->Release();
+		mOriginalInputLayout = nullptr;
+	}
+	if (mOverrideInputLayout) {
+		mOverrideInputLayout->Release();
+		mOverrideInputLayout = nullptr;
+	}
 }
 
 void HackerContext::ClearCurrentInputLayout()
@@ -789,29 +798,12 @@ void HackerContext::DeferredShaderReplacementBeforeDispatch()
 		(mCurrentComputeShaderHandle, mCurrentComputeShader, L"cs");
 }
 
-static UINT NextPow2(UINT v)
-{
-	// TODO: C++20
-	// return v <= 1 ? 1 : std::bit_ceil(v);
-	if (v <= 1)
-		return 1;
-
-	--v;
-	v |= v >> 1;
-	v |= v >> 2;
-	v |= v >> 4;
-	v |= v >> 8;
-	v |= v >> 16;
-
-	return ++v;
-}
-
 ID3D11Buffer* HackerContext::GetReadbackBuffer(UINT size)
 {
 	// Round the requested size up to the next power of two so buffers
 	// can be reused across similarly sized requests instead of creating
 	// a unique staging buffer for every size.
-	UINT bucket = NextPow2(size);
+	UINT bucket = (UINT)decltype(mReadbackBuffers)::NextPow2(size);
 
 	// Reuse an existing staging buffer for this size bucket if available.
 	ID3D11Buffer** existing = mReadbackBuffers.find_ptr(bucket);
@@ -864,8 +856,10 @@ void HackerContext::OverrideInputLayout()
 
 	LogDebug("HackerContext::OverrideInputLayout(%s@%p) called mOverrideInputLayout=%p\n", type_name(this), this, mOverrideInputLayout);
 
-	if (mOriginalInputLayout == nullptr)
+	if (mOriginalInputLayout == nullptr && mCurrentInputLayout) {
 		mOriginalInputLayout = mCurrentInputLayout;
+		mOriginalInputLayout->AddRef();
+	}
 
 	IASetInputLayout(mOverrideInputLayout->GetOrigInputLayout());
 }
@@ -878,12 +872,14 @@ void HackerContext::RestoreInputLayout()
 		return;
 
 	mOverrideInputLayout->Release();
-
-	ID3D11InputLayout *orig = mOriginalInputLayout ? mOriginalInputLayout->GetOrigInputLayout() : nullptr;
-	IASetInputLayout(orig);
-
 	mOverrideInputLayout = nullptr;
-	mOriginalInputLayout = nullptr;
+
+	if (mOriginalInputLayout) {
+		ID3D11InputLayout *orig = mOriginalInputLayout->GetOrigInputLayout();
+		IASetInputLayout(orig);
+		mOriginalInputLayout->Release();
+		mOriginalInputLayout = nullptr;
+	}
 }
 
 void HackerContext::BeforeDraw(DrawContext &data)
@@ -1095,9 +1091,9 @@ void HackerContext::BeforeDraw(DrawContext &data)
 			data.post_commands[4] = &i->second.post_command_list;
 			ProcessShaderOverride(&i->second, true, &data);
 		}
-
-		OverrideInputLayout();
 	}
+
+	OverrideInputLayout();
 
 out_profile:
 	if (Profiling::mode == Profiling::Mode::SUMMARY)
@@ -1136,10 +1132,8 @@ void HackerContext::AfterDraw(DrawContext &data)
 			ret->Release();
 	}
 
-	if (mOriginalInputLayout != nullptr) {
+	if (mOverrideInputLayout != nullptr)
 		RestoreInputLayout();
-		mOriginalInputLayout = nullptr;
-	}
 
 	if (Profiling::mode == Profiling::Mode::SUMMARY)
 		Profiling::end(&profiling_state, &Profiling::draw_overhead);

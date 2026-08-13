@@ -1,5 +1,6 @@
 #include <util.h>
 
+#include <atomic>
 #include <sddl.h>
 #include <io.h>
 #include <fcntl.h>
@@ -786,7 +787,7 @@ uint32_t popcount(uint32_t x)
 	return count;
 }
 
-static uint32_t random_call_counter = 0;
+static std::atomic<uint32_t> random_call_counter{0};
 
 static uint32_t hash32(uint32_t x)
 {
@@ -807,7 +808,7 @@ float random(float max)
 	max = fabs(max);
 
 	uint32_t seed = G->frame_no;
-	seed += 0x9e3779b9 * random_call_counter++;
+	seed += 0x9e3779b9 * random_call_counter.fetch_add(1, std::memory_order_relaxed);
 	seed ^= G->gSystemTickCount;
 
 	uint32_t value = hash32(seed);

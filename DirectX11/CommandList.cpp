@@ -25,6 +25,24 @@ CustomShaders customShaders;
 ExplicitCommandListSections explicitCommandListSections;
 CommandListVariables command_list_globals;
 std::vector<CommandListVariable*> persistent_variables;
+
+void CommandListVariable::CopyStateFrom(const CommandListVariable& src)
+{
+	const bool was_persist = !!(flags & VariableFlags::PERSIST);
+	const bool now_persist = !!(src.flags & VariableFlags::PERSIST);
+
+	fval = src.fval;
+	flags = src.flags;
+
+	if (now_persist && !was_persist) {
+		persistent_variables.push_back(this);
+	} else if (was_persist && !now_persist) {
+		auto it = std::find(persistent_variables.begin(), persistent_variables.end(), this);
+		if (it != persistent_variables.end())
+			persistent_variables.erase(it);
+	}
+}
+
 std::vector<CommandList*> registered_command_lists;
 std::unordered_set<CommandList*> command_lists_profiling;
 std::unordered_set<CommandListCommand*> command_lists_cmd_profiling;

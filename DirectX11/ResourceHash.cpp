@@ -1,7 +1,11 @@
 #include "ResourceHash.h"
 
 #include <INITGUID.h>
+#include <algorithm>
+#include <limits>
+#include <memory>
 #include <new>
+#include <stdlib.h>
 #include "log.h"
 #include "util.h"
 #include "globals.h"
@@ -2146,7 +2150,8 @@ static bool CacheBufferData(HackerContext* context, ID3D11Buffer* buffer, Resour
 
 	// Allocate a CPU-owned copy. The mapped staging memory becomes invalid
 	// after Unmap(), so the contents must be copied before releasing it.
-	void* copy = malloc(desc.ByteWidth);
+	// SetDataCache copies these bytes; this buffer is only a temporary.
+	std::unique_ptr<void, decltype(&free)> copy(malloc(desc.ByteWidth), free);
 	if (!copy) {
 		LogInfo("CacheBufferData: Out of memory\n");
 		return false;
@@ -2170,19 +2175,18 @@ static bool CacheBufferData(HackerContext* context, ID3D11Buffer* buffer, Resour
 
 	if (FAILED(hr)) {
 		LogInfo("CacheBufferData: Map(D3D11_MAP_READ) failed (hr=0x%08X)\n", hr);
-		free(copy);
 		return false;
 	}
 
 	// Preserve the contents before unmapping the staging resource.
-	memcpy(copy, mapped.pData, desc.ByteWidth);
+	memcpy(copy.get(), mapped.pData, desc.ByteWidth);
 
 	context->Unmap(staging, 0);
 
 	// Store a CPU copy of the entire buffer so region hashes can be
 	// computed without re-mapping the resource multiple times.
 	EnterCriticalSectionPretty(&G->mCriticalSection);
-	handle_info->SetDataCache(copy, desc.ByteWidth);
+	handle_info->SetDataCache(copy.get(), desc.ByteWidth);
 	LeaveCriticalSection(&G->mCriticalSection);
 
 	//handle_info->cached_data_hash = crc32c_hw(0, handle_info->cached_data, handle_info->cached_data_size);
@@ -2507,8 +2511,8 @@ uint32_t GetSpatialHash(HackerContext* context, ID3D11Buffer* buffer, UINT offse
 		return 0;
 	}
 
-	// Use zero size to share the cache with region hashes, which are always non-zero.
-	uint32_t size = 0;
+	// L2 key must include all four spatial inputs so distinct regions
+	// and cell sizes cannot reuse another region's cached hash.
 
 	// Lookup offset in fast L3 cache without any locking involved.
 	//RegionHashKeyL3 level_3_cache_key{ (uint64_t)buffer, offset_x, size };
@@ -2530,7 +2534,10 @@ uint32_t GetSpatialHash(HackerContext* context, ID3D11Buffer* buffer, UINT offse
 	uint32_t hash;
 
 	// Lookup offset in L2 cache. This one is slower and requires `handle_info` lookup.
-	RegionHashKeyL2 level_2_cache_key{ (uint64_t)offset_x, size };
+	RegionHashKeyL2 level_2_cache_key{
+		offset_x ^ (offset_y * 0x9e3779b9u) ^ (offset_z * 0x85ebca6bu),
+		BitCastToUint(cell_size)
+	};
 	hash = handle_info->GetCachedRegionHash(level_2_cache_key);
 	if (hash) {
 		//region_hashes_global_cache.insert(level_3_cache_key, hash);
@@ -2557,10 +2564,15 @@ uint32_t GetSpatialHash(HackerContext* context, ID3D11Buffer* buffer, UINT offse
 	}
 
 	// Calculate the minimal buffer size required to fit requested X Y Z offsets.
-	UINT min_buffer_size = max(offset_x, offset_y, offset_z) * 4 + 4;
+	const size_t max_offset = (std::max)((std::max)((size_t)offset_x, (size_t)offset_y), (size_t)offset_z);
+	if (max_offset > ((std::numeric_limits<size_t>::max)() - 4) / 4) {
+		LeaveCriticalSection(&G->mCriticalSection);
+		return 0;
+	}
+	const size_t min_buffer_size = max_offset * 4 + 4;
 
-	// Ensure upper bound does not exceed buffer size.
-	if (min_buffer_size >= handle_info->cached_data_size) {
+	// Exact-fit buffers are valid (last float occupies the final 4 bytes).
+	if (min_buffer_size > handle_info->cached_data_size) {
 		LeaveCriticalSection(&G->mCriticalSection);
 		return 0;
 	}

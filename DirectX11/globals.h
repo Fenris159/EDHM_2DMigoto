@@ -412,7 +412,7 @@ struct Globals
 	// 64-bit so elapsed-time arithmetic does not wrap after ~49.7 days:
 	ULONGLONG ticks_at_launch;
 	std::wstring additionalForegroundWindowTitle;
-	const std::wstring gDefaultNamespace = L"d3dx.ini";
+	static const std::wstring gDefaultNamespace;
 
 	wchar_t SHADER_PATH[MAX_PATH];
 	wchar_t SHADER_CACHE_PATH[MAX_PATH];

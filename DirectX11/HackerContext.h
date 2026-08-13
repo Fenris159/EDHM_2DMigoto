@@ -144,8 +144,8 @@ private:
 	typedef std::unordered_map<ID3D11Resource*, MappedResourceInfo> MappedResources;
 	MappedResources mMappedResources;
 
-	unsigned draw_number;
-	unsigned dispatch_number;
+	unsigned draw_number = 0;
+	unsigned dispatch_number = 0;
 
 	FlatHashMap<UINT, ID3D11Buffer*> mReadbackBuffers = FlatHashMap<UINT, ID3D11Buffer*>(64);
 

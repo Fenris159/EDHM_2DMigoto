@@ -604,8 +604,8 @@ cs-cb0 = ref vs-cb0->Region($off, 16)
 $h = vs-cb0->HashRegion(0, 64)
 ```
 
-`#stride` on a resource is the older alias for size/index in some pool paths;
-prefer `->Size` / `->Index`.
+Use `#PoolName` for pool size (slot count) and `->Stride` for a resource's
+structured stride.
 
 ---
 
@@ -670,7 +670,7 @@ Precedence high → low (same idea as C / HLSL):
 | Shift | `<<` `>>` |
 | Compare | `<` `<=` `>` `>=` |
 | Equality | `==` `!=` `===` (bitwise identical) `!==` |
-| Bitwise | `&` `^` `|` |
+| Bitwise | `&` `^` `\|` |
 | Logic | `&&` `\|\|` |
 
 `ps-t0` is one token (resource slot), not `ps` minus `t0`. Write `ps - t0` if

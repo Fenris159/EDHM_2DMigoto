@@ -37,6 +37,7 @@
 // needing to change every reference.
 Globals StaticG;
 Globals *G = &StaticG;
+const std::wstring Globals::gDefaultNamespace = L"d3dx.ini";
 
 FILE *LogFile = 0;		// off by default.
 bool gLogDebug = false;

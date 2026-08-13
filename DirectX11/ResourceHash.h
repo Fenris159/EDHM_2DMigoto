@@ -180,19 +180,25 @@ public:
 	{
 		size_t idx = hasher(key) & mask;
 
-		// Find the entry
-		while (true)
+		// Find the entry. Bound probes like find() so a corrupt or full
+		// table cannot loop indefinitely.
+		bool found = false;
+		for (size_t probes = 0; probes < table.size(); ++probes)
 		{
 			Entry& e = table[idx];
 
 			if (e.generation != current_generation)
 				return false;
 
-			if (e.key == key)
+			if (e.key == key) {
+				found = true;
 				break;
+			}
 
 			idx = (idx + 1) & mask;
 		}
+		if (!found)
+			return false;
 
 		// Remove and compact the cluster
 		size_t hole = idx;
@@ -608,7 +614,6 @@ uint32_t CalcTexture3DDataHash(const D3D11_TEXTURE3D_DESC *pDesc, const D3D11_SU
 ResourceHandleInfo* GetResourceHandleInfo(ID3D11Resource *resource);
 uint32_t GetOrigResourceHash(ID3D11Resource *resource);
 uint32_t GetResourceHash(ID3D11Resource *resource);
-static bool CacheBufferData(HackerContext* context, ID3D11Buffer* buffer, ResourceHandleInfo* info);
 void ClearResourceRegionHashCache(ID3D11Resource* resource);
 UINT GetVertexBufferRegionOffset(UINT stride, DrawCallInfo* call_info, UINT byte_offset);
 UINT GetIndexBufferRegionOffset(DXGI_FORMAT format, DrawCallInfo* call_info, UINT byte_offset);

@@ -46,7 +46,7 @@ void Override::ParseIniSection(LPCWSTR section)
 			}
 		} else if (entry->first.c_str()[0] == L'$') {
 			CommandArgumentReader args(L"preset", entry->first, section, &entry->ini_namespace, nullptr);
-			if (!args.GetVariable(var, false))
+			if (!args.GetVariable(var, false) || !args.Finished())
 			{
 				args.Fail();
 				continue;
@@ -264,7 +264,7 @@ void KeyOverrideCycle::ParseIniSection(LPCWSTR section)
 			GetIniString(section, entry->first.c_str(), 0, &param_bufs[OverrideParam(param_idx, param_component)].buf);
 		} else if (entry->first.c_str()[0] == L'$') {
 			CommandArgumentReader args(L"key", entry->first, section, &entry->ini_namespace, nullptr);
-			if (!args.GetVariable(var, false))
+			if (!args.GetVariable(var, false) || !args.Finished())
 			{
 				args.Fail();
 				continue;

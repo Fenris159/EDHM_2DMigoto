@@ -14,7 +14,7 @@
 #include "HackerInputLayout.h"
 
 // Used to prevent typos leading to infinite recursion (or at least overflowing
-// the real stack) due to a section running itself or a circular reference. 64
+// the real stack) due to a section running itself or a circular reference. 256
 // should be more than generous - I don't want it to be too low and stifle
 // people's imagination, but I'd be very surprised if anyone ever has a
 // legitimate need to exceed this:
@@ -138,11 +138,7 @@ public:
 		name(name), fval(fval), flags(flags)
 	{}
 
-	void CopyStateFrom(const CommandListVariable& src)
-	{
-		fval = src.fval;
-		flags = src.flags;
-	}
+	void CopyStateFrom(const CommandListVariable& src);
 };
 
 typedef std::unordered_map<std::wstring, class CommandListVariable> CommandListVariables;
@@ -190,7 +186,7 @@ public:
 
 	bool SetSourceCommandList(CommandList* source);
 	CommandList* ResolveCommandList();
-	bool CommandList::noop();
+	bool noop();
 
 	CommandList() :
 		post(false),
@@ -648,7 +644,7 @@ public:
 	bool element_type_switch_reset = true;
 	bool allocate_slot_on_missing = false;
 	unsigned expiration_timeout_frames = UINT32_MAX;
-	bool reset_expired_elements = false;
+	bool reset_expired_elements = true;
 	bool read_refreshes_expiration = false;
 	uint32_t spatial_radius = 0;
 
@@ -1014,7 +1010,7 @@ class PoolCopyOperation : public CommandListCommand {
 public:
 	ResourceCopyTarget src;
 	ResourceCopyTarget dst;
-	ResourceCopyOptions options;
+	ResourceCopyOptions options = ResourceCopyOptions::INVALID;
 
 	void CopyPoolToPool(CommandListState* state);
 
@@ -1567,8 +1563,8 @@ public:
 class CopyCommandListCommand : public CommandListCommand
 {
 public:
-	ExplicitCommandListSection* dst;
-	ExplicitCommandListSection* src;
+	ExplicitCommandListSection* dst = nullptr;
+	ExplicitCommandListSection* src = nullptr;
 
 	virtual void run(CommandListState* state) override;
 
@@ -1672,7 +1668,7 @@ private:
 	CommandListScope* m_scope;
 	const wchar_t* m_command;
 
-	const wstring& m_input;
+	wstring m_input;
 	size_t m_pos;
 
 	wstring m_peek_token;
