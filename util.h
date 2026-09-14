@@ -135,7 +135,11 @@ static uint32_t crc32c_hw(uint32_t seed, const void *buffer, size_t length)
 // Returns a pointer to the last non-nullptr character of the truncated string.
 static char *RightStripA(char *buf)
 {
-	char *end = buf + strlen(buf) - 1;
+	const size_t length = strlen(buf);
+	if (length == 0)
+		return buf;
+
+	char *end = buf + length - 1;
 	while (end > buf && isspace(*end))
 		end--;
 	*(end + 1) = 0;

@@ -897,13 +897,12 @@ static bool ReloadShader(wchar_t *shaderPath, wchar_t *fileName, HackerDevice *d
 		}
 	} // for every registered shader in mReloadedShaders
 
-out:
 	LeaveCriticalSection(&G->mCriticalSection);
 
 	return rc;
 err:
-	rc = false;
-	goto out;
+	LeaveCriticalSection(&G->mCriticalSection);
+	return false;
 }
 
 static bool WriteASM(string *asmText, string *hlslText, string *errText, UINT64 hash, OriginalShaderInfo shader_info,

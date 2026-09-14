@@ -76,3 +76,9 @@ restyled by this repository.
 
 No analyzer warning may be hidden solely to make a check pass. False positives
 must be reviewed individually and documented in SonarCloud.
+
+The only repository-level Sonar exception is `cppsecurity:S2083` in
+`DirectX11/HackerDevice.cpp` and `DirectX11/Hunting.cpp`. Sonar reports shader
+byte buffers passed to `fwrite` as filesystem paths. Those values are file
+contents rather than path components, so path traversal is impossible at the
+reported sinks.

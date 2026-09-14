@@ -5234,24 +5234,38 @@ void LoadConfigFile()
 		char buf[MAX_PATH];
 		wcstombs(buf, setting, MAX_PATH);
 		char *end = RightStripA(buf);
-		G->decompiler_settings.ZRepair_DepthTextureReg1 = *end;
-		*(end - 1) = 0;
-		char *start = buf;
-		while (isspace(*start))
-			start++;
-		G->decompiler_settings.ZRepair_DepthTexture1 = start;
+		if (end == buf)
+		{
+			LogInfo("WARNING: Invalid fix_ZRepair_DepthTexture1 value: %S\n", setting);
+		}
+		else
+		{
+			G->decompiler_settings.ZRepair_DepthTextureReg1 = *end;
+			*(end - 1) = 0;
+			char *start = buf;
+			while (isspace(*start))
+				start++;
+			G->decompiler_settings.ZRepair_DepthTexture1 = start;
+		}
 	}
 	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_DepthTexture2", nullptr, setting, MAX_PATH))
 	{
 		char buf[MAX_PATH];
 		wcstombs(buf, setting, MAX_PATH);
 		char *end = RightStripA(buf);
-		G->decompiler_settings.ZRepair_DepthTextureReg2 = *end;
-		*(end - 1) = 0;
-		char *start = buf;
-		while (isspace(*start))
-			start++;
-		G->decompiler_settings.ZRepair_DepthTexture2 = start;
+		if (end == buf)
+		{
+			LogInfo("WARNING: Invalid fix_ZRepair_DepthTexture2 value: %S\n", setting);
+		}
+		else
+		{
+			G->decompiler_settings.ZRepair_DepthTextureReg2 = *end;
+			*(end - 1) = 0;
+			char *start = buf;
+			while (isspace(*start))
+				start++;
+			G->decompiler_settings.ZRepair_DepthTexture2 = start;
+		}
 	}
 	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_ZPosCalc1", nullptr, setting, MAX_PATH))
 		G->decompiler_settings.ZRepair_ZPosCalc1 = readStringParameter(setting);

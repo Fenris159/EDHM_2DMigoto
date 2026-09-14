@@ -1603,6 +1603,7 @@ class Decompiler
 							mCBufferData[offsetPos] = e;
 							if (structLevel >= 0)
 								pendingStructAttributes[structLevel].push_back(offsetPos);
+							[[fallthrough]];
 						case DT_float4x3:
 						case DT_float3x3:
 							e.matrixRow = 2;
@@ -1610,6 +1611,7 @@ class Decompiler
 							mCBufferData[offsetPos] = e;
 							if (structLevel >= 0)
 								pendingStructAttributes[structLevel].push_back(offsetPos);
+							[[fallthrough]];
 						case DT_float4x2:
 							e.matrixRow = 1;
 							offsetPos = (bufferRegister << 16) + offset + i * counter + 1 * 16;
@@ -3710,17 +3712,23 @@ class Decompiler
 					if (pos)
 					{
 						char *bpos = pos;
-						while (*--bpos != ' ')
-							;
+						while (bpos > mOutput.data() && bpos[-1] != ' ')
+							--bpos;
+						if (bpos == mOutput.data())
+						{
+							logDecompileError("Malformed position register declaration");
+							mOutput.pop_back();
+							return;
+						}
 						char buf[512];
-						const size_t registerNameLength = static_cast<size_t>(pos - (bpos + 1));
+						const size_t registerNameLength = static_cast<size_t>(pos - bpos);
 						if (registerNameLength >= sizeof(buf))
 						{
 							logDecompileError("Position register name is too long");
 							mOutput.pop_back();
 							return;
 						}
-						memcpy(buf, bpos + 1, registerNameLength);
+						memcpy(buf, bpos, registerNameLength);
 						buf[registerNameLength] = 0;
 						applySwizzle(".xyz", buf);
 						char calcStatement[256];
