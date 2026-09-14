@@ -425,7 +425,7 @@ void KeyOverrideCycle::UpdateCurrent(HackerDevice *device)
 		if (static_cast<int>(i) != current && presets[i].MatchesCurrent(device))
 		{
 			LogInfo("Resynced key cycle: %i -> %i\n", current, i);
-			current = i;
+			current = static_cast<int>(i);
 			return;
 		}
 	}
@@ -442,7 +442,7 @@ void KeyOverrideCycle::DownEvent(HackerDevice *device)
 	if (current == -1)
 		current = 0;
 	else if (wrap)
-		current = (current + 1) % presets.size();
+		current = static_cast<int>((current + 1) % presets.size());
 	else if ((unsigned)current < presets.size() - 1)
 		current++;
 	else

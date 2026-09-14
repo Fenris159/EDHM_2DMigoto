@@ -356,7 +356,7 @@ void HackerContext::RecordGraphicsShaderStats()
 				{
 					resource = RecordResourceViewStats(uavs[i], &G->mUnorderedAccessInfo);
 					if (resource)
-						info->UAVs[i + mCurrentPSUAVStartSlot].insert(SnapshotResource(resource));
+						info->UAVs[static_cast<int>(i + mCurrentPSUAVStartSlot)].insert(SnapshotResource(resource));
 
 					uavs[i]->Release();
 				}
@@ -397,7 +397,7 @@ void HackerContext::RecordComputeShaderStats()
 		{
 			resource = RecordResourceViewStats(uavs[i], &G->mUnorderedAccessInfo);
 			if (resource)
-				info->UAVs[i].insert(SnapshotResource(resource));
+				info->UAVs[static_cast<int>(i)].insert(SnapshotResource(resource));
 
 			uavs[i]->Release();
 		}
@@ -475,17 +475,17 @@ void HackerContext::RecordDepthStencil(ID3D11DepthStencilView *target)
 ID3D11VertexShader *HackerContext::SwitchVSShader(ID3D11VertexShader *shader)
 {
 
-	ID3D11VertexShader *pVertexShader;
-	ID3D11ClassInstance *pClassInstances;
-	UINT NumClassInstances = 0;
+	ID3D11VertexShader *pVertexShader = nullptr;
+	std::array<ID3D11ClassInstance *, D3D11_SHADER_MAX_INTERFACES> pClassInstances{};
+	UINT NumClassInstances = static_cast<UINT>(pClassInstances.size());
 	UINT i;
 
 	// We can possibly save the need to get the current shader by saving the ClassInstances
-	mOrigContext1->VSGetShader(&pVertexShader, &pClassInstances, &NumClassInstances);
-	mOrigContext1->VSSetShader(shader, &pClassInstances, NumClassInstances);
+	mOrigContext1->VSGetShader(&pVertexShader, pClassInstances.data(), &NumClassInstances);
+	mOrigContext1->VSSetShader(shader, pClassInstances.data(), NumClassInstances);
 
 	for (i = 0; i < NumClassInstances; i++)
-		pClassInstances[i].Release();
+		pClassInstances[i]->Release();
 
 	return pVertexShader;
 }
@@ -493,17 +493,17 @@ ID3D11VertexShader *HackerContext::SwitchVSShader(ID3D11VertexShader *shader)
 ID3D11PixelShader *HackerContext::SwitchPSShader(ID3D11PixelShader *shader)
 {
 
-	ID3D11PixelShader *pPixelShader;
-	ID3D11ClassInstance *pClassInstances;
-	UINT NumClassInstances = 0;
+	ID3D11PixelShader *pPixelShader = nullptr;
+	std::array<ID3D11ClassInstance *, D3D11_SHADER_MAX_INTERFACES> pClassInstances{};
+	UINT NumClassInstances = static_cast<UINT>(pClassInstances.size());
 	UINT i;
 
 	// We can possibly save the need to get the current shader by saving the ClassInstances
-	mOrigContext1->PSGetShader(&pPixelShader, &pClassInstances, &NumClassInstances);
-	mOrigContext1->PSSetShader(shader, &pClassInstances, NumClassInstances);
+	mOrigContext1->PSGetShader(&pPixelShader, pClassInstances.data(), &NumClassInstances);
+	mOrigContext1->PSSetShader(shader, pClassInstances.data(), NumClassInstances);
 
 	for (i = 0; i < NumClassInstances; i++)
-		pClassInstances[i].Release();
+		pClassInstances[i]->Release();
 
 	return pPixelShader;
 }
@@ -1553,24 +1553,27 @@ void HackerContext::TrackAndDivertMap(HRESULT map_hr, ID3D11Resource *pResource,
 	case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
 		tex1d = (ID3D11Texture1D *)pResource;
 		tex1d->GetDesc(&tex1d_desc);
-		map_info->size = dxgi_format_size(tex1d_desc.Format) * tex1d_desc.Width;
+		map_info->size = static_cast<size_t>(dxgi_format_size(tex1d_desc.Format)) * tex1d_desc.Width;
 		map_info->bind_flags = tex1d_desc.BindFlags;
 		break;
 	case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
 		tex2d = (ID3D11Texture2D *)pResource;
 		tex2d->GetDesc(&tex2d_desc);
-		map_info->size = pMappedResource->RowPitch * tex2d_desc.Height;
+		map_info->size = static_cast<size_t>(pMappedResource->RowPitch) * tex2d_desc.Height;
 		map_info->bind_flags = tex2d_desc.BindFlags;
 		break;
 	case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
 		tex3d = (ID3D11Texture3D *)pResource;
 		tex3d->GetDesc(&tex3d_desc);
-		map_info->size = pMappedResource->DepthPitch * tex3d_desc.Depth;
+		map_info->size = static_cast<size_t>(pMappedResource->DepthPitch) * tex3d_desc.Depth;
 		map_info->bind_flags = tex3d_desc.BindFlags;
 		break;
 	default:
 		goto out_profile;
 	}
+
+	if (map_info->size == 0)
+		goto out_profile;
 
 	replace = malloc(map_info->size);
 	if (!replace)
@@ -3365,7 +3368,7 @@ void HackerContext::SetShaderResources(UINT StartSlot, UINT NumViews,
 		if (!override_srvs)
 		{
 			override_srvs = new ID3D11ShaderResourceView *[NumViews];
-			memcpy(override_srvs, ppShaderResourceViews, sizeof(ID3D11ShaderResourceView *) * NumViews);
+			std::copy_n(ppShaderResourceViews, NumViews, override_srvs);
 		}
 		override_srvs[G->IniParamsReg - StartSlot] = mHackerDevice->mIniResourceView;
 	}

@@ -801,8 +801,8 @@ STDMETHODIMP HackerSwapChain::ResizeBuffers(THIS_
 
 	if (G->mResolutionInfo.from == GetResolutionFrom::SWAP_CHAIN)
 	{
-		G->mResolutionInfo.width = Width;
-		G->mResolutionInfo.height = Height;
+		G->mResolutionInfo.width = static_cast<int>(Width);
+		G->mResolutionInfo.height = static_cast<int>(Height);
 		LogInfo("  Got resolution from swap chain: %ix%i\n", G->mResolutionInfo.width, G->mResolutionInfo.height);
 	}
 
@@ -1312,13 +1312,13 @@ STDMETHODIMP HackerUpscalingSwapChain::ResizeBuffers(THIS_
 	// Future work: not sure if it belongs here, in the resize target function or in both
 	// or maybe it is better to put it in the getviewport function?
 	// Require in case the software mouse and upscaling are on at the same time
-	G->GAME_INTERNAL_WIDTH = Width;
-	G->GAME_INTERNAL_HEIGHT = Height;
+	G->GAME_INTERNAL_WIDTH = static_cast<int>(Width);
+	G->GAME_INTERNAL_HEIGHT = static_cast<int>(Height);
 
 	if (G->mResolutionInfo.from == GetResolutionFrom::SWAP_CHAIN)
 	{
-		G->mResolutionInfo.width = Width;
-		G->mResolutionInfo.height = Height;
+		G->mResolutionInfo.width = static_cast<int>(Width);
+		G->mResolutionInfo.height = static_cast<int>(Height);
 		LogInfo("Got resolution from swap chain: %ix%i\n", G->mResolutionInfo.width, G->mResolutionInfo.height);
 	}
 
@@ -1376,8 +1376,8 @@ STDMETHODIMP HackerUpscalingSwapChain::ResizeTarget(THIS_
 	// Future work: not sure if it belongs here, in the resize buffers function or in both
 	// or maybe it is better to put it in the getviewport function?
 	// Require in case the software mouse and upscaling are on at the same time
-	G->GAME_INTERNAL_WIDTH = pNewTargetParameters->Width;
-	G->GAME_INTERNAL_HEIGHT = pNewTargetParameters->Height;
+	G->GAME_INTERNAL_WIDTH = static_cast<int>(pNewTargetParameters->Width);
+	G->GAME_INTERNAL_HEIGHT = static_cast<int>(pNewTargetParameters->Height);
 
 	// Some games like Witcher seems to drop fullscreen everytime the resizetarget is called (original one)
 	// Some other games seems to require the function

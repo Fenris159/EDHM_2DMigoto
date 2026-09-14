@@ -43,10 +43,11 @@ HackerInputLayout *HackerInputLayout::FromLayout(ID3D11InputLayout *layout)
 		return nullptr;
 
 	IUnknown *private_data = nullptr;
-	UINT size = sizeof(private_data);
+	UINT size = sizeof(IUnknown *);
 	// Works whether `layout` is our wrapper (GetPrivateData forwards to orig)
 	// or the original layout we created (private data set in constructor).
-	if (SUCCEEDED(layout->GetPrivateData(GUID_HackerInputLayout, &size, &private_data)) && private_data)
+	if (SUCCEEDED(layout->GetPrivateData(GUID_HackerInputLayout, &size, static_cast<void *>(&private_data))) &&
+	    private_data)
 	{
 		HackerInputLayout *hacker = nullptr;
 		HRESULT hr = private_data->QueryInterface(GUID_HackerInputLayout, reinterpret_cast<void **>(&hacker));

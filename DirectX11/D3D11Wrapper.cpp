@@ -690,7 +690,7 @@ static HackerDevice *wrap_d3d11_device_and_context(ID3D11Device **ppDevice, ID3D
 		// SetPrivateDataInterface for now because I suspect that will
 		// screw up refcounting (though it might be worthwhile using it
 		// to ensure we always get notification of device release):
-		origDevice1->SetPrivateData(IID_HackerDevice, sizeof(HackerDevice *), &deviceWrap);
+		origDevice1->SetPrivateData(IID_HackerDevice, sizeof(HackerDevice *), static_cast<const void *>(&deviceWrap));
 	}
 
 	// Create a wrapped version of the original context to return to the game.

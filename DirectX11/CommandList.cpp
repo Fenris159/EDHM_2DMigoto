@@ -246,7 +246,7 @@ static bool MatchesInputLayoutOverride(const D3D11_INPUT_ELEMENT_DESC &element,
 		if (!element.SemanticName)
 			return false;
 
-		if (strcmp(match.semantic_name.c_str(), element.SemanticName))
+		if (strcmp(match.semantic_name.c_str(), element.SemanticName) != 0)
 			return false;
 	}
 
@@ -552,7 +552,7 @@ void optimise_command_lists(HackerDevice *device)
 				{
 					LogInfo("Optimised out %s %S\n", command_list->post ? "post" : "pre",
 					        command_list->commands[i]->ini_line.c_str());
-					command_list->commands.erase(command_list->commands.begin() + i);
+					command_list->commands.erase(std::next(command_list->commands.begin(), static_cast<ptrdiff_t>(i)));
 					making_progress = true;
 					continue;
 				}
@@ -1656,9 +1656,9 @@ void DrawCommand::run(CommandListState *state)
 		case DrawCall::DrawIndexedInstanced:
 			COMMAND_LIST_LOG(state, "[%S] Draw = from_caller -> DrawIndexedInstanced(%u, %u, %u, %i, %u)\n",
 			                 ini_section.c_str(), info->IndexCount, info->InstanceCount, info->FirstIndex,
-			                 info->FirstVertex, info->FirstInstance);
+			                 static_cast<INT>(info->FirstVertex), info->FirstInstance);
 			mOrigContext1->DrawIndexedInstanced(info->IndexCount, info->InstanceCount, info->FirstIndex,
-			                                    info->FirstVertex, info->FirstInstance);
+			                                    static_cast<INT>(info->FirstVertex), info->FirstInstance);
 			break;
 		case DrawCall::DrawInstanced:
 			COMMAND_LIST_LOG(state, "[%S] Draw = from_caller -> DrawInstanced(%u, %u, %u, %u)\n", ini_section.c_str(),
@@ -1669,7 +1669,7 @@ void DrawCommand::run(CommandListState *state)
 		case DrawCall::DrawIndexed:
 			COMMAND_LIST_LOG(state, "[%S] Draw = from_caller -> DrawIndexed(%u, %u, %i)\n", ini_section.c_str(),
 			                 info->IndexCount, info->FirstIndex, info->FirstVertex);
-			mOrigContext1->DrawIndexed(info->IndexCount, info->FirstIndex, info->FirstVertex);
+			mOrigContext1->DrawIndexed(info->IndexCount, info->FirstIndex, static_cast<INT>(info->FirstVertex));
 			break;
 		case DrawCall::Draw:
 			COMMAND_LIST_LOG(state, "[%S] Draw = from_caller -> Draw(%u, %u)\n", ini_section.c_str(), info->VertexCount,
@@ -2461,21 +2461,23 @@ void CustomShader::substantiate(ID3D11Device *mOrigDevice1)
 // Similar to memcpy, but also takes a mask. Any bits in the mask that are set
 // to 0 will be unchanged in the destination, while bits that are set to 1 will
 // be copied from the source buffer.
-static void memcpy_masked_merge(void *dest, void *src, void *mask, size_t n)
+static void memcpy_masked_merge(void *dest, const void *src, const void *mask, size_t n)
 {
-	char *c_dest = (char *)dest;
-	char *c_src = (char *)src;
-	char *c_mask = (char *)mask;
+	auto *c_dest = static_cast<unsigned char *>(dest);
+	const auto *c_src = static_cast<const unsigned char *>(src);
+	const auto *c_mask = static_cast<const unsigned char *>(mask);
 	size_t i;
 
 	for (i = 0; i < n; i++)
-		c_dest[i] = c_dest[i] & ~c_mask[i] | c_src[i] & c_mask[i];
+		c_dest[i] =
+		    static_cast<unsigned char>((c_dest[i] & static_cast<unsigned char>(~c_mask[i])) | (c_src[i] & c_mask[i]));
 }
 
 void CustomShader::merge_blend_states(ID3D11BlendState *src_state, FLOAT src_blend_factor[4], UINT src_sample_mask,
                                       ID3D11Device *mOrigDevice1)
 {
-	D3D11_BLEND_DESC src_desc{};
+	D3D11_BLEND_DESC src_desc;
+	ZeroMemory(&src_desc, sizeof(src_desc));
 	int i;
 
 	if (blend_override != 2)
@@ -2513,7 +2515,7 @@ void CustomShader::merge_blend_states(ID3D11BlendState *src_state, FLOAT src_ble
 
 	for (i = 0; i < 4; i++)
 	{
-		if (blend_factor_merge_mask[i])
+		if (blend_factor_merge_mask[i] != 0.0f)
 			blend_factor[i] = src_blend_factor[i];
 	}
 	blend_sample_mask =
@@ -2525,7 +2527,8 @@ void CustomShader::merge_blend_states(ID3D11BlendState *src_state, FLOAT src_ble
 void CustomShader::merge_depth_stencil_states(ID3D11DepthStencilState *src_state, UINT src_stencil_ref,
                                               ID3D11Device *mOrigDevice1)
 {
-	D3D11_DEPTH_STENCIL_DESC src_desc{};
+	D3D11_DEPTH_STENCIL_DESC src_desc;
+	ZeroMemory(&src_desc, sizeof(src_desc));
 
 	if (depth_stencil_override != 2)
 		return;
@@ -2567,7 +2570,8 @@ void CustomShader::merge_depth_stencil_states(ID3D11DepthStencilState *src_state
 
 void CustomShader::merge_rasterizer_states(ID3D11RasterizerState *src_state, ID3D11Device *mOrigDevice1)
 {
-	D3D11_RASTERIZER_DESC src_desc{};
+	D3D11_RASTERIZER_DESC src_desc;
+	ZeroMemory(&src_desc, sizeof(src_desc));
 
 	if (rs_override != 2)
 		return;
@@ -3260,7 +3264,7 @@ static void _CreateTextureFromBitmap(HDC dc, BITMAP *bitmap_obj, HBITMAP hbitmap
 	// to be. Since we're using 32bpp, this shouldn't matter anyway:
 	data.SysMemPitch = ((bitmap_obj->bmWidth * bmp_info.biBitCount + 31) / 32) * 4;
 
-	data.pSysMem = new char[data.SysMemPitch * bitmap_obj->bmHeight];
+	data.pSysMem = new char[static_cast<size_t>(data.SysMemPitch) * bitmap_obj->bmHeight];
 
 	if (!GetDIBits(dc, hbitmap, 0, bmp_info.biHeight, (LPVOID)data.pSysMem, (BITMAPINFO *)&bmp_info, DIB_RGB_COLORS))
 	{
@@ -3492,9 +3496,7 @@ float CommandListOperand::evaluate(CommandListState *state, HackerDevice *device
 	float ftemp;
 	float fret;
 
-	if (state)
-		device = state->mHackerDevice;
-	else if (!device)
+	if (!state && !device)
 	{
 		LogOverlay(LOG_DIRE, "BUG: CommandListOperand::evaluate called with neither state nor device\n");
 		return 0;
@@ -5885,7 +5887,7 @@ bool CustomResource::AddFlags(D3D11_BIND_FLAG extra_bind_flags, D3D11_RESOURCE_M
 	{
 
 		// CBs are incompatible with every other bind flags.
-		if (bind_flags && bind_flags != D3D11_BIND_CONSTANT_BUFFER)
+		if (bind_flags != static_cast<D3D11_BIND_FLAG>(0) && bind_flags != D3D11_BIND_CONSTANT_BUFFER)
 		{
 			LogOverlayW(
 			    LOG_WARNING,
@@ -6539,7 +6541,7 @@ static ID3D11Resource *inter_device_resource_transfer(ID3D11Device *dst_dev, ID3
 	D3D11_RESOURCE_DIMENSION dimension;
 	D3D11_MAPPED_SUBRESOURCE src_map;
 	UINT item, level, index;
-	const char *reason = "";
+	const char *reason;
 
 	Profiling::inter_device_copies++;
 
@@ -7661,7 +7663,7 @@ IniParserResult ResourceCopyTarget::ParseTargetCustomResource(const wchar_t *&ta
                                                               CommandListScope *scope [[maybe_unused]])
 {
 	//LogInfo("ParseTargetCustomResource: target=%ls, length=%d\n", target, length);
-	if (length < 9 || wcsncmp(target, L"resource", 8))
+	if (length < 9 || wcsncmp(target, L"resource", 8) != 0)
 		return IniParserResult::TOKEN_NOT_FOUND;
 
 	// Exit early for non-resource type evaluation modes (essentially on invalid syntax)
@@ -7691,7 +7693,7 @@ IniParserResult ResourceCopyTarget::ParseTargetCustomResource(const wchar_t *&ta
 IniParserResult ResourceCopyTarget::ParseTargetPool(const wchar_t *&target, size_t length, const wstring *ini_namespace,
                                                     CommandListScope *scope, bool is_source)
 {
-	if (length < 5 || wcsncmp(target, L"pool", 4))
+	if (length < 5 || wcsncmp(target, L"pool", 4) != 0)
 		return IniParserResult::TOKEN_NOT_FOUND;
 
 	//LogInfo("ParseTargetPool: target=%ls, length=%d\n", target, length);
@@ -8769,7 +8771,7 @@ IfCommand::IfCommand(const wchar_t *section)
 
 void IfCommand::run(CommandListState *state)
 {
-	if (expression.evaluate(state))
+	if (expression.evaluate(state) != 0.0f)
 	{
 		COMMAND_LIST_LOG(state, "%S: true {\n", ini_line.c_str());
 		state->extra_indent++;
@@ -8819,7 +8821,7 @@ bool IfCommand::noop(bool post, bool ignore_cto_pre [[maybe_unused]], bool ignor
 	is_static = expression.static_evaluate(&static_val);
 	if (is_static)
 	{
-		if (static_val)
+		if (static_val != 0.0f)
 		{
 			false_commands_pre->clear();
 			false_commands_post->clear();

@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "float.h"
+#include "../numeric_parse.h"
 #include <cstring>
 
 #if MIGOTO_DX == 9
@@ -64,11 +65,11 @@ static DWORD strToDWORD(string s)
 	}
 	if (s.find('.') < s.size())
 	{
-		auto f = (float)atof(s.c_str());
+		auto f = (float)parse_double_or_zero(s.c_str());
 		auto *pF = (DWORD *)&f;
 		return *pF;
 	}
-	return atoi(s.c_str());
+	return parse_int_or_zero(s.c_str());
 }
 
 static uint64_t str_to_raw_double(string &s)
@@ -85,7 +86,7 @@ static uint64_t str_to_raw_double(string &s)
 		return (uint64_t)v1 | (uint64_t)v2 << 32;
 	}
 
-	d = atof(s.c_str());
+	d = parse_double_or_zero(s.c_str());
 	return *(uint64_t *)&d;
 }
 
@@ -124,7 +125,7 @@ static string convertF(DWORD original)
 		return string(buf);
 	}
 
-	exp = atoi(scientific_exp + 1);
+	exp = parse_int_or_zero(scientific_exp + 1);
 
 	switch (exp)
 	{
@@ -456,7 +457,7 @@ static vector<DWORD> assemble_cbvox_operand(string &s, vector<DWORD> &v, token_o
 				vector<DWORD> reg = assembleOp(sReg);
 				tOp->num_indices = 2;
 				tOp->index0_repr = 2;
-				int iAdd = atoi(sAdd.c_str());
+				int iAdd = parse_int_or_zero(sAdd.c_str());
 				if (iAdd)
 					tOp->index0_repr = 3;
 				if (index1.find('+') != string::npos)
@@ -465,7 +466,7 @@ static vector<DWORD> assemble_cbvox_operand(string &s, vector<DWORD> &v, token_o
 					string sAdd2 = index1.substr(index1.find(" + ") + 3);
 					vector<DWORD> reg2 = assembleOp(sReg2);
 					tOp->index1_repr = 2;
-					int iAdd2 = atoi(sAdd.c_str());
+					int iAdd2 = parse_int_or_zero(sAdd2.c_str());
 					if (iAdd2)
 						tOp->index1_repr = 3;
 					string swizzle = s.substr(s.find("].") + 2);
@@ -488,15 +489,15 @@ static vector<DWORD> assemble_cbvox_operand(string &s, vector<DWORD> &v, token_o
 					v.push_back(iAdd);
 				v.push_back(reg[0]);
 				v.push_back(reg[1]);
-				v.push_back(atoi(index1.c_str()));
+				v.push_back(parse_int_or_zero(index1.c_str()));
 				return v;
 			}
 			tOp->num_indices = 2;
 			string swizzle = s.substr(s.find('.') + 1);
 			handleSwizzle(swizzle, tOp, special);
 			v.insert(v.begin(), tOp->op);
-			v.push_back(atoi(index0.c_str()));
-			v.push_back(atoi(index1.c_str()));
+			v.push_back(parse_int_or_zero(index0.c_str()));
+			v.push_back(parse_int_or_zero(index1.c_str()));
 			return v;
 		}
 	}
@@ -537,12 +538,12 @@ static vector<DWORD> assemble_cbvox_operand(string &s, vector<DWORD> &v, token_o
 		if (index.find('+') < index.size())
 		{
 			string s2 = index.substr(index.find('+') + 2);
-			DWORD idx = atoi(s2.c_str());
+			DWORD idx = parse_int_or_zero(s2.c_str());
 			string s3 = index.substr(0, index.find('+') - 1);
 			vector<DWORD> reg = assembleOp(s3);
 			if (!sNum.empty())
 			{
-				num = atoi(sNum.c_str());
+				num = parse_int_or_zero(sNum.c_str());
 				v.push_back(num);
 			}
 			if (idx != 0)
@@ -569,8 +570,8 @@ static vector<DWORD> assemble_cbvox_operand(string &s, vector<DWORD> &v, token_o
 			v.insert(v.begin(), tOp->op);
 			return v;
 		}
-		DWORD idx = atoi(index.c_str());
-		num = atoi(sNum.c_str());
+		DWORD idx = parse_int_or_zero(index.c_str());
+		num = parse_int_or_zero(sNum.c_str());
 		v.push_back(num);
 		v.push_back(idx);
 		if (s.find('.') < s.size())
@@ -585,7 +586,7 @@ static vector<DWORD> assemble_cbvox_operand(string &s, vector<DWORD> &v, token_o
 		v.insert(v.begin(), tOp->op);
 		return v;
 	}
-	num = atoi(sNum.c_str());
+	num = parse_int_or_zero(sNum.c_str());
 	v.push_back(num);
 	handleSwizzle(s.substr(s.find('.') + 1), tOp, special);
 	v.insert(v.begin(), tOp->op);
@@ -779,7 +780,7 @@ static vector<DWORD> assembleOp(string s, bool special)
 	auto *tOp = (token_operand *)&op;
 	tOp->comps_enum = 2; // 4
 
-	num = atoi(s.c_str());
+	num = parse_int_or_zero(s.c_str());
 	if (num != 0)
 	{
 		v.push_back(num);
@@ -865,7 +866,7 @@ static vector<DWORD> assembleOp(string s, bool special)
 
 	s.erase(s.begin());
 	tOp->num_indices = 1;
-	num = atoi(s.substr(0, s.find('.')).c_str());
+	num = parse_int_or_zero(s.substr(0, s.find('.')).c_str());
 	v.push_back(num);
 	if (s.find('.') < s.size())
 	{
@@ -973,10 +974,10 @@ static vector<string> strToWords(string s)
 static DWORD parseAoffimmi(DWORD start, string o)
 {
 	string nums = o.substr(1, o.size() - 2);
-	int n1 = atoi(nums.substr(0, nums.find(',')).c_str());
+	int n1 = parse_int_or_zero(nums.substr(0, nums.find(',')).c_str());
 	nums = nums.substr(nums.find(',') + 1);
-	int n2 = atoi(nums.substr(0, nums.find(',')).c_str());
-	int n3 = atoi(nums.substr(nums.find(',') + 1).c_str());
+	int n2 = parse_int_or_zero(nums.substr(0, nums.find(',')).c_str());
+	int n3 = parse_int_or_zero(nums.substr(nums.find(',') + 1).c_str());
 	DWORD aoffimmi = start;
 	aoffimmi |= (n1 & 0xF) << 9;
 	aoffimmi |= (n2 & 0xF) << 13;
@@ -1718,48 +1719,48 @@ static vector<DWORD> assembleIns(string s)
 	{
 		check_num_ops(s, w, 0);
 		op = 0x00000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
+		op |= 16 * parse_int_or_zero(o.substr(3, 1).c_str());
+		op |= parse_int_or_zero(o.substr(5, 1).c_str());
 		v.push_back(op);
 	}
 	else if (o.substr(0, 3) == "vs_")
 	{
 		check_num_ops(s, w, 0);
 		op = 0x10000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
+		op |= 16 * parse_int_or_zero(o.substr(3, 1).c_str());
+		op |= parse_int_or_zero(o.substr(5, 1).c_str());
 		v.push_back(op);
 	}
 	else if (o.substr(0, 3) == "gs_")
 	{
 		check_num_ops(s, w, 0);
 		op = 0x20000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
+		op |= 16 * parse_int_or_zero(o.substr(3, 1).c_str());
+		op |= parse_int_or_zero(o.substr(5, 1).c_str());
 		v.push_back(op);
 	}
 	else if (o.substr(0, 3) == "hs_")
 	{
 		check_num_ops(s, w, 0);
 		op = 0x30000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
+		op |= 16 * parse_int_or_zero(o.substr(3, 1).c_str());
+		op |= parse_int_or_zero(o.substr(5, 1).c_str());
 		v.push_back(op);
 	}
 	else if (o.substr(0, 3) == "ds_")
 	{
 		check_num_ops(s, w, 0);
 		op = 0x40000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
+		op |= 16 * parse_int_or_zero(o.substr(3, 1).c_str());
+		op |= parse_int_or_zero(o.substr(5, 1).c_str());
 		v.push_back(op);
 	}
 	else if (o.substr(0, 3) == "cs_")
 	{
 		check_num_ops(s, w, 0);
 		op = 0x50000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
+		op |= 16 * parse_int_or_zero(o.substr(3, 1).c_str());
+		op |= parse_int_or_zero(o.substr(5, 1).c_str());
 		v.push_back(op);
 	}
 	else if (w[0].substr(0, 4) == "sync")
@@ -1872,7 +1873,7 @@ static vector<DWORD> assembleIns(string s)
 				string stride = w[1].substr(27);
 				stride = stride.substr(0, stride.size() - 1);
 				DWORD d = 0x80000302;
-				d += atoi(stride.c_str()) << 11;
+				d += parse_int_or_zero(stride.c_str()) << 11;
 				v.push_back(d);
 			}
 			if (w[startPos - 1] == "(float,float,float,float)")
@@ -2128,7 +2129,7 @@ static vector<DWORD> assembleIns(string s)
 		ins->length = 2 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-		v.push_back(atoi(w[2].c_str()));
+		v.push_back(parse_int_or_zero(w[2].c_str()));
 	}
 	else if (o == "dcl_temps")
 	{
@@ -2136,7 +2137,7 @@ static vector<DWORD> assembleIns(string s)
 		ins->length = 2;
 		v.push_back(op);
 		check_num_ops(s, w, 1);
-		v.push_back(atoi(w[1].c_str()));
+		v.push_back(parse_int_or_zero(w[1].c_str()));
 	}
 	else if (o == "dcl_resource_structured")
 	{
@@ -2146,7 +2147,7 @@ static vector<DWORD> assembleIns(string s)
 		ins->length = 4;
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-		v.push_back(atoi(w[2].c_str()));
+		v.push_back(parse_int_or_zero(w[2].c_str()));
 	}
 	else if (o == "dcl_sampler")
 	{
@@ -2320,9 +2321,9 @@ static vector<DWORD> assembleIns(string s)
 		ins->opcode = 0x69;
 		ins->length = 4;
 		v.push_back(op);
-		v.push_back(atoi(s2.c_str()));
-		v.push_back(atoi(s3.c_str()));
-		v.push_back(atoi(w[2].c_str()));
+		v.push_back(parse_int_or_zero(s2.c_str()));
+		v.push_back(parse_int_or_zero(s3.c_str()));
+		v.push_back(parse_int_or_zero(w[2].c_str()));
 	}
 	else if (o == "dcl_immediateConstantBuffer")
 	{
@@ -2612,7 +2613,7 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 			{
 				if (v[i] == 0x1835)
 				{
-					int size = v[++i];
+					int size = static_cast<int>(v[++i]);
 					int loopSize = (size - 2) / 4;
 					lastLiteral = sNew.find("{ { ");
 					for (int j = 0; j < loopSize; j++)
@@ -3330,7 +3331,7 @@ static bool find_dxbc_code_chunk(const void *data, size_t size, DWORD *out_num_c
 	{
 		DWORD chunk_offset = chunk_offsets[i];
 		const byte *chunk = base + chunk_offset;
-		if (memcmp(chunk, "SHEX", 4) && memcmp(chunk, "SHDR", 4))
+		if (memcmp(chunk, "SHEX", 4) != 0 && memcmp(chunk, "SHDR", 4) != 0)
 			continue;
 
 		DWORD chunk_size;
@@ -3712,7 +3713,7 @@ vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode, vector<
 	asmBuffer = asmFile->data();
 	asmSize = asmFile->size();
 	vector<string> lines = stringToLines(asmBuffer, asmSize);
-	auto *codeStart = (DWORD *)(codeByteStart + 8);
+	DWORD *codeStart;
 	bool codeStarted = false;
 	bool multiLine = false;
 	string s2;
@@ -3761,7 +3762,7 @@ vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode, vector<
 		}
 		catch (AssemblerParseError &e)
 		{
-			e.line_no = i + 1;
+			e.line_no = static_cast<int>(i + 1);
 			e.update_msg();
 
 			// Since we never used to warn about parse errors there
@@ -3784,7 +3785,7 @@ vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode, vector<
 	codeStart = (DWORD *)codeByteStart; // Endian bug, not that we care
 	auto it = origBytecode.begin() + codeChunkOffset + 8;
 	size_t codeSize = codeChunkSize;
-	origBytecode.erase(it, it + codeSize);
+	origBytecode.erase(it, std::next(it, static_cast<vector<byte>::difference_type>(codeSize)));
 	size_t newCodeSize = 4 * o.size();
 	codeStart[1] = (DWORD)newCodeSize;
 	vector<byte> newCode(newCodeSize);

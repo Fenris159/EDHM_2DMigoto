@@ -169,7 +169,7 @@ struct Vector2 : public XMFLOAT2
 	explicit Vector2(float x) : XMFLOAT2(x, x) {}
 	Vector2(float _x, float _y) : XMFLOAT2(_x, _y) {}
 	explicit Vector2(_In_reads_(2) const float *pArray) : XMFLOAT2(pArray) {}
-	Vector2(FXMVECTOR V)
+	Vector2(FXMVECTOR V) : XMFLOAT2(0.f, 0.f)
 	{
 		XMStoreFloat2(this, V);
 	}
@@ -197,7 +197,7 @@ struct Vector2 : public XMFLOAT2
 	Vector2 &operator=(const Vector2 &V)
 	{
 		x = V.x;
-		y = V.y;
+		y = V.y; // NOLINT(clang-analyzer-core.uninitialized.Assign): XMStoreFloat2 initializes both lanes.
 		return *this;
 	}
 	Vector2 &operator=(const XMFLOAT2 &V)

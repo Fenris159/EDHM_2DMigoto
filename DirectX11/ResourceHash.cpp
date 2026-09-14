@@ -423,8 +423,8 @@ void LogViewDesc(const D3D11_UNORDERED_ACCESS_VIEW_DESC *desc)
 
 static void AdjustForConstResolution(UINT *hashWidth, UINT *hashHeight)
 {
-	int width = *hashWidth;
-	int height = *hashHeight;
+	int width = static_cast<int>(*hashWidth);
+	int height = static_cast<int>(*hashHeight);
 
 	if (G->mResolutionInfo.from == GetResolutionFrom::INVALID)
 		return;
@@ -553,7 +553,7 @@ static size_t Texture1DLength(const D3D11_TEXTURE1D_DESC *pDesc,
 	// will return 0 if the texture is using some esoteric format. I don't
 	// think block compressed formats work on 1D textures because those
 	// operate on 4x4 blocks of pixels.
-	return dxgi_format_size(pDesc->Format) * mip_width;
+	return static_cast<size_t>(dxgi_format_size(pDesc->Format)) * mip_width;
 }
 
 static size_t Texture2DLength(const D3D11_TEXTURE2D_DESC *pDesc, const D3D11_SUBRESOURCE_DATA *pInitialData, UINT level)
@@ -580,7 +580,7 @@ static size_t Texture2DLength(const D3D11_TEXTURE2D_DESC *pDesc, const D3D11_SUB
 	{
 		// Uncompressed texture - use the SysMemPitch to get
 		// the width (including any padding) in bytes.
-		return pInitialData->SysMemPitch * mip_height;
+		return static_cast<size_t>(pInitialData->SysMemPitch) * mip_height;
 	}
 
 	// In the case of compressed textures, we can't necessarily rely on
@@ -591,7 +591,7 @@ static size_t Texture2DLength(const D3D11_TEXTURE2D_DESC *pDesc, const D3D11_SUB
 	padded_width = (mip_width + 3) & ~0x3;
 	padded_height = (mip_height + 3) & ~0x3;
 
-	return padded_width * padded_height / 16 * block_size;
+	return static_cast<size_t>(padded_width) * padded_height / 16 * block_size;
 }
 
 static size_t Texture3DLength(const D3D11_TEXTURE3D_DESC *pDesc, const D3D11_SUBRESOURCE_DATA *pInitialData, UINT level)
@@ -612,7 +612,7 @@ static size_t Texture3DLength(const D3D11_TEXTURE3D_DESC *pDesc, const D3D11_SUB
 	{
 		// Uncompressed texture - use the SysMemSlicePitch to get the
 		// width*height (including any padding) in bytes.
-		return pInitialData->SysMemSlicePitch * mip_depth;
+		return static_cast<size_t>(pInitialData->SysMemSlicePitch) * mip_depth;
 	}
 
 	// Not sure if SysMemSlicePitch is reliable for compressed 3D textures.
@@ -622,7 +622,7 @@ static size_t Texture3DLength(const D3D11_TEXTURE3D_DESC *pDesc, const D3D11_SUB
 	padded_width = (mip_width + 3) & ~0x3;
 	padded_height = (mip_height + 3) & ~0x3;
 
-	return padded_width * padded_height * mip_depth / 16 * block_size;
+	return static_cast<size_t>(padded_width) * padded_height * mip_depth / 16 * block_size;
 }
 
 static uint32_t hash_tex2d_data(uint32_t hash, const void *data, size_t length, const D3D11_TEXTURE2D_DESC *pDesc,
@@ -724,7 +724,7 @@ uint32_t CalcTexture2DDataHash(const D3D11_TEXTURE2D_DESC *pDesc, const D3D11_SU
 	// (which we catch and log), but we could just as easily process
 	// gargage after the buffer as being part of the texture, which would
 	// lead to us creating unpredictable hashes.
-	length_v12 = pDesc->Width * pDesc->Height * pDesc->ArraySize;
+	length_v12 = static_cast<size_t>(pDesc->Width) * pDesc->Height * pDesc->ArraySize;
 
 	// Compare the old broken length to the length of just the first item.
 	// If the broken length is shorter, we will just use that and skip
@@ -904,7 +904,7 @@ uint32_t CalcTexture3DDataHash(const D3D11_TEXTURE3D_DESC *pDesc, const D3D11_SU
 	// (which we catch and log), but we could just as easily process
 	// gargage after the buffer as being part of the texture, which would
 	// lead to us creating unpredictable hashes.
-	length_v12 = pDesc->Width * pDesc->Height * pDesc->Depth;
+	length_v12 = static_cast<size_t>(pDesc->Width) * pDesc->Height * pDesc->Depth;
 
 	// Compare the old broken length to the actual length. If the broken
 	// length is shorter, we will just use that. While not ideal, this will
@@ -1119,8 +1119,6 @@ void UpdateResourceHashFromCPU(ID3D11Resource *resource, const void *data, UINT 
 {
 	D3D11_RESOURCE_DIMENSION dim;
 	D3D11_SUBRESOURCE_DATA initialData;
-	ID3D11Texture2D *tex2D;
-	ID3D11Texture3D *tex3D;
 	D3D11_TEXTURE2D_DESC *desc2D;
 	D3D11_TEXTURE3D_DESC *desc3D;
 	uint32_t old_data_hash;
@@ -1166,8 +1164,6 @@ void UpdateResourceHashFromCPU(ID3D11Resource *resource, const void *data, UINT 
 	switch (dim)
 	{
 	case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
-		tex2D = (ID3D11Texture2D *)resource;
-
 		desc2D = &info->desc2D;
 		// Future work: tex2D->GetDesc(&desc2D); then fix up mip-maps if necessary
 
@@ -1175,8 +1171,6 @@ void UpdateResourceHashFromCPU(ID3D11Resource *resource, const void *data, UINT 
 		info->hash = CalcTexture2DDescHash(info->data_hash, desc2D);
 		break;
 	case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
-		tex3D = (ID3D11Texture3D *)resource;
-
 		desc3D = &info->desc3D;
 		// Future work: tex3D->GetDesc(&desc3D); then fix up mip-maps if necessary
 
@@ -2063,10 +2057,12 @@ void RegionHashesCache::Invalidate(size_t start, size_t end)
 
 	// A single monotonically increasing version lets cached regions compare
 	// the newest invalidation across all pages they span.
-	std::fill(page_versions.begin() + start_page, page_versions.begin() + end_page + 1, next_version);
+	std::fill(std::next(page_versions.begin(), static_cast<ptrdiff_t>(start_page)),
+	          std::next(page_versions.begin(), static_cast<ptrdiff_t>(end_page + 1)), next_version);
 	size_t start_block = start_page / PAGES_PER_VERSION_BLOCK;
 	size_t end_block = end_page / PAGES_PER_VERSION_BLOCK;
-	std::fill(block_versions.begin() + start_block, block_versions.begin() + end_block + 1, next_version);
+	std::fill(std::next(block_versions.begin(), static_cast<ptrdiff_t>(start_block)),
+	          std::next(block_versions.begin(), static_cast<ptrdiff_t>(end_block + 1)), next_version);
 
 	//LogInfo("RegionHashesCache::Invalidate start=%d, end=%d, start_page=%d, end_page=%d\n", start, end, start_page, end_page);
 }

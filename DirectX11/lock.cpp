@@ -540,15 +540,15 @@ void enable_lock_dependency_checks()
 
 	InitializeCriticalSectionPretty(&graph_lock);
 
-	if ((mod_handle = GetModuleHandleA("ntdll.dll")) &&
-	    GetModuleInformation(GetCurrentProcess(), mod_handle, &mod_info, sizeof(MODULEINFO)))
+	mod_handle = GetModuleHandleA("ntdll.dll");
+	if (mod_handle && GetModuleInformation(GetCurrentProcess(), mod_handle, &mod_info, sizeof(MODULEINFO)))
 	{
 		ntdll_base = (uintptr_t)mod_info.lpBaseOfDll;
 		ntdll_end = ntdll_base + mod_info.SizeOfImage;
 	}
 
-	if ((mod_handle = GetModuleHandleA("apphelp.dll")) &&
-	    GetModuleInformation(GetCurrentProcess(), mod_handle, &mod_info, sizeof(MODULEINFO)))
+	mod_handle = GetModuleHandleA("apphelp.dll");
+	if (mod_handle && GetModuleInformation(GetCurrentProcess(), mod_handle, &mod_info, sizeof(MODULEINFO)))
 	{
 		apphelp_base = (uintptr_t)mod_info.lpBaseOfDll;
 		apphelp_end = apphelp_base + mod_info.SizeOfImage;

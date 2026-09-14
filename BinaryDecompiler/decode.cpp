@@ -222,7 +222,7 @@ uint32_t DecodeOperand(const uint32_t *pui32Tokens, Operand *psOperand)
 	psOperand->aeDataType[2] = SVT_FLOAT;
 	psOperand->aeDataType[3] = SVT_FLOAT;
 
-	psOperand->iExtended = DecodeIsOperandExtended(*pui32Tokens);
+	psOperand->iExtended = static_cast<int>(DecodeIsOperandExtended(*pui32Tokens));
 
 	psOperand->eModifier = OPERAND_MODIFIER_NONE;
 	psOperand->psSubOperand[0] = nullptr;
@@ -422,21 +422,22 @@ const uint32_t *DecodeDeclaration(Shader *psShader, const uint32_t *pui32Token, 
 			const uint32_t indexRange = psDecl->value.ui32IndexRange;
 			const uint32_t reg = psDecl->asOperands[0].ui32RegisterNumber;
 
-			psShader->aIndexedInput[reg] = indexRange;
-			psShader->aIndexedInputParents[reg] = reg;
+			psShader->aIndexedInput[static_cast<int>(reg)] = static_cast<int>(indexRange);
+			psShader->aIndexedInputParents[static_cast<int>(reg)] = static_cast<int>(reg);
 
 			//-1 means don't declare this input because it falls in
 			//the range of an already declared array.
 			for (i = reg + 1; i < reg + indexRange; ++i)
 			{
-				psShader->aIndexedInput[i] = -1;
-				psShader->aIndexedInputParents[i] = reg;
+				psShader->aIndexedInput[static_cast<int>(i)] = -1;
+				psShader->aIndexedInputParents[static_cast<int>(i)] = static_cast<int>(reg);
 			}
 		}
 
 		if (psDecl->asOperands[0].eType == OPERAND_TYPE_OUTPUT)
 		{
-			psShader->aIndexedOutput[psDecl->asOperands[0].ui32RegisterNumber] = psDecl->value.ui32IndexRange;
+			psShader->aIndexedOutput[static_cast<int>(psDecl->asOperands[0].ui32RegisterNumber)] =
+			    static_cast<int>(psDecl->value.ui32IndexRange);
 		}
 		break;
 	}
@@ -564,14 +565,15 @@ const uint32_t *DecodeDeclaration(Shader *psShader, const uint32_t *pui32Token, 
 		psDecl->value.interface.ui32NumFuncTables = numClassesImplementingThisInterface;
 		psDecl->value.interface.ui32ArraySize = arrayLen;
 
-		psShader->funcPointer[interfaceID].ui32NumBodiesPerTable = psDecl->ui32TableLength;
+		psShader->funcPointer[static_cast<int>(interfaceID)].ui32NumBodiesPerTable = psDecl->ui32TableLength;
 
 		for (; func < numClassesImplementingThisInterface; ++func)
 		{
 			uint32_t ui32FuncTable = *(pui32Token + ui32OperandOffset);
-			psShader->aui32FuncTableToFuncPointer[ui32FuncTable] = interfaceID;
+			psShader->aui32FuncTableToFuncPointer[static_cast<int>(ui32FuncTable)] = interfaceID;
 
-			psShader->funcPointer[interfaceID].aui32FuncTables[func] = ui32FuncTable;
+			psShader->funcPointer[static_cast<int>(interfaceID)].aui32FuncTables[static_cast<int>(func)] =
+			    ui32FuncTable;
 			ui32OperandOffset++;
 		}
 
@@ -593,9 +595,10 @@ const uint32_t *DecodeDeclaration(Shader *psShader, const uint32_t *pui32Token, 
 		{
 			const uint32_t ui32FuncBodyID = pui32Token[ui32OperandOffset++];
 
-			psShader->aui32FuncBodyToFuncTable[ui32FuncBodyID] = ui32FuncTableID;
+			psShader->aui32FuncBodyToFuncTable[static_cast<int>(ui32FuncBodyID)] = ui32FuncTableID;
 
-			psShader->funcTable[ui32FuncTableID].aui32FuncBodies[ui32Func] = ui32FuncBodyID;
+			psShader->funcTable[static_cast<int>(ui32FuncTableID)].aui32FuncBodies[static_cast<int>(ui32Func)] =
+			    ui32FuncBodyID;
 		}
 
 		// OpcodeToken0 is followed by a DWORD that represents the function table
@@ -821,9 +824,12 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 			{
 				psInst->bAddressOffset = 1;
 
-				psInst->iUAddrOffset = DecodeImmediateAddressOffset(IMMEDIATE_ADDRESS_OFFSET_U, ui32ExtOpcodeToken);
-				psInst->iVAddrOffset = DecodeImmediateAddressOffset(IMMEDIATE_ADDRESS_OFFSET_V, ui32ExtOpcodeToken);
-				psInst->iWAddrOffset = DecodeImmediateAddressOffset(IMMEDIATE_ADDRESS_OFFSET_W, ui32ExtOpcodeToken);
+				psInst->iUAddrOffset =
+				    static_cast<int>(DecodeImmediateAddressOffset(IMMEDIATE_ADDRESS_OFFSET_U, ui32ExtOpcodeToken));
+				psInst->iVAddrOffset =
+				    static_cast<int>(DecodeImmediateAddressOffset(IMMEDIATE_ADDRESS_OFFSET_V, ui32ExtOpcodeToken));
+				psInst->iWAddrOffset =
+				    static_cast<int>(DecodeImmediateAddressOffset(IMMEDIATE_ADDRESS_OFFSET_W, ui32ExtOpcodeToken));
 			}
 			else if (eExtType == EXTENDED_OPCODE_RESOURCE_RETURN_TYPE)
 			{
@@ -885,7 +891,7 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 	case OPCODE_LABEL:
 	{
 		psInst->ui32NumOperands = 1;
-		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[0]);
+		(void)DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[0]);
 
 		if (eOpcode == OPCODE_CASE)
 		{
@@ -899,7 +905,7 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 		psInst->ui32NumOperands = 1;
 		psInst->ui32FuncIndexWithinInterface = pui32Token[ui32OperandOffset];
 		ui32OperandOffset++;
-		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[0]);
+		(void)DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[0]);
 
 		break;
 	}
@@ -911,7 +917,7 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 	{
 		psInst->ui32NumOperands = 2;
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[0]);
-		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
+		(void)DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
 
 		//Mov with an integer dest. If src is an immediate then it must be encoded as an integer.
 		if (psInst->asOperands[0].eMinPrecision == OPERAND_MIN_PRECISION_SINT_16 ||
@@ -959,7 +965,7 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 	{
 		psInst->ui32NumOperands = 2;
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[0]);
-		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
+		(void)DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
 		break;
 	}
 
@@ -1018,7 +1024,7 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 		psInst->ui32NumOperands = 3;
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[0]);
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
-		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[2]);
+		(void)DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[2]);
 		break;
 	}
 	//Instructions with four operands go here
@@ -1049,7 +1055,7 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[0]);
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[2]);
-		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[3]);
+		(void)DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[3]);
 		break;
 	}
 	case OPCODE_GATHER4_PO:
@@ -1063,7 +1069,7 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[2]);
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[3]);
-		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[4]);
+		(void)DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[4]);
 		break;
 	}
 	case OPCODE_GATHER4_C:
@@ -1076,7 +1082,7 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[2]);
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[3]);
-		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[4]);
+		(void)DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[4]);
 
 		/* sample_b is not a shadow sampler, others need flagging */
 		if (eOpcode != OPCODE_SAMPLE_B)
@@ -1095,7 +1101,7 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[2]);
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[3]);
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[4]);
-		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[5]);
+		(void)DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[5]);
 
 		/* sample_d is not a shadow sampler, others need flagging */
 		if (eOpcode != OPCODE_SAMPLE_D)
@@ -1114,7 +1120,7 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 		psInst->eBooleanTestType = DecodeInstrTestBool(*pui32Token);
 		psInst->ui32NumOperands = 2;
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[0]);
-		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
+		(void)DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
 		break;
 	}
 	case OPCODE_CUSTOMDATA:
@@ -1127,7 +1133,7 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 	{
 		psInst->ui32NumOperands = 2;
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[0]);
-		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
+		(void)DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
 		break;
 	}
 	case OPCODE_EVAL_SAMPLE_INDEX:
@@ -1136,7 +1142,7 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 		psInst->ui32NumOperands = 3;
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[0]);
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
-		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[2]);
+		(void)DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[2]);
 		break;
 	}
 	case OPCODE_STORE_UAV_TYPED:
@@ -1147,7 +1153,7 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 		psInst->ui32NumOperands = 3;
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[0]);
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
-		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[2]);
+		(void)DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[2]);
 		break;
 	}
 	case OPCODE_STORE_STRUCTURED:
@@ -1157,7 +1163,7 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[0]);
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[2]);
-		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[3]);
+		(void)DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[3]);
 		break;
 	}
 	case OPCODE_RESINFO:
@@ -1168,7 +1174,7 @@ const uint32_t *DeocdeInstruction(const uint32_t *pui32Token, Instruction *psIns
 
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[0]);
 		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[1]);
-		ui32OperandOffset += DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[2]);
+		(void)DecodeOperand(pui32Token + ui32OperandOffset, &psInst->asOperands[2]);
 		break;
 	}
 	case OPCODE_MSAD:
@@ -1201,12 +1207,12 @@ void UpdateOperandReferences(Shader *psShader, Instruction *psInst)
 			{
 				if (psOperand->aui32ArraySizes[1] != 0) //gl_in[].gl_Position
 				{
-					psShader->abInputReferencedByInstruction[psOperand->ui32RegisterNumber] = 1;
+					psShader->abInputReferencedByInstruction[static_cast<int>(psOperand->ui32RegisterNumber)] = 1;
 				}
 			}
 			else
 			{
-				psShader->abInputReferencedByInstruction[psOperand->ui32RegisterNumber] = 1;
+				psShader->abInputReferencedByInstruction[static_cast<int>(psOperand->ui32RegisterNumber)] = 1;
 			}
 		}
 	}
@@ -1385,7 +1391,7 @@ void Decode(const uint32_t *pui32Tokens, Shader *psShader)
 
 	if (psShader->eShaderType == HULL_SHADER)
 	{
-		pui32CurrentToken = DecodeHullShader(pui32CurrentToken, psShader);
+		(void)DecodeHullShader(pui32CurrentToken, psShader);
 		return;
 	}
 

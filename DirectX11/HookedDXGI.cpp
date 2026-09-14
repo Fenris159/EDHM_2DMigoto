@@ -381,14 +381,14 @@ void override_swap_chain(DXGI_SWAP_CHAIN_DESC *pDesc, DXGI_SWAP_CHAIN_DESC *orig
 
 	// Required in case the software mouse and upscaling are on at the same time
 	// Future work: Use a helper class to track *all* different resolutions
-	G->GAME_INTERNAL_WIDTH = pDesc->BufferDesc.Width;
-	G->GAME_INTERNAL_HEIGHT = pDesc->BufferDesc.Height;
+	G->GAME_INTERNAL_WIDTH = static_cast<int>(pDesc->BufferDesc.Width);
+	G->GAME_INTERNAL_HEIGHT = static_cast<int>(pDesc->BufferDesc.Height);
 
 	if (G->mResolutionInfo.from == GetResolutionFrom::SWAP_CHAIN)
 	{
 		// Future work: Use a helper class to track *all* different resolutions
-		G->mResolutionInfo.width = pDesc->BufferDesc.Width;
-		G->mResolutionInfo.height = pDesc->BufferDesc.Height;
+		G->mResolutionInfo.width = static_cast<int>(pDesc->BufferDesc.Width);
+		G->mResolutionInfo.height = static_cast<int>(pDesc->BufferDesc.Height);
 		LogInfo("Got resolution from swap chain: %ix%i\n", G->mResolutionInfo.width, G->mResolutionInfo.height);
 	}
 
@@ -403,14 +403,14 @@ static void override_factory2_swap_chain(_In_ const DXGI_SWAP_CHAIN_DESC1 **ppDe
 	{
 		// Required in case the software mouse and upscaling are on at the same time
 		// Future work: Use a helper class to track *all* different resolutions
-		G->GAME_INTERNAL_WIDTH = (*ppDesc)->Width;
-		G->GAME_INTERNAL_HEIGHT = (*ppDesc)->Height;
+		G->GAME_INTERNAL_WIDTH = static_cast<int>((*ppDesc)->Width);
+		G->GAME_INTERNAL_HEIGHT = static_cast<int>((*ppDesc)->Height);
 
 		if (G->mResolutionInfo.from == GetResolutionFrom::SWAP_CHAIN)
 		{
 			// Future work: Use a helper class to track *all* different resolutions
-			G->mResolutionInfo.width = (*ppDesc)->Width;
-			G->mResolutionInfo.height = (*ppDesc)->Height;
+			G->mResolutionInfo.width = static_cast<int>((*ppDesc)->Width);
+			G->mResolutionInfo.height = static_cast<int>((*ppDesc)->Height);
 			LogInfo("  Got resolution from swap chain: %ix%i\n", G->mResolutionInfo.width, G->mResolutionInfo.height);
 		}
 	}

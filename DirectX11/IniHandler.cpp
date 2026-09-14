@@ -560,10 +560,10 @@ bool check_include_condition(wstring *val, const wstring *ini_namespace)
 		return false;
 	}
 
-	if (!ret)
+	if (ret == 0.0f)
 		LogInfo("        condition = false, skipping \"%S\"\n", ini_namespace->c_str());
 
-	return !!ret;
+	return ret != 0.0f;
 }
 
 static bool ParseIniPreamble(wstring *wline, wstring *ini_namespace)
@@ -679,7 +679,6 @@ static void ParseIniKeyValLine(wstring *wline, wstring *section, int warn_duplic
 
 static void ParseIniStream(wistream *stream, const wstring *_ini_namespace)
 {
-	string aline;
 	wstring wline;
 	wstring section;
 	wstring ini_path;
@@ -945,7 +944,7 @@ static void ParseIniFilesRecursive(wchar_t *migoto_path, const wstring &rel_path
 
 		if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		{
-			if (wcscmp(find_data.cFileName, L".") && wcscmp(find_data.cFileName, L".."))
+			if (wcscmp(find_data.cFileName, L".") != 0 && wcscmp(find_data.cFileName, L"..") != 0)
 				directories.insert(wstring(find_data.cFileName));
 		}
 		else if (filename_len >= 4 && !wcscmp(find_data.cFileName + filename_len - 4, L".ini"))
@@ -962,7 +961,9 @@ static void ParseIniFilesRecursive(wchar_t *migoto_path, const wstring &rel_path
 
 	for (const wstring &i : ini_files)
 	{
-		ini_namespace = rel_path + wstring(L"\\") + i;
+		ini_namespace = rel_path;
+		ini_namespace += L'\\';
+		ini_namespace += i;
 		ini_path = wstring(migoto_path) + ini_namespace;
 		LogInfo("    Processing \"%S\"\n", ini_path.c_str());
 		ParseNamespacedIniFile(ini_path.c_str(), &ini_namespace);
@@ -970,7 +971,9 @@ static void ParseIniFilesRecursive(wchar_t *migoto_path, const wstring &rel_path
 
 	for (const wstring &i : directories)
 	{
-		ini_namespace = rel_path + wstring(L"\\") + i;
+		ini_namespace = rel_path;
+		ini_namespace += L'\\';
+		ini_namespace += i;
 		ParseIniFilesRecursive(migoto_path, ini_namespace, exclude);
 	}
 }
@@ -1054,7 +1057,7 @@ int GetIniString(const wchar_t *section, const wchar_t *key, const wchar_t *def,
 				// sure if we depend on this - if we don't I'd like a
 				// nicer return code or to raise an exception.
 				IniWarningW(L"\"%ls=%ls\" too long\n - [%ls]\n", key, val.c_str(), section);
-				rc = size - 1;
+				rc = static_cast<int>(size - 1);
 			}
 			else
 			{
@@ -2037,14 +2040,14 @@ static void ConstructInitialDataNorm(CustomResource *custom_resource, std::istri
 			if (snorm)
 			{
 				const auto normalized = (signed short)(val * 0x7fff);
-				memcpy(static_cast<unsigned char *>(custom_resource->initial_data) + i * bytes, &normalized,
-				       sizeof(normalized));
+				memcpy(static_cast<unsigned char *>(custom_resource->initial_data) + static_cast<size_t>(i) * bytes,
+				       &normalized, sizeof(normalized));
 			}
 			else
 			{
 				const auto normalized = (unsigned short)(val * 0xffff);
-				memcpy(static_cast<unsigned char *>(custom_resource->initial_data) + i * bytes, &normalized,
-				       sizeof(normalized));
+				memcpy(static_cast<unsigned char *>(custom_resource->initial_data) + static_cast<size_t>(i) * bytes,
+				       &normalized, sizeof(normalized));
 			}
 		}
 		else
@@ -2249,7 +2252,7 @@ static CustomResource *ParseResourceSection(const wchar_t *section_name, const w
 	wstring resource_id(section_name);
 	if (resource_id_suffix != nullptr)
 	{
-		resource_id += L"_";
+		resource_id += L'_';
 		resource_id += resource_id_suffix;
 	}
 
@@ -4188,7 +4191,7 @@ static void ParseBlendState(CustomShader *shader, const wchar_t *section)
 		}
 	}
 
-	shader->blend_sample_mask = GetIniHexString(section, L"sample_mask", 0xffffffff, &found);
+	shader->blend_sample_mask = GetIniHexString(section, L"sample_mask", -1, &found);
 	if (found)
 	{
 		shader->blend_override = 1;

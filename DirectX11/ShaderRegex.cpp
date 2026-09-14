@@ -149,7 +149,8 @@ bool ShaderRegexPattern::compile(std::string *pattern)
 	uint32_t name_table_entry_size;
 	uint32_t name_table_count;
 	uint32_t i;
-	PCRE2_SPTR name_table;
+	PCRE2_SPTR name_table = nullptr;
+	void *name_table_result = nullptr;
 	PCRE2_SIZE err_off;
 	int err;
 
@@ -171,11 +172,13 @@ bool ShaderRegexPattern::compile(std::string *pattern)
 
 	pcre2_pattern_info(regex, PCRE2_INFO_NAMECOUNT, &name_table_count);
 	pcre2_pattern_info(regex, PCRE2_INFO_NAMEENTRYSIZE, &name_table_entry_size);
-	pcre2_pattern_info(regex, PCRE2_INFO_NAMETABLE, &name_table);
+	pcre2_pattern_info(regex, PCRE2_INFO_NAMETABLE, static_cast<void *>(&name_table_result));
+	name_table = static_cast<PCRE2_SPTR>(name_table_result);
 
 	static_assert(PCRE2_CODE_UNIT_WIDTH == 8, "Need to fix name table parsing for non-8bit pcre2");
 	for (i = 0; i < name_table_count; i++)
-		named_capture_groups.insert(std::string((char *)(name_table + name_table_entry_size * i + 2)));
+		named_capture_groups.insert(std::string(
+		    reinterpret_cast<const char *>(name_table + static_cast<size_t>(name_table_entry_size) * i + 2)));
 
 	return true;
 }

@@ -1,14 +1,26 @@
 ---
+# Parser switches use explicit fallback code after the switch, and duplicate
+# case bodies intentionally share grammar actions. Exported Windows ABI names
+# and imported SDK conventions intentionally use leading underscores.
+# Token-pasting declaration macros cannot parenthesize generated identifiers.
+# Pointer-keyed iterations perform only commutative sums or order-independent
+# erasure, so their order is intentionally irrelevant.
 Checks: >
   -*,
   clang-analyzer-*,
   -clang-analyzer-optin.core.EnumCastOutOfRange,
   bugprone-*,
+  -bugprone-branch-clone,
   -bugprone-easily-swappable-parameters,
   -bugprone-exception-escape,
+  -bugprone-reserved-identifier,
   -bugprone-signed-bitwise,
+  -bugprone-switch-missing-default-case,
   -bugprone-suspicious-semicolon,
   -bugprone-throwing-static-initialization,
+  -bugprone-unhandled-code-paths,
+  -bugprone-macro-parentheses,
+  -bugprone-nondeterministic-pointer-iteration-order,
   cert-err58-cpp,
   -cert-err58-cpp,
   cert-oop11-cpp,

@@ -198,6 +198,7 @@ static void DumpUsageRegister(HANDLE f, const char *tag, int id, const ResourceS
 	}
 	catch (const std::out_of_range &)
 	{
+		LogDebug("Shader hunting resource metadata was unavailable\n");
 	}
 
 	sprintf_s(buf, sizeof(buf), ">%08lx</%s>\n", info.hash, tag);
@@ -507,7 +508,13 @@ STDMETHODIMP MigotoIncludeHandler::Open(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFi
 		CloseHandle(f);
 		return E_FAIL;
 	}
-	buf = new char[size];
+	buf = new (std::nothrow) char[size];
+	if (!buf)
+	{
+		LogInfo("      Unable to allocate included file buffer.\n");
+		CloseHandle(f);
+		return E_OUTOFMEMORY;
+	}
 
 	if (!ReadFile(f, buf, size, &read, nullptr) || size != read)
 	{
@@ -1669,7 +1676,7 @@ static void PrevVertexBufferSlot(HackerDevice *device [[maybe_unused]], void *pr
 	uint32_t count = D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT;
 
 	if (id < 0)
-		id = count - 1;
+		id = static_cast<int32_t>(count - 1);
 	else if (id == 0)
 		id = -1;
 	else

@@ -288,7 +288,7 @@ XInputButton::XInputButton(const wchar_t *keyName)
 		keyName += 3;
 	}
 
-	if (_wcsnicmp(keyName, L"XB", 2))
+	if (_wcsnicmp(keyName, L"XB", 2) != 0)
 		throw keyParseError;
 	keyName += 2;
 

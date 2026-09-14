@@ -159,10 +159,10 @@ HackerDevice *lookup_hacker_device(IUnknown *unknown)
 		// agnostic. XXX: It might be worthwhile considering dropping
 		// the above device_map lookup which relies on the COM identity
 		// rule in favour of this, since we expect this to always work:
-		if (SUCCEEDED(unknown->QueryInterface(IID_IDXGIObject, (void **)&dxgi_obj)))
+		if (SUCCEEDED(unknown->QueryInterface(IID_IDXGIObject, reinterpret_cast<void **>(&dxgi_obj))))
 		{
-			UINT size = sizeof(ret);
-			if (SUCCEEDED(dxgi_obj->GetPrivateData(IID_HackerDevice, &size, &ret)))
+			UINT size = sizeof(HackerDevice *);
+			if (SUCCEEDED(dxgi_obj->GetPrivateData(IID_HackerDevice, &size, static_cast<void *>(&ret))))
 			{
 				LogInfo("Notice: Unwrapped device and COM Identity violation, Found HackerDevice via GetPrivateData "
 				        "strategy\n");
@@ -305,13 +305,13 @@ HRESULT HackerDevice::CreateIniParamResources()
 	// If we are resizing IniParams we must release the old versions:
 	if (mIniResourceView)
 	{
-		long refcount = mIniResourceView->Release();
+		ULONG refcount = mIniResourceView->Release();
 		mIniResourceView = nullptr;
 		LogInfo("  releasing ini parameters resource view, refcount = %d\n", refcount);
 	}
 	if (mIniTexture)
 	{
-		long refcount = mIniTexture->Release();
+		ULONG refcount = mIniTexture->Release();
 		mIniTexture = nullptr;
 		LogInfo("  releasing iniparams texture, refcount = %d\n", refcount);
 	}
@@ -1596,13 +1596,13 @@ STDMETHODIMP_(ULONG) HackerDevice::Release(THIS)
 
 		if (mIniResourceView)
 		{
-			long result = mIniResourceView->Release();
+			ULONG result = mIniResourceView->Release();
 			mIniResourceView = nullptr;
 			LogInfo("  releasing ini parameters resource view, result = %d\n", result);
 		}
 		if (mIniTexture)
 		{
-			long result = mIniTexture->Release();
+			ULONG result = mIniTexture->Release();
 			mIniTexture = nullptr;
 			LogInfo("  releasing iniparams texture, result = %d\n", result);
 		}
@@ -2400,8 +2400,8 @@ STDMETHODIMP HackerDevice::CreateTexture2D(THIS_
 	    G->mResolutionInfo.from == GetResolutionFrom::DEPTH_STENCIL &&
 	    heuristic_could_be_possible_resolution(pDesc->Width, pDesc->Height))
 	{
-		G->mResolutionInfo.width = pDesc->Width;
-		G->mResolutionInfo.height = pDesc->Height;
+		G->mResolutionInfo.width = static_cast<int>(pDesc->Width);
+		G->mResolutionInfo.height = static_cast<int>(pDesc->Height);
 		LogInfo("Got resolution from depth/stencil buffer: %ix%i\n", G->mResolutionInfo.width,
 		        G->mResolutionInfo.height);
 	}
@@ -2492,8 +2492,8 @@ STDMETHODIMP HackerDevice::CreateTexture3D(THIS_
 	    G->mResolutionInfo.from == GetResolutionFrom::DEPTH_STENCIL &&
 	    heuristic_could_be_possible_resolution(pDesc->Width, pDesc->Height))
 	{
-		G->mResolutionInfo.width = pDesc->Width;
-		G->mResolutionInfo.height = pDesc->Height;
+		G->mResolutionInfo.width = static_cast<int>(pDesc->Width);
+		G->mResolutionInfo.height = static_cast<int>(pDesc->Height);
 		LogInfo("Got resolution from depth/stencil buffer: %ix%i\n", G->mResolutionInfo.width,
 		        G->mResolutionInfo.height);
 	}
@@ -2614,7 +2614,7 @@ static uint32_t hash_shader_bytecode(struct dxbc_header *header, SIZE_T Bytecode
 	SIZE_T section_offset;
 	SIZE_T section_data_size;
 
-	if (BytecodeLength < sizeof(struct dxbc_header) || strncmp(header->signature, "DXBC", 4))
+	if (BytecodeLength < sizeof(struct dxbc_header) || strncmp(header->signature, "DXBC", 4) != 0)
 		return 0;
 
 	if (header->size < sizeof(struct dxbc_header) || header->size > BytecodeLength)

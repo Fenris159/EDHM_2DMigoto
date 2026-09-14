@@ -256,7 +256,6 @@ static const uint32_t *ReadConstantBuffer(ShaderInfo *psShaderInfo, const uint32
 		// not the original, so the Parent pointers of all members were invalid.
 		ShaderVar *const psVar = &psBuffer->asVars[i];
 
-		uint32_t ui32Flags;
 		uint32_t ui32TypeOffset;
 		uint32_t ui32DefaultValueOffset;
 
@@ -267,7 +266,7 @@ static const uint32_t *ReadConstantBuffer(ShaderInfo *psShaderInfo, const uint32
 
 		psVar->ui32StartOffset = *pui32VarToken++;
 		psVar->ui32Size = *pui32VarToken++;
-		ui32Flags = *pui32VarToken++;
+		pui32VarToken++;
 		ui32TypeOffset = *pui32VarToken++;
 
 		psVar->sType.Name = psVar->Name;
@@ -313,12 +312,10 @@ static const uint32_t *ReadConstantBuffer(ShaderInfo *psShaderInfo, const uint32
 	}
 
 	{
-		uint32_t ui32Flags;
-		uint32_t ui32BufferType;
 
 		psBuffer->ui32TotalSizeInBytes = *pui32Tokens++;
-		ui32Flags = *pui32Tokens++;
-		ui32BufferType = *pui32Tokens++;
+		pui32Tokens++;
+		pui32Tokens++;
 	}
 
 	psBuffer->iUnsized = 0;
@@ -390,7 +387,8 @@ static void ReadResources(const uint32_t *pui32Tokens, //in
 					break;
 				if (psConstantBuffers[cbufIndex].Name == psResBindings[i].Name)
 				{
-					psShaderInfo->aui32ResourceMap[eRGroup][psResBindings[i].ui32BindPoint] = cbufIndex;
+					psShaderInfo->aui32ResourceMap[eRGroup][static_cast<int>(psResBindings[i].ui32BindPoint)] =
+					    cbufIndex;
 				}
 			}
 		}
@@ -486,7 +484,7 @@ static void ReadInterfaces(const uint32_t *pui32Tokens, ShaderInfo *psShaderInfo
 
 		for (k = 0; k < ui32Count; ++k)
 		{
-			psShaderInfo->aui32TableIDToTypeID[*pui32TableID++] = *pui16TypeID++;
+			psShaderInfo->aui32TableIDToTypeID[static_cast<int>(*pui32TableID++)] = *pui16TypeID++;
 		}
 
 		ui32StartSlot += ui32SlotSpan;
@@ -504,7 +502,8 @@ void GetConstantBufferFromBindingPoint(const ResourceGroup eGroup, const uint32_
 {
 	if (psShaderInfo->ui32MajorVersion > 3)
 	{
-		*ppsConstBuf = psShaderInfo->psConstantBuffers + psShaderInfo->aui32ResourceMap[eGroup].at(ui32BindPoint);
+		*ppsConstBuf = psShaderInfo->psConstantBuffers +
+		               psShaderInfo->aui32ResourceMap[eGroup].at(static_cast<int>(ui32BindPoint));
 	}
 	else
 	{
@@ -614,12 +613,12 @@ static int IsOffsetInType(ShaderVarType *psType, uint32_t parentOffset, uint32_t
 		if (psType->Class == SVC_MATRIX_ROWS || psType->Class == SVC_MATRIX_COLUMNS)
 		{
 			//Matrices are treated as arrays of vectors.
-			pi32Index[0] = (offsetToFind - thisOffset) / 16;
+			pi32Index[0] = static_cast<int32_t>((offsetToFind - thisOffset) / 16);
 		}
 		//Check for array of scalars or vectors (both take up 16 bytes per element)
 		else if ((psType->Class == SVC_SCALAR || psType->Class == SVC_VECTOR) && psType->Elements > 1)
 		{
-			pi32Index[0] = (offsetToFind - thisOffset) / 16;
+			pi32Index[0] = static_cast<int32_t>((offsetToFind - thisOffset) / 16);
 		}
 		else if (psType->Class == SVC_VECTOR && psType->Columns > 1)
 		{
@@ -638,7 +637,7 @@ static int IsOffsetInType(ShaderVarType *psType, uint32_t parentOffset, uint32_t
 
 			//Rebase angle2 so that .y maps to .x, .z maps to .y
 
-			pi32Rebase[0] = thisOffset % 16;
+			pi32Rebase[0] = static_cast<int32_t>(thisOffset % 16);
 		}
 
 		return 1;

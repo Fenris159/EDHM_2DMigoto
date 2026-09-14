@@ -1,4 +1,5 @@
 #include "util_min.h"
+#include "numeric_parse.h"
 
 #include <ctype.h>
 #include <string.h>
@@ -118,5 +119,5 @@ int find_ini_int_lite(const char *buf, const char *setting, int def)
 	if (!find_ini_setting_lite(buf, setting, val, 16))
 		return def;
 
-	return atoi(val);
+	return parse_int_or_zero(val);
 }
