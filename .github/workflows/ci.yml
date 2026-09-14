@@ -17,6 +17,28 @@ permissions:
   contents: read
 
 jobs:
+  quality:
+    name: Format and script analysis
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Bootstrap pinned quality tools
+        shell: pwsh
+        run: ./scripts/bootstrap-quality-tools.ps1
+
+      - name: Check changed native formatting
+        shell: pwsh
+        run: >-
+          ./scripts/quality.ps1 -Mode FormatCheck -Scope Changed
+          -BaseRef "${{ github.event.pull_request.base.sha || github.event.before }}"
+
+      - name: Analyze all PowerShell
+        shell: pwsh
+        run: ./scripts/quality.ps1 -Mode PowerShell -Scope All
+
   lint-meta:
     name: Meta checks
     runs-on: ubuntu-latest
@@ -67,16 +89,15 @@ jobs:
         with:
           vs-version: '[17.0,18.0)'
 
-      - name: Build Release|x64
+      - name: Build Release for x64 and Win32 with strict warnings
         if: steps.sol.outputs.exists == 'true'
         shell: pwsh
-        run: |
-          msbuild EDHM_2DMigoto.sln `
-            -property:Configuration=Release `
-            -property:Platform=x64 `
-            -target:Rebuild `
-            -verbosity:minimal `
-            -restore:false
+        run: ./scripts/quality.ps1 -Mode Build -Scope All
+
+      - name: Validate DirectXTK shaders
+        if: steps.sol.outputs.exists == 'true'
+        shell: pwsh
+        run: ./scripts/quality.ps1 -Mode Shader -Scope All
 
       - name: Verify d3d11.dll
         if: steps.sol.outputs.exists == 'true'

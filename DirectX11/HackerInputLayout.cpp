@@ -2,8 +2,9 @@
 
 #include "HackerInputLayout.h"
 
-HackerInputLayout::HackerInputLayout(ID3D11InputLayout* orig, const D3D11_INPUT_ELEMENT_DESC* pElements, UINT numElements,
-	const void* shaderSignature, SIZE_T signatureSize) : mOrigLayout(orig)
+HackerInputLayout::HackerInputLayout(ID3D11InputLayout *orig, const D3D11_INPUT_ELEMENT_DESC *pElements,
+                                     UINT numElements, const void *shaderSignature, SIZE_T signatureSize)
+    : mOrigLayout(orig)
 {
 	mElements.resize(numElements);
 	mSemanticNames.resize(numElements);
@@ -26,8 +27,8 @@ HackerInputLayout::HackerInputLayout(ID3D11InputLayout* orig, const D3D11_INPUT_
 	mLayoutHash = CalculateLayoutHash();
 
 	if (shaderSignature && signatureSize)
-		mShaderSignature.assign(static_cast<const uint8_t*>(shaderSignature),
-			static_cast<const uint8_t*>(shaderSignature) + signatureSize);
+		mShaderSignature.assign(static_cast<const uint8_t *>(shaderSignature),
+		                        static_cast<const uint8_t *>(shaderSignature) + signatureSize);
 
 	// Side-car only: game keeps the real ID3D11InputLayout. Mark the original
 	// so FromLayout() can recover this cache for hunting / frame analysis.
@@ -36,18 +37,20 @@ HackerInputLayout::HackerInputLayout(ID3D11InputLayout* orig, const D3D11_INPUT_
 		mAttachResult = mOrigLayout->SetPrivateDataInterface(GUID_HackerInputLayout, this);
 }
 
-HackerInputLayout* HackerInputLayout::FromLayout(ID3D11InputLayout* layout)
+HackerInputLayout *HackerInputLayout::FromLayout(ID3D11InputLayout *layout)
 {
 	if (!layout)
 		return nullptr;
 
-	IUnknown* private_data = nullptr;
-	UINT size = sizeof(private_data);
+	IUnknown *private_data = nullptr;
+	UINT size = sizeof(IUnknown *);
 	// Works whether `layout` is our wrapper (GetPrivateData forwards to orig)
 	// or the original layout we created (private data set in constructor).
-	if (SUCCEEDED(layout->GetPrivateData(GUID_HackerInputLayout, &size, &private_data)) && private_data) {
-		HackerInputLayout* hacker = nullptr;
-		HRESULT hr = private_data->QueryInterface(GUID_HackerInputLayout, reinterpret_cast<void**>(&hacker));
+	if (SUCCEEDED(layout->GetPrivateData(GUID_HackerInputLayout, &size, static_cast<void *>(&private_data))) &&
+	    private_data)
+	{
+		HackerInputLayout *hacker = nullptr;
+		HRESULT hr = private_data->QueryInterface(GUID_HackerInputLayout, reinterpret_cast<void **>(&hacker));
 		private_data->Release();
 		if (SUCCEEDED(hr))
 			return hacker;
@@ -56,16 +59,14 @@ HackerInputLayout* HackerInputLayout::FromLayout(ID3D11InputLayout* layout)
 	return nullptr;
 }
 
-HackerInputLayout::~HackerInputLayout()
-{
-}
+HackerInputLayout::~HackerInputLayout() = default;
 
-ID3D11InputLayout* HackerInputLayout::GetOrigInputLayout() const
+ID3D11InputLayout *HackerInputLayout::GetOrigInputLayout() const
 {
 	return mOrigLayout;
 }
 
-const void* HackerInputLayout::GetShaderSignature() const
+const void *HackerInputLayout::GetShaderSignature() const
 {
 	return mShaderSignature.empty() ? nullptr : mShaderSignature.data();
 }
@@ -85,7 +86,7 @@ UINT HackerInputLayout::GetElementCount() const
 	return static_cast<UINT>(mElements.size());
 }
 
-const D3D11_INPUT_ELEMENT_DESC* HackerInputLayout::GetElements() const
+const D3D11_INPUT_ELEMENT_DESC *HackerInputLayout::GetElements() const
 {
 	return mElements.data();
 }
@@ -101,7 +102,7 @@ uint32_t HackerInputLayout::CalculateLayoutHash() const
 
 	for (size_t i = 0; i < mElements.size(); ++i)
 	{
-		const D3D11_INPUT_ELEMENT_DESC& element = mElements[i];
+		const D3D11_INPUT_ELEMENT_DESC &element = mElements[i];
 
 		// Do not hash element.SemanticName pointer.
 		if (element.SemanticName)
@@ -119,15 +120,13 @@ uint32_t HackerInputLayout::CalculateLayoutHash() const
 }
 
 #pragma region IUnknown
-HRESULT STDMETHODCALLTYPE HackerInputLayout::QueryInterface(REFIID riid, void** ppvObject)
+HRESULT STDMETHODCALLTYPE HackerInputLayout::QueryInterface(REFIID riid, void **ppvObject)
 {
 	if (!ppvObject)
 		return E_POINTER;
 
-	if (riid == __uuidof(ID3D11InputLayout) ||
-		riid == __uuidof(ID3D11DeviceChild) ||
-		riid == __uuidof(IUnknown) ||
-		IsEqualIID(riid, GUID_HackerInputLayout))
+	if (riid == __uuidof(ID3D11InputLayout) || riid == __uuidof(ID3D11DeviceChild) || riid == __uuidof(IUnknown) ||
+	    IsEqualIID(riid, GUID_HackerInputLayout))
 	{
 		*ppvObject = this;
 		AddRef();
@@ -159,22 +158,22 @@ ULONG STDMETHODCALLTYPE HackerInputLayout::Release()
 #pragma endregion IUnknown
 
 #pragma region ID3D11DeviceChild
-void STDMETHODCALLTYPE HackerInputLayout::GetDevice(ID3D11Device** ppDevice)
+void STDMETHODCALLTYPE HackerInputLayout::GetDevice(ID3D11Device **ppDevice)
 {
 	mOrigLayout->GetDevice(ppDevice);
 }
 
-HRESULT STDMETHODCALLTYPE HackerInputLayout::GetPrivateData(REFGUID guid, UINT* pDataSize, void* pData)
+HRESULT STDMETHODCALLTYPE HackerInputLayout::GetPrivateData(REFGUID guid, UINT *pDataSize, void *pData)
 {
 	return mOrigLayout->GetPrivateData(guid, pDataSize, pData);
 }
 
-HRESULT STDMETHODCALLTYPE HackerInputLayout::SetPrivateData(REFGUID guid, UINT DataSize, const void* pData)
+HRESULT STDMETHODCALLTYPE HackerInputLayout::SetPrivateData(REFGUID guid, UINT DataSize, const void *pData)
 {
 	return mOrigLayout->SetPrivateData(guid, DataSize, pData);
 }
 
-HRESULT STDMETHODCALLTYPE HackerInputLayout::SetPrivateDataInterface(REFGUID guid, const IUnknown* pData)
+HRESULT STDMETHODCALLTYPE HackerInputLayout::SetPrivateDataInterface(REFGUID guid, const IUnknown *pData)
 {
 	return mOrigLayout->SetPrivateDataInterface(guid, pData);
 }

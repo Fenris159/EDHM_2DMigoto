@@ -2,7 +2,7 @@
 
 #include "HackerDevice.h"
 
-// The "input" files are a set of objects to handle user input for both gaming 
+// The "input" files are a set of objects to handle user input for both gaming
 // purposes and for tool purposes, like hunting for shaders.
 //
 // The hunting usage is presently built using a call-back mechanism, to call
@@ -11,21 +11,21 @@
 // For gameplay purposes, like aiming override, HUD movement, menu adjustments
 // based on keys- the VKInputAction objects are used.
 
-
 // -----------------------------------------------------------------------------
-// InputListener defines an abstract interface for receiving key events. Subclass 
+// InputListener defines an abstract interface for receiving key events. Subclass
 // it and override the DownEvent and/or UpEvent methods to add input handling to
 // another object, and register that object to a key binding with
 // RegisterKeyBinding(). e.g. the KeyOverride class implements this interface.
 // Once registered, the input subsystem will be responsible for freeing it
 // (though at the moment the input events are never freed).
 
-class InputListener {
-public:
+class InputListener
+{
+  public:
+	virtual ~InputListener() = default;
 	virtual void DownEvent(HackerDevice *device) = 0;
 	virtual void UpEvent(HackerDevice *device);
 };
-
 
 // -----------------------------------------------------------------------------
 // For cases where implementing InputListener is overkill (e.g. when a key
@@ -33,32 +33,34 @@ public:
 // callback function may be used with this type signature and registered via
 // RegisterIniKeyBinding:
 
-typedef void(*InputCallback)(HackerDevice *device, void *private_data);
+typedef void (*InputCallback)(HackerDevice *device, void *private_data);
 
 // -----------------------------------------------------------------------------
 // InputCallbacks is a key descendant of InputListener, and is used primarily
-// for the shader hunting mechanism.  
+// for the shader hunting mechanism.
 //
-// TODO: remove use of callbacks by making them InputAction subclasses.
+// Future work: remove use of callbacks by making them InputAction subclasses.
 
-class InputCallbacks : public InputListener {
-private:
+class InputCallbacks : public InputListener
+{
+  private:
 	InputCallback down_cb;
 	InputCallback up_cb;
 	void *private_data;
 
-public:
+  public:
 	InputCallbacks(InputCallback down_cb, InputCallback up_cb, void *private_data);
 
 	void DownEvent(HackerDevice *device) override;
 	void UpEvent(HackerDevice *device) override;
 };
 
-
 // -----------------------------------------------------------------------------
 // Abstract base class of all input backend button classes
-class InputButton {
-public:
+class InputButton
+{
+  public:
+	virtual ~InputButton() = default;
 	virtual bool CheckState() = 0;
 };
 
@@ -69,57 +71,69 @@ public:
 // The keybindings are oriented around the use of GetAsyncKeyState, and numerous
 // convenience aliases are defined in vkeys.h.
 
-class VKInputButton : public InputButton {
-public:
+class VKInputButton : public InputButton
+{
+  public:
 	int vkey;
 	bool invert;
 
-	VKInputButton(const wchar_t *keyName);
+	explicit VKInputButton(const wchar_t *keyName);
 	bool CheckState() override;
 };
 
 // -----------------------------------------------------------------------------
 // XInputButton serves much the same purpose as VKInputButton, but implements
 // XInputButton to support xbox controllers
-class XInputButton : public InputButton {
-private:
+class XInputButton : public InputButton
+{
+  private:
 	int controller;
 	WORD button;
 	BYTE left_trigger;
 	BYTE right_trigger;
 	bool invert;
 
-	bool _CheckState(int controller);
-public:
-	XInputButton(const wchar_t *keyName);
+	bool _CheckState(int controller) const;
+
+  public:
+	explicit XInputButton(const wchar_t *keyName);
 	bool CheckState() override;
 };
 
 // -----------------------------------------------------------------------------
 // InputButtonList allows multiple InputButtons to be combined:
-class InputButtonList : public InputButton {
-	vector<InputButton*> buttons;
+class InputButtonList : public InputButton
+{
+	vector<InputButton *> buttons;
 	void clear();
 
-public:
-	InputButtonList(const wchar_t *keyName);
+  public:
+	explicit InputButtonList(const wchar_t *keyName);
 	~InputButtonList();
+	InputButtonList(const InputButtonList &) = delete;
+	InputButtonList &operator=(const InputButtonList &) = delete;
+	InputButtonList(InputButtonList &&) = delete;
+	InputButtonList &operator=(InputButtonList &&) = delete;
 	bool CheckState() override;
 };
-
 
 // -----------------------------------------------------------------------------
 // InputAction combines an InputButton and an InputListener together to create
 // an action.
 
-class InputAction {
-public:
+class InputAction
+{
+  public:
 	bool last_state;
 	InputButton *button;
 	shared_ptr<InputListener> listener;
 
 	InputAction(InputButton *button, shared_ptr<InputListener> listener);
 	virtual ~InputAction();
+	InputAction(const InputAction &) = delete;
+	InputAction &operator=(const InputAction &) = delete;
+	InputAction(InputAction &&) = delete;
+	InputAction &operator=(InputAction &&) = delete;
 
 	virtual bool Dispatch(HackerDevice *device);
 };
@@ -128,12 +142,13 @@ public:
 // RepeatingInputAction is used to provide auto-repeating functionality to
 // other key bindings.
 
-class RepeatingInputAction : public virtual InputAction {
-private:
-	int repeatRate = 8;			// repeats per second
+class RepeatingInputAction : public virtual InputAction
+{
+  private:
+	int repeatRate = 8; // repeats per second
 	ULONGLONG lastTick = 0;
 
-public:
+  public:
 	RepeatingInputAction(InputButton *button, shared_ptr<InputListener> listener, int repeat);
 	bool Dispatch(HackerDevice *device) override;
 };
@@ -141,29 +156,28 @@ public:
 // -----------------------------------------------------------------------------
 // DelayedInputAction is used to add delays to the activation of other key
 // bindings.
-class DelayedInputAction : public virtual InputAction {
-private:
+class DelayedInputAction : public virtual InputAction
+{
+  private:
 	int delay_down, delay_up;
 	bool effective_state;
 	ULONGLONG state_change_time;
-public:
+
+  public:
 	DelayedInputAction(InputButton *button, shared_ptr<InputListener> listener, int delayDown, int delayUp);
 	bool Dispatch(HackerDevice *device) override;
 };
 
-
 // -----------------------------------------------------------------------------
 // At the moment RegisterKeyBinding takes a class implementing InputListener,
 // while RegisterIniKeyBinding takes a pair of callbacks and private_data.
-// Right now these are the only two combinations we need, but feel free to add 
+// Right now these are the only two combinations we need, but feel free to add
 // more variants as needed.
 
-void RegisterKeyBinding(LPCWSTR iniKey, const wchar_t *keyName,
-		shared_ptr<InputListener> listener, int auto_repeat, int down_delay,
-		int up_delay);
-bool RegisterIniKeyBinding(LPCWSTR app, LPCWSTR key,
-		InputCallback down_cb, InputCallback up_cb, int auto_repeat,
-		void *private_data);
+void RegisterKeyBinding(LPCWSTR iniKey, const wchar_t *keyName, shared_ptr<InputListener> listener, int auto_repeat,
+                        int down_delay, int up_delay);
+bool RegisterIniKeyBinding(LPCWSTR app, LPCWSTR key, InputCallback down_cb, InputCallback up_cb, int auto_repeat,
+                           void *private_data);
 wstring user_friendly_ini_key_binding(LPCWSTR app, LPCWSTR iniKey);
 
 // Clears all current key bindings in preparation for reloading the config.

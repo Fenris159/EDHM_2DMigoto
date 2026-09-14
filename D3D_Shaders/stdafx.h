@@ -18,15 +18,13 @@
 using namespace std;
 
 // VS2013 BUG WORKAROUND: Make sure this class has a unique type name!
-class AssemblerParseError: public exception {
-public:
+class AssemblerParseError : public exception
+{
+  public:
 	string context, desc, msg;
-	int line_no;
+	int line_no{0};
 
-	AssemblerParseError(string context, string desc) :
-		context(context),
-		desc(desc),
-		line_no(0)
+	AssemblerParseError(string context, string desc) : context(std::move(context)), desc(std::move(desc))
 	{
 		update_msg();
 	}
@@ -39,7 +37,7 @@ public:
 		msg += ", " + desc + ":\n\"" + context + "\"";
 	}
 
-	const char* what() const
+	const char *what() const override
 	{
 		return msg.c_str();
 	}
@@ -47,8 +45,10 @@ public:
 
 struct shader_ins
 {
-	union {
-		struct {
+	union
+	{
+		struct
+		{
 			// XXX Beware that bitfield packing is not defined in
 			// the C/C++ standards and this is relying on compiler
 			// specific packing. This approach is not recommended.
@@ -63,14 +63,16 @@ struct shader_ins
 };
 struct token_operand
 {
-	union {
-		struct {
+	union
+	{
+		struct
+		{
 			// XXX Beware that bitfield packing is not defined in
 			// the C/C++ standards and this is relying on compiler
 			// specific packing. This approach is not recommended.
 
 			unsigned comps_enum : 2; /* sm4_operands_comps */
-			unsigned mode : 2; /* sm4_operand_mode */
+			unsigned mode : 2;       /* sm4_operand_mode */
 			unsigned sel : 8;
 			unsigned file : 8; /* SM_FILE */
 			unsigned num_indices : 2;
@@ -83,14 +85,17 @@ struct token_operand
 	};
 };
 
-vector<string> stringToLines(const char* start, size_t size);
-HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *comment,
-		int hexdump = 0, bool d3dcompiler_46_compat = false,
-		bool disassemble_undecipherable_data = false,
-		bool patch_cb_offsets = false);
+vector<string> stringToLines(const char *start, size_t size);
+HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *comment, int hexdump = 0,
+                     bool d3dcompiler_46_compat = false, bool disassemble_undecipherable_data = false,
+                     bool patch_cb_offsets = false);
 HRESULT disassemblerDX9(vector<byte> *buffer, vector<byte> *ret, const char *comment);
-vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode, vector<AssemblerParseError> *parse_errors = nullptr);
+vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode,
+                       vector<AssemblerParseError> *parse_errors = nullptr);
 vector<byte> assemblerDX9(vector<char> *asmFile);
 void writeLUT();
-HRESULT AssembleFluganWithSignatureParsing(vector<char> *assembly, vector<byte> *result_bytecode, vector<AssemblerParseError> *parse_errors = nullptr);
-vector<byte> AssembleFluganWithOptionalSignatureParsing(vector<char> *assembly, bool assemble_signatures, vector<byte> *orig_bytecode, vector<AssemblerParseError> *parse_errors = nullptr);
+HRESULT AssembleFluganWithSignatureParsing(vector<char> *assembly, vector<byte> *result_bytecode,
+                                           vector<AssemblerParseError> *parse_errors = nullptr);
+vector<byte> AssembleFluganWithOptionalSignatureParsing(vector<char> *assembly, bool assemble_signatures,
+                                                        vector<byte> *orig_bytecode,
+                                                        vector<AssemblerParseError> *parse_errors = nullptr);

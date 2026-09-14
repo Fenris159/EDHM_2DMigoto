@@ -1,0 +1,22 @@
+---
+Language: Cpp
+BasedOnStyle: Microsoft
+Standard: c++14
+UseTab: ForIndentation
+IndentWidth: 4
+TabWidth: 4
+ColumnLimit: 120
+BreakBeforeBraces: Allman
+AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+DerivePointerAlignment: false
+PointerAlignment: Right
+ReferenceAlignment: Pointer
+IndentPPDirectives: None
+NamespaceIndentation: None
+SortIncludes: Never
+FixNamespaceComments: false
+ReflowComments: false
+...

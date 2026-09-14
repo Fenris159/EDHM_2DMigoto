@@ -1,16 +1,16 @@
 #include "ShaderRegex.h"
 #include "CommandList.h"
-#include "globals.h" // For ShaderOverride FIXME: This should be in a separate header
+#include "globals.h" // For ShaderOverride Known limitation: This should be in a separate header
 #include "log.h"
 
 #include <algorithm>
 #include <iterator>
 
 ShaderRegexGroups shader_regex_groups;
-std::vector<ShaderRegexGroup*> shader_regex_group_index;
+std::vector<ShaderRegexGroup *> shader_regex_group_index;
 uint32_t shader_regex_hash;
 
-static void log_pcre2_error_nonl(int err, char *fmt, ...)
+static void log_pcre2_error_nonl(int err, const char *fmt, ...)
 {
 	PCRE2_UCHAR buf[120]; // doco says "120 code units is ample"
 	va_list ap;
@@ -28,27 +28,29 @@ static bool get_shader_model(std::string *asm_text, std::string *shader_model)
 {
 	size_t shader_model_pos;
 
-	for (
-		shader_model_pos = asm_text->find("\n");
-		shader_model_pos != std::string::npos && (*asm_text)[shader_model_pos + 1] == '/';
-		shader_model_pos = asm_text->find("\n", shader_model_pos + 1)
-	) {}
+	for (shader_model_pos = asm_text->find("\n");
+	     shader_model_pos != std::string::npos && (*asm_text)[shader_model_pos + 1] == '/';
+	     shader_model_pos = asm_text->find("\n", shader_model_pos + 1))
+	{
+	}
 
 	if (shader_model_pos == std::string::npos)
 		return false;
 
-	*shader_model = asm_text->substr(shader_model_pos + 1, asm_text->find("\n", shader_model_pos + 1) - shader_model_pos - 1);
+	*shader_model =
+	    asm_text->substr(shader_model_pos + 1, asm_text->find("\n", shader_model_pos + 1) - shader_model_pos - 1);
 	return true;
 }
 
 static bool find_dcl_end(std::string *asm_text, size_t *dcl_end_pos)
 {
-	// FIXME: Might be better to scan forwards
+	// Known limitation: Might be better to scan forwards
 
 	*dcl_end_pos = asm_text->rfind("\ndcl_");
 	*dcl_end_pos = asm_text->find("\n", *dcl_end_pos + 1);
 
-	if (*dcl_end_pos == std::string::npos) {
+	if (*dcl_end_pos == std::string::npos)
+	{
 		LogInfo("WARNING: Unable to locate end of shader declarations!\n");
 		return false;
 	}
@@ -66,7 +68,8 @@ static bool insert_declarations(std::string *asm_text, ShaderRegexDeclarations *
 	if (!find_dcl_end(asm_text, &dcl_end))
 		return false;
 
-	for (i = declarations->begin(); i != declarations->end(); i++) {
+	for (i = declarations->begin(); i != declarations->end(); i++)
+	{
 		insert_str = std::string("\n") + *i;
 
 		if (asm_text->find(insert_str + std::string("\n")) != std::string::npos)
@@ -109,10 +112,13 @@ static unsigned get_dcl_temps(std::string *asm_text)
 
 static bool update_dcl_temps(std::string *asm_text, size_t new_val)
 {
-	size_t dcl_temps, dcl_temps_end, dcl_end;
+	size_t dcl_temps;
+	size_t dcl_temps_end;
+	size_t dcl_end;
 	std::string insert_str;
 
-	if (find_dcl_temps(asm_text, &dcl_temps)) {
+	if (find_dcl_temps(asm_text, &dcl_temps))
+	{
 		dcl_temps += 11;
 		dcl_temps_end = asm_text->find("\n", dcl_temps);
 		LogInfo("Updating dcl_temps %Iu\n", new_val);
@@ -131,15 +137,32 @@ static bool update_dcl_temps(std::string *asm_text, size_t new_val)
 	return true;
 }
 
-ShaderRegexPattern::ShaderRegexPattern() :
-	regex(nullptr),
-	do_replace(false)
-{
-}
+ShaderRegexPattern::ShaderRegexPattern() : regex(nullptr), do_replace(false) {}
 
 ShaderRegexPattern::~ShaderRegexPattern()
 {
 	pcre2_code_free(regex);
+}
+
+ShaderRegexPattern::ShaderRegexPattern(ShaderRegexPattern &&other) noexcept
+    : regex(other.regex), replace(std::move(other.replace)), do_replace(other.do_replace),
+      named_capture_groups(std::move(other.named_capture_groups))
+{
+	other.regex = nullptr;
+}
+
+ShaderRegexPattern &ShaderRegexPattern::operator=(ShaderRegexPattern &&other) noexcept
+{
+	if (this != &other)
+	{
+		pcre2_code_free(regex);
+		regex = other.regex;
+		replace = std::move(other.replace);
+		do_replace = other.do_replace;
+		named_capture_groups = std::move(other.named_capture_groups);
+		other.regex = nullptr;
+	}
+	return *this;
 }
 
 bool ShaderRegexPattern::compile(std::string *pattern)
@@ -147,7 +170,8 @@ bool ShaderRegexPattern::compile(std::string *pattern)
 	uint32_t name_table_entry_size;
 	uint32_t name_table_count;
 	uint32_t i;
-	PCRE2_SPTR name_table;
+	PCRE2_SPTR name_table = nullptr;
+	void *name_table_result = nullptr;
 	PCRE2_SIZE err_off;
 	int err;
 
@@ -155,25 +179,27 @@ bool ShaderRegexPattern::compile(std::string *pattern)
 	// having to always remember to account for the dcl_constantbuffer
 	// differences:
 	regex = pcre2_compile((PCRE2_SPTR)pattern->c_str(),
-			pattern->length(), // or PCRE2_ZERO_TERMINATED
-			PCRE2_CASELESS | PCRE2_MULTILINE,
-			&err, &err_off, nullptr);
-	if (!regex) {
+	                      pattern->length(), // or PCRE2_ZERO_TERMINATED
+	                      PCRE2_CASELESS | PCRE2_MULTILINE, &err, &err_off, nullptr);
+	if (!regex)
+	{
 		log_pcre2_error_nonl(err, "  WARNING: PCRE2 regex compilation failed at offset %u", (unsigned)err_off);
 		return false;
 	}
 
-	// TODO: Use callback to confirm that JIT does actually get used, as in
+	// Future work: Use callback to confirm that JIT does actually get used, as in
 	// some cases pcre2 can fall back to using the slower interpreter
 	pcre2_jit_compile(regex, 0);
 
 	pcre2_pattern_info(regex, PCRE2_INFO_NAMECOUNT, &name_table_count);
 	pcre2_pattern_info(regex, PCRE2_INFO_NAMEENTRYSIZE, &name_table_entry_size);
-	pcre2_pattern_info(regex, PCRE2_INFO_NAMETABLE, &name_table);
+	pcre2_pattern_info(regex, PCRE2_INFO_NAMETABLE, static_cast<void *>(&name_table_result));
+	name_table = static_cast<PCRE2_SPTR>(name_table_result);
 
 	static_assert(PCRE2_CODE_UNIT_WIDTH == 8, "Need to fix name table parsing for non-8bit pcre2");
 	for (i = 0; i < name_table_count; i++)
-		named_capture_groups.insert(std::string((char*)(name_table + name_table_entry_size*i + 2)));
+		named_capture_groups.insert(std::string(
+		    reinterpret_cast<const char *>(name_table + static_cast<size_t>(name_table_entry_size) * i + 2)));
 
 	return true;
 }
@@ -183,34 +209,31 @@ bool ShaderRegexPattern::named_group_overlaps(ShaderRegexTemps &other_set)
 	ShaderRegexTemps intersection;
 
 	// C++ why you be so verbose?
-	std::set_intersection(
-				named_capture_groups.begin(),
-				named_capture_groups.end(),
-				other_set.begin(),
-				other_set.end(),
-				std::inserter(intersection, intersection.begin()));
+	std::set_intersection(named_capture_groups.begin(), named_capture_groups.end(), other_set.begin(), other_set.end(),
+	                      std::inserter(intersection, intersection.begin()));
 
-	return intersection.size() != 0;
+	return !intersection.empty();
 }
 
-bool ShaderRegexPattern::matches(std::string *asm_text)
+bool ShaderRegexPattern::matches(std::string *asm_text) const
 {
 	pcre2_match_data *match_data = nullptr;
 	bool match = false;
 	int rc;
 
-	// TODO: Assign per-thread JIT stack if the default 32K turns out to be
+	// Future work: Assign per-thread JIT stack if the default 32K turns out to be
 	// insufficient. Can probably store this in the context, as that is
 	// supposed to be per-thread, or use thread local storage.
 
 	match_data = pcre2_match_data_create_from_pattern(regex, nullptr);
 
-	// TODO: Consider using pcre2_jit_match - doco claims 10% faster, but
-	// has less sanity checks. TODO: Use callback to confirm JIT was used
+	// Future work: Consider using pcre2_jit_match - doco claims 10% faster, but
+	// has less sanity checks. Future work: Use callback to confirm JIT was used
 	rc = pcre2_match(regex, (PCRE2_SPTR)asm_text->c_str(), asm_text->length(), 0, 0, match_data, nullptr);
 	if (rc == PCRE2_ERROR_NOMATCH)
 		goto out_free;
-	if (rc < 0) {
+	if (rc < 0)
+	{
 		log_pcre2_error_nonl(rc, "  WARNING: regex match error");
 		goto out_free;
 	}
@@ -226,8 +249,9 @@ static void replacement_search_and_replace(std::string &str, std::string *search
 {
 	size_t pos;
 
-	for (pos = str.find(*search); pos != std::string::npos; pos = str.find(*search, pos + 1)) {
-		if (pos > 0 && (str[pos-1] == '$' || str[pos-1] == '\\'))
+	for (pos = str.find(*search); pos != std::string::npos; pos = str.find(*search, pos + 1))
+	{
+		if (pos > 0 && (str[pos - 1] == '$' || str[pos - 1] == '\\'))
 			continue;
 
 		str.replace(pos, search->length(), *replace);
@@ -238,9 +262,11 @@ static void substitute_temp_regs(std::string &replacement, ShaderRegexTemps *tem
 {
 	ShaderRegexTemps::iterator i;
 	unsigned tmp_reg = dcl_temps;
-	std::string search_str, repl_str;
+	std::string search_str;
+	std::string repl_str;
 
-	for (i = temp_regs->begin(); i != temp_regs->end(); i++, tmp_reg++) {
+	for (i = temp_regs->begin(); i != temp_regs->end(); i++, tmp_reg++)
+	{
 		repl_str = std::string("r") + std::to_string(tmp_reg);
 
 		search_str = std::string("$") + *i;
@@ -251,7 +277,7 @@ static void substitute_temp_regs(std::string &replacement, ShaderRegexTemps *tem
 	}
 }
 
-bool ShaderRegexPattern::patch(std::string *asm_text, ShaderRegexTemps *temp_regs, unsigned dcl_temps)
+bool ShaderRegexPattern::patch(std::string *asm_text, ShaderRegexTemps *temp_regs, unsigned dcl_temps) const
 {
 	pcre2_match_data *match_data = nullptr;
 	PCRE2_SIZE est_size, output_size;
@@ -268,7 +294,7 @@ bool ShaderRegexPattern::patch(std::string *asm_text, ShaderRegexTemps *temp_reg
 	replace_copy = replace;
 	substitute_temp_regs(replace_copy, temp_regs, dcl_temps);
 
-	// TODO: Allow named capture groups from other patterns in the same
+	// Future work: Allow named capture groups from other patterns in the same
 	// regex group to be substituted in, and provide some simple arithmetic
 	// operators to e.g. allow a constant buffer byte offset to be divided
 	// by 16 to get the constant buffer index and vice versa
@@ -281,44 +307,41 @@ bool ShaderRegexPattern::patch(std::string *asm_text, ShaderRegexTemps *temp_reg
 
 	output_size = est_size = asm_text->length() + replace_copy.length() + 1024;
 	buf = new PCRE2_UCHAR[output_size];
-	rc = pcre2_substitute(regex,
-			(PCRE2_SPTR)asm_text->c_str(), asm_text->length(), 0,
-			options | PCRE2_SUBSTITUTE_OVERFLOW_LENGTH,
-			match_data, nullptr,
-			(PCRE2_SPTR)replace_copy.c_str(), replace_copy.length(),
-			buf, &output_size);
+	rc = pcre2_substitute(regex, (PCRE2_SPTR)asm_text->c_str(), asm_text->length(), 0,
+	                      options | PCRE2_SUBSTITUTE_OVERFLOW_LENGTH, match_data, nullptr,
+	                      (PCRE2_SPTR)replace_copy.c_str(), replace_copy.length(), buf, &output_size);
 
-	if (rc == PCRE2_ERROR_NOMEMORY) {
+	if (rc == PCRE2_ERROR_NOMEMORY)
+	{
 		LogInfo("  NOTICE: regex replace requires a %u byte buffer\n", (unsigned)output_size);
 		LogInfo("  NOTICE: We underestimated by %u bytes and have to start over\n", (unsigned)(output_size - est_size));
 		LogInfo("  NOTICE: What kind of crazy are you doing to get down this code path?\n");
 		LogInfo("  NOTICE: You didn't inject a matrix inverse or two in assembly did you?\n");
 		LogInfo("  NOTICE: Once more, with passion!\n");
 
-		delete [] buf;
+		delete[] buf;
 		buf = new PCRE2_UCHAR[output_size];
 
-		rc = pcre2_substitute(regex,
-				(PCRE2_SPTR)asm_text->c_str(), asm_text->length(), 0,
-				options, // No PCRE2_SUBSTITUTE_OVERFLOW_LENGTH this time
-				match_data, nullptr,
-				(PCRE2_SPTR)replace_copy.c_str(), replace_copy.length(),
-				buf, &output_size);
+		rc = pcre2_substitute(regex, (PCRE2_SPTR)asm_text->c_str(), asm_text->length(), 0,
+		                      options, // No PCRE2_SUBSTITUTE_OVERFLOW_LENGTH this time
+		                      match_data, nullptr, (PCRE2_SPTR)replace_copy.c_str(), replace_copy.length(), buf,
+		                      &output_size);
 	}
 
 	if (rc == 0)
 		goto out_free;
-	if (rc < 0) {
+	if (rc < 0)
+	{
 		log_pcre2_error_nonl(rc, "  WARNING: regex replace error");
 		goto out_free;
 	}
 
-	*asm_text = (char*)buf;
+	*asm_text = (char *)buf;
 	patch = true;
 
 out_free:
 	pcre2_match_data_free(match_data);
-	delete [] buf;
+	delete[] buf;
 
 	return patch;
 }
@@ -338,7 +361,8 @@ void ShaderRegexGroup::apply_regex_patterns(std::string *asm_text, bool *match, 
 	if (!temp_regs.empty())
 		dcl_temps = get_dcl_temps(asm_text);
 
-	for (i = patterns.begin(); i != patterns.end(); i++) {
+	for (i = patterns.begin(); i != patterns.end(); i++)
+	{
 		pattern = &i->second;
 
 		if (pattern->do_replace)
@@ -346,7 +370,8 @@ void ShaderRegexGroup::apply_regex_patterns(std::string *asm_text, bool *match, 
 		else
 			*match = pattern->matches(asm_text);
 
-		if (!*match) {
+		if (!*match)
+		{
 			*patch = false;
 			return;
 		}
@@ -366,7 +391,8 @@ void ShaderRegexGroup::apply_regex_patterns(std::string *asm_text, bool *match, 
 void ShaderRegexGroup::link_command_lists_and_filter_index(UINT64 shader_hash)
 {
 	ShaderOverride *shader_override = nullptr;
-	wstring ini_section, ini_line;
+	wstring ini_section;
+	wstring ini_line;
 	CommandList::Commands::reverse_iterator i;
 
 	// Only link the command lists if we have something in ours to link in,
@@ -379,7 +405,8 @@ void ShaderRegexGroup::link_command_lists_and_filter_index(UINT64 shader_hash)
 	shader_override = &G->mShaderOverrideMap[shader_hash];
 
 	// Initialise the ShaderOverride's command lists if they aren't already:
-	if (shader_override->command_list.ini_section.empty()) {
+	if (shader_override->command_list.ini_section.empty())
+	{
 		ini_section = command_list.ini_section + L".Match";
 		shader_override->command_list.ini_section = ini_section;
 		shader_override->post_command_list.ini_section = ini_section;
@@ -394,9 +421,11 @@ void ShaderRegexGroup::link_command_lists_and_filter_index(UINT64 shader_hash)
 	// we will reuse the link command here, after checking that this
 	// matched shader has not already been linked. Avoids the command lists
 	// growing endlessly and eventually killing performance.
-	if (link) {
-		for (i = shader_override->command_list.commands.rbegin();
-		         i != shader_override->command_list.commands.rend(); i++) {
+	if (link)
+	{
+		for (i = shader_override->command_list.commands.rbegin(); i != shader_override->command_list.commands.rend();
+		     i++)
+		{
 			if (*i == link)
 				return;
 		}
@@ -404,9 +433,12 @@ void ShaderRegexGroup::link_command_lists_and_filter_index(UINT64 shader_hash)
 		if (post_link)
 			shader_override->post_command_list.commands.push_back(post_link);
 		return;
-	} else if (post_link) {
+	}
+	else if (post_link)
+	{
 		for (i = shader_override->post_command_list.commands.rbegin();
-		         i != shader_override->post_command_list.commands.rend(); i++) {
+		     i != shader_override->post_command_list.commands.rend(); i++)
+		{
 			if (*i == post_link)
 				return;
 		}
@@ -428,7 +460,8 @@ void ShaderRegexGroup::link_command_lists_and_filter_index(UINT64 shader_hash)
 bool unlink_shader_regex_command_lists_and_filter_index(UINT64 shader_hash)
 {
 	ShaderOverride *shader_override = nullptr;
-	CommandList::Commands::iterator i, next;
+	CommandList::Commands::iterator i;
+	CommandList::Commands::iterator next;
 	RunLinkedCommandList *link;
 	bool ret = false;
 
@@ -439,26 +472,31 @@ bool unlink_shader_regex_command_lists_and_filter_index(UINT64 shader_hash)
 	shader_override = &shader_override_i->second;
 
 	for (i = shader_override->command_list.commands.begin(), next = i;
-	    i != shader_override->command_list.commands.end(); i = next) {
+	     i != shader_override->command_list.commands.end(); i = next)
+	{
 		next++;
-		link = dynamic_cast<RunLinkedCommandList*>(i->get());
-		if (link) {
+		link = dynamic_cast<RunLinkedCommandList *>(i->get());
+		if (link)
+		{
 			next = shader_override->command_list.commands.erase(i);
 			ret = true;
 		}
 	}
 
 	for (i = shader_override->post_command_list.commands.begin(), next = i;
-	    i != shader_override->post_command_list.commands.end(); i = next) {
+	     i != shader_override->post_command_list.commands.end(); i = next)
+	{
 		next++;
-		link = dynamic_cast<RunLinkedCommandList*>(i->get());
-		if (link) {
+		link = dynamic_cast<RunLinkedCommandList *>(i->get());
+		if (link)
+		{
 			next = shader_override->post_command_list.commands.erase(i);
 			ret = true;
 		}
 	}
 
-	if (shader_override->filter_index != shader_override->backup_filter_index) {
+	if (shader_override->filter_index != shader_override->backup_filter_index)
+	{
 		shader_override->filter_index = shader_override->backup_filter_index;
 		ret = true;
 	}
@@ -467,14 +505,16 @@ bool unlink_shader_regex_command_lists_and_filter_index(UINT64 shader_hash)
 }
 
 #define SHADER_REGEX_CACHE_VERSION 1
-struct ShaderRegexCacheHeader {
+struct ShaderRegexCacheHeader
+{
 	uint32_t version;
 	uint32_t shader_regex_hash;
 	uint32_t patched;
 	uint32_t num_matches;
 };
 
-ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type, vector<byte> *bytecode, std::wstring *tagline)
+ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type, vector<byte> *bytecode,
+                                         std::wstring *tagline)
 {
 	ShaderRegexCache ret = ShaderRegexCache::NO_CACHE;
 	HANDLE meta_f = INVALID_HANDLE_VALUE;
@@ -483,18 +523,19 @@ ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type
 	ShaderRegexGroup *group;
 	wchar_t path[MAX_PATH];
 	uint32_t *match_ids;
-	DWORD size, size2;
+	DWORD size;
+	DWORD size2;
 	byte *buf = nullptr;
 	size_t suffix;
 	uint32_t i;
 
 	suffix = swprintf_s(path, MAX_PATH, L"%ls\\%016llx-%ls_regex.", G->SHADER_CACHE_PATH, hash, shader_type);
-	wcscpy_s(path+suffix, MAX_PATH-suffix, L"dat");
-	meta_f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+	wcscpy_s(path + suffix, MAX_PATH - suffix, L"dat");
+	meta_f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (meta_f == INVALID_HANDLE_VALUE)
 		return ret;
 
-	size = GetFileSize(meta_f, 0);
+	size = GetFileSize(meta_f, nullptr);
 	if (size < sizeof(ShaderRegexCacheHeader))
 		goto out;
 
@@ -503,11 +544,10 @@ ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type
 	if (!ReadFile(meta_f, buf, size, &size2, nullptr) || size != size2)
 		goto out;
 
-	header = (ShaderRegexCacheHeader*)buf;
-	match_ids = (uint32_t*)(buf + sizeof(ShaderRegexCacheHeader));
+	header = (ShaderRegexCacheHeader *)buf;
+	match_ids = (uint32_t *)(buf + sizeof(ShaderRegexCacheHeader));
 
-	if (header->version != SHADER_REGEX_CACHE_VERSION
-	 || header->shader_regex_hash != shader_regex_hash)
+	if (header->version != SHADER_REGEX_CACHE_VERSION || header->shader_regex_hash != shader_regex_hash)
 		goto out;
 
 	if (size != sizeof(ShaderRegexCacheHeader) + header->num_matches * sizeof(uint32_t))
@@ -518,12 +558,14 @@ ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type
 	// We don't really need any special handling for this case, since
 	// returning MATCH will already skip that handling in the caller, but
 	// we return a special value so the caller can log it appropriately.
-	if (header->num_matches == 0) {
+	if (header->num_matches == 0)
+	{
 		ret = ShaderRegexCache::NO_MATCH;
 		goto out;
 	}
 
-	for (i = 0; i < header->num_matches; i++) {
+	for (i = 0; i < header->num_matches; i++)
+	{
 		// The ShaderRegex groups are sorted and since the cached hash
 		// already matched the map should be identical to when the
 		// cache was made, so we can use that to find the matching
@@ -540,22 +582,24 @@ ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type
 		group->link_command_lists_and_filter_index(hash);
 	}
 
-	if (header->patched) {
-		wcscpy_s(path+suffix, MAX_PATH-suffix, L"bin");
-		bin_f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+	if (header->patched)
+	{
+		wcscpy_s(path + suffix, MAX_PATH - suffix, L"bin");
+		bin_f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 		if (bin_f == INVALID_HANDLE_VALUE)
 			goto out;
-		size = GetFileSize(bin_f, 0);
+		size = GetFileSize(bin_f, nullptr);
 		bytecode->resize(size);
 		if (!size || !ReadFile(bin_f, bytecode->data(), size, &size2, nullptr) || size != size2)
 			goto out;
 		ret = ShaderRegexCache::PATCH;
-	} else
+	}
+	else
 		ret = ShaderRegexCache::MATCH;
 
 out:
-	if (buf)
-		delete [] buf;
+
+	delete[] buf;
 	if (bin_f != INVALID_HANDLE_VALUE)
 		CloseHandle(bin_f);
 	if (meta_f != INVALID_HANDLE_VALUE)
@@ -564,9 +608,9 @@ out:
 }
 
 static void save_shader_regex_cache_meta(UINT64 hash, const wchar_t *shader_type, vector<uint32_t> *match_ids,
-		bool patched, std::string *asm_text, std::wstring *tagline)
+                                         bool patched, std::string *asm_text, std::wstring *tagline)
 {
-	ShaderRegexCacheHeader header;
+	ShaderRegexCacheHeader header{};
 	wchar_t path[MAX_PATH];
 	FILE *f = nullptr;
 	size_t suffix;
@@ -576,8 +620,9 @@ static void save_shader_regex_cache_meta(UINT64 hash, const wchar_t *shader_type
 
 	suffix = swprintf_s(path, MAX_PATH, L"%ls\\%016llx-%ls_regex.", G->SHADER_CACHE_PATH, hash, shader_type);
 
-	if (G->CACHE_SHADERS) {
-		// TODO: When we have a condition field in ShaderRegex: The evaluations
+	if (G->CACHE_SHADERS)
+	{
+		// Future work: When we have a condition field in ShaderRegex: The evaluations
 		// of *all* valid conditions (not just those matched) must qualify the
 		// cache, either by encoding them in the filename or extending the
 		// metadata format.
@@ -586,11 +631,11 @@ static void save_shader_regex_cache_meta(UINT64 hash, const wchar_t *shader_type
 		// new metadata to make sure it can't be loaded by mistake. If we can't
 		// remove it (e.g. another thread is currently reading it or permission
 		// issues) it's better not to update the cache at all:
-		wcscpy_s(path+suffix, MAX_PATH-suffix, L"bin");
+		wcscpy_s(path + suffix, MAX_PATH - suffix, L"bin");
 		if (!DeleteFile(path) && GetLastError() != ERROR_FILE_NOT_FOUND)
 			return;
 
-		wcscpy_s(path+suffix, MAX_PATH-suffix, L"dat");
+		wcscpy_s(path + suffix, MAX_PATH - suffix, L"dat");
 		wfopen_ensuring_access(&f, path, L"wb");
 		if (!f)
 			return;
@@ -605,11 +650,14 @@ static void save_shader_regex_cache_meta(UINT64 hash, const wchar_t *shader_type
 		fclose(f);
 	}
 
-	if (G->EXPORT_FIXED) {
-		wcscpy_s(path+suffix, MAX_PATH-suffix, L"txt");
-		if (patched) {
+	if (G->EXPORT_FIXED)
+	{
+		wcscpy_s(path + suffix, MAX_PATH - suffix, L"txt");
+		if (patched)
+		{
 			wfopen_ensuring_access(&f, path, L"wb");
-			if (!f) {
+			if (!f)
+			{
 				LogInfo("  Error storing ShaderRegex assembly to %S\n", path);
 				return;
 			}
@@ -619,7 +667,9 @@ static void save_shader_regex_cache_meta(UINT64 hash, const wchar_t *shader_type
 
 			fclose(f);
 			LogInfo("  Storing ShaderRegex assembly to %S\n", path);
-		} else {
+		}
+		else
+		{
 			if (DeleteFile(path))
 				LogInfo("  Removed stale ShaderRegex assembly file %S\n", path);
 		}
@@ -643,27 +693,32 @@ void save_shader_regex_cache_bin(UINT64 hash, const wchar_t *shader_type, vector
 	fclose(f);
 }
 
-bool get_shader_model_from_bytecode(const void* data, size_t size, std::string* out_model)
+bool get_shader_model_from_bytecode(const void *data, size_t size, std::string *out_model)
 {
 	if (!data || size < 32 || !out_model)
 		return false;
 
-	const uint8_t* buffer = static_cast<const uint8_t*>(data);
+	const auto *buffer = static_cast<const uint8_t *>(data);
 
 	// Validate DXBC header
 	if (memcmp(buffer, "DXBC", 4) != 0)
 		return false;
 
-	const uint8_t* ptr = buffer + 4 + 16; // Skip FOURCC + hash
+	const uint8_t *ptr = buffer + 4 + 16; // Skip FOURCC + hash
 
 	// Read header fields
 	if (ptr + 12 > buffer + size)
 		return false;
 
-	uint32_t one, totalSize, numChunks;
-	memcpy(&one, ptr, 4); ptr += 4;
-	memcpy(&totalSize, ptr, 4); ptr += 4;
-	memcpy(&numChunks, ptr, 4); ptr += 4;
+	uint32_t one;
+	uint32_t totalSize;
+	uint32_t numChunks;
+	memcpy(&one, ptr, 4);
+	ptr += 4;
+	memcpy(&totalSize, ptr, 4);
+	ptr += 4;
+	memcpy(&numChunks, ptr, 4);
+	ptr += 4;
 
 	if (numChunks == 0)
 		return false;
@@ -672,7 +727,7 @@ bool get_shader_model_from_bytecode(const void* data, size_t size, std::string* 
 	if (ptr + numChunks * sizeof(uint32_t) > buffer + size)
 		return false;
 
-	const uint32_t* chunkOffsets = reinterpret_cast<const uint32_t*>(ptr);
+	const auto *chunkOffsets = reinterpret_cast<const uint32_t *>(ptr);
 
 	// Iterate chunks backwards (same as disassembler)
 	for (int32_t i = (int32_t)numChunks - 1; i >= 0; --i)
@@ -684,7 +739,7 @@ bool get_shader_model_from_bytecode(const void* data, size_t size, std::string* 
 		if ((uint64_t)offset + 12 > size)
 			continue;
 
-		const uint8_t* chunk = buffer + offset;
+		const uint8_t *chunk = buffer + offset;
 
 		// Look for shader code chunk
 		if (memcmp(chunk, "SHEX", 4) != 0 && memcmp(chunk, "SHDR", 4) != 0)
@@ -698,15 +753,27 @@ bool get_shader_model_from_bytecode(const void* data, size_t size, std::string* 
 		uint32_t major = (versionToken >> 4) & 0xF;
 		uint32_t minor = (versionToken >> 0) & 0xF;
 
-		const char* prefix = "xx";
+		const char *prefix = "xx";
 		switch (type)
 		{
-			case 0: prefix = "ps"; break;
-			case 1: prefix = "vs"; break;
-			case 2: prefix = "gs"; break;
-			case 3: prefix = "hs"; break;
-			case 4: prefix = "ds"; break;
-			case 5: prefix = "cs"; break;
+		case 0:
+			prefix = "ps";
+			break;
+		case 1:
+			prefix = "vs";
+			break;
+		case 2:
+			prefix = "gs";
+			break;
+		case 3:
+			prefix = "hs";
+			break;
+		case 4:
+			prefix = "ds";
+			break;
+		case 5:
+			prefix = "cs";
+			break;
 		}
 
 		char buf[16];
@@ -720,23 +787,27 @@ bool get_shader_model_from_bytecode(const void* data, size_t size, std::string* 
 }
 
 // Process groups that do not have patches to apply. Those can be handled without disassembly.
-void link_shader_regex_groups_without_patterns(const wchar_t* shader_type, std::string* shader_model, UINT64 hash, bool* decompilation_required)
+void link_shader_regex_groups_without_patterns(const wchar_t *shader_type, std::string *shader_model, UINT64 hash,
+                                               bool *decompilation_required)
 {
 	ShaderRegexGroups::iterator i;
 	vector<uint32_t> match_ids;
-	vector<ShaderRegexGroup*> match_groups;
+	vector<ShaderRegexGroup *> match_groups;
 	uint32_t j;
 
-	for (i = shader_regex_groups.begin(), j = 0; i != shader_regex_groups.end(); i++, j++) {
-		ShaderRegexGroup* group = &i->second;
+	for (i = shader_regex_groups.begin(), j = 0; i != shader_regex_groups.end(); i++, j++)
+	{
+		ShaderRegexGroup *group = &i->second;
 
 		// Skip group without matching shader model.
-		if (!group->shader_models.count(*shader_model)) {
+		if (!group->shader_models.count(*shader_model))
+		{
 			continue;
 		}
 
 		// Skip group with patterns. Those ones need txt to match.
-		if (!group->patterns.empty()) {
+		if (!group->patterns.empty())
+		{
 			if (decompilation_required)
 				*decompilation_required = true;
 			continue;
@@ -748,10 +819,12 @@ void link_shader_regex_groups_without_patterns(const wchar_t* shader_type, std::
 		LogInfo("ShaderRegex (no pattern): %S %016I64x matches [%S]\n", shader_type, hash, group->ini_section.c_str());
 	}
 
-	// If no ShaderRegEx requires decompilation, link CommandLists and update shader cache here instead of `apply_shader_regex_groups`. 
-	if (decompilation_required && !*decompilation_required) {
+	// If no ShaderRegEx requires decompilation, link CommandLists and update shader cache here instead of `apply_shader_regex_groups`.
+	if (decompilation_required && !*decompilation_required)
+	{
 		// Enable CommandList sections execution for this group.
-		for (ShaderRegexGroup* group : match_groups) {
+		for (ShaderRegexGroup *group : match_groups)
+		{
 			group->link_command_lists_and_filter_index(hash);
 		}
 		// We save the cache metadata even if we didn't match anything. That
@@ -762,25 +835,30 @@ void link_shader_regex_groups_without_patterns(const wchar_t* shader_type, std::
 	}
 }
 
-bool apply_shader_regex_groups(std::string *asm_text, const wchar_t *shader_type, std::string *shader_model, UINT64 hash, std::wstring *tagline)
+bool apply_shader_regex_groups(std::string *asm_text, const wchar_t *shader_type, std::string *shader_model,
+                               UINT64 hash, std::wstring *tagline)
 {
 	ShaderRegexGroups::iterator i;
 	ShaderRegexGroup *group;
 	bool patched = false;
-	bool match, patch;
+	bool match;
+	bool patch;
 	vector<uint32_t> match_ids;
 	uint32_t j;
 
-	for (i = shader_regex_groups.begin(), j = 0; i != shader_regex_groups.end(); i++, j++) {
+	for (i = shader_regex_groups.begin(), j = 0; i != shader_regex_groups.end(); i++, j++)
+	{
 		group = &i->second;
 
 		// Skip group without matching shader model.
-		if (!group->shader_models.count(*shader_model)) {
+		if (!group->shader_models.count(*shader_model))
+		{
 			continue;
 		}
 
 		// Match/patch only ShaderRegEx with Pattern.
-		if (!group->patterns.empty()) {
+		if (!group->patterns.empty())
+		{
 			// Run patch.
 			group->apply_regex_patterns(asm_text, &match, &patch);
 			if (!match)

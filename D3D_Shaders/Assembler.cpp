@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "float.h"
+#include "../numeric_parse.h"
 #include <cstring>
 
 #if MIGOTO_DX == 9
@@ -40,7 +41,7 @@ static DWORD strToDWORD(string s)
 		return 0x7F800000;
 	//dx9
 
-	// FIXME: Write test case to verify and add variants for
+	// Known limitation: Write test case to verify and add variants for
 	// d3dcompiler_47, which use less zeroes:
 	// 1.#INF00
 	// -1.#INF00
@@ -56,33 +57,37 @@ static DWORD strToDWORD(string s)
 	// NANs with hex strings which will reassemble just fine.
 	//  -DSS
 
-	if (s.substr(0, 2) == "0x") {
+	if (s.substr(0, 2) == "0x")
+	{
 		DWORD decimalValue;
 		sscanf_s(s.c_str(), "0x%x", &decimalValue);
 		return decimalValue;
 	}
-	if (s.find('.') < s.size()) {
-		float f = (float)atof(s.c_str());
-		DWORD* pF = (DWORD*)&f;
+	if (s.find('.') < s.size())
+	{
+		auto f = (float)parse_double_or_zero(s.c_str());
+		auto *pF = (DWORD *)&f;
 		return *pF;
 	}
-	return atoi(s.c_str());
+	return parse_int_or_zero(s.c_str());
 }
 
 static uint64_t str_to_raw_double(string &s)
 {
 	double d;
 
-	// TODO: Parse NAN/INF literals
+	// Future work: Parse NAN/INF literals
 
-	if (!s.compare(0, 2, "0x")) {
-		uint32_t v1, v2;
+	if (!s.compare(0, 2, "0x"))
+	{
+		uint32_t v1;
+		uint32_t v2;
 		sscanf_s(s.c_str(), "0x%x, 0x%x", &v1, &v2);
 		return (uint64_t)v1 | (uint64_t)v2 << 32;
 	}
 
-	d = atof(s.c_str());
-	return *(uint64_t*)&d;
+	d = parse_double_or_zero(s.c_str());
+	return *(uint64_t *)&d;
 }
 
 static string convertF(DWORD original)
@@ -104,7 +109,8 @@ static string convertF(DWORD original)
 
 	scientific_exp = strstr(scientific, "E");
 
-	if (!scientific_exp) {
+	if (!scientific_exp)
+	{
 		// For safety, if we ever get called on NAN we will return the
 		// hex string. We could return a symbolic value for +/-INF, IND
 		// and QNAN, but we're not supposed to get called for these
@@ -119,9 +125,10 @@ static string convertF(DWORD original)
 		return string(buf);
 	}
 
-	exp = atoi(scientific_exp + 1);
+	exp = parse_int_or_zero(scientific_exp + 1);
 
-	switch (exp) {
+	switch (exp)
+	{
 	case 0:
 		sprintf_s(buf, 80, "%.8f", fOriginal);
 		break;
@@ -157,15 +164,18 @@ static string convertD(DWORD v1, DWORD v2)
 {
 	char buf[80];
 	uint64_t q = (uint64_t)v1 | ((uint64_t)v2 << 32);
-	double *d = (double*)&q;
+	auto *d = (double *)&q;
 
-	if (isnan(*d) || isinf(*d)) {
+	if (isnan(*d) || isinf(*d))
+	{
 		// As above, if we ever get called on a NAN/INF value just
 		// output the value as hex to ensure we can parse it back
 		// Matching the output of the disassembler with /Lx that splits
 		// the hex output into two halves:
 		sprintf_s(buf, 80, "0x%08x, 0x%08x", v1, v2);
-	} else {
+	}
+	else
+	{
 		// %g switches between readable and scientific notation as required, #
 		// ensures there is always a radix character (to match the original
 		// assembly and avoid potential ambiguities if it turns out that d()
@@ -182,34 +192,43 @@ static string convertD(DWORD v1, DWORD v2)
 
 void writeLUT()
 {
-	FILE* f;
+	FILE *f;
 
 	fopen_s(&f, "lut.asm", "wb");
 	if (!f)
 		return;
 
-	for (unordered_map<string, vector<DWORD>>::iterator it = codeBin.begin(); it != codeBin.end(); ++it) {
+	for (auto it = codeBin.begin(); it != codeBin.end(); ++it)
+	{
 		fputs(it->first.c_str(), f);
 		fputs(":->", f);
 		vector<DWORD> b = it->second;
-		int nextOperand = 1;
-		for (DWORD i = 0; i < b.size(); i++) {
-			if (i == 0) {
+		int nextOperand [[maybe_unused]] = 1;
+		for (DWORD i = 0; i < b.size(); i++)
+		{
+			if (i == 0)
+			{
 				char hex[40];
-				shader_ins* ins = (shader_ins*)&b[0];
-				if (ins->_11_23 > 0) {
+				auto *ins = (shader_ins *)&b[0];
+				if (ins->_11_23 > 0)
+				{
 					if (ins->extended)
-						sprintf_s(hex, "0x%08X: %d,%d,%d<>%d->", b[0], ins->opcode, ins->_11_23, ins->length, ins->extended);
+						sprintf_s(hex, "0x%08X: %d,%d,%d<>%d->", b[0], ins->opcode, ins->_11_23, ins->length,
+						          ins->extended);
 					else
 						sprintf_s(hex, "0x%08X: %d,%d,%d->", b[0], ins->opcode, ins->_11_23, ins->length);
-				} else {
+				}
+				else
+				{
 					if (ins->extended)
 						sprintf_s(hex, "0x%08X: %d,%d<>%d->", b[0], ins->opcode, ins->length, ins->extended);
 					else
 						sprintf_s(hex, "0x%08X: %d,%d->", b[0], ins->opcode, ins->length);
 				}
 				fputs(hex, f);
-			} else {
+			}
+			else
+			{
 				char hex[20];
 				sprintf_s(hex, " 0x%08X", b[i]);
 				fputs(hex, f);
@@ -220,36 +239,46 @@ void writeLUT()
 	fclose(f);
 }
 
-static void handleSwizzle(string s, token_operand* tOp, bool special = false)
+static void handleSwizzle(string s, token_operand *tOp, bool special = false)
 {
-	if (special == true){
+	if (special == true)
+	{
 		// Mask
 		tOp->mode = 0; // Mask
-		if (s.size() > 0 && s[0] == 'x') {
+		if (!s.empty() && s[0] == 'x')
+		{
 			tOp->sel |= 0x1;
 			s.erase(s.begin());
 		}
-		if (s.size() > 0 && s[0] == 'y') {
+		if (!s.empty() && s[0] == 'y')
+		{
 			tOp->sel |= 0x2;
 			s.erase(s.begin());
 		}
-		if (s.size() > 0 && s[0] == 'z') {
+		if (!s.empty() && s[0] == 'z')
+		{
 			tOp->sel |= 0x4;
 			s.erase(s.begin());
 		}
-		if (s.size() > 0 && s[0] == 'w') {
+		if (!s.empty() && s[0] == 'w')
+		{
 			tOp->sel |= 0x8;
 			s.erase(s.begin());
 		}
 		return;
-	} else if (s.size() == 0) {
+	}
+	else if (s.empty())
+	{
 		tOp->mode = 0;
 		tOp->comps_enum = 0;
 		return;
-	} else if(s.size() == 4) {
+	}
+	else if (s.size() == 4)
+	{
 		// Swizzle
 		tOp->mode = 1; // Swizzle
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < 4; i++)
+		{
 			if (s[i] == 'x')
 				tOp->sel |= 0 << (2 * i);
 			if (s[i] == 'y')
@@ -259,7 +288,9 @@ static void handleSwizzle(string s, token_operand* tOp, bool special = false)
 			if (s[i] == 'w')
 				tOp->sel |= 3 << (2 * i);
 		}
-	} else if (s.size() == 1){
+	}
+	else if (s.size() == 1)
+	{
 		tOp->mode = 2; // Scalar
 		if (s[0] == 'x')
 			tOp->sel = 0;
@@ -269,22 +300,28 @@ static void handleSwizzle(string s, token_operand* tOp, bool special = false)
 			tOp->sel = 2;
 		if (s[0] == 'w')
 			tOp->sel = 3;
-	} else {
+	}
+	else
+	{
 		// Mask
 		tOp->mode = 0; // Mask
-		if (s.size() > 0 && s[0] == 'x') {
+		if (!s.empty() && s[0] == 'x')
+		{
 			tOp->sel |= 0x1;
 			s.erase(s.begin());
 		}
-		if (s.size() > 0 && s[0] == 'y') {
+		if (!s.empty() && s[0] == 'y')
+		{
 			tOp->sel |= 0x2;
 			s.erase(s.begin());
 		}
-		if (s.size() > 0 && s[0] == 'z') {
+		if (!s.empty() && s[0] == 'z')
+		{
 			tOp->sel |= 0x4;
 			s.erase(s.begin());
 		}
-		if (s.size() > 0 && s[0] == 'w') {
+		if (!s.empty() && s[0] == 'w')
+		{
 			tOp->sel |= 0x8;
 			s.erase(s.begin());
 		}
@@ -311,34 +348,34 @@ struct special_purpose_register
 	// may interact with this, but this is at least passing all test cases.
 	unsigned comps_enum;
 
-	char *name;
+	const char *name;
 };
 
 static struct special_purpose_register special_purpose_registers[] = {
-	{ 0x0B, 1, "vPrim" },
-	{ 0x0C, 1, "oDepth" },
-	{ 0x0D, 0, "null" },
-	{ 0x0E, 2, "rasterizer" },
-	{ 0x0F, 1, "oMask" },
-	{ 0x16, 1, "vOutputControlPointID" },
-	{ 0x17, 1, "vForkInstanceID" },
-	{ 0x1C, 2, "vDomain" },
-	{ 0x20, 2, "vThreadID" },
-	{ 0x21, 2, "vThreadGroupID" },
-	{ 0x22, 2, "vThreadIDInGroup" },
-	{ 0x23, 2, "vCoverage" },
-	{ 0x24, 1, "vThreadIDInGroupFlattened" },
-	{ 0x25, 1, "vGSInstanceID" }, // instanceCount parameter? See below
-	{ 0x26, 1, "oDepthGE" },
-	{ 0x27, 1, "oDepthLE" },
+    {0x0B, 1, "vPrim"},
+    {0x0C, 1, "oDepth"},
+    {0x0D, 0, "null"},
+    {0x0E, 2, "rasterizer"},
+    {0x0F, 1, "oMask"},
+    {0x16, 1, "vOutputControlPointID"},
+    {0x17, 1, "vForkInstanceID"},
+    {0x1C, 2, "vDomain"},
+    {0x20, 2, "vThreadID"},
+    {0x21, 2, "vThreadGroupID"},
+    {0x22, 2, "vThreadIDInGroup"},
+    {0x23, 2, "vCoverage"},
+    {0x24, 1, "vThreadIDInGroupFlattened"},
+    {0x25, 1, "vGSInstanceID"}, // instanceCount parameter? See below
+    {0x26, 1, "oDepthGE"},
+    {0x27, 1, "oDepthLE"},
 
-	// FIXME: Missing vJoinInstanceID
-	// https://msdn.microsoft.com/en-us/library/windows/desktop/hh446905(v=vs.85).aspx
+    // Known limitation: Missing vJoinInstanceID
+    // https://msdn.microsoft.com/en-us/library/windows/desktop/hh446905(v=vs.85).aspx
 
-	// XXX * MSDN refers to an 2nd instanceCount parameter to dcl_input vGSInstanceID,
-	// but this didn't show up in my test case. My guess is that this is actually
-	// the value in dcl_gsinstances, which is [instance(n)] in HLSL:
-	// https://msdn.microsoft.com/en-us/library/windows/desktop/hh446903(v=vs.85).aspx
+    // XXX * MSDN refers to an 2nd instanceCount parameter to dcl_input vGSInstanceID,
+    // but this didn't show up in my test case. My guess is that this is actually
+    // the value in dcl_gsinstances, which is [instance(n)] in HLSL:
+    // https://msdn.microsoft.com/en-us/library/windows/desktop/hh446903(v=vs.85).aspx
 };
 
 static bool assemble_special_purpose_register(string &s, vector<DWORD> &v, token_operand *tOp, bool special)
@@ -346,7 +383,8 @@ static bool assemble_special_purpose_register(string &s, vector<DWORD> &v, token
 	size_t swiz_pos = s.find('.');
 	int i;
 
-	for (i = 0; i < ARRAYSIZE(special_purpose_registers); i++) {
+	for (i = 0; i < ARRAYSIZE(special_purpose_registers); i++)
+	{
 		if (s.compare(0, swiz_pos, special_purpose_registers[i].name))
 			continue;
 
@@ -370,26 +408,36 @@ static vector<DWORD> assembleOp(string s, bool special = false);
 static vector<DWORD> assemble_cbvox_operand(string &s, vector<DWORD> &v, token_operand *tOp, bool special, DWORD num)
 {
 	tOp->num_indices = 2;
-	if (s[0] == 'x') { // Indexable temp array
+	if (s[0] == 'x')
+	{ // Indexable temp array
 		tOp->file = 3;
 		s.erase(s.begin());
-	} else if (s[0] == 'o') { // Output register
+	}
+	else if (s[0] == 'o')
+	{ // Output register
 		tOp->file = 2;
 		tOp->num_indices = 1;
 		s.erase(s.begin());
-	} else if (s[0] == 'v') { // Input register
+	}
+	else if (s[0] == 'v')
+	{ // Input register
 		tOp->file = 1;
-		if (s.size() > 4 && s[1] == 'i' && s[2] == 'c' && s[3] == 'p')  { // Hull shader vicp
+		if (s.size() > 4 && s[1] == 'i' && s[2] == 'c' && s[3] == 'p')
+		{ // Hull shader vicp
 			tOp->file = 0x19;
 			s.erase(s.begin());
 			s.erase(s.begin());
 			s.erase(s.begin());
-		} else if (s.size() > 4 && s[1] == 'o' && s[2] == 'c' && s[3] == 'p') { // Hull shader vocp
+		}
+		else if (s.size() > 4 && s[1] == 'o' && s[2] == 'c' && s[3] == 'p')
+		{ // Hull shader vocp
 			tOp->file = 0x1A;
 			s.erase(s.begin());
 			s.erase(s.begin());
 			s.erase(s.begin());
-		} else if (s[1] == 'p' && s[2] == 'c') { // Patch constant
+		}
+		else if (s[1] == 'p' && s[2] == 'c')
+		{ // Patch constant
 			tOp->file = 0x1B;
 			s.erase(s.begin());
 			s.erase(s.begin());
@@ -397,32 +445,39 @@ static vector<DWORD> assemble_cbvox_operand(string &s, vector<DWORD> &v, token_o
 		s.erase(s.begin());
 		tOp->num_indices = 1;
 		size_t start = s.find("][");
-		if (start != string::npos) {
-			size_t end = s.find("]", start + 1);
-			string index0 = s.substr(s.find("[") + 1, start - 1);
+		if (start != string::npos)
+		{
+			size_t end = s.find(']', start + 1);
+			string index0 = s.substr(s.find('[') + 1, start - 1);
 			string index1 = s.substr(start + 2, end - start - 2);
-			if (index0.find("+") != string::npos) {
+			if (index0.find('+') != string::npos)
+			{
 				string sReg = index0.substr(0, index0.find(" + "));
 				string sAdd = index0.substr(index0.find(" + ") + 3);
 				vector<DWORD> reg = assembleOp(sReg);
 				tOp->num_indices = 2;
 				tOp->index0_repr = 2;
-				int iAdd = atoi(sAdd.c_str());
-				if (iAdd) tOp->index0_repr = 3;
-				if (index1.find("+") != string::npos) {
+				int iAdd = parse_int_or_zero(sAdd.c_str());
+				if (iAdd)
+					tOp->index0_repr = 3;
+				if (index1.find('+') != string::npos)
+				{
 					string sReg2 = index1.substr(0, index1.find(" + "));
 					string sAdd2 = index1.substr(index1.find(" + ") + 3);
 					vector<DWORD> reg2 = assembleOp(sReg2);
 					tOp->index1_repr = 2;
-					int iAdd2 = atoi(sAdd.c_str());
-					if (iAdd2) tOp->index1_repr = 3;
+					int iAdd2 = parse_int_or_zero(sAdd2.c_str());
+					if (iAdd2)
+						tOp->index1_repr = 3;
 					string swizzle = s.substr(s.find("].") + 2);
 					handleSwizzle(swizzle, tOp);
 					v.insert(v.begin(), tOp->op);
-					if (iAdd) v.push_back(iAdd);
+					if (iAdd)
+						v.push_back(iAdd);
 					v.push_back(reg[0]);
 					v.push_back(reg[1]);
-					if (iAdd2) v.push_back(iAdd2);
+					if (iAdd2)
+						v.push_back(iAdd2);
 					v.push_back(reg2[0]);
 					v.push_back(reg2[1]);
 					return v;
@@ -430,68 +485,84 @@ static vector<DWORD> assemble_cbvox_operand(string &s, vector<DWORD> &v, token_o
 				string swizzle = s.substr(s.find("].") + 2);
 				handleSwizzle(swizzle, tOp);
 				v.insert(v.begin(), tOp->op);
-				if (iAdd) v.push_back(iAdd);
+				if (iAdd)
+					v.push_back(iAdd);
 				v.push_back(reg[0]);
 				v.push_back(reg[1]);
-				v.push_back(atoi(index1.c_str()));
+				v.push_back(parse_int_or_zero(index1.c_str()));
 				return v;
 			}
 			tOp->num_indices = 2;
 			string swizzle = s.substr(s.find('.') + 1);
 			handleSwizzle(swizzle, tOp, special);
 			v.insert(v.begin(), tOp->op);
-			v.push_back(atoi(index0.c_str()));
-			v.push_back(atoi(index1.c_str()));
+			v.push_back(parse_int_or_zero(index0.c_str()));
+			v.push_back(parse_int_or_zero(index1.c_str()));
 			return v;
 		}
-	} else if (s[0] == 'i') { // Immediate Constant Buffer
+	}
+	else if (s[0] == 'i')
+	{ // Immediate Constant Buffer
 		tOp->file = 9;
 		s.erase(s.begin());
 		s.erase(s.begin());
 		s.erase(s.begin());
 		tOp->num_indices = 1;
-	} else { // Constant buffer
+	}
+	else
+	{ // Constant buffer
 		tOp->file = 8;
 		s.erase(s.begin());
 		s.erase(s.begin());
 	}
 	string sNum;
 	bool hasIndex = false;
-	if (s.find("[") < s.size()) {
+	if (s.find('[') < s.size())
+	{
 		sNum = s.substr(0, s.find('['));
 		hasIndex = true;
-	} else {
+	}
+	else
+	{
 		sNum = s.substr(0, s.find('.'));
 	}
 	string index;
-	if (hasIndex) {
+	if (hasIndex)
+	{
 		size_t start = s.find('[');
 		size_t end = s.find(']', start);
 		index = s.substr(start + 1, end - start - 1);
 	}
-	if (hasIndex) {
-		if (index.find('+') < index.size()) {
+	if (hasIndex)
+	{
+		if (index.find('+') < index.size())
+		{
 			string s2 = index.substr(index.find('+') + 2);
-			DWORD idx = atoi(s2.c_str());
+			DWORD idx = parse_int_or_zero(s2.c_str());
 			string s3 = index.substr(0, index.find('+') - 1);
 			vector<DWORD> reg = assembleOp(s3);
-			if (sNum.size() > 0) {
-				num = atoi(sNum.c_str());
+			if (!sNum.empty())
+			{
+				num = parse_int_or_zero(sNum.c_str());
 				v.push_back(num);
 			}
-			if (idx != 0) {
+			if (idx != 0)
+			{
 				v.push_back(idx);
-				if (sNum.size() > 0)
+				if (!sNum.empty())
 					tOp->index1_repr = 3; // Reg + imm
 				else
 					tOp->index0_repr = 3; // Reg + imm
-			} else {
-				if (sNum.size() > 0)
+			}
+			else
+			{
+				if (!sNum.empty())
 					tOp->index1_repr = 2; // Reg;
 				else
 					tOp->index0_repr = 2; // Reg;
 			}
-			for (DWORD i = 0; i < reg.size(); i++) {
+			for (DWORD i = 0; i < reg.size(); i++)
+			{
 				v.push_back(reg[i]);
 			}
 			handleSwizzle(s.substr(s.find("].") + 2), tOp, special);
@@ -499,20 +570,23 @@ static vector<DWORD> assemble_cbvox_operand(string &s, vector<DWORD> &v, token_o
 			v.insert(v.begin(), tOp->op);
 			return v;
 		}
-		DWORD idx = atoi(index.c_str());
-		num = atoi(sNum.c_str());
+		DWORD idx = parse_int_or_zero(index.c_str());
+		num = parse_int_or_zero(sNum.c_str());
 		v.push_back(num);
 		v.push_back(idx);
-		if (s.find('.') < s.size()) {
+		if (s.find('.') < s.size())
+		{
 			handleSwizzle(s.substr(s.find('.') + 1), tOp, special);
-		} else {
+		}
+		else
+		{
 			tOp->mode = 1; // Swizzle
 			tOp->sel = 0xE4;
 		}
 		v.insert(v.begin(), tOp->op);
 		return v;
 	}
-	num = atoi(sNum.c_str());
+	num = parse_int_or_zero(sNum.c_str());
 	v.push_back(num);
 	handleSwizzle(s.substr(s.find('.') + 1), tOp, special);
 	v.insert(v.begin(), tOp->op);
@@ -523,27 +597,30 @@ static vector<DWORD> assemble_literal_operand(string &s, vector<DWORD> &v, token
 {
 	tOp->file = 4;
 	s.erase(s.begin());
-	if (s.find(",") < s.size()) {
+	if (s.find(',') < s.size())
+	{
 		s.erase(s.begin());
-		string s1 = s.substr(0, s.find(","));
-		s = s.substr(s.find(",") + 1);
+		string s1 = s.substr(0, s.find(','));
+		s = s.substr(s.find(',') + 1);
 		if (s[0] == ' ')
 			s.erase(s.begin());
-		string s2 = s.substr(0, s.find(","));
-		s = s.substr(s.find(",") + 1);
+		string s2 = s.substr(0, s.find(','));
+		s = s.substr(s.find(',') + 1);
 		if (s[0] == ' ')
 			s.erase(s.begin());
-		string s3 = s.substr(0, s.find(","));
-		s = s.substr(s.find(",") + 1);
+		string s3 = s.substr(0, s.find(','));
+		s = s.substr(s.find(',') + 1);
 		if (s[0] == ' ')
 			s.erase(s.begin());
-		string s4 = s.substr(0, s.find(")"));
+		string s4 = s.substr(0, s.find(')'));
 
 		v.push_back(strToDWORD(s1));
 		v.push_back(strToDWORD(s2));
 		v.push_back(strToDWORD(s3));
 		v.push_back(strToDWORD(s4));
-	} else {
+	}
+	else
+	{
 		tOp->comps_enum = 1; // 1
 		s.erase(s.begin());
 		s.pop_back();
@@ -583,11 +660,11 @@ static vector<DWORD> assemble_double_operand(string &s, vector<DWORD> &v, token_
 	// So we need a special case to handle 64bit hex values split into two
 	// 32bit components.
 
-	tOp->file = 5; // Double
+	tOp->file = 5;       // Double
 	tOp->comps_enum = 2; // Use 4 components (until proven otherwise)
 	v.push_back(tOp->op);
 
-	size_t comma = s.find(",", 2);
+	size_t comma = s.find(',', 2);
 	if (comma == string::npos)
 		throw AssemblerParseError(s, "Double literal string missing 2nd value");
 
@@ -595,14 +672,15 @@ static vector<DWORD> assemble_double_operand(string &s, vector<DWORD> &v, token_
 	// and we need to include the 2nd component as well. The 2nd number
 	// doesn't need special handling since it scans until the closing
 	// bracket and will therefore naturally include the 4th component:
-	if (!s.compare(2, 2, "0x")) {
-		comma = s.find(",", comma + 1);
-		if (comma == string::npos || s.find(",", comma + 1) == string::npos)
+	if (!s.compare(2, 2, "0x"))
+	{
+		comma = s.find(',', comma + 1);
+		if (comma == string::npos || s.find(',', comma + 1) == string::npos)
 			throw AssemblerParseError(s, "Double literal hex string with less components than expected");
 	}
 
 	string s1 = s.substr(2, comma - 2);
-	string s2 = s.substr(comma + 1, s.find(")", comma) - comma - 1);
+	string s2 = s.substr(comma + 1, s.find(')', comma) - comma - 1);
 	if (s2[0] == ' ')
 		s2.erase(s2.begin());
 
@@ -620,15 +698,21 @@ static vector<DWORD> assemble_double_operand(string &s, vector<DWORD> &v, token_
 
 static DWORD encode_min_precision_type(const char *type)
 {
-	if (!strncmp(type, "min", 3)) {
-		if (!strncmp(type+3, "16", 2)) { // min16*
-			switch(type[5]) {
-				case 'f': return 1 << 14;
-				case 'i': return 4 << 14;
-				case 'u': return 5 << 14;
+	if (!strncmp(type, "min", 3))
+	{
+		if (!strncmp(type + 3, "16", 2))
+		{ // min16*
+			switch (type[5])
+			{
+			case 'f':
+				return 1 << 14;
+			case 'i':
+				return 4 << 14;
+			case 'u':
+				return 5 << 14;
 			};
 		}
-		if (!strncmp(type+3, "2_8f", 4)) // min10float
+		if (!strncmp(type + 3, "2_8f", 4)) // min10float
 			return 2 << 14;
 	}
 	if (!strncmp(type, "def32", 5))
@@ -637,7 +721,7 @@ static DWORD encode_min_precision_type(const char *type)
 	return 0;
 }
 
-static void parse_min_precision_tag(string &s, vector<DWORD> &v, token_operand *tOp, DWORD *ext)
+static void parse_min_precision_tag(string &s, vector<DWORD> &v [[maybe_unused]], token_operand *tOp, DWORD *ext)
 {
 	size_t tag;
 
@@ -671,7 +755,8 @@ static void parse_min_precision_tag(string &s, vector<DWORD> &v, token_operand *
 #endif
 
 	DWORD type1 = encode_min_precision_type(s.c_str() + tag + 1);
-	if (type1) {
+	if (type1)
+	{
 		tOp->extended = 1;
 		*ext |= 0x00000001;
 		*ext |= type1;
@@ -690,22 +775,25 @@ static vector<DWORD> assembleOp(string s, bool special)
 	DWORD op = 0;
 	DWORD ext = 0;
 	DWORD num = 0;
-	DWORD index = 0;
-	DWORD value = 0;
-	token_operand* tOp = (token_operand*)&op;
+	DWORD index [[maybe_unused]] = 0;
+	DWORD value [[maybe_unused]] = 0;
+	auto *tOp = (token_operand *)&op;
 	tOp->comps_enum = 2; // 4
 
-	num = atoi(s.c_str());
-	if (num != 0) {
+	num = parse_int_or_zero(s.c_str());
+	if (num != 0)
+	{
 		v.push_back(num);
 		return v;
 	}
-	if (s[0] == '-') {
+	if (s[0] == '-')
+	{
 		s.erase(s.begin());
 		tOp->extended = 1;
 		ext |= 0x41;
 	}
-	if (s[0] == '|') {
+	if (s[0] == '|')
+	{
 		s.erase(s.begin());
 		s.erase(s.end() - 1);
 		tOp->extended = 1;
@@ -738,12 +826,10 @@ static vector<DWORD> assembleOp(string s, bool special)
 	if (assemble_special_purpose_register(s, v, tOp, special))
 		return v;
 
-	if (s[0] == 'i' && s[1] == 'c' && s[2] == 'b'
-	 || s[0] == 'c' && s[1] == 'b'
-	 || s[0] == 'C' && s[1] == 'B' // Compatibility with d3dcompiler_47 disassembly -DarkStarSword
-	 || s[0] == 'x'
-	 || s[0] == 'o'
-	 || s[0] == 'v') {
+	if (s[0] == 'i' && s[1] == 'c' && s[2] == 'b' || s[0] == 'c' && s[1] == 'b' ||
+	    s[0] == 'C' && s[1] == 'B' // Compatibility with d3dcompiler_47 disassembly -DarkStarSword
+	    || s[0] == 'x' || s[0] == 'o' || s[0] == 'v')
+	{
 		return assemble_cbvox_operand(s, v, tOp, special, num);
 	}
 
@@ -753,28 +839,41 @@ static vector<DWORD> assembleOp(string s, bool special)
 	if (s[0] == 'd')
 		return assemble_double_operand(s, v, tOp);
 
-	if (s[0] == 'r') {
+	if (s[0] == 'r')
+	{
 		tOp->file = 0;
-	} else if (s[0] == 's') {
+	}
+	else if (s[0] == 's')
+	{
 		tOp->file = 6;
-	} else if (s[0] == 't') {
+	}
+	else if (s[0] == 't')
+	{
 		tOp->file = 7;
-	} else if (s[0] == 'g') {
+	}
+	else if (s[0] == 'g')
+	{
 		tOp->file = 0x1F;
-	} else if (s[0] == 'u') {
+	}
+	else if (s[0] == 'u')
+	{
 		tOp->file = 0x1E;
-	} else if (s[0] == 'm')
+	}
+	else if (s[0] == 'm')
 		tOp->file = 0x10;
 	else
 		throw AssemblerParseError(s, "Unrecognised operand");
 
 	s.erase(s.begin());
 	tOp->num_indices = 1;
-	num = atoi(s.substr(0, s.find('.')).c_str());
+	num = parse_int_or_zero(s.substr(0, s.find('.')).c_str());
 	v.push_back(num);
-	if (s.find('.') < s.size()) {
+	if (s.find('.') < s.size())
+	{
 		handleSwizzle(s.substr(s.find('.') + 1), tOp, special);
-	} else {
+	}
+	else
+	{
 		handleSwizzle("", tOp, special);
 	}
 	v.insert(v.begin(), op);
@@ -785,26 +884,35 @@ static vector<string> strToWords(string s)
 {
 	vector<string> words;
 	string::size_type start = 0;
-	while (s[start] == ' ') start++;
+	while (s[start] == ' ')
+		start++;
 	string::size_type end = start;
 	while (end < s.size() && s[end] != ' ' && s[end] != '(')
 		end++;
 	words.push_back(s.substr(start, end - start));
 
-	while (s.size() > end) {
-		if (s[end] == ' ') {
+	while (s.size() > end)
+	{
+		if (s[end] == ' ')
+		{
 			start = ++end;
-		} else {
+		}
+		else
+		{
 			start = end;
 		}
-		while (s[start] == ' ') start++;
+		while (s[start] == ' ')
+			start++;
 		if (start >= s.size())
 			break;
-		if (s[start] == '(' || s[start + 1] == '(') {
+		if (s[start] == '(' || s[start + 1] == '(')
+		{
 			end = s.find(')', start) + 1;
 			if (end < s.size() && s[end] == ',')
 				end++;
-		} else if (s[start] == '"') {
+		}
+		else if (s[start] == '"')
+		{
 			// Strings only exist in the printf / errorf debug
 			// instructions, and we need to match until the
 			// right-most quote in case there are extra quotes
@@ -812,11 +920,15 @@ static vector<string> strToWords(string s)
 			end = s.rfind('"') + 1;
 			if (end < s.size() && s[end] == ',')
 				end++;
-		} else {
+		}
+		else
+		{
 			end = s.find(' ', start);
-			if (s[end + 1] == '+') {
+			if (s[end + 1] == '+')
+			{
 				end = s.find(' ', end + 3);
-				if (s.size() > end && s[end + 1] == '+') {
+				if (s.size() > end && s[end + 1] == '+')
+				{
 					end = s.find(' ', end + 3);
 				}
 			}
@@ -826,8 +938,8 @@ static vector<string> strToWords(string s)
 		// syntax also uses braces we match part of the min precision
 		// type here to avoid grouping something we don't want
 		//   -DarkStarSword:
-		if (end != string::npos && (!s.compare(end, 5, " {min")
-		                         || !s.compare(end, 5, " {def"))) {
+		if (end != string::npos && (!s.compare(end, 5, " {min") || !s.compare(end, 5, " {def")))
+		{
 			// We will match to the next comma or end of line. We
 			// can't just match until the closing brace, because of
 			// cases where minimum precision and absolute value are
@@ -838,14 +950,18 @@ static vector<string> strToWords(string s)
 				end++;
 		}
 
-		if (end == string::npos) {
+		if (end == string::npos)
+		{
 			words.push_back(s.substr(start));
-		} else {
+		}
+		else
+		{
 			string::size_type length = end - start;
 			words.push_back(s.substr(start, length));
 		}
 	}
-	for (size_t i = 0; i < words.size(); i++) {
+	for (size_t i = 0; i < words.size(); i++)
+	{
 		string s2 = words[i];
 		// Fixed access before start of array -DarkStarSword
 		if (!s2.empty() && s2[s2.size() - 1] == ',')
@@ -858,10 +974,10 @@ static vector<string> strToWords(string s)
 static DWORD parseAoffimmi(DWORD start, string o)
 {
 	string nums = o.substr(1, o.size() - 2);
-	int n1 = atoi(nums.substr(0, nums.find(',')).c_str());
+	int n1 = parse_int_or_zero(nums.substr(0, nums.find(',')).c_str());
 	nums = nums.substr(nums.find(',') + 1);
-	int n2 = atoi(nums.substr(0, nums.find(',')).c_str());
-	int n3 = atoi(nums.substr(nums.find(',') + 1).c_str());
+	int n2 = parse_int_or_zero(nums.substr(0, nums.find(',')).c_str());
+	int n3 = parse_int_or_zero(nums.substr(nums.find(',') + 1).c_str());
 	DWORD aoffimmi = start;
 	aoffimmi |= (n1 & 0xF) << 9;
 	aoffimmi |= (n2 & 0xF) << 13;
@@ -870,313 +986,316 @@ static DWORD parseAoffimmi(DWORD start, string o)
 }
 
 static unordered_map<string, vector<DWORD>> hackMap = {
-	{ "dcl_output oMask", { 0x02000065, 0x0000F000 } },
+    {"dcl_output oMask", {0x02000065, 0x0000F000}},
 };
 
 static unordered_map<string, vector<int>> ldMap = {
-	// Hint: Compiling for shader model 5 always uses _indexable variants,
-	//       so use shader model 4 to test vanilla and _aoffimmi (address
-	//       offset immediate) variants. resource_types.hlsl has test cases
-	//       for most of these - compile it for both shader models.
-	// NOTE: There are also basic (non indexable, non address offset
-	//       immediate) variants in the instruction table. A couple of
-	//       those are not verified as AFAIK they are only present in
-	//       shader model 5+ and compiling for that shader model always
-	//       seems to use the _indexable variants found here.
-	//               -DarkStarSword
+    // Hint: Compiling for shader model 5 always uses _indexable variants,
+    //       so use shader model 4 to test vanilla and _aoffimmi (address
+    //       offset immediate) variants. resource_types.hlsl has test cases
+    //       for most of these - compile it for both shader models.
+    // NOTE: There are also basic (non indexable, non address offset
+    //       immediate) variants in the instruction table. A couple of
+    //       those are not verified as AFAIK they are only present in
+    //       shader model 5+ and compiling for that shader model always
+    //       seems to use the _indexable variants found here.
+    //               -DarkStarSword
 
-	{ "ld_aoffimmi",                    { 3, 0x2d, 1 } },
-	{ "ld_indexable",                   { 3, 0x2d, 2 } },
-	{ "ld_aoffimmi_indexable",          { 3, 0x2d, 3 } },
+    {"ld_aoffimmi", {3, 0x2d, 1}},
+    {"ld_indexable", {3, 0x2d, 2}},
+    {"ld_aoffimmi_indexable", {3, 0x2d, 3}},
 
-	{ "ldms_aoffimmi",                  { 4, 0x2e, 1 } }, // Added and verified -DarkStarSword
-	{ "ldms_indexable",                 { 4, 0x2e, 2 } },
-	{ "ldms_aoffimmi_indexable",        { 4, 0x2e, 3 } },
+    {"ldms_aoffimmi", {4, 0x2e, 1}}, // Added and verified -DarkStarSword
+    {"ldms_indexable", {4, 0x2e, 2}},
+    {"ldms_aoffimmi_indexable", {4, 0x2e, 3}},
 
-	// _aoffimmi doesn't make sense for resinfo. Be aware that there are
-	// _uint and _rcpfloat variants handled elsewhere in the code.
-	//   -DarkStarSword
-	{ "resinfo_indexable",              { 3, 0x3d, 2 } },
+    // _aoffimmi doesn't make sense for resinfo. Be aware that there are
+    // _uint and _rcpfloat variants handled elsewhere in the code.
+    //   -DarkStarSword
+    {"resinfo_indexable", {3, 0x3d, 2}},
 
-	{ "sample_aoffimmi",                { 4, 0x45, 1 } },
-	{ "sample_indexable",               { 4, 0x45, 2 } },
-	{ "sample_aoffimmi_indexable",      { 4, 0x45, 3 } },
+    {"sample_aoffimmi", {4, 0x45, 1}},
+    {"sample_indexable", {4, 0x45, 2}},
+    {"sample_aoffimmi_indexable", {4, 0x45, 3}},
 
-	{ "sample_c_aoffimmi",              { 5, 0x46, 1 } },
-	{ "sample_c_indexable",             { 5, 0x46, 2 } },
-	{ "sample_c_aoffimmi_indexable",    { 5, 0x46, 3 } }, // Added and verified -DarkStarSword
+    {"sample_c_aoffimmi", {5, 0x46, 1}},
+    {"sample_c_indexable", {5, 0x46, 2}},
+    {"sample_c_aoffimmi_indexable", {5, 0x46, 3}}, // Added and verified -DarkStarSword
 
-	{ "sample_c_lz_aoffimmi",           { 5, 0x47, 1 } },
-	{ "sample_c_lz_indexable",          { 5, 0x47, 2 } },
-	{ "sample_c_lz_aoffimmi_indexable", { 5, 0x47, 3 } },
+    {"sample_c_lz_aoffimmi", {5, 0x47, 1}},
+    {"sample_c_lz_indexable", {5, 0x47, 2}},
+    {"sample_c_lz_aoffimmi_indexable", {5, 0x47, 3}},
 
-	{ "sample_l_aoffimmi",              { 5, 0x48, 1 } },
-	{ "sample_l_indexable",             { 5, 0x48, 2 } },
-	{ "sample_l_aoffimmi_indexable",    { 5, 0x48, 3 } },
+    {"sample_l_aoffimmi", {5, 0x48, 1}},
+    {"sample_l_indexable", {5, 0x48, 2}},
+    {"sample_l_aoffimmi_indexable", {5, 0x48, 3}},
 
-	{ "sample_d_aoffimmi",              { 6, 0x49, 1 } }, // Added and verified -DarkStarSword
-	{ "sample_d_indexable",             { 6, 0x49, 2 } },
-	{ "sample_d_aoffimmi_indexable",    { 6, 0x49, 3 } }, // Added and verified -DarkStarSword
+    {"sample_d_aoffimmi", {6, 0x49, 1}}, // Added and verified -DarkStarSword
+    {"sample_d_indexable", {6, 0x49, 2}},
+    {"sample_d_aoffimmi_indexable", {6, 0x49, 3}}, // Added and verified -DarkStarSword
 
-	{ "sample_b_aoffimmi",              { 5, 0x4a, 1 } }, // Added and verified -DarkStarSword
-	{ "sample_b_indexable",             { 5, 0x4a, 2 } },
-	{ "sample_b_aoffimmi_indexable",    { 5, 0x4a, 3 } }, // Added and verified -DarkStarSword
+    {"sample_b_aoffimmi", {5, 0x4a, 1}}, // Added and verified -DarkStarSword
+    {"sample_b_indexable", {5, 0x4a, 2}},
+    {"sample_b_aoffimmi_indexable", {5, 0x4a, 3}}, // Added and verified -DarkStarSword
 
-	{ "gather4_aoffimmi",               { 4, 0x6d, 1 } }, // Unverified (not in SM4 so only indexable variants?)
-	{ "gather4_indexable",              { 4, 0x6d, 2 } },
-	{ "gather4_aoffimmi_indexable",     { 4, 0x6d, 3 } },
+    {"gather4_aoffimmi", {4, 0x6d, 1}}, // Unverified (not in SM4 so only indexable variants?)
+    {"gather4_indexable", {4, 0x6d, 2}},
+    {"gather4_aoffimmi_indexable", {4, 0x6d, 3}},
 
-	// _aoffimmi doesn't make sense for bufinfo
-	{ "bufinfo_indexable",              { 2, 0x79, 2 } },
+    // _aoffimmi doesn't make sense for bufinfo
+    {"bufinfo_indexable", {2, 0x79, 2}},
 
-	{ "gather4_c_aoffimmi",             { 5, 0x7e, 1 } }, // Unverified (not in SM4 so only indexable variants?)
-	{ "gather4_c_indexable",            { 5, 0x7e, 2 } },
-	{ "gather4_c_aoffimmi_indexable",   { 5, 0x7e, 3 } },
+    {"gather4_c_aoffimmi", {5, 0x7e, 1}}, // Unverified (not in SM4 so only indexable variants?)
+    {"gather4_c_indexable", {5, 0x7e, 2}},
+    {"gather4_c_aoffimmi_indexable", {5, 0x7e, 3}},
 
-	// gather4_po variants do not have an _aoffimmi variant by definition
-	// https://msdn.microsoft.com/en-us/library/windows/desktop/hh447084(v=vs.85).aspx
-	{ "gather4_po_indexable",           { 5, 0x7f, 2 } },
-	{ "gather4_po_c_indexable",         { 6, 0x80, 2 } },
+    // gather4_po variants do not have an _aoffimmi variant by definition
+    // https://msdn.microsoft.com/en-us/library/windows/desktop/hh447084(v=vs.85).aspx
+    {"gather4_po_indexable", {5, 0x7f, 2}},
+    {"gather4_po_c_indexable", {6, 0x80, 2}},
 
-	// RWTexture2D (etc), ByteAddressBuffer and StructuredBuffer have no
-	// variants of .Load that takes an offset, so there are no _aoffimmi
-	// variants for these:
-	{ "ld_uav_typed_indexable",         { 3, 0xa3, 2 } },
-	{ "ld_raw_indexable",               { 3, 0xa5, 2 } },
-	{ "ld_structured_indexable",        { 4, 0xa7, 2 } },
+    // RWTexture2D (etc), ByteAddressBuffer and StructuredBuffer have no
+    // variants of .Load that takes an offset, so there are no _aoffimmi
+    // variants for these:
+    {"ld_uav_typed_indexable", {3, 0xa3, 2}},
+    {"ld_raw_indexable", {3, 0xa5, 2}},
+    {"ld_structured_indexable", {4, 0xa7, 2}},
 };
 
 static unordered_map<string, vector<int>> insMap = {
-	{ "add",                       { 3, 0x00    } },
-	{ "and",                       { 3, 0x01    } },
-	{ "break",                     { 0, 0x02    } },
-	{ "breakc_nz",                 { 1, 0x03, 0 } },
-	{ "breakc_z",                  { 1, 0x03, 0 } },
-	// TODO: call                     , 0x04
-	// TODO: callc                    , 0x05
-	{ "case",                      { 1, 0x06    } },
-	{ "continue",                  { 0, 0x07    } },
-	{ "continuec_nz",              { 1, 0x08, 0 } },
-	{ "continuec_z",               { 1, 0x08, 0 } },
-	{ "cut",                       { 0, 0x09    } },
-	{ "default",                   { 0, 0x0a    } },
-	{ "deriv_rtx",                 { 2, 0x0b    } },
-	{ "deriv_rty",                 { 2, 0x0c    } },
-	{ "discard_nz",                { 1, 0x0d, 0 } },
-	{ "discard_z",                 { 1, 0x0d, 0 } },
-	{ "div",                       { 3, 0x0e    } },
-	{ "dp2",                       { 3, 0x0f    } },
-	{ "dp3",                       { 3, 0x10    } },
-	{ "dp4",                       { 3, 0x11    } },
-	{ "else",                      { 0, 0x12    } },
-	{ "emit",                      { 0, 0x13    } },
-	{ "emit_then_cut",             { 0, 0x14    } }, // Partially verified - assembled & disassembled OK, but did not check against compiled shader -DSS
-	{ "endif",                     { 0, 0x15    } },
-	{ "endloop",                   { 0, 0x16    } },
-	{ "endswitch",                 { 0, 0x17    } },
-	{ "eq",                        { 3, 0x18    } },
-	{ "exp",                       { 2, 0x19    } },
-	{ "frc",                       { 2, 0x1a    } },
-	{ "ftoi",                      { 2, 0x1b    } },
-	{ "ftou",                      { 2, 0x1c    } },
-	{ "ge",                        { 3, 0x1d    } },
-	{ "iadd",                      { 3, 0x1e    } },
-	{ "if_nz",                     { 1, 0x1f, 0 } },
-	{ "if_z",                      { 1, 0x1f, 0 } },
-	{ "ieq",                       { 3, 0x20    } },
-	{ "ige",                       { 3, 0x21    } },
-	{ "ilt",                       { 3, 0x22    } },
-	{ "imad",                      { 4, 0x23    } },
-	{ "imax",                      { 3, 0x24    } },
-	{ "imin",                      { 3, 0x25    } },
-	{ "imul",                      { 4, 0x26, 2 } },
-	{ "ine",                       { 3, 0x27    } },
-	{ "ineg",                      { 2, 0x28    } },
-	{ "ishl",                      { 3, 0x29    } },
-	{ "ishr",                      { 3, 0x2a    } },
-	{ "itof",                      { 2, 0x2b    } },
-	// TODO: label                    , 0x2c
-	{ "ld",                        { 3, 0x2d    } }, // See also load table
-	{ "ldms",                      { 4, 0x2e    } }, // See also load table
-	{ "log",                       { 2, 0x2f    } },
-	{ "loop",                      { 0, 0x30    } },
-	{ "lt",                        { 3, 0x31    } },
-	{ "mad",                       { 4, 0x32    } },
-	{ "min",                       { 3, 0x33    } },
-	{ "max",                       { 3, 0x34    } },
-	// TODO: Custom data              , 0x35
-	//       dcl_immediateConstantBuffer implemented elsewhere
-	//       Other types from binary decompiler:
-	//        - comment
-	//        - debuginfo
-	//        - opaque
-	//        - shader message
-	{ "mov",                       { 2, 0x36    } },
-	{ "movc",                      { 4, 0x37    } },
-	{ "mul",                       { 3, 0x38    } },
-	{ "ne",                        { 3, 0x39    } },
-	{ "nop",                       { 0, 0x3a    } }, // Added and verified -DarkStarSword
-	{ "not",                       { 2, 0x3b    } },
-	{ "or",                        { 3, 0x3c    } },
-	{ "resinfo",                   { 3, 0x3d    } }, // See also load table
-	{ "ret",                       { 0, 0x3e    } },
-	{ "retc_nz",                   { 1, 0x3f, 0 } },
-	{ "retc_z",                    { 1, 0x3f, 0 } },
-	{ "round_ne",                  { 2, 0x40    } },
-	{ "round_ni",                  { 2, 0x41    } },
-	{ "round_pi",                  { 2, 0x42    } },
-	{ "round_nz",                  { 2, 0x43    } },
-	{ "round_z",                   { 2, 0x43    } },
-	{ "rsq",                       { 2, 0x44    } },
-	{ "sample",                    { 4, 0x45    } }, // See also load table
-	{ "sample_c",                  { 5, 0x46    } }, // See also load table
-	{ "sample_c_lz",               { 5, 0x47    } }, // See also load table
-	{ "sample_l",                  { 5, 0x48    } }, // See also load table
-	{ "sample_d",                  { 6, 0x49    } }, // See also load table
-	{ "sampled",                   { 6, 0x49    } }, // Hmmm, possible typo? -DSS
-	{ "sample_b",                  { 5, 0x4a    } }, // See also load table
-	{ "sqrt",                      { 2, 0x4b    } },
-	{ "switch",                    { 1, 0x4c, 0 } },
-	{ "sincos",                    { 3, 0x4d, 2 } },
-	{ "udiv",                      { 4, 0x4e, 2 } },
-	{ "ult",                       { 3, 0x4f    } },
-	{ "uge",                       { 3, 0x50    } },
-	{ "umul",                      { 4, 0x51, 2 } },
-	{ "umax",                      { 3, 0x53    } },
-	{ "umin",                      { 3, 0x54    } },
-	{ "ushr",                      { 3, 0x55    } },
-	{ "utof",                      { 2, 0x56    } },
-	{ "xor",                       { 3, 0x57    } },
-	// dcl_resource                     0x58 // Implemented elsewhere
-	// dcl_constantbuffer               0x59 // implemented elsewhere
-	// dcl_sampler                      0x5a // Implemented elsewhere
-	// dcl_indexrange                   0x5b // Implemented elsewhere
-	// dcl_outputtopology               0x5c // Implemented elsewhere
-	// dcl_inputprimitive               0x5d // Implemented elsewhere
-	// dcl_maxout                       0x5e // Implemented elsewhere
-	// dcl_input                        0x5f // Implemented elsewhere
-	// dcl_input_sgv                    0x60 // Implemented elsewhere
-	// dcl_input_siv                    0x61 // Implemented elsewhere
-	// dcl_input_ps                     0x62 // Implemented elsewhere
-	// dcl_input_ps_sgv                 0x63 // Implemented elsewhere
-	// dcl_input_ps_siv                 0x64 // Implemented elsewhere
-	// dcl_output                       0x65 // Implemented elsewhere
-	// dcl_output_sgv                   0x66 // Implemented elsewhere
-	// dcl_output_siv                   0x67 // Implemented elsewhere
-	// dcl_temps                        0x68 // Implemented elsewhere
-	// dcl_indexableTemp                0x69 // Implemented elsewhere
-	// dcl_globalFlags                  0x6a // Implemented elsewhere
-	// RESERVED_10                      0x6b
-	{ "lod",                       { 4, 0x6c    } },
-	{ "gather4",                   { 4, 0x6d    } }, // See also load table
-	//"samplepos",                 { 3, 0x6e    } }, // Implemented elsewhere
-	{ "sampleinfo",                { 2, 0x6f    } },
-	// RESERVED_10_1                    0x70
-	// hs_decls                         0x71 // Implemented elsewhere
-	// hs_control_point_phase           0x72 // Implemented elsewhere
-	// hs_fork_phase                    0x73 // Implemented elsewhere
-	// hs_join_phase                    0x74 // Implemented elsewhere
-	// emit_stream                      0x75 // Implemented elsewhere
-	// cut_stream                       0x76 // Implemented elsewhere
-	// emit_then_cut_stream             0x77 // Implemented elsewhere
-	// TODO: interface_call             0x78
-	{ "bufinfo",                   { 2, 0x79    } }, // Unverified (not in SM4 so only indexable variants?). See also load table.
-	{ "deriv_rtx_coarse",          { 2, 0x7a    } },
-	{ "deriv_rtx_fine",            { 2, 0x7b    } },
-	{ "deriv_rty_coarse",          { 2, 0x7c    } },
-	{ "deriv_rty_fine",            { 2, 0x7d    } },
-	{ "gather4_c",                 { 5, 0x7e    } }, // Unverified (not in SM4 so only indexable variants?). See also load table.
-	{ "gather4_po",                { 5, 0x7f    } }, // Unverified (not in SM4 so only indexable variants?). See also load table.
-	{ "gather4_po_c",              { 6, 0x80    } }, // Unverified (not in SM4 so only indexable variants?). See also load table.
-	{ "rcp",                       { 2, 0x81    } },
-	{ "f32tof16",                  { 2, 0x82    } },
-	{ "f16tof32",                  { 2, 0x83    } },
-	{ "uaddc",                     { 4, 0x84    } }, // Partially verified - assembled & disassembled OK, but did not check against compiled shader -DSS
-	{ "usubb",                     { 4, 0x85    } }, // Partially verified - assembled & disassembled OK, but did not check against compiled shader -DSS
-	{ "countbits",                 { 2, 0x86    } },
-	{ "firstbit_hi",               { 2, 0x87    } },
-	{ "firstbit_lo",               { 2, 0x88    } },
-	{ "firstbit_shi",              { 2, 0x89    } }, // Added and verified -DarkStarSword
-	{ "ubfe",                      { 4, 0x8a    } },
-	{ "ibfe",                      { 4, 0x8b    } },
-	{ "bfi",                       { 5, 0x8c    } },
-	{ "bfrev",                     { 2, 0x8d    } },
-	{ "swapc",                     { 5, 0x8e, 2 } },
-	// dcl_stream                       0x8f // Implemented elsewhere
-	// dcl_function_body                0x90 // TODO
-	// dcl_function_table               0x91 // TODO
-	// dcl_interface                    0x92 // TODO
-	// dcl_input_control_point_count    0x93 // Implemented elsewhere
-	// dcl_output_control_point_count   0x94 // Implemented elsewhere
-	// dcl_tessellator_domain           0x95 // Implemented elsewhere
-	// dcl_tessellator_partitioning     0x96 // Implemented elsewhere
-	// dcl_tessellator_output_primitive 0x97 // Implemented elsewhere
-	// dcl_hs_max_tessfactor            0x98 // Implemented elsewhere
-	// dcl_hs_fork_phase_instance_count 0x99 // Implemented elsewhere
-	// dcl_hs_join_phase_instance_count 0x9a // TODO
-	{ "dcl_thread_group",          { 3, 0x9b    } },
-	// dcl_uav_typed_*                  0x9c // Implemented elsewhere
-	{ "dcl_uav_raw",               { 1, 0x9d, 0 } }, // _glc variant handled elsewhere
-	{ "dcl_uav_structured",        { 2, 0x9e, 0 } }, // _glc variant handled elsewhere
-	{ "dcl_tgsm_raw",              { 2, 0x9f, 0 } },
-	{ "dcl_tgsm_structured",       { 3, 0xa0, 0 } },
-	// dcl_resource_raw                 0xa1 // Implemented elsewhere
-	// dcl_resource_structured          0xa2 // Implemented elsewhere
-	{ "ld_uav_typed",              { 3, 0xa3    } }, // Unverified (not in SM4 so only indexable variants?) See also load table.
-	// store_uav_typed                  0xa4 // Implemented elsewhere
-	{ "ld_raw",                    { 3, 0xa5    } }, // See also load table
-	{ "store_raw",                 { 3, 0xa6    } },
-	{ "ld_structured",             { 4, 0xa7    } }, // See also load table
-	{ "store_structured",          { 4, 0xa8    } },
-	{ "atomic_and",                { 3, 0xa9, 0 } },
-	{ "atomic_or",                 { 3, 0xaa, 0 } },
-	{ "atomic_xor",                { 3, 0xab, 0 } }, // Added and verified -DarkStarSword
-	{ "atomic_cmp_store",          { 4, 0xac, 0 } }, // Added and verified -DarkStarSword
-	{ "atomic_iadd",               { 3, 0xad, 0 } },
-	{ "atomic_imax",               { 3, 0xae, 0 } },
-	{ "atomic_imin",               { 3, 0xaf, 0 } },
-	{ "atomic_umax",               { 3, 0xb0, 0 } },
-	{ "atomic_umin",               { 3, 0xb1, 0 } },
-	{ "imm_atomic_alloc",          { 2, 0xb2    } },
-	{ "imm_atomic_consume",        { 2, 0xb3    } },
-	{ "imm_atomic_iadd",           { 4, 0xb4    } },
-	{ "imm_atomic_and",            { 4, 0xb5    } },
-	{ "imm_atomic_or",             { 4, 0xb6    } }, // Added and verified -DarkStarSword
-	{ "imm_atomic_xor",            { 4, 0xb7    } }, // Added and verified -DarkStarSword
-	{ "imm_atomic_exch",           { 4, 0xb8    } },
-	{ "imm_atomic_cmp_exch",       { 5, 0xb9    } },
-	{ "imm_atomic_imax",           { 4, 0xba    } }, // Added and verified -DarkStarSword
-	{ "imm_atomic_imin",           { 4, 0xbb    } }, // Added and verified -DarkStarSword
-	{ "imm_atomic_umax",           { 4, 0xbc    } }, // Added and verified -DarkStarSword
-	{ "imm_atomic_umin",           { 4, 0xbd    } }, // Added and verified -DarkStarSword
-	// sync_*                           0xbe // Implemented elsewhere
-	{ "dadd",                      { 3, 0xbf    } }, // Added and verified -DarkStarSword
-	{ "dmax",                      { 3, 0xc0    } }, // Added and verified -DarkStarSword
-	{ "dmin",                      { 3, 0xc1    } }, // Added and verified -DarkStarSword
-	{ "dmul",                      { 3, 0xc2    } }, // Added and verified -DarkStarSword
-	{ "deq",                       { 3, 0xc3    } }, // Added and verified -DarkStarSword
-	{ "dge",                       { 3, 0xc4    } }, // Added and verified -DarkStarSword
-	{ "dlt",                       { 3, 0xc5    } }, // Added and verified -DarkStarSword
-	{ "dne",                       { 3, 0xc6    } }, // Added and verified -DarkStarSword
-	{ "dmov",                      { 2, 0xc7    } }, // Unverified
-	{ "dmovc",                     { 4, 0xc8    } }, // Added and verified -DarkStarSword
-	{ "dtof",                      { 2, 0xc9    } }, // Added and verified -DarkStarSword
-	{ "ftod",                      { 2, 0xca    } }, // Added and verified -DarkStarSword
-	{ "eval_snapped",              { 3, 0xcb    } }, // Added and verified -DarkStarSword
-	{ "eval_sample_index",         { 3, 0xcc    } },
-	{ "eval_centroid",             { 2, 0xcd    } }, // Added and verified -DarkStarSword
-	{ "dcl_gsinstances",           { 1, 0xce    } }, // Added and verified -DarkStarSword
-	{ "abort",                     { 0, 0xcf    } }, // Debug layer instruction. Added and verified -DarkStarSword
-	// TODO: debug_break                0xd0
-	// RESERVED_11                      0xd1
-	{ "ddiv",                      { 3, 0xd2    } }, // Added and verified -DarkStarSword
-	{ "dfma",                      { 4, 0xd3    } }, // Added and verified -DarkStarSword
-	{ "drcp",                      { 2, 0xd4    } }, // Added and verified -DarkStarSword
-	{ "msad",                      { 4, 0xd5    } }, // Added and verified -DarkStarSword
-	{ "dtoi",                      { 2, 0xd6    } }, // Added and verified -DarkStarSword
-	{ "dtou",                      { 2, 0xd7    } }, // Added and verified -DarkStarSword
-	{ "itod",                      { 2, 0xd8    } }, // Added and verified -DarkStarSword
-	{ "utod",                      { 2, 0xd9    } }, // Added and verified -DarkStarSword
+    {"add", {3, 0x00}},
+    {"and", {3, 0x01}},
+    {"break", {0, 0x02}},
+    {"breakc_nz", {1, 0x03, 0}},
+    {"breakc_z", {1, 0x03, 0}},
+    // Future work: call                     , 0x04
+    // Future work: callc                    , 0x05
+    {"case", {1, 0x06}},
+    {"continue", {0, 0x07}},
+    {"continuec_nz", {1, 0x08, 0}},
+    {"continuec_z", {1, 0x08, 0}},
+    {"cut", {0, 0x09}},
+    {"default", {0, 0x0a}},
+    {"deriv_rtx", {2, 0x0b}},
+    {"deriv_rty", {2, 0x0c}},
+    {"discard_nz", {1, 0x0d, 0}},
+    {"discard_z", {1, 0x0d, 0}},
+    {"div", {3, 0x0e}},
+    {"dp2", {3, 0x0f}},
+    {"dp3", {3, 0x10}},
+    {"dp4", {3, 0x11}},
+    {"else", {0, 0x12}},
+    {"emit", {0, 0x13}},
+    {"emit_then_cut",
+	 {0, 0x14}}, // Partially verified - assembled & disassembled OK, but did not check against compiled shader -DSS
+    {"endif", {0, 0x15}},
+    {"endloop", {0, 0x16}},
+    {"endswitch", {0, 0x17}},
+    {"eq", {3, 0x18}},
+    {"exp", {2, 0x19}},
+    {"frc", {2, 0x1a}},
+    {"ftoi", {2, 0x1b}},
+    {"ftou", {2, 0x1c}},
+    {"ge", {3, 0x1d}},
+    {"iadd", {3, 0x1e}},
+    {"if_nz", {1, 0x1f, 0}},
+    {"if_z", {1, 0x1f, 0}},
+    {"ieq", {3, 0x20}},
+    {"ige", {3, 0x21}},
+    {"ilt", {3, 0x22}},
+    {"imad", {4, 0x23}},
+    {"imax", {3, 0x24}},
+    {"imin", {3, 0x25}},
+    {"imul", {4, 0x26, 2}},
+    {"ine", {3, 0x27}},
+    {"ineg", {2, 0x28}},
+    {"ishl", {3, 0x29}},
+    {"ishr", {3, 0x2a}},
+    {"itof", {2, 0x2b}},
+    // Future work: label                    , 0x2c
+    {"ld", {3, 0x2d}},   // See also load table
+    {"ldms", {4, 0x2e}}, // See also load table
+    {"log", {2, 0x2f}},
+    {"loop", {0, 0x30}},
+    {"lt", {3, 0x31}},
+    {"mad", {4, 0x32}},
+    {"min", {3, 0x33}},
+    {"max", {3, 0x34}},
+    // Future work: Custom data              , 0x35
+    //       dcl_immediateConstantBuffer implemented elsewhere
+    //       Other types from binary decompiler:
+    //        - comment
+    //        - debuginfo
+    //        - opaque
+    //        - shader message
+    {"mov", {2, 0x36}},
+    {"movc", {4, 0x37}},
+    {"mul", {3, 0x38}},
+    {"ne", {3, 0x39}},
+    {"nop", {0, 0x3a}}, // Added and verified -DarkStarSword
+    {"not", {2, 0x3b}},
+    {"or", {3, 0x3c}},
+    {"resinfo", {3, 0x3d}}, // See also load table
+    {"ret", {0, 0x3e}},
+    {"retc_nz", {1, 0x3f, 0}},
+    {"retc_z", {1, 0x3f, 0}},
+    {"round_ne", {2, 0x40}},
+    {"round_ni", {2, 0x41}},
+    {"round_pi", {2, 0x42}},
+    {"round_nz", {2, 0x43}},
+    {"round_z", {2, 0x43}},
+    {"rsq", {2, 0x44}},
+    {"sample", {4, 0x45}},      // See also load table
+    {"sample_c", {5, 0x46}},    // See also load table
+    {"sample_c_lz", {5, 0x47}}, // See also load table
+    {"sample_l", {5, 0x48}},    // See also load table
+    {"sample_d", {6, 0x49}},    // See also load table
+    {"sampled", {6, 0x49}},     // Hmmm, possible typo? -DSS
+    {"sample_b", {5, 0x4a}},    // See also load table
+    {"sqrt", {2, 0x4b}},
+    {"switch", {1, 0x4c, 0}},
+    {"sincos", {3, 0x4d, 2}},
+    {"udiv", {4, 0x4e, 2}},
+    {"ult", {3, 0x4f}},
+    {"uge", {3, 0x50}},
+    {"umul", {4, 0x51, 2}},
+    {"umax", {3, 0x53}},
+    {"umin", {3, 0x54}},
+    {"ushr", {3, 0x55}},
+    {"utof", {2, 0x56}},
+    {"xor", {3, 0x57}},
+    // dcl_resource                     0x58 // Implemented elsewhere
+    // dcl_constantbuffer               0x59 // implemented elsewhere
+    // dcl_sampler                      0x5a // Implemented elsewhere
+    // dcl_indexrange                   0x5b // Implemented elsewhere
+    // dcl_outputtopology               0x5c // Implemented elsewhere
+    // dcl_inputprimitive               0x5d // Implemented elsewhere
+    // dcl_maxout                       0x5e // Implemented elsewhere
+    // dcl_input                        0x5f // Implemented elsewhere
+    // dcl_input_sgv                    0x60 // Implemented elsewhere
+    // dcl_input_siv                    0x61 // Implemented elsewhere
+    // dcl_input_ps                     0x62 // Implemented elsewhere
+    // dcl_input_ps_sgv                 0x63 // Implemented elsewhere
+    // dcl_input_ps_siv                 0x64 // Implemented elsewhere
+    // dcl_output                       0x65 // Implemented elsewhere
+    // dcl_output_sgv                   0x66 // Implemented elsewhere
+    // dcl_output_siv                   0x67 // Implemented elsewhere
+    // dcl_temps                        0x68 // Implemented elsewhere
+    // dcl_indexableTemp                0x69 // Implemented elsewhere
+    // dcl_globalFlags                  0x6a // Implemented elsewhere
+    // RESERVED_10                      0x6b
+    {"lod", {4, 0x6c}},
+    {"gather4", {4, 0x6d}}, // See also load table
+	                        //"samplepos",                 { 3, 0x6e    } }, // Implemented elsewhere
+    {"sampleinfo", {2, 0x6f}},
+    // RESERVED_10_1                    0x70
+    // hs_decls                         0x71 // Implemented elsewhere
+    // hs_control_point_phase           0x72 // Implemented elsewhere
+    // hs_fork_phase                    0x73 // Implemented elsewhere
+    // hs_join_phase                    0x74 // Implemented elsewhere
+    // emit_stream                      0x75 // Implemented elsewhere
+    // cut_stream                       0x76 // Implemented elsewhere
+    // emit_then_cut_stream             0x77 // Implemented elsewhere
+    // Future work: interface_call             0x78
+    {"bufinfo", {2, 0x79}}, // Unverified (not in SM4 so only indexable variants?). See also load table.
+    {"deriv_rtx_coarse", {2, 0x7a}},
+    {"deriv_rtx_fine", {2, 0x7b}},
+    {"deriv_rty_coarse", {2, 0x7c}},
+    {"deriv_rty_fine", {2, 0x7d}},
+    {"gather4_c", {5, 0x7e}},    // Unverified (not in SM4 so only indexable variants?). See also load table.
+    {"gather4_po", {5, 0x7f}},   // Unverified (not in SM4 so only indexable variants?). See also load table.
+    {"gather4_po_c", {6, 0x80}}, // Unverified (not in SM4 so only indexable variants?). See also load table.
+    {"rcp", {2, 0x81}},
+    {"f32tof16", {2, 0x82}},
+    {"f16tof32", {2, 0x83}},
+    {"uaddc",
+	 {4, 0x84}}, // Partially verified - assembled & disassembled OK, but did not check against compiled shader -DSS
+    {"usubb",
+	 {4, 0x85}}, // Partially verified - assembled & disassembled OK, but did not check against compiled shader -DSS
+    {"countbits", {2, 0x86}},
+    {"firstbit_hi", {2, 0x87}},
+    {"firstbit_lo", {2, 0x88}},
+    {"firstbit_shi", {2, 0x89}}, // Added and verified -DarkStarSword
+    {"ubfe", {4, 0x8a}},
+    {"ibfe", {4, 0x8b}},
+    {"bfi", {5, 0x8c}},
+    {"bfrev", {2, 0x8d}},
+    {"swapc", {5, 0x8e, 2}},
+    // dcl_stream                       0x8f // Implemented elsewhere
+    // dcl_function_body                0x90 // Future work
+    // dcl_function_table               0x91 // Future work
+    // dcl_interface                    0x92 // Future work
+    // dcl_input_control_point_count    0x93 // Implemented elsewhere
+    // dcl_output_control_point_count   0x94 // Implemented elsewhere
+    // dcl_tessellator_domain           0x95 // Implemented elsewhere
+    // dcl_tessellator_partitioning     0x96 // Implemented elsewhere
+    // dcl_tessellator_output_primitive 0x97 // Implemented elsewhere
+    // dcl_hs_max_tessfactor            0x98 // Implemented elsewhere
+    // dcl_hs_fork_phase_instance_count 0x99 // Implemented elsewhere
+    // dcl_hs_join_phase_instance_count 0x9a // Future work
+    {"dcl_thread_group", {3, 0x9b}},
+    // dcl_uav_typed_*                  0x9c // Implemented elsewhere
+    {"dcl_uav_raw", {1, 0x9d, 0}},        // _glc variant handled elsewhere
+    {"dcl_uav_structured", {2, 0x9e, 0}}, // _glc variant handled elsewhere
+    {"dcl_tgsm_raw", {2, 0x9f, 0}},
+    {"dcl_tgsm_structured", {3, 0xa0, 0}},
+    // dcl_resource_raw                 0xa1 // Implemented elsewhere
+    // dcl_resource_structured          0xa2 // Implemented elsewhere
+    {"ld_uav_typed", {3, 0xa3}}, // Unverified (not in SM4 so only indexable variants?) See also load table.
+	                             // store_uav_typed                  0xa4 // Implemented elsewhere
+    {"ld_raw", {3, 0xa5}},       // See also load table
+    {"store_raw", {3, 0xa6}},
+    {"ld_structured", {4, 0xa7}}, // See also load table
+    {"store_structured", {4, 0xa8}},
+    {"atomic_and", {3, 0xa9, 0}},
+    {"atomic_or", {3, 0xaa, 0}},
+    {"atomic_xor", {3, 0xab, 0}},       // Added and verified -DarkStarSword
+    {"atomic_cmp_store", {4, 0xac, 0}}, // Added and verified -DarkStarSword
+    {"atomic_iadd", {3, 0xad, 0}},
+    {"atomic_imax", {3, 0xae, 0}},
+    {"atomic_imin", {3, 0xaf, 0}},
+    {"atomic_umax", {3, 0xb0, 0}},
+    {"atomic_umin", {3, 0xb1, 0}},
+    {"imm_atomic_alloc", {2, 0xb2}},
+    {"imm_atomic_consume", {2, 0xb3}},
+    {"imm_atomic_iadd", {4, 0xb4}},
+    {"imm_atomic_and", {4, 0xb5}},
+    {"imm_atomic_or", {4, 0xb6}},  // Added and verified -DarkStarSword
+    {"imm_atomic_xor", {4, 0xb7}}, // Added and verified -DarkStarSword
+    {"imm_atomic_exch", {4, 0xb8}},
+    {"imm_atomic_cmp_exch", {5, 0xb9}},
+    {"imm_atomic_imax", {4, 0xba}}, // Added and verified -DarkStarSword
+    {"imm_atomic_imin", {4, 0xbb}}, // Added and verified -DarkStarSword
+    {"imm_atomic_umax", {4, 0xbc}}, // Added and verified -DarkStarSword
+    {"imm_atomic_umin", {4, 0xbd}}, // Added and verified -DarkStarSword
+	                                // sync_*                           0xbe // Implemented elsewhere
+    {"dadd", {3, 0xbf}},            // Added and verified -DarkStarSword
+    {"dmax", {3, 0xc0}},            // Added and verified -DarkStarSword
+    {"dmin", {3, 0xc1}},            // Added and verified -DarkStarSword
+    {"dmul", {3, 0xc2}},            // Added and verified -DarkStarSword
+    {"deq", {3, 0xc3}},             // Added and verified -DarkStarSword
+    {"dge", {3, 0xc4}},             // Added and verified -DarkStarSword
+    {"dlt", {3, 0xc5}},             // Added and verified -DarkStarSword
+    {"dne", {3, 0xc6}},             // Added and verified -DarkStarSword
+    {"dmov", {2, 0xc7}},            // Unverified
+    {"dmovc", {4, 0xc8}},           // Added and verified -DarkStarSword
+    {"dtof", {2, 0xc9}},            // Added and verified -DarkStarSword
+    {"ftod", {2, 0xca}},            // Added and verified -DarkStarSword
+    {"eval_snapped", {3, 0xcb}},    // Added and verified -DarkStarSword
+    {"eval_sample_index", {3, 0xcc}},
+    {"eval_centroid", {2, 0xcd}},   // Added and verified -DarkStarSword
+    {"dcl_gsinstances", {1, 0xce}}, // Added and verified -DarkStarSword
+    {"abort", {0, 0xcf}},           // Debug layer instruction. Added and verified -DarkStarSword
+	                                // Future work: debug_break                0xd0
+	                                // RESERVED_11                      0xd1
+    {"ddiv", {3, 0xd2}},            // Added and verified -DarkStarSword
+    {"dfma", {4, 0xd3}},            // Added and verified -DarkStarSword
+    {"drcp", {2, 0xd4}},            // Added and verified -DarkStarSword
+    {"msad", {4, 0xd5}},            // Added and verified -DarkStarSword
+    {"dtoi", {2, 0xd6}},            // Added and verified -DarkStarSword
+    {"dtou", {2, 0xd7}},            // Added and verified -DarkStarSword
+    {"itod", {2, 0xd8}},            // Added and verified -DarkStarSword
+    {"utod", {2, 0xd9}},            // Added and verified -DarkStarSword
 };
 
 static void assembleResourceDeclarationType(string *type, vector<DWORD> *v)
@@ -1205,7 +1324,7 @@ static void assembleResourceDeclarationType(string *type, vector<DWORD> *v)
 		v->push_back(0x8787);
 	if (*type == "(mixed,mixed,mixed,mixed)") // TestShaders/GameExamples/DR3/cc5538d28f8fd45e-vs
 		v->push_back(0x6666);
-	// FIXME: Fail gracefully if we don't recognise the type, since doing
+	// Known limitation: Fail gracefully if we don't recognise the type, since doing
 	// nothing here will cause a hang!
 }
 
@@ -1262,7 +1381,7 @@ static void assembleSystemValue(string *sv, vector<DWORD> *os)
 	else if (*sv == "finalLineDensityTessFactor")
 		os->push_back(22);
 
-	// FIXME: Fail gracefully if we don't recognise the system value,
+	// Known limitation: Fail gracefully if we don't recognise the system value,
 	// otherwise we might generate a corrupt shader and crash DirectX.
 }
 
@@ -1275,7 +1394,8 @@ static int interpolationMode(vector<string> &w, int def)
 	if (w[1] != "linear")
 		return def;
 
-	if (w[2] == "noperspective") {
+	if (w[2] == "noperspective")
+	{
 		if (w[3] == "sample")
 			return 7;
 		if (w[3] == "centroid")
@@ -1314,29 +1434,35 @@ static unsigned parseSyncFlags(string *w)
 	//
 	//   -DarkStarSword
 
-	while (true) {
-		if (w->substr(pos, 2) == "_t") {
+	while (true)
+	{
+		if (w->substr(pos, 2) == "_t")
+		{
 			pos += 2;
 			flags |= 0x1;
 			continue;
 		}
-		if (w->substr(pos, 2) == "_g") {
+		if (w->substr(pos, 2) == "_g")
+		{
 			pos += 2;
 			flags |= 0x2;
 			continue;
 		}
-		if (w->substr(pos, 11) == "_sat_ugroup") {
+		if (w->substr(pos, 11) == "_sat_ugroup")
+		{
 			// NOTE: MSDN does not mention the "_sat"
 			pos += 11;
 			flags |= 0x4;
 			continue;
 		}
-		if (w->substr(pos, 8) == "_uglobal") {
+		if (w->substr(pos, 8) == "_uglobal")
+		{
 			pos += 8;
 			flags |= 0x8;
 			continue;
 		}
-		if (w->substr(pos, 12) == "_sat_uglobal") {
+		if (w->substr(pos, 12) == "_sat_uglobal")
+		{
 			// Combination of _sat_ugroup and _uglobal flags
 			// Worth noting that _ugroup is a lighter version of
 			// _uglobal, so I guess they used the fact that these
@@ -1348,7 +1474,6 @@ static unsigned parseSyncFlags(string *w)
 		}
 		return flags;
 	}
-
 }
 
 static void check_num_ops(string &s, vector<string> &w, int min_expected, int max_expected = -1)
@@ -1376,10 +1501,10 @@ static void check_num_ops(string &s, vector<string> &w, int min_expected, int ma
 	if (max_expected == -1)
 		max_expected = min_expected;
 
-	if (num_operands < min_expected || (max_expected && num_operands > max_expected)) {
-		_snprintf_s(buf, 80, _TRUNCATE,
-			"Invalid number of operands for instruction. Expected %i-%i, found %i",
-			min_expected, max_expected, num_operands);
+	if (num_operands < min_expected || (max_expected && num_operands > max_expected))
+	{
+		_snprintf_s(buf, 80, _TRUNCATE, "Invalid number of operands for instruction. Expected %i-%i, found %i",
+		            min_expected, max_expected, num_operands);
 		throw AssemblerParseError(s, buf);
 	}
 }
@@ -1390,23 +1515,25 @@ static string translate_string_operand(string &in)
 	string ret = in.substr(1, in.size() - 2);
 
 	// Translate escape sequences:
-	for (size_t pos = ret.find('\\'); pos < ret.size() - 1; pos = ret.find('\\', pos + 1)) {
-		switch(ret[pos+1]) {
-			case 'b':
-				ret.replace(pos, 2, "\b");
-				break;
-			case 'n':
-				ret.replace(pos, 2, "\n");
-				break;
-			case 'r':
-				ret.replace(pos, 2, "\r");
-				break;
-			case 't':
-				ret.replace(pos, 2, "\t");
-				break;
-			case '\\':
-				ret.replace(pos, 2, "\\");
-				break;
+	for (size_t pos = ret.find('\\'); pos < ret.size() - 1; pos = ret.find('\\', pos + 1))
+	{
+		switch (ret[pos + 1])
+		{
+		case 'b':
+			ret.replace(pos, 2, "\b");
+			break;
+		case 'n':
+			ret.replace(pos, 2, "\n");
+			break;
+		case 'r':
+			ret.replace(pos, 2, "\r");
+			break;
+		case 't':
+			ret.replace(pos, 2, "\t");
+			break;
+		case '\\':
+			ret.replace(pos, 2, "\\");
+			break;
 			// The disassembler does not encode all non-printable
 			// characters as escape sequences, so some will show up
 			// as an ambiguous dot "." instead. We could add a
@@ -1436,13 +1563,14 @@ static vector<DWORD> assemble_printf(string &s, vector<DWORD> &v, vector<string>
 
 	check_num_ops(s, w, 1, 0);
 	string msg = translate_string_operand(w[1]);
-	uint32_t msgLen = (uint32_t)msg.size();
+	auto msgLen = (uint32_t)msg.size();
 	v.push_back(msgLen);
 
 	uint32_t numOps = (uint32_t)w.size() - 2;
 	v.push_back(numOps);
 	v.push_back(numOps * 2);
-	for (uint32_t i = 0; i < numOps; i++) {
+	for (uint32_t i = 0; i < numOps; i++)
+	{
 		vector<DWORD> os = assembleOp(w[i + 2]);
 		v.insert(v.end(), os.begin(), os.end());
 	}
@@ -1453,14 +1581,16 @@ static vector<DWORD> assemble_printf(string &s, vector<DWORD> &v, vector<string>
 	insLen = (msgLen + 4) / 4 + (uint32_t)v.size();
 	v.resize(insLen);
 	v[1] = insLen;
-	memcpy((char*)v.data() + msgOff, msg.c_str(), msgLen);
+	memcpy((char *)v.data() + msgOff, msg.c_str(), msgLen);
 
 	return v;
 }
 
 static vector<DWORD> assemble_undecipherable_custom_data(string &s, vector<DWORD> &v, vector<string> &w)
 {
-	uint32_t numOps, word, i;
+	uint32_t numOps;
+	uint32_t word;
+	uint32_t i;
 
 	check_num_ops(s, w, 2, 0);
 	if (w[1] != "custom" || w[2] != "data")
@@ -1472,7 +1602,8 @@ static vector<DWORD> assemble_undecipherable_custom_data(string &s, vector<DWORD
 	// of the instruction that we can now reassemble:
 
 	numOps = (uint32_t)w.size() - 3;
-	for (i = 0; i < numOps; i++) {
+	for (i = 0; i < numOps; i++)
+	{
 		sscanf_s(w[i + 3].c_str(), "%x", &word);
 		v.push_back(word);
 	}
@@ -1484,40 +1615,44 @@ static vector<DWORD> assembleIns(string s)
 {
 	unsigned msaa_samples = 0;
 
-	if (hackMap.find(s) != hackMap.end()) {
+	if (hackMap.find(s) != hackMap.end())
+	{
 		auto v = hackMap[s];
 		return v;
 	}
 	DWORD op = 0;
-	shader_ins* ins = (shader_ins*)&op;
+	auto *ins = (shader_ins *)&op;
 	size_t pos = s.find("[precise");
-	if (pos != string::npos) {
-		size_t endPos = s.find("]", pos) + 1;
+	if (pos != string::npos)
+	{
+		size_t endPos = s.find(']', pos) + 1;
 		string precise = s.substr(pos, endPos - pos);
 		s.erase(pos, endPos - pos);
 		int x = 0;
 		int y = 0;
 		int z = 0;
 		int w = 0;
-		if (precise == "[precise]") {
+		if (precise == "[precise]")
+		{
 			x = 256;
 			y = 512;
 			z = 1024;
 			w = 2048;
 		}
-		if (precise.find("x") != string::npos)
+		if (precise.find('x') != string::npos)
 			x = 256;
-		if (precise.find("y") != string::npos)
+		if (precise.find('y') != string::npos)
 			y = 512;
-		if (precise.find("z") != string::npos)
+		if (precise.find('z') != string::npos)
 			z = 1024;
-		if (precise.find("w") != string::npos)
+		if (precise.find('w') != string::npos)
 			w = 2048;
 		ins->_11_23 = x | y | z | w;
 	}
 	// Handles _uint variant of resinfo instruction:
 	pos = s.find("_uint");
-	if (pos != string::npos) {
+	if (pos != string::npos)
+	{
 		s.erase(pos, 5);
 		ins->_11_23 = 2;
 	}
@@ -1528,7 +1663,8 @@ static vector<DWORD> assembleIns(string s)
 	// refers to this as _rcpFloat, but the disassembler uses _rcpfloat.
 	//   -DarkStarSword
 	pos = s.find("_rcpfloat");
-	if (pos != string::npos) {
+	if (pos != string::npos)
+	{
 		s.erase(pos, 9);
 		ins->_11_23 = 1;
 	}
@@ -1537,88 +1673,116 @@ static vector<DWORD> assembleIns(string s)
 	string o = w[0];
 	if (o == "sampleinfo" && ins->_11_23 == 2)
 		ins->_11_23 = 1;
-	if (s.find("_opc") < s.size()) {
+	if (s.find("_opc") < s.size())
+	{
 		o = o.substr(0, o.find("_opc"));
 		ins->_11_23 = 4096;
 	}
 	bool bNZ = o.find("_nz") < o.size();
 	bool bZ = o.find("_z") < o.size();
 	bool bSat = o.find("_sat") < o.size();
-	if (bSat) o = o.substr(0, o.find("_sat"));
+	if (bSat)
+		o = o.substr(0, o.find("_sat"));
 	bool bGlc = o.find("_glc") < o.size(); // Globally coherent UAV declaration
-	if (bGlc) o = o.substr(0, o.find("_glc"));
+	if (bGlc)
+		o = o.substr(0, o.find("_glc"));
 
-	if (o == "hs_decls") {
+	if (o == "hs_decls")
+	{
 		check_num_ops(s, w, 0);
 		ins->opcode = 0x71;
 		ins->length = 1;
 		v.push_back(op);
-	} else if (o == "hs_fork_phase") {
+	}
+	else if (o == "hs_fork_phase")
+	{
 		check_num_ops(s, w, 0);
 		ins->opcode = 0x73;
 		ins->length = 1;
 		v.push_back(op);
-	} else if (o == "hs_join_phase") {
+	}
+	else if (o == "hs_join_phase")
+	{
 		check_num_ops(s, w, 0);
 		ins->opcode = 0x74;
 		ins->length = 1;
 		v.push_back(op);
-	} else if (o == "hs_control_point_phase") {
+	}
+	else if (o == "hs_control_point_phase")
+	{
 		check_num_ops(s, w, 0);
 		ins->opcode = 0x72;
 		ins->length = 1;
 		v.push_back(op);
-	} else if (o.substr(0, 3) == "ps_") {
+	}
+	else if (o.substr(0, 3) == "ps_")
+	{
 		check_num_ops(s, w, 0);
 		op = 0x00000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
+		op |= 16 * parse_int_or_zero(o.substr(3, 1).c_str());
+		op |= parse_int_or_zero(o.substr(5, 1).c_str());
 		v.push_back(op);
-	} else if (o.substr(0, 3) == "vs_") {
+	}
+	else if (o.substr(0, 3) == "vs_")
+	{
 		check_num_ops(s, w, 0);
 		op = 0x10000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
+		op |= 16 * parse_int_or_zero(o.substr(3, 1).c_str());
+		op |= parse_int_or_zero(o.substr(5, 1).c_str());
 		v.push_back(op);
-	} else if (o.substr(0, 3) == "gs_") {
+	}
+	else if (o.substr(0, 3) == "gs_")
+	{
 		check_num_ops(s, w, 0);
 		op = 0x20000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
+		op |= 16 * parse_int_or_zero(o.substr(3, 1).c_str());
+		op |= parse_int_or_zero(o.substr(5, 1).c_str());
 		v.push_back(op);
-	} else if (o.substr(0, 3) == "hs_") {
+	}
+	else if (o.substr(0, 3) == "hs_")
+	{
 		check_num_ops(s, w, 0);
 		op = 0x30000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
+		op |= 16 * parse_int_or_zero(o.substr(3, 1).c_str());
+		op |= parse_int_or_zero(o.substr(5, 1).c_str());
 		v.push_back(op);
-	} else if (o.substr(0, 3) == "ds_") {
+	}
+	else if (o.substr(0, 3) == "ds_")
+	{
 		check_num_ops(s, w, 0);
 		op = 0x40000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
+		op |= 16 * parse_int_or_zero(o.substr(3, 1).c_str());
+		op |= parse_int_or_zero(o.substr(5, 1).c_str());
 		v.push_back(op);
-	} else if (o.substr(0, 3) == "cs_") {
+	}
+	else if (o.substr(0, 3) == "cs_")
+	{
 		check_num_ops(s, w, 0);
 		op = 0x50000;
-		op |= 16 * atoi(o.substr(3, 1).c_str());
-		op |= atoi(o.substr(5, 1).c_str());
+		op |= 16 * parse_int_or_zero(o.substr(3, 1).c_str());
+		op |= parse_int_or_zero(o.substr(5, 1).c_str());
 		v.push_back(op);
-	} else if (w[0].substr(0, 4) == "sync") {
+	}
+	else if (w[0].substr(0, 4) == "sync")
+	{
 		ins->opcode = 0xbe;
 		check_num_ops(s, w, 0);
 		ins->_11_23 = parseSyncFlags(&w[0]);
 		ins->length = 1;
 		v.push_back(op);
-	} else if (w[0] == "store_uav_typed") {
+	}
+	else if (w[0] == "store_uav_typed")
+	{
 		ins->opcode = 0x86;
 		int numOps = 3;
 		check_num_ops(s, w, numOps);
-		if (w[1][0] == 'u') {
+		if (w[1][0] == 'u')
+		{
 			ins->opcode = 0xa4;
 		}
 		vector<vector<DWORD>> Os;
 		int numSpecial = 1;
+		Os.reserve(numOps);
 		for (int i = 0; i < numOps; i++)
 			Os.push_back(assembleOp(w[i + 1], i < numSpecial));
 		ins->length = 1;
@@ -1627,7 +1791,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		for (int i = 0; i < numOps; i++)
 			v.insert(v.end(), Os[i].begin(), Os[i].end());
-	} else if (insMap.find(o) != insMap.end()) {
+	}
+	else if (insMap.find(o) != insMap.end())
+	{
 		vector<int> vIns = insMap[o];
 		int numOps = vIns[0];
 		check_num_ops(s, w, numOps);
@@ -1635,6 +1801,7 @@ static vector<DWORD> assembleIns(string s)
 		int numSpecial = 1;
 		if (vIns.size() > 2)
 			numSpecial = vIns[2];
+		Os.reserve(numOps);
 		for (int i = 0; i < numOps; i++)
 			Os.push_back(assembleOp(w[i + 1], i < numSpecial));
 		ins->opcode = vIns[1];
@@ -1652,13 +1819,16 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		for (int i = 0; i < numOps; i++)
 			v.insert(v.end(), Os[i].begin(), Os[i].end());
-	} else if (ldMap.find(o) != ldMap.end()) {
+	}
+	else if (ldMap.find(o) != ldMap.end())
+	{
 		vector<int> vIns = ldMap[o];
 		int numOps = vIns[0];
 		vector<vector<DWORD>> Os;
 		int startPos = 1 + (vIns[2] & 3);
 		//startPos = w.size() - numOps;
 		check_num_ops(s, w, startPos + numOps - 1);
+		Os.reserve(numOps);
 		for (int i = 0; i < numOps; i++)
 			Os.push_back(assembleOp(w[i + startPos], i == 0));
 		ins->opcode = vIns[1];
@@ -1671,7 +1841,8 @@ static vector<DWORD> assembleIns(string s)
 			v.push_back(parseAoffimmi(0x80000001, w[1]));
 		if (vIns[2] == 1)
 			v.push_back(parseAoffimmi(1, w[1]));
-		if (vIns[2] & 2) {
+		if (vIns[2] & 2)
+		{
 			int c = 1;
 			if (vIns[2] == 3)
 				c = 2;
@@ -1697,11 +1868,12 @@ static vector<DWORD> assembleIns(string s)
 				v.push_back(0x80000042);
 			if (w[c] == "(raw_buffer)")
 				v.push_back(0x800002C2);
-			if (w[1].find("stride") != string::npos) {
+			if (w[1].find("stride") != string::npos)
+			{
 				string stride = w[1].substr(27);
 				stride = stride.substr(0, stride.size() - 1);
 				DWORD d = 0x80000302;
-				d += atoi(stride.c_str()) << 11;
+				d += parse_int_or_zero(stride.c_str()) << 11;
 				v.push_back(d);
 			}
 			if (w[startPos - 1] == "(float,float,float,float)")
@@ -1724,7 +1896,9 @@ static vector<DWORD> assembleIns(string s)
 		}
 		for (int i = 0; i < numOps; i++)
 			v.insert(v.end(), Os[i].begin(), Os[i].end());
-	} else if (o == "dcl_input") {
+	}
+	else if (o == "dcl_input")
+	{
 		check_num_ops(s, w, 1);
 		vector<DWORD> os = assembleOp(w[1], 1);
 		ins->opcode = 0x5f;
@@ -1734,21 +1908,27 @@ static vector<DWORD> assembleIns(string s)
 			os[0] -= 1;
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "dcl_output") {
+	}
+	else if (o == "dcl_output")
+	{
 		check_num_ops(s, w, 1);
 		vector<DWORD> os = assembleOp(w[1], 1);
 		ins->opcode = 0x65;
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "dcl_resource_raw") {
+	}
+	else if (o == "dcl_resource_raw")
+	{
 		check_num_ops(s, w, 1);
 		vector<DWORD> os = assembleOp(w[1]);
 		ins->opcode = 0xa1;
 		ins->length = 3;
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "dcl_resource_buffer") {
+	}
+	else if (o == "dcl_resource_buffer")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[2]);
 		ins->opcode = 0x58;
@@ -1757,7 +1937,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[1], &v);
-	} else if (o == "dcl_resource_texture1d") {
+	}
+	else if (o == "dcl_resource_texture1d")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[2]);
 		ins->opcode = 0x58;
@@ -1766,7 +1948,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[1], &v);
-	} else if (o == "dcl_resource_texture1darray") {
+	}
+	else if (o == "dcl_resource_texture1darray")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[2]);
 		ins->opcode = 0x58;
@@ -1775,7 +1959,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[1], &v);
-	} else if (o == "dcl_uav_typed_texture1d") {
+	}
+	else if (o == "dcl_uav_typed_texture1d")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[2]);
 		ins->opcode = 0x9c;
@@ -1786,7 +1972,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[1], &v);
-	} else if (o == "dcl_uav_typed_texture1darray") {
+	}
+	else if (o == "dcl_uav_typed_texture1darray")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[2]);
 		ins->opcode = 0x9c;
@@ -1797,7 +1985,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[1], &v);
-	} else if (o == "dcl_resource_texture2d") {
+	}
+	else if (o == "dcl_resource_texture2d")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[2]);
 		ins->opcode = 0x58;
@@ -1806,7 +1996,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[1], &v);
-	} else if (o == "dcl_uav_typed_buffer") {
+	}
+	else if (o == "dcl_uav_typed_buffer")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[2]);
 		ins->opcode = 0x9c;
@@ -1817,7 +2009,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[1], &v);
-	} else if (o == "dcl_resource_texture3d") {
+	}
+	else if (o == "dcl_resource_texture3d")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[2]);
 		ins->opcode = 0x58;
@@ -1826,7 +2020,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[1], &v);
-	} else if (o == "dcl_uav_typed_texture3d") {
+	}
+	else if (o == "dcl_uav_typed_texture3d")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[2]);
 		ins->opcode = 0x9c;
@@ -1837,7 +2033,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[1], &v);
-	} else if (o == "dcl_resource_texturecube") {
+	}
+	else if (o == "dcl_resource_texturecube")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[2]);
 		ins->opcode = 0x58;
@@ -1846,7 +2044,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[1], &v);
-	} else if (o == "dcl_resource_texturecubearray") {
+	}
+	else if (o == "dcl_resource_texturecubearray")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[2]);
 		ins->opcode = 0x58;
@@ -1855,7 +2055,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[1], &v);
-	} else if (o == "dcl_resource_texture2darray") {
+	}
+	else if (o == "dcl_resource_texture2darray")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[2]);
 		ins->opcode = 0x58;
@@ -1864,7 +2066,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[1], &v);
-	} else if (o == "dcl_uav_typed_texture2d") {
+	}
+	else if (o == "dcl_uav_typed_texture2d")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[2]);
 		ins->opcode = 0x9c;
@@ -1875,7 +2079,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[1], &v);
-	} else if (o == "dcl_uav_typed_texture2darray") {
+	}
+	else if (o == "dcl_uav_typed_texture2darray")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[2]);
 		ins->opcode = 0x9c;
@@ -1886,7 +2092,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[1], &v);
-	} else if (o == "dcl_resource_texture2dms") {
+	}
+	else if (o == "dcl_resource_texture2dms")
+	{
 		check_num_ops(s, w, 3);
 		vector<DWORD> os = assembleOp(w[3]);
 		ins->opcode = 0x58;
@@ -1898,7 +2106,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[2], &v);
-	} else if (o == "dcl_resource_texture2dmsarray") {
+	}
+	else if (o == "dcl_resource_texture2dmsarray")
+	{
 		check_num_ops(s, w, 3);
 		vector<DWORD> os = assembleOp(w[3]);
 		ins->opcode = 0x58;
@@ -1910,59 +2120,74 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
 		assembleResourceDeclarationType(&w[2], &v);
-	} else if (o == "dcl_indexrange") {
+	}
+	else if (o == "dcl_indexrange")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[1], true);
 		ins->opcode = 0x5b;
 		ins->length = 2 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-		v.push_back(atoi(w[2].c_str()));
-	} else if (o == "dcl_temps") {
+		v.push_back(parse_int_or_zero(w[2].c_str()));
+	}
+	else if (o == "dcl_temps")
+	{
 		ins->opcode = 0x68;
 		ins->length = 2;
 		v.push_back(op);
 		check_num_ops(s, w, 1);
-		v.push_back(atoi(w[1].c_str()));
-	} else if (o == "dcl_resource_structured") {
+		v.push_back(parse_int_or_zero(w[1].c_str()));
+	}
+	else if (o == "dcl_resource_structured")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[1]);
 		ins->opcode = 0xa2;
 		ins->length = 4;
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-		v.push_back(atoi(w[2].c_str()));
-	} else if (o == "dcl_sampler") {
+		v.push_back(parse_int_or_zero(w[2].c_str()));
+	}
+	else if (o == "dcl_sampler")
+	{
 		check_num_ops(s, w, 1, 2);
 		vector<DWORD> os = assembleOp(w[1]);
 		os[0] = 0x106000;
 		ins->opcode = 0x5a;
-		if (w.size() > 2) {
-			if (w[2] == "mode_default") {
+		if (w.size() > 2)
+		{
+			if (w[2] == "mode_default")
+			{
 				ins->_11_23 = 0;
-			} else if (w[2] == "mode_comparison") {
+			}
+			else if (w[2] == "mode_comparison")
+			{
 				ins->_11_23 = 1;
 			}
 		}
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "dcl_globalFlags") {
+	}
+	else if (o == "dcl_globalFlags")
+	{
 		ins->opcode = 0x6a;
 		ins->length = 1;
 		ins->_11_23 = 0;
-		for (unsigned i = 1; i < w.size(); i += 2) {
+		for (unsigned i = 1; i < w.size(); i += 2)
+		{
 			// Changed this to use a loop rather than parsing a
 			// fixed number of arguments. Added double precision,
 			// minimum precision, skipOptimization and 11.1 shader
 			// extension flags.
-			// FIXME: Missing D3D_SHADER_REQUIRES_UAVS_AT_EVERY_STAGE
-			// FIXME: Missing D3D_SHADER_REQUIRES_64_UAVS
-			// FIXME: Missing D3D_SHADER_REQUIRES_LEVEL_9_COMPARISON_FILTERING
-			// FIXME: Missing D3D_SHADER_REQUIRES_TILED_RESOURCES
+			// Known limitation: Missing D3D_SHADER_REQUIRES_UAVS_AT_EVERY_STAGE
+			// Known limitation: Missing D3D_SHADER_REQUIRES_64_UAVS
+			// Known limitation: Missing D3D_SHADER_REQUIRES_LEVEL_9_COMPARISON_FILTERING
+			// Known limitation: Missing D3D_SHADER_REQUIRES_TILED_RESOURCES
 			//   - https://docs.microsoft.com/en-gb/windows/desktop/api/d3d11shader/nf-d3d11shader-id3d11shaderreflection-getrequiresflags
 			//   -DarkStarSword
-			string s = w[i];
+			const string &s = w[i];
 			if (s == "refactoringAllowed")
 				ins->_11_23 |= 0x01;
 			if (s == "enableDoublePrecisionFloatOps")
@@ -1981,11 +2206,14 @@ static vector<DWORD> assembleIns(string s)
 				ins->_11_23 |= 0x80;
 		}
 		v.push_back(op);
-	} else if (o == "dcl_constantbuffer") {
+	}
+	else if (o == "dcl_constantbuffer")
+	{
 		check_num_ops(s, w, 1, 2);
 		vector<DWORD> os = assembleOp(w[1]);
 		ins->opcode = 0x59;
-		if (w.size() > 2) {
+		if (w.size() > 2)
+		{
 			if (w[2] == "dynamicIndexed")
 				ins->_11_23 = 1;
 			else if (w[2] == "immediateIndexed")
@@ -1994,7 +2222,9 @@ static vector<DWORD> assembleIns(string s)
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "dcl_output_sgv") {
+	}
+	else if (o == "dcl_output_sgv")
+	{
 		// Added and verified. Used when writing to SV_IsFrontFace in a
 		// geometry shader. -DarkStarSword
 		check_num_ops(s, w, 2);
@@ -2004,7 +2234,9 @@ static vector<DWORD> assembleIns(string s)
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "dcl_output_siv") {
+	}
+	else if (o == "dcl_output_siv")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[1], true);
 		ins->opcode = 0x67;
@@ -2012,7 +2244,9 @@ static vector<DWORD> assembleIns(string s)
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "dcl_input_siv") {
+	}
+	else if (o == "dcl_input_siv")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[1], true);
 		ins->opcode = 0x61;
@@ -2020,7 +2254,9 @@ static vector<DWORD> assembleIns(string s)
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "dcl_input_sgv") {
+	}
+	else if (o == "dcl_input_sgv")
+	{
 		check_num_ops(s, w, 2);
 		vector<DWORD> os = assembleOp(w[1], true);
 		ins->opcode = 0x60;
@@ -2028,17 +2264,21 @@ static vector<DWORD> assembleIns(string s)
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "dcl_input_ps") {
+	}
+	else if (o == "dcl_input_ps")
+	{
 		vector<DWORD> os;
 		ins->opcode = 0x62;
 		// Switched to use common interpolation mode parsing to catch
 		// more variants -DarkStarSword
-		ins->_11_23 = interpolationMode(w, 0); // FIXME: Default?
+		ins->_11_23 = interpolationMode(w, 0); // Known limitation: Default?
 		os = assembleOp(w[w.size() - 1], true);
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "dcl_input_ps_sgv") {
+	}
+	else if (o == "dcl_input_ps_sgv")
+	{
 		// Fixed for d3dcompiler_47 disassembly that includes an
 		// interpolationMode missing from d3dcompiler_46 disassembly
 		// e.g.
@@ -2054,7 +2294,9 @@ static vector<DWORD> assembleIns(string s)
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "dcl_input_ps_siv") {
+	}
+	else if (o == "dcl_input_ps_siv")
+	{
 		vector<DWORD> os;
 		ins->opcode = 0x64;
 		// Switched to use common interpolation mode parsing (fixes
@@ -2062,13 +2304,15 @@ static vector<DWORD> assembleIns(string s)
 		// system value parsing (fixes missing viewport_array_index)
 		//   -DarkStarSword
 		check_num_ops(s, w, 2, 5);
-		ins->_11_23 = interpolationMode(w, 0); // FIXME: Default?
+		ins->_11_23 = interpolationMode(w, 0); // Known limitation: Default?
 		os = assembleOp(w[w.size() - 2], true);
 		assembleSystemValue(&w[w.size() - 1], &os);
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "dcl_indexableTemp") {
+	}
+	else if (o == "dcl_indexableTemp")
+	{
 		check_num_ops(s, w, 2);
 		string s1 = w[1].erase(0, 1);
 		string s2 = s1.substr(0, s1.find('['));
@@ -2077,10 +2321,12 @@ static vector<DWORD> assembleIns(string s)
 		ins->opcode = 0x69;
 		ins->length = 4;
 		v.push_back(op);
-		v.push_back(atoi(s2.c_str()));
-		v.push_back(atoi(s3.c_str()));
-		v.push_back(atoi(w[2].c_str()));
-	} else if (o == "dcl_immediateConstantBuffer") {
+		v.push_back(parse_int_or_zero(s2.c_str()));
+		v.push_back(parse_int_or_zero(s3.c_str()));
+		v.push_back(parse_int_or_zero(w[2].c_str()));
+	}
+	else if (o == "dcl_immediateConstantBuffer")
+	{
 		vector<DWORD> os;
 		ins->opcode = 0x35;
 		ins->_11_23 = 3;
@@ -2090,7 +2336,8 @@ static vector<DWORD> assembleIns(string s)
 		// The modulus here is by 5, matching the below offset += 5
 		if ((w.size() - offset) % 5 != 0)
 			throw AssemblerParseError(s, "Immediate Constant Buffer must have a multiple of four values");
-		while (offset < w.size()) {
+		while (offset < w.size())
+		{
 			string s1 = w[offset + 0];
 			s1 = s1.substr(0, s1.find(','));
 			string s2 = w[offset + 1];
@@ -2109,7 +2356,9 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		v.push_back(length);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "dcl_tessellator_partitioning") {
+	}
+	else if (o == "dcl_tessellator_partitioning")
+	{
 		ins->opcode = 0x96;
 		ins->length = 1;
 		check_num_ops(s, w, 1);
@@ -2124,7 +2373,9 @@ static vector<DWORD> assembleIns(string s)
 		// Added pow2 -DarkStarSword
 		// https://msdn.microsoft.com/en-us/library/windows/desktop/ff471446(v=vs.85).aspx
 		v.push_back(op);
-	} else if (o == "dcl_tessellator_output_primitive") {
+	}
+	else if (o == "dcl_tessellator_output_primitive")
+	{
 		ins->opcode = 0x97;
 		ins->length = 1;
 		check_num_ops(s, w, 1);
@@ -2139,7 +2390,9 @@ static vector<DWORD> assembleIns(string s)
 		// Added output_point -DarkStarSword
 		// https://msdn.microsoft.com/en-us/library/windows/desktop/ff471445(v=vs.85).aspx
 		v.push_back(op);
-	} else if (o == "dcl_tessellator_domain") {
+	}
+	else if (o == "dcl_tessellator_domain")
+	{
 		ins->opcode = 0x95;
 		ins->length = 1;
 		check_num_ops(s, w, 1);
@@ -2150,28 +2403,36 @@ static vector<DWORD> assembleIns(string s)
 		else if (w[1] == "domain_quad")
 			ins->_11_23 = 3;
 		v.push_back(op);
-	} else if (o == "dcl_stream") {
+	}
+	else if (o == "dcl_stream")
+	{
 		check_num_ops(s, w, 1);
 		vector<DWORD> os = assembleOp(w[1]);
 		ins->opcode = 0x8f;
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "emit_stream") {
+	}
+	else if (o == "emit_stream")
+	{
 		check_num_ops(s, w, 1);
 		vector<DWORD> os = assembleOp(w[1]);
 		ins->opcode = 0x75;
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "cut_stream") {
+	}
+	else if (o == "cut_stream")
+	{
 		check_num_ops(s, w, 1);
 		vector<DWORD> os = assembleOp(w[1]);
 		ins->opcode = 0x76;
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "emit_then_cut_stream") {
+	}
+	else if (o == "emit_then_cut_stream")
+	{
 		// Partially verified - assembled & disassembled OK, but did not
 		// check against compiled shader as fxc never generates this
 		//   -DarkStarSword
@@ -2181,7 +2442,9 @@ static vector<DWORD> assembleIns(string s)
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "dcl_outputtopology") {
+	}
+	else if (o == "dcl_outputtopology")
+	{
 		ins->opcode = 0x5c;
 		ins->length = 1;
 		check_num_ops(s, w, 1);
@@ -2194,28 +2457,36 @@ static vector<DWORD> assembleIns(string s)
 		// Added point list -DarkStarSword
 		// https://msdn.microsoft.com/en-us/library/windows/desktop/bb509661(v=vs.85).aspx
 		v.push_back(op);
-	} else if (o == "dcl_output_control_point_count") {
+	}
+	else if (o == "dcl_output_control_point_count")
+	{
 		check_num_ops(s, w, 1);
 		vector<DWORD> os = assembleOp(w[1]);
 		ins->opcode = 0x94;
 		ins->_11_23 = os[0];
 		ins->length = 1;
 		v.push_back(op);
-	} else if (o == "dcl_input_control_point_count") {
+	}
+	else if (o == "dcl_input_control_point_count")
+	{
 		check_num_ops(s, w, 1);
 		vector<DWORD> os = assembleOp(w[1]);
 		ins->opcode = 0x93;
 		ins->_11_23 = os[0];
 		ins->length = 1;
 		v.push_back(op);
-	} else if (o == "dcl_maxout") {
+	}
+	else if (o == "dcl_maxout")
+	{
 		check_num_ops(s, w, 1);
 		vector<DWORD> os = assembleOp(w[1]);
 		ins->opcode = 0x5e;
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "dcl_inputprimitive") {
+	}
+	else if (o == "dcl_inputprimitive")
+	{
 		ins->opcode = 0x5d;
 		ins->length = 1;
 		check_num_ops(s, w, 1);
@@ -2232,27 +2503,34 @@ static vector<DWORD> assembleIns(string s)
 		// Added "lineadj" -DarkStarSword
 		// https://msdn.microsoft.com/en-us/library/windows/desktop/bb509609(v=vs.85).aspx
 		v.push_back(op);
-	} else if (o == "dcl_hs_max_tessfactor") {
+	}
+	else if (o == "dcl_hs_max_tessfactor")
+	{
 		check_num_ops(s, w, 1);
 		vector<DWORD> os = assembleOp(w[1]);
 		ins->opcode = 0x98;
 		ins->length = 1 + os.size() - 1;
 		v.push_back(op);
 		v.insert(v.end(), os.begin() + 1, os.end());
-	} else if (o == "dcl_hs_fork_phase_instance_count") {
+	}
+	else if (o == "dcl_hs_fork_phase_instance_count")
+	{
 		check_num_ops(s, w, 1);
 		vector<DWORD> os = assembleOp(w[1]);
 		ins->opcode = 0x99;
 		ins->length = 1 + os.size();
 		v.push_back(op);
 		v.insert(v.end(), os.begin(), os.end());
-	} else if (o == "samplepos") {
+	}
+	else if (o == "samplepos")
+	{
 		// samplepos can either be used with a texture register, or the
 		// rasterizer. In the former case it has an extra 0 appended.
 		vector<vector<DWORD>> os;
 		ins->opcode = 0x6e;
 		int numOps = 3;
 		check_num_ops(s, w, numOps);
+		os.reserve(numOps);
 		for (int i = 0; i < numOps; i++)
 			os.push_back(assembleOp(w[i + 1], i < 1));
 
@@ -2261,7 +2539,8 @@ static vector<DWORD> assembleIns(string s)
 		// not present when used on the rasterizer register
 		// (GetRenderTargetSamplePosition). It's not clear if there are
 		// any cases where this should be non-zero:
-		if (w[2][0] == 't') {
+		if (w[2][0] == 't')
+		{
 			numOps++;
 			os.push_back(vector<DWORD>{0});
 		}
@@ -2273,13 +2552,21 @@ static vector<DWORD> assembleIns(string s)
 		v.push_back(op);
 		for (int i = 0; i < numOps; i++)
 			v.insert(v.end(), os[i].begin(), os[i].end());
-	} else if (o == "printf") {
+	}
+	else if (o == "printf")
+	{
 		return assemble_printf(s, v, w, false);
-	} else if (o == "errorf") {
+	}
+	else if (o == "errorf")
+	{
 		return assemble_printf(s, v, w, true);
-	} else if (o == "undecipherable") {
+	}
+	else if (o == "undecipherable")
+	{
 		return assemble_undecipherable_custom_data(s, v, w);
-	} else {
+	}
+	else
+	{
 		throw AssemblerParseError(s, "Unrecognised instruction");
 	}
 
@@ -2290,7 +2577,8 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 {
 	string s2;
 	int numSpaces = 0;
-	while (memcmp(s.c_str(), " ", 1) == 0) {
+	while (memcmp(s.c_str(), " ", 1) == 0)
+	{
 		s.erase(s.begin());
 		numSpaces++;
 	}
@@ -2301,9 +2589,12 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 	string s3;
 	bool valid = true;
 
-	try {
+	try
+	{
 		v2 = assembleIns(s);
-	} catch (AssemblerParseError) {
+	}
+	catch (const AssemblerParseError &)
+	{
 		// Parse error, but not much we can / should do at this point
 		// since we're acting as a disassembler (maybe we're
 		// disassembling a shader with an instruction, operand, etc. we
@@ -2314,19 +2605,25 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 		return s;
 	}
 
-	if (v2.size() > 0) {
-		if (v2.size() == v.size()) {
-			for (DWORD i = 0; i < v.size(); i++) {
-				if (v[i] == 0x1835) {
-					int size = v[++i];
+	if (!v2.empty())
+	{
+		if (v2.size() == v.size())
+		{
+			for (DWORD i = 0; i < v.size(); i++)
+			{
+				if (v[i] == 0x1835)
+				{
+					int size = static_cast<int>(v[++i]);
 					int loopSize = (size - 2) / 4;
 					lastLiteral = sNew.find("{ { ");
-					for (int j = 0; j < loopSize; j++) {
+					for (int j = 0; j < loopSize; j++)
+					{
 						i++;
 						lastLiteral = sNew.find("{ ", lastLiteral + 1);
-						lastEnd = sNew.find(",", lastLiteral + 1);
+						lastEnd = sNew.find(',', lastLiteral + 1);
 						s3 = sNew.substr(lastLiteral + 2, lastEnd - 2 - lastLiteral);
-						if (v[i] != v2[i]) {
+						if (v[i] != v2[i])
+						{
 							string sLiteral = convertF(v[i]);
 							string sBegin = sNew.substr(0, lastLiteral + 2); // +2 matches length of "{ "
 							lastLiteral = sBegin.size();
@@ -2335,12 +2632,14 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 							sNew = sBegin;
 						}
 						i++;
-						lastLiteral = sNew.find(",", lastLiteral + 1);
-						lastEnd = sNew.find(",", lastLiteral + 1);
+						lastLiteral = sNew.find(',', lastLiteral + 1);
+						lastEnd = sNew.find(',', lastLiteral + 1);
 						s3 = sNew.substr(lastLiteral + 2, lastEnd - 2 - lastLiteral);
-						if (v[i] != v2[i]) {
+						if (v[i] != v2[i])
+						{
 							string sLiteral = convertF(v[i]);
-							string sBegin = sNew.substr(0, lastLiteral + 1); // BUG FIXED: Was using +2, but "," is only length 1 -DSS
+							string sBegin = sNew.substr(
+							    0, lastLiteral + 1); // BUG FIXED: Was using +2, but "," is only length 1 -DSS
 							if (sNew[lastLiteral + 1] == ' ')
 								sBegin = sNew.substr(0, lastLiteral + 2); // Keep the space
 							lastLiteral = sBegin.size();
@@ -2349,12 +2648,14 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 							sNew = sBegin;
 						}
 						i++;
-						lastLiteral = sNew.find(",", lastLiteral + 1);
-						lastEnd = sNew.find(",", lastLiteral + 1);
+						lastLiteral = sNew.find(',', lastLiteral + 1);
+						lastEnd = sNew.find(',', lastLiteral + 1);
 						s3 = sNew.substr(lastLiteral + 2, lastEnd - 2 - lastLiteral);
-						if (v[i] != v2[i]) {
+						if (v[i] != v2[i])
+						{
 							string sLiteral = convertF(v[i]);
-							string sBegin = sNew.substr(0, lastLiteral + 1); // BUG FIXED: Was using +2, but "," is only length 1 -DSS
+							string sBegin = sNew.substr(
+							    0, lastLiteral + 1); // BUG FIXED: Was using +2, but "," is only length 1 -DSS
 							if (sNew[lastLiteral + 1] == ' ')
 								sBegin = sNew.substr(0, lastLiteral + 2); // Keep the space
 							lastLiteral = sBegin.size();
@@ -2363,12 +2664,14 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 							sNew = sBegin;
 						}
 						i++;
-						lastLiteral = sNew.find(",", lastLiteral + 1);
-						lastEnd = sNew.find("}", lastLiteral + 1);
+						lastLiteral = sNew.find(',', lastLiteral + 1);
+						lastEnd = sNew.find('}', lastLiteral + 1);
 						s3 = sNew.substr(lastLiteral + 2, lastEnd - 2 - lastLiteral);
-						if (v[i] != v2[i]) {
+						if (v[i] != v2[i])
+						{
 							string sLiteral = convertF(v[i]);
-							string sBegin = sNew.substr(0, lastLiteral + 1); // BUG FIXED: Was using +2, but "," is only length 1 -DSS
+							string sBegin = sNew.substr(
+							    0, lastLiteral + 1); // BUG FIXED: Was using +2, but "," is only length 1 -DSS
 							if (sNew[lastLiteral + 1] == ' ')
 								sBegin = sNew.substr(0, lastLiteral + 2); // Keep the space
 							lastLiteral = sBegin.size();
@@ -2378,11 +2681,14 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 						}
 					}
 					i++;
-				} else if (v[i] == 0x4001) { // One component float literal
+				}
+				else if (v[i] == 0x4001)
+				{ // One component float literal
 					i++;
 					lastLiteral = sNew.find("l(", lastLiteral + 1);
-					lastEnd = sNew.find(")", lastLiteral);
-					if (v[i] != v2[i]) {
+					lastEnd = sNew.find(')', lastLiteral);
+					if (v[i] != v2[i])
+					{
 						string sLiteral = convertF(v[i]);
 						string sBegin = sNew.substr(0, lastLiteral + 2); // +2 matches length of "l("
 						lastLiteral = sBegin.size();
@@ -2390,11 +2696,14 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 						sBegin.append(sNew.substr(lastEnd));
 						sNew = sBegin;
 					}
-				} else if (v[i] == 0x4002) { // Four component float literal
+				}
+				else if (v[i] == 0x4002)
+				{ // Four component float literal
 					i++;
 					lastLiteral = sNew.find("l(", lastLiteral);
-					lastEnd = sNew.find(",", lastLiteral);
-					if (v[i] != v2[i]) {
+					lastEnd = sNew.find(',', lastLiteral);
+					if (v[i] != v2[i])
+					{
 						string sLiteral = convertF(v[i]);
 						string sBegin = sNew.substr(0, lastLiteral + 2); // +2 matches length of "l("
 						lastLiteral = sBegin.size();
@@ -2403,11 +2712,13 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 						sNew = sBegin;
 					}
 					i++;
-					lastLiteral = sNew.find(",", lastLiteral + 1);
-					lastEnd = sNew.find(",", lastLiteral + 1);
-					if (v[i] != v2[i]) {
+					lastLiteral = sNew.find(',', lastLiteral + 1);
+					lastEnd = sNew.find(',', lastLiteral + 1);
+					if (v[i] != v2[i])
+					{
 						string sLiteral = convertF(v[i]);
-						string sBegin = sNew.substr(0, lastLiteral + 1); // BUG FIXED: Was using +2, but "," is only length 1 -DSS
+						string sBegin =
+						    sNew.substr(0, lastLiteral + 1); // BUG FIXED: Was using +2, but "," is only length 1 -DSS
 						if (sNew[lastLiteral + 1] == ' ')
 							sBegin = sNew.substr(0, lastLiteral + 2); // Keep the space
 						lastLiteral = sBegin.size();
@@ -2416,11 +2727,13 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 						sNew = sBegin;
 					}
 					i++;
-					lastLiteral = sNew.find(",", lastLiteral + 1);
-					lastEnd = sNew.find(",", lastLiteral + 1);
-					if (v[i] != v2[i]) {
+					lastLiteral = sNew.find(',', lastLiteral + 1);
+					lastEnd = sNew.find(',', lastLiteral + 1);
+					if (v[i] != v2[i])
+					{
 						string sLiteral = convertF(v[i]);
-						string sBegin = sNew.substr(0, lastLiteral + 1); // BUG FIXED: Was using +2, but "," is only length 1 -DSS
+						string sBegin =
+						    sNew.substr(0, lastLiteral + 1); // BUG FIXED: Was using +2, but "," is only length 1 -DSS
 						if (sNew[lastLiteral + 1] == ' ')
 							sBegin = sNew.substr(0, lastLiteral + 2); // Keep the space
 						lastLiteral = sBegin.size();
@@ -2429,11 +2742,13 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 						sNew = sBegin;
 					}
 					i++;
-					lastLiteral = sNew.find(",", lastLiteral + 1);
-					lastEnd = sNew.find(")", lastLiteral + 1);
-					if (v[i] != v2[i]) {
+					lastLiteral = sNew.find(',', lastLiteral + 1);
+					lastEnd = sNew.find(')', lastLiteral + 1);
+					if (v[i] != v2[i])
+					{
 						string sLiteral = convertF(v[i]);
-						string sBegin = sNew.substr(0, lastLiteral + 1); // BUG FIXED: Was using +2, but "," is only length 1 -DSS
+						string sBegin =
+						    sNew.substr(0, lastLiteral + 1); // BUG FIXED: Was using +2, but "," is only length 1 -DSS
 						if (sNew[lastLiteral + 1] == ' ')
 							sBegin = sNew.substr(0, lastLiteral + 2); // Keep the space
 						sBegin.append(sLiteral);
@@ -2441,15 +2756,18 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 						sBegin.append(sNew.substr(lastEnd));
 						sNew = sBegin;
 					}
-				} else if (v[i] == 0x5002) { // Double literal (two doubles x two components/double)
+				}
+				else if (v[i] == 0x5002)
+				{ // Double literal (two doubles x two components/double)
 					i += 2;
 					lastLiteral = sNew.find("d(", lastLiteral);
-					lastEnd = sNew.find(",", lastLiteral);
+					lastEnd = sNew.find(',', lastLiteral);
 					// If it's a hex literal it is split over four components instead of two:
 					if (!sNew.compare(lastLiteral + 2, 2, "0x"))
-						lastEnd = sNew.find(",", lastLiteral + 1);
-					if (v[i-1] != v2[i-1] || v[i] != v2[i]) {
-						string sLiteral = convertD(v[i-1], v[i]);
+						lastEnd = sNew.find(',', lastLiteral + 1);
+					if (v[i - 1] != v2[i - 1] || v[i] != v2[i])
+					{
+						string sLiteral = convertD(v[i - 1], v[i]);
 						string sBegin = sNew.substr(0, lastLiteral + 2);
 						lastLiteral = sBegin.size();
 						sBegin.append(sLiteral);
@@ -2457,13 +2775,14 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 						sNew = sBegin;
 					}
 					i += 2;
-					lastLiteral = sNew.find(",", lastLiteral + 1);
+					lastLiteral = sNew.find(',', lastLiteral + 1);
 					// If it's a hex literal it is split over four components instead of two:
 					if (!sNew.compare(lastLiteral + 2, 2, "0x"))
-						lastLiteral = sNew.find(",", lastLiteral + 1);
-					lastEnd = sNew.find(")", lastLiteral + 1);
-					if (v[i-1] != v2[i-1] || v[i] != v2[i]) {
-						string sLiteral = convertD(v[i-1], v[i]);
+						lastLiteral = sNew.find(',', lastLiteral + 1);
+					lastEnd = sNew.find(')', lastLiteral + 1);
+					if (v[i - 1] != v2[i - 1] || v[i] != v2[i])
+					{
+						string sLiteral = convertD(v[i - 1], v[i]);
 						string sBegin = sNew.substr(0, lastLiteral + 1);
 						if (sNew[lastLiteral + 1] == ' ')
 							sBegin = sNew.substr(0, lastLiteral + 2);
@@ -2472,35 +2791,50 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 						sBegin.append(sNew.substr(lastEnd));
 						sNew = sBegin;
 					}
-				} else if (v[i] != v2[i])
+				}
+				else if (v[i] != v2[i])
 					valid = false;
 			}
-		} else {
+		}
+		else
+		{
 			valid = false;
 		}
-		if (valid) {
+		if (valid)
+		{
 			s2 = "!success ";
 			s2.append(s);
 			// codeBin[s2] = v;
-		} else {
-			if (v.size() == (v2.size() + 1)) {
+		}
+		else
+		{
+			if (v.size() == (v2.size() + 1))
+			{
 				valid = true;
 				int j = 0;
-				for (size_t i = 1; i < v2.size() && valid; i++) {
-					if (v[i + j] != v2[i]) {
-						if (v[i + 1] == 0x1 && (v[i] & 0x7FFFFFFF) == v2[i]) {
+				for (size_t i = 1; i < v2.size() && valid; i++)
+				{
+					if (v[i + j] != v2[i])
+					{
+						if (v[i + 1] == 0x1 && (v[i] & 0x7FFFFFFF) == v2[i])
+						{
 							j = 1;
-						} else {
+						}
+						else
+						{
 							valid = false;
 						}
 					}
 				}
 			}
-			if (valid) {
+			if (valid)
+			{
 				s2 = "!success ";
 				s2.append(s);
 				// codeBin[s2] = v;
-			} else {
+			}
+			else
+			{
 				s2 = s;
 				s2.append(" orig");
 				codeBin[s2] = v;
@@ -2509,47 +2843,56 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 				codeBin[s2] = v2;
 			}
 		}
-	} else {
-		if (s != "undecipherable custom data") {
+	}
+	else
+	{
+		if (s != "undecipherable custom data")
+		{
 			s2 = "!missing ";
 			s2.append(s);
 			codeBin[s2] = v;
 		}
 	}
-	string ret = "";
-	for (int i = 0; i < numSpaces; i++) {
+	string ret;
+	for (int i = 0; i < numSpaces; i++)
+	{
 		ret.append(" ");
 	}
 	ret.append(sNew);
 	return ret;
 }
 
-vector<string> stringToLines(const char* start, size_t size)
+vector<string> stringToLines(const char *start, size_t size)
 {
 	vector<string> lines;
-	const char* pStart = start;
-	const char* pEnd = pStart;
-	const char* pRealEnd = pStart + size;
-	while (true) {
-		while (*pEnd != '\n' && pEnd < pRealEnd) {
+	const char *pStart = start;
+	const char *pEnd = pStart;
+	const char *pRealEnd = pStart + size;
+	while (true)
+	{
+		while (*pEnd != '\n' && pEnd < pRealEnd)
+		{
 			pEnd++;
 		}
-		if (*pStart == 0) {
+		if (*pStart == 0)
+		{
 			break;
 		}
 		string s(pStart, pEnd++);
 		pStart = pEnd;
 		lines.push_back(s);
-		if (pStart >= pRealEnd) {
+		if (pStart >= pRealEnd)
+		{
 			break;
 		}
 	}
-	for (unsigned int i = 0; i < lines.size(); i++) {
+	for (unsigned int i = 0; i < lines.size(); i++)
+	{
 		string s = lines[i];
 		// Bug fixed: This would not strip carriage returns from DOS
 		// style newlines if they were the only character on the line,
 		// corrupting the resulting shader binary. -DarkStarSword
-		if (s.size() >= 1 && s[s.size() - 1] == '\r')
+		if (!s.empty() && s[s.size() - 1] == '\r')
 			s.erase(--s.end());
 
 		// Strip whitespace from the end of each line. This isn't
@@ -2560,38 +2903,44 @@ vector<string> stringToLines(const char* start, size_t size)
 		// understand why the pattern isn't matching. By removing
 		// excess spaces from the end of each line now we can make this
 		// gotcha go away.
-		while (s.size() >= 1 && s[s.size() - 1] == ' ')
+		while (!s.empty() && s[s.size() - 1] == ' ')
 			s.erase(--s.end());
 
 		lines[i] = s;
 	}
 	return lines;
 }
-static vector<string> stringToLinesDX9(const char* start, size_t size) {
+[[maybe_unused]] static vector<string> stringToLinesDX9(const char *start, size_t size)
+{
 	vector<string> lines;
-	const char* pStart = start;
-	const char* pEnd = pStart;
-	const char* pRealEnd = pStart + size;
-	while (true) {
-		while (*pEnd != '\n' && pEnd < pRealEnd) {
+	const char *pStart = start;
+	const char *pEnd = pStart;
+	const char *pRealEnd = pStart + size;
+	while (true)
+	{
+		while (*pEnd != '\n' && pEnd < pRealEnd)
+		{
 			pEnd++;
 		}
-		if (*pStart == 0) {
+		if (*pStart == 0)
+		{
 			break;
 		}
 		string s(pStart, pEnd++);
 		pStart = pEnd;
 		lines.push_back(s);
-		if (pStart >= pRealEnd) {
+		if (pStart >= pRealEnd)
+		{
 			break;
 		}
 	}
-	for (unsigned int i = 0; i < lines.size(); i++) {
+	for (unsigned int i = 0; i < lines.size(); i++)
+	{
 		string s = lines[i];
 		// Bug fixed: This would not strip carriage returns from DOS
 		// style newlines if they were the only character on the line,
 		// corrupting the resulting shader binary. -DarkStarSword
-		if (s.size() >= 1 && s[s.size() - 1] == '\r')
+		if (!s.empty() && s[s.size() - 1] == '\r')
 			s.erase(--s.end());
 
 		// Strip whitespace from the end of each line. This isn't
@@ -2602,10 +2951,10 @@ static vector<string> stringToLinesDX9(const char* start, size_t size) {
 		// understand why the pattern isn't matching. By removing
 		// excess spaces from the end of each line now we can make this
 		// gotcha go away.
-		while (s.size() >= 1 && s[s.size() - 1] == ' ')
+		while (!s.empty() && s[s.size() - 1] == ' ')
 			s.erase(--s.end());
 
-		while (s.size() >= 1 && s[0] == ' ')
+		while (!s.empty() && s[0] == ' ')
 			s.erase(s.begin());
 
 		lines[i] = s;
@@ -2613,19 +2962,20 @@ static vector<string> stringToLinesDX9(const char* start, size_t size) {
 	return lines;
 }
 
-static void hexdump_instruction(string &s, vector<DWORD> &v,
-		vector<string> &lines, DWORD *i,
-		int *multiLines, uint32_t line_byte_offset,
-		int hexdump_mode)
+static void hexdump_instruction(string &s, vector<DWORD> &v, vector<string> &lines, DWORD *i, int *multiLines,
+                                uint32_t line_byte_offset, int hexdump_mode)
 {
 	string hd;
 	char buf[16];
 	vector<DWORD> v2;
 	string parse_error;
 
-	try {
-		v2 = assembleIns(s.substr(s.find_first_not_of(" ")));
-	} catch (AssemblerParseError &e) {
+	try
+	{
+		v2 = assembleIns(s.substr(s.find_first_not_of(' ')));
+	}
+	catch (AssemblerParseError &e)
+	{
 		parse_error = e.desc;
 	}
 
@@ -2635,24 +2985,30 @@ static void hexdump_instruction(string &s, vector<DWORD> &v,
 
 	_snprintf_s(buf, 16, 16, "// %08x:", line_byte_offset);
 	hd += buf;
-	for (auto val : v) {
+	for (auto val : v)
+	{
 		_snprintf_s(buf, 16, 16, " %08x", val);
 		hd += buf;
 	}
 
-	if (parse_error.empty()) {
-		if (v != v2) {
+	if (parse_error.empty())
+	{
+		if (v != v2)
+		{
 			hd += "\n// * BUG * :";
-			for (auto val : v2) {
+			for (auto val : v2)
+			{
 				_snprintf_s(buf, 16, 16, " %08x", val);
 				hd += buf;
 			}
 		}
-	} else {
+	}
+	else
+	{
 		hd += "\n// * BUG * : " + parse_error + ":";
 	}
 
-	vector<string>::iterator pos = lines.begin() + (*i)++;
+	auto pos = lines.begin() + (*i)++;
 	if (*multiLines)
 		pos -= *multiLines - 1;
 	*multiLines = 0;
@@ -2664,7 +3020,8 @@ static void encode_custom_data(string &s, vector<DWORD> &v)
 {
 	char buf[16];
 
-	for (auto val : v) {
+	for (auto val : v)
+	{
 		_snprintf_s(buf, 16, 16, " %08x", val);
 		s += buf;
 	}
@@ -2678,10 +3035,17 @@ static void encode_custom_data(string &s, vector<DWORD> &v)
 // likely to interfere with ShaderRegex patterns.
 static inline void patch_d3dcompiler_47_rdef(string *line, int *rdef_state)
 {
-	char name[256], type[16], format[16], dim[16], bind_type[16];
-	int bind_idx, count, numRead;
+	char name[256];
+	char type[16];
+	char format[16];
+	char dim[16];
+	char bind_type[16];
+	int bind_idx;
+	int count;
+	int numRead;
 
-	switch (*rdef_state) {
+	switch (*rdef_state)
+	{
 	case 0:
 		if (line->compare("// Name                                 Type  Format         Dim      HLSL Bind  Count"))
 			return;
@@ -2694,27 +3058,26 @@ static inline void patch_d3dcompiler_47_rdef(string *line, int *rdef_state)
 		++*rdef_state;
 		return;
 	case 2:
-		if (!line->compare("//")) {
+		if (!line->compare("//"))
+		{
 			++*rdef_state;
 			return;
 		}
-		numRead = sscanf_s(line->c_str(), "// %s %s %s %s %[a-z]%d %d",
-			name, UCOUNTOF(name), type, UCOUNTOF(type), format, UCOUNTOF(format), dim, UCOUNTOF(dim),
-			&bind_type, UCOUNTOF(bind_type), &bind_idx, &count);
-		if (numRead == 7) {
+		numRead =
+		    sscanf_s(line->c_str(), "// %s %s %s %s %[a-z]%d %d", name, UCOUNTOF(name), type, UCOUNTOF(type), format,
+			         UCOUNTOF(format), dim, UCOUNTOF(dim), &bind_type, UCOUNTOF(bind_type), &bind_idx, &count);
+		if (numRead == 7)
+		{
 			vector<char> buf(line->length() + 1); // d3dcompiler_47 lines should always be longer
-			_snprintf_s(buf.data(), buf.size(), _TRUNCATE,
-					"// %-30s %10s %7s %11s %4d %8d",
-					name, type, format, dim, bind_idx, count);
+			_snprintf_s(buf.data(), buf.size(), _TRUNCATE, "// %-30s %10s %7s %11s %4d %8d", name, type, format, dim,
+			            bind_idx, count);
 			*line = buf.data();
 		}
 		return;
 	}
 }
 
-static char txt_swiz[] = {
-	'x', 'y', 'z', 'w'
-};
+static char txt_swiz[] = {'x', 'y', 'z', 'w'};
 
 // This function replaces the byte offsets in constant buffer and structured
 // buffer declarations with indices, components, and/or ranges to both make it
@@ -2770,10 +3133,15 @@ static char txt_swiz[] = {
 //
 static inline void replace_cb_offsets_with_indices(string *line)
 {
-	int numRead, end1 = 0, end2 = 0;
-	unsigned offset = 0, size = 0;
-	unsigned first_swiz, last_swiz;
-	unsigned first_idx, last_idx;
+	int numRead;
+	int end1 = 0;
+	int end2 = 0;
+	unsigned offset = 0;
+	unsigned size = 0;
+	unsigned first_swiz;
+	unsigned last_swiz;
+	unsigned first_idx;
+	unsigned last_idx;
 	size_t comment;
 	string suffix;
 	char buf[32];
@@ -2783,8 +3151,7 @@ static inline void replace_cb_offsets_with_indices(string *line)
 	if (comment == string::npos)
 		return;
 
-	numRead = sscanf_s(line->c_str() + comment, "// Offset: %u%n Size: %u%n",
-		&offset, &end1, &size, &end2);
+	numRead = sscanf_s(line->c_str() + comment, "// Offset: %u%n Size: %u%n", &offset, &end1, &size, &end2);
 	if (numRead < 1)
 		return;
 
@@ -2796,7 +3163,8 @@ static inline void replace_cb_offsets_with_indices(string *line)
 
 	last_idx = first_idx = offset / 16;
 	last_swiz = first_swiz = offset % 16 / 4;
-	if (numRead == 2 && size >= 4) {
+	if (numRead == 2 && size >= 4)
+	{
 		last_idx = (offset + size - 4) / 16;
 		last_swiz = (offset + size - 4) % 16 / 4;
 	}
@@ -2804,30 +3172,38 @@ static inline void replace_cb_offsets_with_indices(string *line)
 	_snprintf_s(buf, 32, _TRUNCATE, "// Index: %4u", first_idx);
 	*line += buf;
 
-	if (first_swiz || (numRead == 2 && size <= 16)) {
+	if (first_swiz || (numRead == 2 && size <= 16))
+	{
 		// Offset is not on a cb boundary, or this entry has 4
 		// or less components (if known). Show the swizzle:
 		for (n = 0; first_swiz + n <= (first_idx == last_idx ? last_swiz : first_swiz); n++)
-			buf[1+n] = txt_swiz[first_swiz + n];
-		buf[n+1] = '\0';
-		buf[0] = '.'; n++;
+			buf[1 + n] = txt_swiz[first_swiz + n];
+		buf[n + 1] = '\0';
+		buf[0] = '.';
+		n++;
 		*line += buf;
 	}
 
-	if (last_idx > first_idx) {
-		if ((last_idx - first_idx < 4) && (first_swiz == 0 && last_swiz == 3)) {
+	if (last_idx > first_idx)
+	{
+		if ((last_idx - first_idx < 4) && (first_swiz == 0 && last_swiz == 3))
+		{
 			// 2-4 indices, show each for ShaderRegex matching:
-			for (unsigned i = first_idx+1; i <= last_idx; i++) {
+			for (unsigned i = first_idx + 1; i <= last_idx; i++)
+			{
 				n += _snprintf_s(buf, 32, _TRUNCATE, " %u", i);
 				*line += buf;
 			}
-		} else {
+		}
+		else
+		{
 			// More than 4 indices or misaligned.
 			// Unwieldy, so shorten to a range:
 			n += _snprintf_s(buf, 32, _TRUNCATE, "-%u", last_idx);
 			*line += buf;
 
-			if (last_swiz != 3) {
+			if (last_swiz != 3)
+			{
 				// Final component does not end on a cb boundary, show it:
 				n += _snprintf_s(buf, 32, _TRUNCATE, ".%c", txt_swiz[last_swiz]);
 				*line += buf;
@@ -2836,17 +3212,21 @@ static inline void replace_cb_offsets_with_indices(string *line)
 	}
 	// Minimum 15 character (3 characters x (room for 4 digits + 1 space))
 	// field length for the above will keep most entries aligned:
-	for (; n < 3*5; n++)
+	for (; n < 3 * 5; n++)
 		*line += ' ';
 
-	if (numRead == 2) {
+	if (numRead == 2)
+	{
 		_snprintf_s(buf, 32, _TRUNCATE, " Components: %5u", size / 4);
 		*line += buf;
-		if (size % 4) {
+		if (size % 4)
+		{
 			_snprintf_s(buf, 32, _TRUNCATE, "+%u", size % 4);
 			*line += buf;
 		}
-	} else {
+	}
+	else
+	{
 		line->resize(line->find_last_not_of(" ") + 1);
 	}
 
@@ -2856,32 +3236,37 @@ static inline void replace_cb_offsets_with_indices(string *line)
 #if MIGOTO_DX == 9
 HRESULT disassemblerDX9(vector<byte> *buffer, vector<byte> *ret, const char *comment)
 {
-	char* asmBuffer;
+	char *asmBuffer;
 	size_t asmSize;
 	vector<byte> asmBuf;
-	ID3DBlob* pDissassembly = nullptr;
+	ID3DBlob *pDissassembly = nullptr;
 	LPD3DXBUFFER pD3DXDissassembly = nullptr;
-	HRESULT ok = D3DDisassemble(buffer->data(), buffer->size(), D3D_DISASM_ENABLE_DEFAULT_VALUE_PRINTS, comment, &pDissassembly);
+	HRESULT ok =
+	    D3DDisassemble(buffer->data(), buffer->size(), D3D_DISASM_ENABLE_DEFAULT_VALUE_PRINTS, comment, &pDissassembly);
 	if (FAILED(ok))
 		ok = D3DDisassemble(buffer->data(), buffer->size(), nullptr, comment, &pDissassembly);
 	if (FAILED(ok))
 		ok = D3DDisassemble(buffer->data(), buffer->size(), D3D_DISASM_DISABLE_DEBUG_INFO, comment, &pDissassembly);
-	if (FAILED(ok)){
+	if (FAILED(ok))
+	{
 		//below sometimes give an access violation for some reason
 		//ok = D3DXDisassembleShader((DWORD*)buffer->data(), false, nullptr, &pD3DXDissassembly);
 		//if (FAILED(ok))
-			return ok;
+		return ok;
 		//asmBuffer = (char*)pD3DXDissassembly->GetBufferPointer();
 		//asmSize = pD3DXDissassembly->GetBufferSize();
 	}
-	else {
-		asmBuffer = (char*)pDissassembly->GetBufferPointer();
+	else
+	{
+		asmBuffer = (char *)pDissassembly->GetBufferPointer();
 		asmSize = pDissassembly->GetBufferSize();
 	}
 	vector<string> lines = stringToLinesDX9(asmBuffer, asmSize);
 	ret->clear();
-	for (size_t i = 0; i < lines.size(); i++) {
-		for (size_t j = 0; j < lines[i].size(); j++) {
+	for (size_t i = 0; i < lines.size(); i++)
+	{
+		for (size_t j = 0; j < lines[i].size(); j++)
+		{
 			ret->insert(ret->end(), lines[i][j]);
 		}
 		ret->insert(ret->end(), '\n');
@@ -2902,16 +3287,15 @@ HRESULT disassemblerDX9(vector<byte> *buffer, vector<byte> *ret, const char *com
 // and the presence of a usable SHEX/SHDR code chunk. All arithmetic is
 // done in 64-bit so it cannot wrap. Matches the historical behaviour of
 // selecting the last SHEX/SHDR chunk when several are present.
-static bool find_dxbc_code_chunk(const void *data, size_t size,
-		DWORD *out_num_chunks, DWORD *out_code_chunk_index,
-		DWORD *out_code_chunk_offset, DWORD *out_code_chunk_size,
-		byte **out_code_start)
+static bool find_dxbc_code_chunk(void *data, size_t size, DWORD *out_num_chunks, DWORD *out_code_chunk_index,
+                                 DWORD *out_code_chunk_offset, DWORD *out_code_chunk_size, byte **out_code_start)
 {
 	if (!data || size < 32)
 		return false;
 
-	const byte *base = static_cast<const byte*>(data);
-	DWORD file_size, num_chunks;
+	byte *base = static_cast<byte *>(data);
+	DWORD file_size;
+	DWORD num_chunks;
 	memcpy(&file_size, base + 24, 4);
 	memcpy(&num_chunks, base + 28, 4);
 
@@ -2930,7 +3314,8 @@ static bool find_dxbc_code_chunk(const void *data, size_t size,
 	memcpy(chunk_offsets.data(), base + 32, (size_t)num_chunks * 4);
 
 	// Validate every chunk offset and every chunk header/length up front:
-	for (DWORD i = 0; i < num_chunks; i++) {
+	for (DWORD i = 0; i < num_chunks; i++)
+	{
 		DWORD chunk_offset = chunk_offsets[i];
 		if (chunk_offset < chunk_table_end || (uint64_t)chunk_offset + 8 > file_size)
 			return false;
@@ -2942,20 +3327,26 @@ static bool find_dxbc_code_chunk(const void *data, size_t size,
 	}
 
 	// Walk backwards, selecting the last SHEX/SHDR chunk:
-	for (DWORD i = num_chunks; i-- > 0; ) {
+	for (DWORD i = num_chunks; i-- > 0;)
+	{
 		DWORD chunk_offset = chunk_offsets[i];
-		const byte *chunk = base + chunk_offset;
-		if (memcmp(chunk, "SHEX", 4) && memcmp(chunk, "SHDR", 4))
+		byte *chunk = base + chunk_offset;
+		if (memcmp(chunk, "SHEX", 4) != 0 && memcmp(chunk, "SHDR", 4) != 0)
 			continue;
 
 		DWORD chunk_size;
 		memcpy(&chunk_size, chunk + 4, 4);
 
-		if (out_num_chunks) *out_num_chunks = num_chunks;
-		if (out_code_chunk_index) *out_code_chunk_index = i;
-		if (out_code_chunk_offset) *out_code_chunk_offset = chunk_offset;
-		if (out_code_chunk_size) *out_code_chunk_size = chunk_size;
-		if (out_code_start) *out_code_start = const_cast<byte*>(chunk);
+		if (out_num_chunks)
+			*out_num_chunks = num_chunks;
+		if (out_code_chunk_index)
+			*out_code_chunk_index = i;
+		if (out_code_chunk_offset)
+			*out_code_chunk_offset = chunk_offset;
+		if (out_code_chunk_size)
+			*out_code_chunk_size = chunk_size;
+		if (out_code_start)
+			*out_code_start = chunk;
 		return true;
 	}
 
@@ -2964,55 +3355,54 @@ static bool find_dxbc_code_chunk(const void *data, size_t size,
 	return false;
 }
 
-HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *comment,
-		int hexdump, bool d3dcompiler_46_compat,
-		bool disassemble_undecipherable_data,
-		bool patch_cb_offsets)
+HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *comment, int hexdump,
+                     bool d3dcompiler_46_compat, bool disassemble_undecipherable_data, bool patch_cb_offsets)
 {
 	int rdef_state = 0;
 
 	// The old code read the DXBC header and chunk-offset table without
 	// proving the buffer was large enough, and used a garbage codeByteStart
-	// when no SHEX/SHDR chunk was found (FIXME, C4701/C4703 at the two use
+	// when no SHEX/SHDR chunk was found (Known limitation, C4701/C4703 at the two use
 	// sites). Bail out with a controlled failure instead:
 	DWORD numChunks = 0;
 	DWORD codeChunk = 0;
 	DWORD codeChunkOffset = 0;
 	DWORD codeChunkSize = 0;
-	byte* codeByteStart = NULL;
-	if (!find_dxbc_code_chunk(buffer->data(), buffer->size(), &numChunks,
-			&codeChunk, &codeChunkOffset, &codeChunkSize, &codeByteStart))
+	byte *codeByteStart = nullptr;
+	if (!find_dxbc_code_chunk(buffer->data(), buffer->size(), &numChunks, &codeChunk, &codeChunkOffset, &codeChunkSize,
+	                          &codeByteStart))
 		return S_FALSE;
 
-	char* asmBuffer;
+	char *asmBuffer;
 	size_t asmSize;
 	vector<byte> asmBuf;
-	ID3DBlob* pDissassembly = nullptr;
+	ID3DBlob *pDissassembly = nullptr;
 
 	// We disable debug info in the disassembler as it interferes with our
 	// ability to match assembly lines with bytecode below
-	HRESULT ok = D3DDisassemble(buffer->data(), buffer->size(),
-			D3D_DISASM_ENABLE_DEFAULT_VALUE_PRINTS |
-			D3D_DISASM_DISABLE_DEBUG_INFO,
-			comment, &pDissassembly);
+	HRESULT ok =
+	    D3DDisassemble(buffer->data(), buffer->size(),
+		               D3D_DISASM_ENABLE_DEFAULT_VALUE_PRINTS | D3D_DISASM_DISABLE_DEBUG_INFO, comment, &pDissassembly);
 	if (FAILED(ok))
 		return ok;
 
-	asmBuffer = (char*)pDissassembly->GetBufferPointer();
+	asmBuffer = (char *)pDissassembly->GetBufferPointer();
 	asmSize = pDissassembly->GetBufferSize();
 
 	vector<string> lines = stringToLines(asmBuffer, asmSize);
-	DWORD* codeStart = (DWORD*)(codeByteStart + 8);
+	auto *codeStart = (DWORD *)(codeByteStart + 8);
 	bool codeStarted = false;
 	bool multiLine = false;
 	int multiLines = 0;
 	string s2;
 	vector<DWORD> o;
-	for (DWORD i = 0; i < lines.size(); i++) {
-		uint32_t line_byte_offset = (uint32_t)((byte*)codeStart - buffer->data());
+	for (DWORD i = 0; i < lines.size(); i++)
+	{
+		auto line_byte_offset = (uint32_t)((byte *)codeStart - buffer->data());
 		string s = lines[i];
 
-		if (!memcmp(s.c_str(), "//", 2)) {
+		if (!memcmp(s.c_str(), "//", 2))
+		{
 			if (d3dcompiler_46_compat)
 				patch_d3dcompiler_47_rdef(&lines[i], &rdef_state);
 			if (patch_cb_offsets)
@@ -3021,55 +3411,69 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 		}
 
 		vector<DWORD> v;
-		if (!codeStarted) {
-			if (s.size() > 0 && s[0] != ' ') {
+		if (!codeStarted)
+		{
+			if (!s.empty() && s[0] != ' ')
+			{
 				codeStarted = true;
 				v.push_back(*codeStart);
 				codeStart += 2;
 				s = assembleAndCompare(s, v);
 				lines[i] = s;
 			}
-		} else if (s.find("{ {") < s.size()) {
+		}
+		else if (s.find("{ {") < s.size())
+		{
 			s2 = s;
 			multiLine = true;
 			multiLines = 1;
-		} else if (s.find("} }") < s.size()) {
+		}
+		else if (s.find("} }") < s.size())
+		{
 			s2.append("\n");
 			s2.append(s);
 			s = s2;
 			multiLine = false;
 			multiLines++;
-			shader_ins* ins = (shader_ins*)codeStart;
+			auto *ins [[maybe_unused]] = (shader_ins *)codeStart;
 			v.push_back(*codeStart);
 			codeStart++;
 			DWORD length = *codeStart;
 			v.push_back(*codeStart);
 			codeStart++;
-			for (DWORD j = 2; j < length; j++) {
+			for (DWORD j = 2; j < length; j++)
+			{
 				v.push_back(*codeStart);
 				codeStart++;
 			}
 			s = assembleAndCompare(s, v);
 			auto sLines = stringToLines(s.c_str(), s.size());
 			size_t startLine = i - sLines.size() + 1;
-			for (size_t j = 0; j < sLines.size(); j++) {
+			for (size_t j = 0; j < sLines.size(); j++)
+			{
 				lines[startLine + j] = sLines[j];
 			}
 			//lines[i] = s;
-		} else if (multiLine) {
+		}
+		else if (multiLine)
+		{
 			s2.append("\n");
 			s2.append(s);
 			multiLines++;
-		} else if (s.size() > 0) {
-			shader_ins* ins = (shader_ins*)codeStart;
+		}
+		else if (!s.empty())
+		{
+			auto *ins = (shader_ins *)codeStart;
 			v.push_back(*codeStart);
 			codeStart++;
 
-			for (DWORD j = 1; j < ins->length; j++) {
+			for (DWORD j = 1; j < ins->length; j++)
+			{
 				v.push_back(*codeStart);
 				codeStart++;
 			}
-			if (s == "undecipherable custom data") {
+			if (s == "undecipherable custom data")
+			{
 				// Changed this to use the instruction length
 				// in the next word like the below printf
 				// instead of scanning for a word that happened
@@ -3084,15 +3488,19 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 					encode_custom_data(s, v);
 				else
 					s = "";
-			} else if (v[0] == 0x00002035) {
+			}
+			else if (v[0] == 0x00002035)
+			{
 				// Opcode 0x35 is custom data (specifically printf/errorf).
 				// Instruction length is in the next word instead:
 				uint32_t len = *codeStart;
-				v.push_back(*(codeStart)++);
+				v.push_back(*codeStart++);
 				for (uint32_t j = 1; j < len - 1; j++)
-					v.push_back(*(codeStart)++);
+					v.push_back(*codeStart++);
 				s = assembleAndCompare(s, v);
-			} else {
+			}
+			else
+			{
 				s = assembleAndCompare(s, v);
 			}
 			lines[i] = s;
@@ -3102,8 +3510,10 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 			hexdump_instruction(s, v, lines, &i, &multiLines, line_byte_offset, hexdump);
 	}
 	ret->clear();
-	for (size_t i = 0; i < lines.size(); i++) {
-		for (size_t j = 0; j < lines[i].size(); j++) {
+	for (size_t i = 0; i < lines.size(); i++)
+	{
+		for (size_t j = 0; j < lines[i].size(); j++)
+		{
 			ret->insert(ret->end(), lines[i][j]);
 		}
 		ret->insert(ret->end(), '\n');
@@ -3119,19 +3529,22 @@ static void preprocessLine(string &line)
 	const char *p;
 	size_t i;
 
-	for (p = line.c_str(), i = 0; *p; p++, i++) {
+	for (p = line.c_str(), i = 0; *p; p++, i++)
+	{
 		// Replace tabs with spaces:
 		if (*p == '\t')
 			line[i] = ' ';
 
 		// Skip over strings:
-		if (*p == '"') {
+		if (*p == '"')
+		{
 			p = strrchr(p, '"');
 			i = p - line.c_str();
 		}
 
 		// Strip C style comments:
-		if (!memcmp(p, "//", 2)) {
+		if (!memcmp(p, "//", 2))
+		{
 			line.resize(i);
 			return;
 		}
@@ -3141,7 +3554,7 @@ static void preprocessLine(string &line)
 // For anyone confused about what this hash function is doing, there is a
 // clearer implementation here, with details of how this differs from MD5:
 // https://github.com/DarkStarSword/3d-fixes/blob/master/dx11shaderanalyse.py
-static vector<DWORD> ComputeHash(byte const* input, DWORD size)
+static vector<DWORD> ComputeHash(byte const *input, DWORD size)
 {
 	DWORD esi;
 	DWORD ebx;
@@ -3155,28 +3568,36 @@ static vector<DWORD> ComputeHash(byte const* input, DWORD size)
 	DWORD restSize = sizeHash56 ? 120 - 56 : 56 - sizeHash;
 	DWORD loopSize = (size + 8 + restSize) >> 6;
 	DWORD Dst[16];
-	DWORD Data[] = { 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	DWORD Data[] = {0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 	DWORD loopSize2 = loopSize - (sizeHash56 ? 2 : 1);
-	DWORD start_0 = 0;
-	DWORD* pSrc = (DWORD*)input;
-	DWORD h[] = { 0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476 };
-	if (loopSize > 0) {
-		while (i < loopSize) {
-			if (i == loopSize2) {
-				if (!sizeHash56) {
+	DWORD start_0 [[maybe_unused]] = 0;
+	const auto *pSrc = reinterpret_cast<const DWORD *>(input);
+	DWORD h[] = {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476};
+	if (loopSize > 0)
+	{
+		while (i < loopSize)
+		{
+			if (i == loopSize2)
+			{
+				if (!sizeHash56)
+				{
 					Dst[0] = size << 3;
 					DWORD remSize = size - processedSize;
 					std::memcpy(&Dst[1], pSrc, remSize);
 					std::memcpy(&Dst[1 + remSize / 4], Data, restSize);
 					Dst[15] = (size * 2) | 1;
 					pSrc = Dst;
-				} else {
+				}
+				else
+				{
 					DWORD remSize = size - processedSize;
 					std::memcpy(&Dst[0], pSrc, remSize);
 					std::memcpy(&Dst[remSize / 4], Data, 64 - remSize);
 					pSrc = Dst;
 				}
-			} else if (i > loopSize2) {
+			}
+			else if (i > loopSize2)
+			{
 				Dst[0] = size << 3;
 				std::memcpy(&Dst[1], &Data[1], 56);
 				Dst[15] = (size * 2) | 1;
@@ -3273,62 +3694,75 @@ static vector<DWORD> ComputeHash(byte const* input, DWORD size)
 
 // origByteCode is modified in this function, so passing it by value!
 // asmFile is not modified, so passing it by pointer -DarkStarSword
-vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode,
-		vector<AssemblerParseError> *parse_errors)
+vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode, vector<AssemblerParseError> *parse_errors)
 {
 	// Validate the DXBC container before trusting any of its offsets (the
 	// old code had the same unchecked header parse and garbage codeByteStart
-	// FIXME as the disassembler):
+	// Known limitation as the disassembler):
 	DWORD numChunks = 0;
 	DWORD codeChunk = 0;
 	DWORD codeChunkOffset = 0;
 	DWORD codeChunkSize = 0;
-	byte* codeByteStart = NULL;
-	if (!find_dxbc_code_chunk(origBytecode.data(), origBytecode.size(), &numChunks,
-			&codeChunk, &codeChunkOffset, &codeChunkSize, &codeByteStart))
+	byte *codeByteStart = nullptr;
+	if (!find_dxbc_code_chunk(origBytecode.data(), origBytecode.size(), &numChunks, &codeChunk, &codeChunkOffset,
+	                          &codeChunkSize, &codeByteStart))
 		throw std::invalid_argument("assembler: Bad shader binary");
 
-	char* asmBuffer;
+	char *asmBuffer;
 	size_t asmSize;
 	asmBuffer = asmFile->data();
 	asmSize = asmFile->size();
 	vector<string> lines = stringToLines(asmBuffer, asmSize);
-	DWORD* codeStart = (DWORD*)(codeByteStart + 8);
+	DWORD *codeStart;
 	bool codeStarted = false;
 	bool multiLine = false;
 	string s2;
 	vector<DWORD> o;
-	for (DWORD i = 0; i < lines.size(); i++) {
-		try {
+	for (DWORD i = 0; i < lines.size(); i++)
+	{
+		try
+		{
 			string s = lines[i];
 			preprocessLine(s);
 			vector<DWORD> v;
-			if (!codeStarted) {
-				if (s.size() > 0 && s[0] != ' ') {
+			if (!codeStarted)
+			{
+				if (!s.empty() && s[0] != ' ')
+				{
 					codeStarted = true;
 					vector<DWORD> ins = assembleIns(s);
 					o.insert(o.end(), ins.begin(), ins.end());
 					o.push_back(0);
 				}
-			} else if (s.find("{ {") < s.size()) {
+			}
+			else if (s.find("{ {") < s.size())
+			{
 				s2 = s;
 				multiLine = true;
-			} else if (s.find("} }") < s.size()) {
+			}
+			else if (s.find("} }") < s.size())
+			{
 				s2.append("\n");
 				s2.append(s);
 				s = s2;
 				multiLine = false;
 				vector<DWORD> ins = assembleIns(s);
 				o.insert(o.end(), ins.begin(), ins.end());
-			} else if (multiLine) {
+			}
+			else if (multiLine)
+			{
 				s2.append("\n");
 				s2.append(s);
-			} else if (s.find_first_not_of(" ") != string::npos) {
+			}
+			else if (s.find_first_not_of(' ') != string::npos)
+			{
 				vector<DWORD> ins = assembleIns(s);
 				o.insert(o.end(), ins.begin(), ins.end());
 			}
-		} catch (AssemblerParseError &e) {
-			e.line_no = i + 1;
+		}
+		catch (AssemblerParseError &e)
+		{
+			e.line_no = static_cast<int>(i + 1);
 			e.update_msg();
 
 			// Since we never used to warn about parse errors there
@@ -3348,10 +3782,10 @@ vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode,
 			parse_errors->push_back(e);
 		}
 	}
-	codeStart = (DWORD*)(codeByteStart); // Endian bug, not that we care
+	codeStart = (DWORD *)codeByteStart; // Endian bug, not that we care
 	auto it = origBytecode.begin() + codeChunkOffset + 8;
 	size_t codeSize = codeChunkSize;
-	origBytecode.erase(it, it + codeSize);
+	origBytecode.erase(it, std::next(it, static_cast<vector<byte>::difference_type>(codeSize)));
 	size_t newCodeSize = 4 * o.size();
 	codeStart[1] = (DWORD)newCodeSize;
 	vector<byte> newCode(newCodeSize);
@@ -3359,12 +3793,13 @@ vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode,
 	memcpy(newCode.data(), o.data(), newCodeSize);
 	it = origBytecode.begin() + codeChunkOffset + 8;
 	origBytecode.insert(it, newCode.begin(), newCode.end());
-	DWORD* dwordBuffer = (DWORD*)origBytecode.data();
-	for (DWORD i = codeChunk + 1; i < numChunks; i++) {
+	auto *dwordBuffer = (DWORD *)origBytecode.data();
+	for (DWORD i = codeChunk + 1; i < numChunks; i++)
+	{
 		dwordBuffer[8 + i] += (DWORD)(newCodeSize - codeSize);
 	}
 	dwordBuffer[6] = (DWORD)origBytecode.size();
-	vector<DWORD> hash = ComputeHash((byte const*)origBytecode.data() + 20, (DWORD)origBytecode.size() - 20);
+	vector<DWORD> hash = ComputeHash((byte const *)origBytecode.data() + 20, (DWORD)origBytecode.size() - 20);
 	dwordBuffer[1] = hash[0];
 	dwordBuffer[2] = hash[1];
 	dwordBuffer[3] = hash[2];
@@ -3377,16 +3812,19 @@ vector<byte> assemblerDX9(vector<char> *asmFile)
 	vector<byte> ret;
 	LPD3DXBUFFER pAssembly;
 	HRESULT hr = D3DXAssembleShader(asmFile->data(), (UINT)asmFile->size(), nullptr, nullptr, 0, &pAssembly, nullptr);
-	if (!FAILED(hr)) {
+	if (!FAILED(hr))
+	{
 		size_t size = pAssembly->GetBufferSize();
 		LPVOID buffer = pAssembly->GetBufferPointer();
 		ret.resize(size);
 		std::memcpy(ret.data(), buffer, size);
 		pAssembly->Release();
-		// FIXME: Pass warnings back to the caller
-	} else {
-		// FIXME: Pass error messages back to the caller
-		throw std::invalid_argument("assembler: Bad shader assembly (FIXME: RETURN ERROR MESSAGES)");
+		// Known limitation: Pass warnings back to the caller
+	}
+	else
+	{
+		// Known limitation: Pass error messages back to the caller
+		throw std::invalid_argument("assembler: Bad shader assembly (Known limitation: RETURN ERROR MESSAGES)");
 	}
 	return ret;
 }

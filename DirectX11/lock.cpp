@@ -52,31 +52,31 @@
 // introduced any new locking bugs when splitting up 3DMigoto's lock or working
 // with code that uses it.
 
-
 static void(__stdcall *_EnterCriticalSection)(CRITICAL_SECTION *lock) = EnterCriticalSection;
 static void(__stdcall *_LeaveCriticalSection)(CRITICAL_SECTION *lock) = LeaveCriticalSection;
 static BOOL(__stdcall *_TryEnterCriticalSection)(CRITICAL_SECTION *lock) = TryEnterCriticalSection;
 static void(__stdcall *_DeleteCriticalSection)(CRITICAL_SECTION *lock) = DeleteCriticalSection;
 
 // We store a list (set) of all locks taken *after* a given lock
-typedef std::unordered_set<CRITICAL_SECTION*> lock_graph_node;
-static std::unordered_map<CRITICAL_SECTION*, lock_graph_node> lock_graph;
+typedef std::unordered_set<CRITICAL_SECTION *> lock_graph_node;
+static std::unordered_map<CRITICAL_SECTION *, lock_graph_node> lock_graph;
 static CRITICAL_SECTION graph_lock;
 static std::unordered_map<size_t, LockStack> cached_stacks;
 static std::unordered_set<size_t> reported_stacks;
-static std::set<std::pair<CRITICAL_SECTION*,CRITICAL_SECTION*>> overlay_reported;
+static std::set<std::pair<CRITICAL_SECTION *, CRITICAL_SECTION *>> overlay_reported;
 
 static bool lock_dependency_checks_enabled;
 
-// TODO: If we get any more of these put them in a list
+// Future work: If we get any more of these put them in a list
 static uintptr_t ntdll_base, ntdll_end;
 static uintptr_t apphelp_base, apphelp_end;
 
-static std::unordered_map<CRITICAL_SECTION*, std::string> lock_names;
-static const char* lock_name(CRITICAL_SECTION *lock, char buf[20])
+static std::unordered_map<CRITICAL_SECTION *, std::string> lock_names;
+static const char *lock_name(CRITICAL_SECTION *lock, char buf[20])
 {
 	auto i = lock_names.find(lock);
-	if (i == lock_names.end()) {
+	if (i == lock_names.end())
+	{
 		_snprintf_s(buf, 20, _TRUNCATE, "%p", lock);
 		return buf;
 	}
@@ -92,16 +92,20 @@ static void dump_stack_trace()
 	MODULEINFO mod_info;
 
 	LogInfo("%04x call stack:\n", GetCurrentThreadId());
-	frames = CaptureStackBackTrace(0, 62, (void**)trace, nullptr);
-	for (USHORT i = 0; i < frames; i++) {
-		if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)trace[i], &hModule)
-		 && GetModuleFileName(hModule, path, MAX_PATH)
-		 && GetModuleInformation(GetCurrentProcess(), hModule, &mod_info, sizeof(MODULEINFO))) {
-			LogInfo("%04x: %S+0x%"PRIxPTR"\n",
-					GetCurrentThreadId(), path, trace[i] - (uintptr_t)mod_info.lpBaseOfDll);
-		} else {
-			LogInfo("%04x: 0x%"PRIxPTR"\n",
-					GetCurrentThreadId(), trace[i]);
+	frames = CaptureStackBackTrace(0, 62, (void **)trace, nullptr);
+	for (USHORT i = 0; i < frames; i++)
+	{
+		if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+		                      (LPCWSTR)trace[i], &hModule) &&
+		    GetModuleFileName(hModule, path, MAX_PATH) &&
+		    GetModuleInformation(GetCurrentProcess(), hModule, &mod_info, sizeof(MODULEINFO)))
+		{
+			LogInfo("%04x: %S+0x%" PRIxPTR "\n", GetCurrentThreadId(), path,
+			        trace[i] - (uintptr_t)mod_info.lpBaseOfDll);
+		}
+		else
+		{
+			LogInfo("%04x: 0x%" PRIxPTR "\n", GetCurrentThreadId(), trace[i]);
 		}
 	}
 }
@@ -114,49 +118,68 @@ static void log_held_locks(LockStack &held_locks, std::vector<LockStack> &other_
 	char buf[20];
 
 	LogInfo("%04x held locks (most recent first):\n", GetCurrentThreadId());
-	for (auto info = held_locks.rbegin(); info != held_locks.rend(); info++) {
-		if (info->function) {
+	for (auto info = held_locks.rbegin(); info != held_locks.rend(); info++)
+	{
+		if (info->function)
+		{
 			// 3DMigoto internal locking call with decorated function and line number
-			LogInfo("%04x: EnterCriticalSection(%s) %s(%d)\n",
-					GetCurrentThreadId(), lock_name(info->lock, buf), info->function, info->line);
-		} else {
-			if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)info->ret, &hModule)
-			 && GetModuleFileName(hModule, path, MAX_PATH)
-			 && GetModuleInformation(GetCurrentProcess(), hModule, &mod_info, sizeof(MODULEINFO))) {
-				LogInfo("%04x: EnterCriticalSection(%s) %S+0x%"PRIxPTR"\n",
-						GetCurrentThreadId(), lock_name(info->lock, buf), path, info->ret - (uintptr_t)mod_info.lpBaseOfDll);
-			} else {
-				LogInfo("%04x: EnterCriticalSection(%s) 0x%"PRIxPTR"\n",
-						GetCurrentThreadId(), lock_name(info->lock, buf), info->ret);
+			LogInfo("%04x: EnterCriticalSection(%s) %s(%d)\n", GetCurrentThreadId(), lock_name(info->lock, buf),
+			        info->function, info->line);
+		}
+		else
+		{
+			if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+			                      (LPCWSTR)info->ret, &hModule) &&
+			    GetModuleFileName(hModule, path, MAX_PATH) &&
+			    GetModuleInformation(GetCurrentProcess(), hModule, &mod_info, sizeof(MODULEINFO)))
+			{
+				LogInfo("%04x: EnterCriticalSection(%s) %S+0x%" PRIxPTR "\n", GetCurrentThreadId(),
+				        lock_name(info->lock, buf), path, info->ret - (uintptr_t)mod_info.lpBaseOfDll);
+			}
+			else
+			{
+				LogInfo("%04x: EnterCriticalSection(%s) 0x%" PRIxPTR "\n", GetCurrentThreadId(),
+				        lock_name(info->lock, buf), info->ret);
 			}
 		}
 	}
 
-	for (auto &other_stack: other_sides) {
+	for (auto &other_stack : other_sides)
+	{
 		LogInfo("----- Previously seen locking pattern that could lead to an AB-BA deadlock:\n");
 		// Bit of a copy & paste job just to remove the thread IDs
 		// since those aren't saved in the stack (yet?)
-		for (auto info = other_stack.rbegin(); info != other_stack.rend(); info++) {
-			if (info->function) {
+		for (auto info = other_stack.rbegin(); info != other_stack.rend(); info++)
+		{
+			if (info->function)
+			{
 				// 3DMigoto internal locking call with decorated function and line number
-				LogInfo("      EnterCriticalSection(%s) %s(%d)\n",
-						lock_name(info->lock, buf), info->function, info->line);
-			} else {
-				if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)info->ret, &hModule)
-				 && GetModuleFileName(hModule, path, MAX_PATH)
-				 && GetModuleInformation(GetCurrentProcess(), hModule, &mod_info, sizeof(MODULEINFO))) {
-					LogInfo("      EnterCriticalSection(%s) %S+0x%"PRIxPTR"\n",
-							lock_name(info->lock, buf), path, info->ret - (uintptr_t)mod_info.lpBaseOfDll);
-				} else {
-					LogInfo("      EnterCriticalSection(%s) 0x%"PRIxPTR"\n",
-							lock_name(info->lock, buf), info->ret);
+				LogInfo("      EnterCriticalSection(%s) %s(%d)\n", lock_name(info->lock, buf), info->function,
+				        info->line);
+			}
+			else
+			{
+				if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+				                          GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+				                      (LPCWSTR)info->ret, &hModule) &&
+				    GetModuleFileName(hModule, path, MAX_PATH) &&
+				    GetModuleInformation(GetCurrentProcess(), hModule, &mod_info, sizeof(MODULEINFO)))
+				{
+					LogInfo("      EnterCriticalSection(%s) %S+0x%" PRIxPTR "\n", lock_name(info->lock, buf), path,
+					        info->ret - (uintptr_t)mod_info.lpBaseOfDll);
+				}
+				else
+				{
+					LogInfo("      EnterCriticalSection(%s) 0x%" PRIxPTR "\n", lock_name(info->lock, buf), info->ret);
 				}
 			}
 		}
 	}
-	if (other_sides.empty()) {
-		LogInfo("----- No previously seen single locking stack could lead to an AB-BA deadlock - this may be a 3+ way deadlock\n");
-		// TODO: Search the graph of cached stacks to find all the
+	if (other_sides.empty())
+	{
+		LogInfo("----- No previously seen single locking stack could lead to an AB-BA deadlock - this may be a 3+ way "
+		        "deadlock\n");
+		// Future work: Search the graph of cached stacks to find all the
 		// stacks that can lead to this. We could alternatively store
 		// (a second copy of) the locking graph that doesn't have
 		// dependencies merged into each lock as they are found
@@ -168,7 +191,7 @@ static void log_held_locks(LockStack &held_locks, std::vector<LockStack> &other_
 	// Dump the current thread's call stack to help locate the issue if the
 	// lock covers a large amount of code. This won't dump the other
 	// thread's call stack, so it won't be the complete picture, but it
-	// helps. TODO: Consider caching the call stacks along with the lock
+	// helps. Future work: Consider caching the call stacks along with the lock
 	// stacks so we can dump out the other side.
 	dump_stack_trace();
 
@@ -181,12 +204,12 @@ static void log_held_locks(LockStack &held_locks, std::vector<LockStack> &other_
 }
 
 // Should be called with the graph lock held
-static bool takes_lock_in_order(LockStack &other_stack,
-		CRITICAL_SECTION *first_lock, CRITICAL_SECTION *second_lock)
+static bool takes_lock_in_order(LockStack &other_stack, CRITICAL_SECTION *first_lock, CRITICAL_SECTION *second_lock)
 {
 	bool first_lock_seen = false;
 
-	for (auto info = other_stack.begin(); info < other_stack.end(); info++) {
+	for (auto info = other_stack.begin(); info < other_stack.end(); info++)
+	{
 		if (info->lock == first_lock)
 			first_lock_seen = true;
 		else if (info->lock == second_lock)
@@ -198,7 +221,7 @@ static bool takes_lock_in_order(LockStack &other_stack,
 
 static void validate_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock)
 {
-	std::vector<std::pair<CRITICAL_SECTION*, bool>> issues;
+	std::vector<std::pair<CRITICAL_SECTION *, bool>> issues;
 	std::vector<LockStack> other_sides;
 	bool reported = false;
 
@@ -210,7 +233,8 @@ static void validate_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock)
 	_EnterCriticalSection(&graph_lock);
 
 	// Save time by not re-checking previously checked stacks:
-	if (cached_stacks.count(locks_held.back().stack_hash)) {
+	if (cached_stacks.count(locks_held.back().stack_hash))
+	{
 		_LeaveCriticalSection(&graph_lock);
 		return;
 	}
@@ -218,8 +242,10 @@ static void validate_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock)
 	// Critical section type locks are re-entrant, so we are not worried if
 	// we see a currently held lock being taken again. Last locks_held is
 	// the current lock, so check all others leading up to it:
-	for (auto info = locks_held.begin(); info < locks_held.end() - 1; info++) {
-		if (info->lock == new_lock) {
+	for (auto info = locks_held.begin(); info < locks_held.end() - 1; info++)
+	{
+		if (info->lock == new_lock)
+		{
 			cached_stacks.insert({locks_held.back().stack_hash, locks_held});
 			_LeaveCriticalSection(&graph_lock);
 			return;
@@ -231,7 +257,8 @@ static void validate_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock)
 	// Check if any of the currently held locks appear in the new lock's
 	// after list, indicating an AB-BA deadlock scenario.
 	auto &new_lock_after = lock_graph[new_lock];
-	for (auto info = locks_held.begin(); info < locks_held.end() - 1; info++) {
+	for (auto info = locks_held.begin(); info < locks_held.end() - 1; info++)
+	{
 		// Add the newly taken lock to each currently held lock's after
 		// list, along with all the other locks in this lock's after
 		// list since their order will have been constrained by taking
@@ -239,10 +266,14 @@ static void validate_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock)
 		lock_graph[info->lock].insert(new_lock);
 		lock_graph[info->lock].insert(new_lock_after.begin(), new_lock_after.end());
 
-		if (!reported && new_lock_after.count(info->lock)) {
-			if (overlay_reported.count({new_lock, info->lock})) {
+		if (!reported && new_lock_after.count(info->lock))
+		{
+			if (overlay_reported.count({new_lock, info->lock}))
+			{
 				issues.push_back({info->lock, false});
-			} else {
+			}
+			else
+			{
 				issues.push_back({info->lock, true});
 				overlay_reported.insert({new_lock, info->lock});
 			}
@@ -254,7 +285,8 @@ static void validate_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock)
 	// multiple times:
 	cached_stacks.insert({locks_held.back().stack_hash, locks_held});
 
-	if (issues.empty()) {
+	if (issues.empty())
+	{
 		_LeaveCriticalSection(&graph_lock);
 		return;
 	}
@@ -267,28 +299,35 @@ static void validate_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock)
 	// AB-BA deadlocks, while the above code will also have noted three or
 	// more way AB-BC-CA deadlocks as well. For now, if this doesn't find
 	// anything we just log that it might be a 3+ way deadlock.
-	for (auto &other_stack: cached_stacks) {
-		for (auto &issue: issues) {
-			if (takes_lock_in_order(other_stack.second, new_lock, issue.first)) {
+	for (auto &other_stack : cached_stacks)
+	{
+		for (auto &issue : issues)
+		{
+			if (takes_lock_in_order(other_stack.second, new_lock, issue.first))
+			{
 				other_sides.push_back(other_stack.second);
 				break;
 			}
 		}
-
 	}
 
 	// Report issues only after dropping the lock, since the logging code
 	// is going to take its own locks and can easily deadlock with us
 	_LeaveCriticalSection(&graph_lock);
 
-	for (auto &issue: issues) {
-		char buf1[20], buf2[20];
-		if (issue.second) {
+	for (auto &issue : issues)
+	{
+		char buf1[20];
+		char buf2[20];
+		if (issue.second)
+		{
 			LogOverlay(LOG_NOTICE, "%04x: Potential deadlock scenario detected: Lock %s taken after %s\n",
-					GetCurrentThreadId(), lock_name(new_lock, buf1), lock_name(issue.first, buf2));
-		} else {
-			LogInfo("%04x: Potential deadlock scenario detected: Lock %s taken after %s\n",
-					GetCurrentThreadId(), lock_name(new_lock, buf1), lock_name(issue.first, buf2));
+			           GetCurrentThreadId(), lock_name(new_lock, buf1), lock_name(issue.first, buf2));
+		}
+		else
+		{
+			LogInfo("%04x: Potential deadlock scenario detected: Lock %s taken after %s\n", GetCurrentThreadId(),
+			        lock_name(new_lock, buf1), lock_name(issue.first, buf2));
 		}
 	}
 	log_held_locks(locks_held, other_sides);
@@ -297,15 +336,15 @@ static void validate_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock)
 		__debugbreak();
 }
 
-static void push_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock, uintptr_t ret,
-		char *function = nullptr, int line = 0)
+static void push_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock, uintptr_t ret, const char *function = nullptr,
+                      int line = 0)
 {
 	size_t stack_hash = 0;
 
 	if (!locks_held.empty())
 		stack_hash = locks_held.back().stack_hash;
 
-	stack_hash ^= std::hash<void*>()(new_lock) + 0x9e3779b9 + (stack_hash << 6) + (stack_hash >> 2);
+	stack_hash ^= std::hash<void *>()(new_lock) + 0x9e3779b9 + (stack_hash << 6) + (stack_hash >> 2);
 	stack_hash ^= std::hash<uintptr_t>()(ret) + 0x9e3779b9 + (stack_hash << 6) + (stack_hash >> 2);
 
 	locks_held.push_back({new_lock, ret, stack_hash, function, line});
@@ -356,7 +395,7 @@ static void EnterCriticalSectionHook(CRITICAL_SECTION *lock)
 	get_tls()->hooking_quirk_protection = false;
 }
 
-void _EnterCriticalSectionPretty(CRITICAL_SECTION *lock, char *function, int line)
+void _EnterCriticalSectionPretty(CRITICAL_SECTION *lock, const char *function, int line)
 {
 	if (!lock_dependency_checks_enabled)
 		return EnterCriticalSection(lock);
@@ -395,7 +434,7 @@ static BOOL TryEnterCriticalSectionHook(CRITICAL_SECTION *lock)
 	get_tls()->hooking_quirk_protection = true;
 
 	// Updating the lock stack, but not the dependency list since the try
-	// lock is optional. TODO: Still check for applicable deadlocks
+	// lock is optional. Future work: Still check for applicable deadlocks
 	LockStack &locks_held = get_tls()->locks_held;
 	push_lock(locks_held, lock, (uintptr_t)_ReturnAddress());
 
@@ -420,9 +459,11 @@ static void LeaveCriticalSectionHook(CRITICAL_SECTION *lock)
 		return;
 	get_tls()->hooking_quirk_protection = true;
 
-	LockStack *locks_held = &(get_tls()->locks_held);
-	for (auto i = locks_held->rbegin(); i != locks_held->rend(); i++) {
-		if (i->lock == lock) {
+	LockStack *locks_held = &get_tls()->locks_held;
+	for (auto i = locks_held->rbegin(); i != locks_held->rend(); i++)
+	{
+		if (i->lock == lock)
+		{
 			// C++ gotcha: reverse_iterator::base() points to the *next* element
 			locks_held->erase(i.base() - 1);
 			break;
@@ -449,13 +490,16 @@ static void DeleteCriticalSectionHook(CRITICAL_SECTION *lock)
 
 	lock_graph.erase(lock);
 
-	for (auto &l: lock_graph)
+	for (auto &l : lock_graph)
 		l.second.erase(lock);
 
-	for (auto stack = cached_stacks.begin(), next=stack; stack != cached_stacks.end(); stack = next) {
+	for (auto stack = cached_stacks.begin(), next = stack; stack != cached_stacks.end(); stack = next)
+	{
 		next++;
-		for (auto &info: stack->second) {
-			if (info.lock == lock) {
+		for (auto &info : stack->second)
+		{
+			if (info.lock == lock)
+			{
 				next = cached_stacks.erase(stack);
 				reported_stacks.erase(stack->first);
 				break;
@@ -470,7 +514,7 @@ static void DeleteCriticalSectionHook(CRITICAL_SECTION *lock)
 	_DeleteCriticalSection(lock);
 }
 
-void _InitializeCriticalSectionPretty(CRITICAL_SECTION *lock, char *lock_name)
+void _InitializeCriticalSectionPretty(CRITICAL_SECTION *lock, const char *lock_name)
 {
 	InitializeCriticalSection(lock);
 	// NOTE: If we have been called from a global constructor, this may
@@ -496,14 +540,16 @@ void enable_lock_dependency_checks()
 
 	InitializeCriticalSectionPretty(&graph_lock);
 
-	if ((mod_handle = GetModuleHandleA("ntdll.dll"))
-	  && GetModuleInformation(GetCurrentProcess(), mod_handle, &mod_info, sizeof(MODULEINFO))) {
+	mod_handle = GetModuleHandleA("ntdll.dll");
+	if (mod_handle && GetModuleInformation(GetCurrentProcess(), mod_handle, &mod_info, sizeof(MODULEINFO)))
+	{
 		ntdll_base = (uintptr_t)mod_info.lpBaseOfDll;
 		ntdll_end = ntdll_base + mod_info.SizeOfImage;
 	}
 
-	if ((mod_handle = GetModuleHandleA("apphelp.dll"))
-		&& GetModuleInformation(GetCurrentProcess(), mod_handle, &mod_info, sizeof(MODULEINFO))) {
+	mod_handle = GetModuleHandleA("apphelp.dll");
+	if (mod_handle && GetModuleInformation(GetCurrentProcess(), mod_handle, &mod_info, sizeof(MODULEINFO)))
+	{
 		apphelp_base = (uintptr_t)mod_info.lpBaseOfDll;
 		apphelp_end = apphelp_base + mod_info.SizeOfImage;
 	}
@@ -511,10 +557,10 @@ void enable_lock_dependency_checks()
 	// Deviare will itself take locks while we are hooking, so protect against re-entrancy:
 	get_tls()->hooking_quirk_protection = true;
 
-	cHookMgr.Hook(&hook_id, (void**)&_LeaveCriticalSection, LeaveCriticalSection, LeaveCriticalSectionHook);
-	cHookMgr.Hook(&hook_id, (void**)&_EnterCriticalSection, EnterCriticalSection, EnterCriticalSectionHook);
-	cHookMgr.Hook(&hook_id, (void**)&_TryEnterCriticalSection, TryEnterCriticalSection, TryEnterCriticalSectionHook);
-	cHookMgr.Hook(&hook_id, (void**)&_DeleteCriticalSection, DeleteCriticalSection, DeleteCriticalSectionHook);
+	cHookMgr.Hook(&hook_id, (void **)&_LeaveCriticalSection, LeaveCriticalSection, LeaveCriticalSectionHook);
+	cHookMgr.Hook(&hook_id, (void **)&_EnterCriticalSection, EnterCriticalSection, EnterCriticalSectionHook);
+	cHookMgr.Hook(&hook_id, (void **)&_TryEnterCriticalSection, TryEnterCriticalSection, TryEnterCriticalSectionHook);
+	cHookMgr.Hook(&hook_id, (void **)&_DeleteCriticalSection, DeleteCriticalSection, DeleteCriticalSectionHook);
 
 	get_tls()->hooking_quirk_protection = false;
 }

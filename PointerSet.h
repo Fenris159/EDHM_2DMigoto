@@ -4,11 +4,11 @@
 
 class ThreadSafePointerSet
 {
-private:
+  private:
 	std::map<void *, void *> mMap;
 	CRITICAL_SECTION m_CritSec;
 
-public:
+  public:
 	ThreadSafePointerSet()
 	{
 		InitializeCriticalSection(&m_CritSec);
@@ -39,7 +39,8 @@ public:
 		LeaveCriticalSection(&m_CritSec);
 	}
 
-	size_t size() {
+	size_t size()
+	{
 		return mMap.size();
 	}
 };

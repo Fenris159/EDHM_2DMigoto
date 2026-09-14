@@ -17,7 +17,8 @@
 
 class HackerSwapChain;
 
-enum LogLevel {
+enum LogLevel
+{
 	LOG_DIRE,
 	LOG_WARNING,
 	LOG_WARNING_MONOSPACE,
@@ -27,24 +28,25 @@ enum LogLevel {
 	NUM_LOG_LEVELS
 };
 
-class OverlayNotice {
-public:
+class OverlayNotice
+{
+  public:
 	std::wstring message;
 	ULONGLONG timestamp;
 
-	OverlayNotice(std::wstring message);
+	explicit OverlayNotice(std::wstring message);
 };
 
 class Overlay
 {
-private:
-	IDXGISwapChain* mOrigSwapChain;
-	ID3D11Device* mOrigDevice;
-	ID3D11DeviceContext* mOrigContext;
-	HackerDevice* mHackerDevice;
-	HackerContext* mHackerContext;
+  private:
+	IDXGISwapChain *mOrigSwapChain;
+	ID3D11Device *mOrigDevice;
+	ID3D11DeviceContext *mOrigContext;
+	HackerDevice *mHackerDevice;
+	HackerContext *mHackerContext;
 
-	DirectX::XMUINT2 mResolution;
+	DirectX::XMUINT2 mResolution{};
 	std::unique_ptr<DirectX::SpriteBatch> mSpriteBatch;
 	std::unique_ptr<DirectX::CommonStates> mStates;
 	std::unique_ptr<DirectX::BasicEffect> mEffect;
@@ -54,7 +56,8 @@ private:
 	// These are all state that we save away before drawing the overlay and
 	// restore again afterwards. Basically everything that DirectTK
 	// SimpleSprite may clobber:
-	struct {
+	struct
+	{
 		ID3D11BlendState *pBlendState;
 		FLOAT BlendFactor[4];
 		UINT SampleMask;
@@ -94,19 +97,20 @@ private:
 		UINT Offset;
 
 		ID3D11ShaderResourceView *pShaderResourceViews[1];
-	} state;
+	} state{};
 
 	void SaveState();
 	void RestoreState();
 	HRESULT InitDrawState();
-	void DrawShaderInfoLine(char *type, UINT64 selectedShader, float *y, bool shader);
+	void DrawShaderInfoLine(const char *type, UINT64 selectedShader, float *y, bool shader);
 	void DrawShaderInfoLines(float *y);
 	void DrawNotices(float *y);
 	void DrawProfiling(float *y);
 	void DrawRectangle(float x, float y, float w, float h, float r, float g, float b, float opacity);
-	void DrawOutlinedString(DirectX::SpriteFont *font, wchar_t const *text, DirectX::XMFLOAT2 const &position, DirectX::FXMVECTOR color);
+	void DrawOutlinedString(DirectX::SpriteFont *font, wchar_t const *text, DirectX::XMFLOAT2 const &position,
+	                        DirectX::FXMVECTOR color);
 
-public:
+  public:
 	std::unique_ptr<DirectX::SpriteFont> mFont;
 	std::unique_ptr<DirectX::SpriteFont> mFontNotifications;
 	std::unique_ptr<DirectX::SpriteFont> mFontProfiling;
@@ -118,5 +122,5 @@ public:
 };
 
 void ClearNotices();
-void LogOverlayW(LogLevel level, wchar_t *fmt, ...);
-void LogOverlay(LogLevel level, char *fmt, ...);
+void LogOverlayW(LogLevel level, const wchar_t *fmt, ...);
+void LogOverlay(LogLevel level, const char *fmt, ...);

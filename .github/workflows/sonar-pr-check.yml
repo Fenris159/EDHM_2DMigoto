@@ -22,6 +22,10 @@ on:
       - synchronize
   workflow_dispatch:
 
+concurrency:
+  group: sonar-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   # Needed so the scanner can read PR metadata for SonarCloud PR decoration.
@@ -63,13 +67,14 @@ jobs:
             msbuild EDHM_2DMigoto.sln `
             -property:Configuration=Release `
             -property:Platform=x64 `
+            -property:EdhmStrictBuild=true `
             -target:Rebuild `
             -nodeReuse:false `
             -verbosity:minimal `
             -restore:false
 
       - name: SonarQube Scan (branch)
-        if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'pull_request_target' }}
         uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -78,9 +83,10 @@ jobs:
             -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
             -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
             -Dsonar.branch.name=${{ github.ref_name }}
+            -Dsonar.qualitygate.wait=true
 
       - name: SonarQube Scan (PR)
-        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') }}
         uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -91,3 +97,18 @@ jobs:
             -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
             -Dsonar.pullrequest.branch=${{ github.head_ref }}
             -Dsonar.pullrequest.base=${{ github.base_ref }}
+            -Dsonar.qualitygate.wait=true
+
+      - name: Bootstrap pinned quality tools
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: ./scripts/bootstrap-quality-tools.ps1
+
+      - name: Analyze changed native source with clang-tidy
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: >-
+          ./scripts/quality.ps1 -Mode ClangTidy
+          -Scope "${{ github.event_name == 'workflow_dispatch' && 'All' || 'Changed' }}"
+          -BaseRef "${{ github.event.pull_request.base.sha || github.event.before }}"
+          -CompileDatabase 'bw-output/compile_commands.json'

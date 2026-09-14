@@ -257,8 +257,7 @@ if %error% == 0 (
     echo There were shader compilation errors!
 )
 
-endlocal
-exit /b
+endlocal & exit /b %error%
 
 :CompileShader
 set fxc=%PCFXC% %1.fx %FXCOPTS% /T%2_4_0_level_9_1 /E%3 /FhCompiled\%1_%3.inc /FdCompiled\%1_%3.pdb /Vn%1_%3

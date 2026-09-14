@@ -8,29 +8,71 @@
 // namespacing of an enum class that behaves like an int as an enum does. Not
 // sure why C++ had to try to solve two problems at once and in doing so
 // created a brand new problem...
-#define SENSIBLE_ENUM(ENUMTYPE) \
-inline int operator | (ENUMTYPE a, ENUMTYPE b) { return (((int)a) | ((int)b)); } \
-inline int operator & (ENUMTYPE a, ENUMTYPE b) { return (((int)a) & ((int)b)); } \
-inline int operator ^ (ENUMTYPE a, ENUMTYPE b) { return (((int)a) ^ ((int)b)); } \
-inline int operator ~ (ENUMTYPE a) { return (~((int)a)); } \
-inline ENUMTYPE &operator |= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((int &)a) |= ((int)b)); } \
-inline ENUMTYPE &operator &= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((int &)a) &= ((int)b)); } \
-inline ENUMTYPE &operator ^= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((int &)a) ^= ((int)b)); } \
-inline bool operator || (ENUMTYPE a,  ENUMTYPE b) { return (((int)a) || ((int)b)); } \
-inline bool operator || (    bool a,  ENUMTYPE b) { return (((int)a) || ((int)b)); } \
-inline bool operator || (ENUMTYPE a,      bool b) { return (((int)a) || ((int)b)); } \
-inline bool operator && (ENUMTYPE a,  ENUMTYPE b) { return (((int)a) && ((int)b)); } \
-inline bool operator && (    bool a,  ENUMTYPE b) { return (((int)a) && ((int)b)); } \
-inline bool operator && (ENUMTYPE a,      bool b) { return (((int)a) && ((int)b)); } \
-inline bool operator ! (ENUMTYPE a) { return (!((int)a)); }
+#define SENSIBLE_ENUM(ENUMTYPE)                                                                                        \
+	inline int operator|(ENUMTYPE a, ENUMTYPE b)                                                                       \
+	{                                                                                                                  \
+		return (((int)a) | ((int)b));                                                                                  \
+	}                                                                                                                  \
+	inline int operator&(ENUMTYPE a, ENUMTYPE b)                                                                       \
+	{                                                                                                                  \
+		return (((int)a) & ((int)b));                                                                                  \
+	}                                                                                                                  \
+	inline int operator^(ENUMTYPE a, ENUMTYPE b)                                                                       \
+	{                                                                                                                  \
+		return (((int)a) ^ ((int)b));                                                                                  \
+	}                                                                                                                  \
+	inline int operator~(ENUMTYPE a)                                                                                   \
+	{                                                                                                                  \
+		return (~((int)a));                                                                                            \
+	}                                                                                                                  \
+	inline ENUMTYPE &operator|=(ENUMTYPE &a, ENUMTYPE b)                                                               \
+	{                                                                                                                  \
+		return (ENUMTYPE &)(((int &)a) |= ((int)b));                                                                   \
+	}                                                                                                                  \
+	inline ENUMTYPE &operator&=(ENUMTYPE &a, ENUMTYPE b)                                                               \
+	{                                                                                                                  \
+		return (ENUMTYPE &)(((int &)a) &= ((int)b));                                                                   \
+	}                                                                                                                  \
+	inline ENUMTYPE &operator^=(ENUMTYPE &a, ENUMTYPE b)                                                               \
+	{                                                                                                                  \
+		return (ENUMTYPE &)(((int &)a) ^= ((int)b));                                                                   \
+	}                                                                                                                  \
+	inline bool operator||(ENUMTYPE a, ENUMTYPE b)                                                                     \
+	{                                                                                                                  \
+		return (((int)a) || ((int)b));                                                                                 \
+	}                                                                                                                  \
+	inline bool operator||(bool a, ENUMTYPE b)                                                                         \
+	{                                                                                                                  \
+		return (((int)a) || ((int)b));                                                                                 \
+	}                                                                                                                  \
+	inline bool operator||(ENUMTYPE a, bool b)                                                                         \
+	{                                                                                                                  \
+		return (((int)a) || ((int)b));                                                                                 \
+	}                                                                                                                  \
+	inline bool operator&&(ENUMTYPE a, ENUMTYPE b)                                                                     \
+	{                                                                                                                  \
+		return (((int)a) && ((int)b));                                                                                 \
+	}                                                                                                                  \
+	inline bool operator&&(bool a, ENUMTYPE b)                                                                         \
+	{                                                                                                                  \
+		return (((int)a) && ((int)b));                                                                                 \
+	}                                                                                                                  \
+	inline bool operator&&(ENUMTYPE a, bool b)                                                                         \
+	{                                                                                                                  \
+		return (((int)a) && ((int)b));                                                                                 \
+	}                                                                                                                  \
+	inline bool operator!(ENUMTYPE a)                                                                                  \
+	{                                                                                                                  \
+		return (!((int)a));                                                                                            \
+	}
 
-template <class T1, class T2>
-struct EnumName_t {
+template <class T1, class T2> struct EnumName_t
+{
 	T1 name;
 	T2 val;
 };
 
-const char* find_ini_section_lite(const char *buf, const char *section_name);
+const char *find_ini_section_lite(const char *buf, const char *section_name);
 bool find_ini_setting_lite(const char *buf, const char *setting, char *ret, size_t n);
 bool find_ini_bool_lite(const char *buf, const char *setting, bool def);
 int find_ini_int_lite(const char *buf, const char *setting, int def);

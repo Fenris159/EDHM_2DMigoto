@@ -7,7 +7,7 @@
 #include <Dbghelp.h>
 #include <shellscalingapi.h>
 
-// FIXME: Move any dependencies from these headers into common:
+// Known limitation: Move any dependencies from these headers into common:
 #if MIGOTO_DX == 9
 #include "DirectX9\Overlay.h"
 #elif MIGOTO_DX == 11
@@ -36,20 +36,22 @@
 //   https://msdn.microsoft.com/en-us/library/windows/desktop/ms717798(v=vs.85).aspx
 //
 
-static SECURITY_ATTRIBUTES* init_security_attributes(SECURITY_ATTRIBUTES *sa)
+static SECURITY_ATTRIBUTES *init_security_attributes(SECURITY_ATTRIBUTES *sa)
 {
 	sa->nLength = sizeof(SECURITY_ATTRIBUTES);
 	sa->bInheritHandle = FALSE;
 	sa->lpSecurityDescriptor = nullptr;
 
 	if (ConvertStringSecurityDescriptorToSecurityDescriptor(
-			L"D:" // Discretionary ACL
-			// Removed string from MSDN that denies guests/anonymous users
-			L"(A;OICI;GRGX;;;WD)" // Give everyone read/execute access
-			L"(A;OICI;GA;;;AU)" // Allow full control to authenticated users (GRGWGX is not enough to delete contents?)
-			// Using "CO" for Creator/Owner instead of "AU" seems ineffective
-			L"(A;OICI;GA;;;BA)" // Allow full control to administrators
-			, SDDL_REVISION_1, &sa->lpSecurityDescriptor, nullptr)) {
+	        L"D:"                 // Discretionary ACL
+			                      // Removed string from MSDN that denies guests/anonymous users
+	        L"(A;OICI;GRGX;;;WD)" // Give everyone read/execute access
+	        L"(A;OICI;GA;;;AU)" // Allow full control to authenticated users (GRGWGX is not enough to delete contents?)
+			                    // Using "CO" for Creator/Owner instead of "AU" seems ineffective
+	        L"(A;OICI;GA;;;BA)" // Allow full control to administrators
+	        ,
+	        SDDL_REVISION_1, &sa->lpSecurityDescriptor, nullptr))
+	{
 		return sa;
 	}
 
@@ -59,7 +61,8 @@ static SECURITY_ATTRIBUTES* init_security_attributes(SECURITY_ATTRIBUTES *sa)
 
 BOOL CreateDirectoryEnsuringAccess(LPCWSTR path)
 {
-	SECURITY_ATTRIBUTES sa, *psa = nullptr;
+	SECURITY_ATTRIBUTES sa;
+	SECURITY_ATTRIBUTES *psa = nullptr;
 	BOOL ret = false;
 
 	psa = init_security_attributes(&sa);
@@ -73,9 +76,10 @@ BOOL CreateDirectoryEnsuringAccess(LPCWSTR path)
 
 // Replacement for _wfopen_s that ensures the permissions will be set so we can
 // read it back later.
-errno_t wfopen_ensuring_access(FILE** pFile, const wchar_t *filename, const wchar_t *mode)
+errno_t wfopen_ensuring_access(FILE **pFile, const wchar_t *filename, const wchar_t *mode)
 {
-	SECURITY_ATTRIBUTES sa, *psa = nullptr;
+	SECURITY_ATTRIBUTES sa;
+	SECURITY_ATTRIBUTES *psa = nullptr;
 	HANDLE fh = nullptr;
 	int fd = -1;
 	FILE *fp = nullptr;
@@ -83,11 +87,12 @@ errno_t wfopen_ensuring_access(FILE** pFile, const wchar_t *filename, const wcha
 
 	*pFile = nullptr;
 
-	if (wcsstr(mode, L"w") == nullptr) {
+	if (wcsstr(mode, L"w") == nullptr)
+	{
 		// This function is for creating new files for now. We could
 		// make it do some heroics on read/append as well, but I don't
 		// want to push this further than we need to.
-		LogInfo("FIXME: wfopen_ensuring_access only supports opening for write\n");
+		LogInfo("Known limitation: wfopen_ensuring_access only supports opening for write\n");
 		DoubleBeepExit();
 	}
 
@@ -102,14 +107,16 @@ errno_t wfopen_ensuring_access(FILE** pFile, const wchar_t *filename, const wcha
 	psa = init_security_attributes(&sa);
 	fh = CreateFile(filename, GENERIC_WRITE, 0, psa, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 	LocalFree(sa.lpSecurityDescriptor);
-	if (fh == INVALID_HANDLE_VALUE) {
-		// FIXME: Map GetLastError() to appropriate errno
+	if (fh == INVALID_HANDLE_VALUE)
+	{
+		// Known limitation: Map GetLastError() to appropriate errno
 		return EIO;
 	}
 
 	// Convert the HANDLE into a file descriptor.
 	fd = _open_osfhandle((intptr_t)fh, osf_flags);
-	if (fd == -1) {
+	if (fd == -1)
+	{
 		CloseHandle(fh);
 		return EIO;
 	}
@@ -118,8 +125,9 @@ errno_t wfopen_ensuring_access(FILE** pFile, const wchar_t *filename, const wcha
 	// implicitly closed with close(fd)
 
 	// Convert the file descriptor into a file pointer.
-	fp = _wfdopen(fd, mode);
-	if (!fp) {
+	fp = _wfdopen(fd, mode); // NOSONAR: successful conversion transfers fd ownership to FILE*.
+	if (!fp)
+	{
 		_close(fd);
 		return EIO;
 	}
@@ -136,7 +144,8 @@ void set_file_last_write_time(wchar_t *path, FILETIME *ftWrite, DWORD flags)
 {
 	HANDLE f;
 
-	f = CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | flags, nullptr);
+	f = CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | flags,
+	               nullptr);
 	if (f == INVALID_HANDLE_VALUE)
 		return;
 
@@ -154,7 +163,6 @@ void touch_file(wchar_t *path, DWORD flags)
 	set_file_last_write_time(path, &ft, flags);
 }
 
-
 // -----------------------------------------------------------------------------------------------
 // When logging, it's not very helpful to have long sequences of hex instead of
 // the actual names of the objects in question.
@@ -170,7 +178,7 @@ std::string NameFromIID(IID id)
 	if (__uuidof(IUnknown) == id)
 		return "IUnknown";
 
-	// FIXME: We should probably have these IIDs defined regardless of target
+	// Known limitation: We should probably have these IIDs defined regardless of target
 	// to catch potential cases where multiple versions of 3DMigoto are
 	// coexisting and the devices get mixed up
 #if MIGOTO_DX == 11
@@ -179,7 +187,7 @@ std::string NameFromIID(IID id)
 	if (IID_HackerContext == id)
 		return "HackerContext";
 #elif MIGOTO_DX == 9
-	// FIXME: DX9 GUIDs are not using the correct macros, and need verification
+	// Known limitation: DX9 GUIDs are not using the correct macros, and need verification
 	// that they haven't been copy + pasted
 	//if (IID_D3D9Wrapper_IDirect3DDevice9 == id)
 	//	return "3DMigotoDevice9";
@@ -208,7 +216,7 @@ std::string NameFromIID(IID id)
 		return "ID3D11BlendState";
 	if (__uuidof(ID3D11RasterizerState) == id)
 		return "ID3D11RasterizerState";
-	if (__uuidof(ID3D11Texture2D) == id)	// Used to fetch backbuffer
+	if (__uuidof(ID3D11Texture2D) == id) // Used to fetch backbuffer
 		return "ID3D11Texture2D";
 #endif // __d3d11_h__
 
@@ -228,7 +236,7 @@ std::string NameFromIID(IID id)
 #endif // __d3d11_1_h__
 
 	// XXX: From newer Windows SDK than we are using. Defined in util.h for now
-	if (__uuidof(ID3D11Device2) == id)  // d3d11_2.h when the time comes
+	if (__uuidof(ID3D11Device2) == id) // d3d11_2.h when the time comes
 		return "ID3D11Device2";
 	if (__uuidof(ID3D11DeviceContext2) == id) // d3d11_2.h when the time comes
 		return "ID3D11DeviceContext2";
@@ -292,11 +300,11 @@ std::string NameFromIID(IID id)
 #endif // __dxgi1_2_h__
 
 	// XXX: From newer Windows SDK than we are using. Defined in util.h for now
-	if (__uuidof(IDXGISwapChain2) == id)		// dxgi1_3 A8BE2AC4-199F-4946-B331-79599FB98DE7
+	if (__uuidof(IDXGISwapChain2) == id) // dxgi1_3 A8BE2AC4-199F-4946-B331-79599FB98DE7
 		return "IDXGISwapChain2";
-	if (__uuidof(IDXGISwapChain3) == id)		// dxgi1_4 94D99BDB-F1F8-4AB0-B236-7DA0170EDAB1
+	if (__uuidof(IDXGISwapChain3) == id) // dxgi1_4 94D99BDB-F1F8-4AB0-B236-7DA0170EDAB1
 		return "IDXGISwapChain3";
-	if (__uuidof(IDXGISwapChain4) == id)		// dxgi1_5 3D585D5A-BD4A-489E-B1F4-3DBCB6452FFB
+	if (__uuidof(IDXGISwapChain4) == id) // dxgi1_5 3D585D5A-BD4A-489E-B1F4-3DBCB6452FFB
 		return "IDXGISwapChain4";
 
 	// For unknown IIDs lets return the hex string. GUID strings are ASCII, but
@@ -332,14 +340,16 @@ static void WarnIfConflictingFileExists(wchar_t *path, wchar_t *conflicting_path
 
 void WarnIfConflictingShaderExists(wchar_t *orig_path, const char *message)
 {
-	wchar_t conflicting_path[MAX_PATH], *postfix;
+	wchar_t conflicting_path[MAX_PATH];
+	wchar_t *postfix;
 
 	wcscpy_s(conflicting_path, MAX_PATH, orig_path);
 
 	// If we're using a HLSL shader, make sure there are no conflicting
 	// assembly shaders, either text or binary:
 	postfix = wcsstr(conflicting_path, L"_replace");
-	if (postfix) {
+	if (postfix)
+	{
 		wcscpy_s(postfix, conflicting_path + MAX_PATH - postfix, L".txt");
 		WarnIfConflictingFileExists(orig_path, conflicting_path, message);
 		wcscpy_s(postfix, conflicting_path + MAX_PATH - postfix, L".bin");
@@ -350,7 +360,8 @@ void WarnIfConflictingShaderExists(wchar_t *orig_path, const char *message)
 	// If we're using an assembly shader, make sure there are no
 	// conflicting HLSL shaders, either text or binary:
 	postfix = wcsstr(conflicting_path, L".");
-	if (postfix) {
+	if (postfix)
+	{
 		wcscpy_s(postfix, conflicting_path + MAX_PATH - postfix, L"_replace.txt");
 		WarnIfConflictingFileExists(orig_path, conflicting_path, message);
 		wcscpy_s(postfix, conflicting_path + MAX_PATH - postfix, L"_replace.bin");
@@ -359,9 +370,9 @@ void WarnIfConflictingShaderExists(wchar_t *orig_path, const char *message)
 	}
 }
 
-extern "C" typedef HRESULT(__stdcall* tGetDpiForMonitor)(HMONITOR, MONITOR_DPI_TYPE, UINT*, UINT*);
-extern "C" typedef HRESULT(__stdcall* tGetProcessDpiAwareness)(HANDLE, PROCESS_DPI_AWARENESS*);
-typedef DPI_AWARENESS_CONTEXT(WINAPI* tSetThreadDpiAwarenessContext)(DPI_AWARENESS_CONTEXT);
+extern "C" typedef HRESULT(__stdcall *tGetDpiForMonitor)(HMONITOR, MONITOR_DPI_TYPE, UINT *, UINT *);
+extern "C" typedef HRESULT(__stdcall *tGetProcessDpiAwareness)(HANDLE, PROCESS_DPI_AWARENESS *);
+typedef DPI_AWARENESS_CONTEXT(WINAPI *tSetThreadDpiAwarenessContext)(DPI_AWARENESS_CONTEXT);
 float get_effective_dpi()
 {
 	static tGetDpiForMonitor fnGetDpiForMonitor = nullptr;
@@ -370,7 +381,8 @@ float get_effective_dpi()
 	static bool init_done = false;
 	float fret = 0.0f;
 
-	if (!init_done) {
+	if (!init_done)
+	{
 		// GetDpiForMonitor & GetProcessDpiAwareness were introduced in Windows
 		// 8.1 and SetThreadDpiAwarenessContext was added in Win 10 1607, so
 		// calling them directly would add a link time dependency breaking
@@ -380,18 +392,23 @@ float get_effective_dpi()
 		// what's actually wrong). Try to load it dynamically, and if it isn't
 		// available fall back to other methods to get the DPI.
 		HMODULE libShcore = LoadLibraryA("Shcore.dll");
-		if (libShcore) {
+		if (libShcore)
+		{
 			fnGetDpiForMonitor = (tGetDpiForMonitor)GetProcAddress(libShcore, "GetDpiForMonitor");
 			fnGetProcessDpiAwareness = (tGetProcessDpiAwareness)GetProcAddress(libShcore, "GetProcessDpiAwareness");
 		}
 		HMODULE libUser32 = LoadLibraryA("user32.dll");
 		if (libUser32)
-			fnSetThreadDpiAwarenessContext = (tSetThreadDpiAwarenessContext)GetProcAddress(libUser32, "SetThreadDpiAwarenessContext");
+			fnSetThreadDpiAwarenessContext =
+			    (tSetThreadDpiAwarenessContext)GetProcAddress(libUser32, "SetThreadDpiAwarenessContext");
 		if (!fnGetDpiForMonitor)
-			LogInfo("Obsolete Windows version, GetDpiForMonitor() unavailable, falling back to reporting effective_dpi as 96\n");
+			LogInfo("Obsolete Windows version, GetDpiForMonitor() unavailable, falling back to reporting effective_dpi "
+			        "as 96\n");
 		else if (!fnSetThreadDpiAwarenessContext)
-			LogInfo("Obsolete Windows version, SetThreadDpiAwarenessContext() unavailable, effective_dpi will be at the mercy of the process DPI awareness\n");
-		if (fnGetProcessDpiAwareness) {
+			LogInfo("Obsolete Windows version, SetThreadDpiAwarenessContext() unavailable, effective_dpi will be at "
+			        "the mercy of the process DPI awareness\n");
+		if (fnGetProcessDpiAwareness)
+		{
 			PROCESS_DPI_AWARENESS awareness;
 			fnGetProcessDpiAwareness(nullptr, &awareness);
 			LogInfo("Process DPI Awareness: %u\n", awareness);
@@ -399,13 +416,15 @@ float get_effective_dpi()
 		init_done = true;
 	}
 
-	if (fnGetDpiForMonitor) {
+	if (fnGetDpiForMonitor)
+	{
 		HMONITOR mon;
 		if (G->hWnd)
 			mon = MonitorFromWindow(G->hWnd, MONITOR_DEFAULTTONEAREST);
 		else
-			mon = MonitorFromPoint(POINT{ 0,0 }, MONITOR_DEFAULTTOPRIMARY);
-		UINT x = 0, y = 0;
+			mon = MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY);
+		UINT x = 0;
+		UINT y = 0;
 		// XXX: NOTE GetDpiForMonitor() may return 96 if the process is
 		// PROCESS_DPI_UNAWARE, and PROCESS_SYSTEM_DPI_AWARE is also
 		// sub-optimal. On Windows 10 1607+ we can temporarily switch the
@@ -449,7 +468,8 @@ float get_effective_dpi()
 	// using a 4K display anyway. We definitely should not be naive and return
 	// the real / physical / raw DPI here, as that is not the same as effective
 	// DPI and generally unsuitable for UI scaling.
-	if (fret < 96.0f) {
+	if (fret < 96.0f)
+	{
 		fret = 96.0f;
 	}
 
@@ -470,11 +490,13 @@ void save_om_state(IDirect3DDevice9 *device, struct OMState *state)
 	if (state->rtvs.size() != caps.NumSimultaneousRTs)
 		state->rtvs.resize(caps.NumSimultaneousRTs);
 	state->NumRTVs = 0;
-	for (i = 0; i < caps.NumSimultaneousRTs; i++) {
+	for (i = 0; i < caps.NumSimultaneousRTs; i++)
+	{
 		IDirect3DSurface9 *rt = nullptr;
 		device->GetRenderTarget(i, &rt);
 		state->rtvs[i] = rt;
-		if (rt) {
+		if (rt)
+		{
 			state->NumRTVs = i + 1;
 		}
 	}
@@ -484,7 +506,8 @@ void save_om_state(IDirect3DDevice9 *device, struct OMState *state)
 void restore_om_state(IDirect3DDevice9 *device, struct OMState *state)
 {
 	UINT i;
-	for (i = 0; i < state->NumRTVs; i++) {
+	for (i = 0; i < state->NumRTVs; i++)
+	{
 		device->SetRenderTarget(i, state->rtvs[i]);
 		if (state->rtvs[i])
 			state->rtvs[i]->Release();
@@ -506,7 +529,8 @@ void save_om_state(ID3D11DeviceContext *context, struct OMState *state)
 	context->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, state->rtvs, &state->dsv);
 
 	state->NumRTVs = 0;
-	for (i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; i++) {
+	for (i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
+	{
 		if (state->rtvs[i])
 			state->NumRTVs = i + 1;
 	}
@@ -520,18 +544,21 @@ void save_om_state(ID3D11DeviceContext *context, struct OMState *state)
 	// Finally get all the UAVs. Since we already retrieved the RTVs and
 	// DSV we can skip getting them:
 	if (state->NumUAVs)
-		context->OMGetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, state->UAVStartSlot, state->NumUAVs, state->uavs);
+		context->OMGetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, state->UAVStartSlot, state->NumUAVs,
+		                                                   state->uavs);
 }
 
 void restore_om_state(ID3D11DeviceContext *context, struct OMState *state)
 {
-	static const UINT uav_counts[D3D11_PS_CS_UAV_REGISTER_COUNT] = {(UINT)-1, (UINT)-1, (UINT)-1, (UINT)-1, (UINT)-1, (UINT)-1, (UINT)-1, (UINT)-1};
+	static const UINT uav_counts[D3D11_PS_CS_UAV_REGISTER_COUNT] = {(UINT)-1, (UINT)-1, (UINT)-1, (UINT)-1,
+	                                                                (UINT)-1, (UINT)-1, (UINT)-1, (UINT)-1};
 	UINT i;
 
-	context->OMSetRenderTargetsAndUnorderedAccessViews(state->NumRTVs, state->rtvs, state->dsv,
-			state->UAVStartSlot, state->NumUAVs, state->uavs, uav_counts);
+	context->OMSetRenderTargetsAndUnorderedAccessViews(state->NumRTVs, state->rtvs, state->dsv, state->UAVStartSlot,
+	                                                   state->NumUAVs, state->uavs, uav_counts);
 
-	for (i = 0; i < state->NumRTVs; i++) {
+	for (i = 0; i < state->NumRTVs; i++)
+	{
 		if (state->rtvs[i])
 			state->rtvs[i]->Release();
 	}
@@ -539,7 +566,8 @@ void restore_om_state(ID3D11DeviceContext *context, struct OMState *state)
 	if (state->dsv)
 		state->dsv->Release();
 
-	for (i = 0; i < state->NumUAVs; i++) {
+	for (i = 0; i < state->NumUAVs; i++)
+	{
 		if (state->uavs[i])
 			state->uavs[i]->Release();
 	}
@@ -549,7 +577,7 @@ IDXGISwapChain *last_fullscreen_swap_chain;
 static CRITICAL_SECTION crash_handler_lock;
 static int crash_handler_level;
 
-static DWORD WINAPI crash_handler_switch_to_window(_In_ LPVOID lpParameter)
+static DWORD WINAPI crash_handler_switch_to_window(_In_ LPVOID lpParameter [[maybe_unused]])
 {
 	// Debugging is a pain in exclusive full screen, especially without a
 	// second monitor attached (and even with one if you don't know about
@@ -564,11 +592,11 @@ static DWORD WINAPI crash_handler_switch_to_window(_In_ LPVOID lpParameter)
 	// not be pumping), so we do this in a new thread to allow the main
 	// crash handler to continue responding to other keys:
 	//
-	// TODO: See if we can find a way to make this more reliable
+	// Future work: See if we can find a way to make this more reliable
 	//
-	if (last_fullscreen_swap_chain) {
-		LogInfo("Attempting emergency switch to windowed mode on swap chain %p\n",
-				last_fullscreen_swap_chain);
+	if (last_fullscreen_swap_chain)
+	{
+		LogInfo("Attempting emergency switch to windowed mode on swap chain %p\n", last_fullscreen_swap_chain);
 
 		last_fullscreen_swap_chain->SetFullscreenState(FALSE, nullptr);
 		//last_fullscreen_swap_chain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
@@ -586,7 +614,8 @@ static DWORD WINAPI crash_handler_switch_to_window(_In_ LPVOID lpParameter)
 // Also ignore common non-fatal RaiseException codes used for thread naming / RPC.
 static bool is_ignorable_exception_code(DWORD code)
 {
-	switch (code) {
+	switch (code)
+	{
 	case 0x0000087A: // DXGI/D3D debug layer "break on message"
 	case 0x406D1388: // MSVC SetThreadName
 	case 0x40010006: // DBG_PRINTEXCEPTION_C
@@ -600,24 +629,25 @@ static bool is_ignorable_exception_code(DWORD code)
 static LONG WINAPI migoto_exception_filter(_In_ struct _EXCEPTION_POINTERS *ExceptionInfo)
 {
 	wchar_t path[MAX_PATH];
-	tm timestruct;
+	tm timestruct{};
 	time_t ltime;
 	LONG ret = EXCEPTION_EXECUTE_HANDLER;
+	if (!ExceptionInfo || !ExceptionInfo->ExceptionRecord)
+		return EXCEPTION_CONTINUE_SEARCH;
 
-	DWORD code = ExceptionInfo && ExceptionInfo->ExceptionRecord
-		? ExceptionInfo->ExceptionRecord->ExceptionCode
-		: 0;
-	if (is_ignorable_exception_code(code)) {
-		bool continuable = ExceptionInfo && ExceptionInfo->ExceptionRecord &&
-				!(ExceptionInfo->ExceptionRecord->ExceptionFlags & EXCEPTION_NONCONTINUABLE);
+	DWORD code = ExceptionInfo->ExceptionRecord->ExceptionCode;
+	if (is_ignorable_exception_code(code))
+	{
+		bool continuable = !(ExceptionInfo->ExceptionRecord->ExceptionFlags & EXCEPTION_NONCONTINUABLE);
 
 		// Do not beep, do not write dumps — let the debugger/runtime handle it.
-		if (LogFile) {
+		if (LogFile)
+		{
 			static volatile LONG ignore_count = 0;
 			LONG ignored = InterlockedIncrement(&ignore_count) - 1;
 			if (ignored < 20)
-				LogInfo("Crash handler: ignoring non-fatal exception 0x%08x (%s)\n",
-						code, continuable ? "continuing" : "non-continuable, searching");
+				LogInfo("Crash handler: ignoring non-fatal exception 0x%08x (%s)\n", code,
+				        continuable ? "continuing" : "non-continuable, searching");
 			else if (ignored == 20)
 				LogInfo("Crash handler: further non-fatal exception spam suppressed in log\n");
 			fflush(LogFile);
@@ -626,32 +656,37 @@ static LONG WINAPI migoto_exception_filter(_In_ struct _EXCEPTION_POINTERS *Exce
 	}
 
 	// SOS
-	Beep(250, 100); Beep(250, 100); Beep(250, 100);
-	Beep(200, 300); Beep(200, 200); Beep(200, 200);
-	Beep(250, 100); Beep(250, 100); Beep(250, 100);
+	Beep(250, 100);
+	Beep(250, 100);
+	Beep(250, 100);
+	Beep(200, 300);
+	Beep(200, 200);
+	Beep(200, 200);
+	Beep(250, 100);
+	Beep(250, 100);
+	Beep(250, 100);
 
 	// Before anything else, flush the log file and log exception info
 
-	if (LogFile) {
+	if (LogFile)
+	{
 		fflush(LogFile);
 
 		LogInfo("\n\n ######################################\n"
-		            " ### 3DMigoto Crash Handler Invoked ###\n");
+		        " ### 3DMigoto Crash Handler Invoked ###\n");
 
 		int i = 0;
-		for (auto record = ExceptionInfo->ExceptionRecord; record; record = record->ExceptionRecord, i++) {
+		for (auto record = ExceptionInfo->ExceptionRecord; record; record = record->ExceptionRecord, i++)
+		{
 			LogInfo(" ######################################\n"
 			        " ### Exception Record %i\n"
-				" ###    ExceptionCode: 0x%08x\n"
-				" ###   ExceptionFlags: 0x%08x\n"
-				" ### ExceptionAddress: 0x%p\n"
-				" ### NumberParameters: 0x%u\n"
-				" ###",
-				i,
-				record->ExceptionCode,
-				record->ExceptionFlags,
-				record->ExceptionAddress,
-				record->NumberParameters);
+			        " ###    ExceptionCode: 0x%08x\n"
+			        " ###   ExceptionFlags: 0x%08x\n"
+			        " ### ExceptionAddress: 0x%p\n"
+			        " ### NumberParameters: 0x%u\n"
+			        " ###",
+			        i, record->ExceptionCode, record->ExceptionFlags, record->ExceptionAddress,
+			        record->NumberParameters);
 			for (unsigned j = 0; j < record->NumberParameters; j++)
 				LogInfo(" %08Ix", record->ExceptionInformation[j]);
 			LogInfo("\n");
@@ -673,22 +708,22 @@ static LONG WINAPI migoto_exception_filter(_In_ struct _EXCEPTION_POINTERS *Exce
 	// the rest stop here:
 	EnterCriticalSectionPretty(&crash_handler_lock);
 
-	auto fp = CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ,
-			0, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
-	if (fp != INVALID_HANDLE_VALUE) {
+	auto fp = CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+	if (fp != INVALID_HANDLE_VALUE)
+	{
 		LogInfo("Writing minidump to %S...\n", path);
 
-		MINIDUMP_EXCEPTION_INFORMATION dump_info =
-			{ GetCurrentThreadId(), ExceptionInfo, FALSE };
+		MINIDUMP_EXCEPTION_INFORMATION dump_info = {GetCurrentThreadId(), ExceptionInfo, FALSE};
 
-		if (MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(),
-				fp, MiniDumpWithHandleData, &dump_info, nullptr, nullptr))
+		if (MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), fp, MiniDumpWithHandleData, &dump_info,
+		                      nullptr, nullptr))
 			LogInfo("Succeeded\n");
 		else
 			LogInfo("Failed :(\n");
 
 		CloseHandle(fp);
-	} else
+	}
+	else
 		LogInfo("Error creating minidump file \"%S\": %d\n", path, GetLastError());
 
 	if (LogFile)
@@ -698,8 +733,10 @@ static LONG WINAPI migoto_exception_filter(_In_ struct _EXCEPTION_POINTERS *Exce
 	// responding to various key bindings, sounding a reminder tone every
 	// 5 seconds. All key bindings in this mode are prefixed with Ctrl+Alt
 	// to prevent them being accidentally triggered.
-	if (crash_handler_level == 2) {
-		if (LogFile) {
+	if (crash_handler_level == 2)
+	{
+		if (LogFile)
+		{
 			LogInfo("3DMigoto interactive crash handler invoked:\n");
 			LogInfo(" Ctrl+Alt+Q: Quit (execute exception handler)\n");
 			LogInfo(" Ctrl+Alt+K: Kill process\n");
@@ -709,35 +746,49 @@ static LONG WINAPI migoto_exception_filter(_In_ struct _EXCEPTION_POINTERS *Exce
 			LogInfo("\n");
 			fflush(LogFile);
 		}
-		while (1) {
+		while (true)
+		{
 			Beep(500, 100);
-			for (int i = 0; i < 50; i++) {
+			for (int i = 0; i < 50; i++)
+			{
 				Sleep(100);
-				if (GetAsyncKeyState(VK_CONTROL) < 0 &&
-				    GetAsyncKeyState(VK_MENU) < 0) {
-					if (GetAsyncKeyState('C') < 0) {
-						LogInfo("Attempting to continue...\n"); fflush(LogFile); Beep(1000, 100);
+				if (GetAsyncKeyState(VK_CONTROL) < 0 && GetAsyncKeyState(VK_MENU) < 0)
+				{
+					if (GetAsyncKeyState('C') < 0)
+					{
+						LogInfo("Attempting to continue...\n");
+						fflush(LogFile);
+						Beep(1000, 100);
 						ret = EXCEPTION_CONTINUE_EXECUTION;
 						goto unlock;
 					}
 
-					if (GetAsyncKeyState('Q') < 0) {
-						LogInfo("Executing exception handler...\n"); fflush(LogFile); Beep(1000, 100);
+					if (GetAsyncKeyState('Q') < 0)
+					{
+						LogInfo("Executing exception handler...\n");
+						fflush(LogFile);
+						Beep(1000, 100);
 						ret = EXCEPTION_EXECUTE_HANDLER;
 						goto unlock;
 					}
 
-					if (GetAsyncKeyState('K') < 0) {
-						LogInfo("Killing process...\n"); fflush(LogFile); Beep(1000, 100);
+					if (GetAsyncKeyState('K') < 0)
+					{
+						LogInfo("Killing process...\n");
+						fflush(LogFile);
+						Beep(1000, 100);
 						ExitProcess(0x3D819070);
 					}
 
-					// TODO:
+					// Future work:
 					// S = Suspend all other threads
 					// R = Resume all other threads
 
-					if (GetAsyncKeyState('B') < 0) {
-						LogInfo("Dropping to debugger...\n"); fflush(LogFile); Beep(1000, 100);
+					if (GetAsyncKeyState('B') < 0)
+					{
+						LogInfo("Dropping to debugger...\n");
+						fflush(LogFile);
+						Beep(1000, 100);
 						__debugbreak();
 						goto unlock;
 					}
@@ -760,10 +811,11 @@ void install_crash_handler(int level)
 	crash_handler_level = level;
 
 	old_handler = SetUnhandledExceptionFilter(migoto_exception_filter);
-	// TODO: Call set_terminate() on every thread to catch unhandled C++
+	// Future work: Call set_terminate() on every thread to catch unhandled C++
 	// exceptions as well
 
-	if (old_handler == migoto_exception_filter) {
+	if (old_handler == migoto_exception_filter)
+	{
 		LogInfo("  > 3DMigoto crash handler already installed\n");
 		return;
 	}
@@ -773,14 +825,15 @@ void install_crash_handler(int level)
 	old_mode = SetErrorMode(SEM_FAILCRITICALERRORS);
 
 	LogInfo("  > Installed 3DMigoto crash handler, previous exception filter: %p, previous error mode: %x\n",
-			old_handler, old_mode);
+	        old_handler, old_mode);
 }
 #endif
 
 uint32_t popcount(uint32_t x)
 {
 	uint32_t count = 0;
-	while (x) {
+	while (x)
+	{
 		x &= (x - 1); // Clears the lowest set bit.
 		count++;
 	}

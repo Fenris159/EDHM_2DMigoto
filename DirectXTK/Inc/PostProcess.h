@@ -27,175 +27,175 @@
 #include <memory>
 #include <functional>
 
-
 namespace DirectX
 {
-    //----------------------------------------------------------------------------------
-    // Abstract interface representing a post-process pass
-    class IPostProcess
-    {
-    public:
-        virtual ~IPostProcess() { }
+//----------------------------------------------------------------------------------
+// Abstract interface representing a post-process pass
+class IPostProcess
+{
+  public:
+	virtual ~IPostProcess() {}
 
-        virtual void __cdecl Process(_In_ ID3D11DeviceContext* deviceContext, _In_opt_ std::function<void __cdecl()> setCustomState = nullptr) = 0;
-    };
+	virtual void __cdecl Process(_In_ ID3D11DeviceContext *deviceContext,
+	                             _In_opt_ std::function<void __cdecl()> setCustomState = nullptr) = 0;
+};
 
+//----------------------------------------------------------------------------------
+// Basic post-process
+class BasicPostProcess : public IPostProcess
+{
+  public:
+	enum Effect
+	{
+		Copy,
+		Monochrome,
+		Sepia,
+		DownScale_2x2,
+		DownScale_4x4,
+		GaussianBlur_5x5,
+		BloomExtract,
+		BloomBlur,
+		Effect_Max
+	};
 
-    //----------------------------------------------------------------------------------
-    // Basic post-process
-    class BasicPostProcess : public IPostProcess
-    {
-    public:
-        enum Effect
-        {
-            Copy,
-            Monochrome,
-            Sepia,
-            DownScale_2x2,
-            DownScale_4x4,
-            GaussianBlur_5x5,
-            BloomExtract,
-            BloomBlur,
-            Effect_Max
-        };
+	explicit BasicPostProcess(_In_ ID3D11Device *device);
+	BasicPostProcess(BasicPostProcess &&moveFrom) noexcept;
+	BasicPostProcess &operator=(BasicPostProcess &&moveFrom) noexcept;
 
-        explicit BasicPostProcess(_In_ ID3D11Device* device);
-        BasicPostProcess(BasicPostProcess&& moveFrom) noexcept;
-        BasicPostProcess& operator= (BasicPostProcess&& moveFrom) noexcept;
+	BasicPostProcess(BasicPostProcess const &) = delete;
+	BasicPostProcess &operator=(BasicPostProcess const &) = delete;
 
-        BasicPostProcess(BasicPostProcess const&) = delete;
-        BasicPostProcess& operator= (BasicPostProcess const&) = delete;
+	virtual ~BasicPostProcess();
 
-        virtual ~BasicPostProcess();
+	// IPostProcess methods.
+	void __cdecl Process(_In_ ID3D11DeviceContext *deviceContext,
+	                     _In_opt_ std::function<void __cdecl()> setCustomState = nullptr) override;
 
-        // IPostProcess methods.
-        void __cdecl Process(_In_ ID3D11DeviceContext* deviceContext, _In_opt_ std::function<void __cdecl()> setCustomState = nullptr) override;
+	// Shader control
+	void __cdecl SetEffect(Effect fx);
 
-        // Shader control
-        void __cdecl SetEffect(Effect fx);
+	// Properties
+	void __cdecl SetSourceTexture(_In_opt_ ID3D11ShaderResourceView *value);
 
-        // Properties
-        void __cdecl SetSourceTexture(_In_opt_ ID3D11ShaderResourceView* value);
+	// Sets multiplier for GaussianBlur_5x5
+	void __cdecl SetGaussianParameter(float multiplier);
 
-        // Sets multiplier for GaussianBlur_5x5
-        void __cdecl SetGaussianParameter(float multiplier);
+	// Sets parameters for BloomExtract
+	void __cdecl SetBloomExtractParameter(float threshold);
 
-        // Sets parameters for BloomExtract
-        void __cdecl SetBloomExtractParameter(float threshold);
+	// Sets parameters for BloomBlur
+	void __cdecl SetBloomBlurParameters(bool horizontal, float size, float brightness);
 
-        // Sets parameters for BloomBlur
-        void __cdecl SetBloomBlurParameters(bool horizontal, float size, float brightness);
+  private:
+	// Private implementation.
+	class Impl;
 
-    private:
-        // Private implementation.
-        class Impl;
+	std::unique_ptr<Impl> pImpl;
+};
 
-        std::unique_ptr<Impl> pImpl;
-    };
+//----------------------------------------------------------------------------------
+// Dual-texure post-process
+class DualPostProcess : public IPostProcess
+{
+  public:
+	enum Effect
+	{
+		Merge,
+		BloomCombine,
+		Effect_Max
+	};
 
+	explicit DualPostProcess(_In_ ID3D11Device *device);
+	DualPostProcess(DualPostProcess &&moveFrom) noexcept;
+	DualPostProcess &operator=(DualPostProcess &&moveFrom) noexcept;
 
-    //----------------------------------------------------------------------------------
-    // Dual-texure post-process
-    class DualPostProcess : public IPostProcess
-    {
-    public:
-        enum Effect
-        {
-            Merge,
-            BloomCombine,
-            Effect_Max
-        };
+	DualPostProcess(DualPostProcess const &) = delete;
+	DualPostProcess &operator=(DualPostProcess const &) = delete;
 
-        explicit DualPostProcess(_In_ ID3D11Device* device);
-        DualPostProcess(DualPostProcess&& moveFrom) noexcept;
-        DualPostProcess& operator= (DualPostProcess&& moveFrom) noexcept;
+	virtual ~DualPostProcess();
 
-        DualPostProcess(DualPostProcess const&) = delete;
-        DualPostProcess& operator= (DualPostProcess const&) = delete;
+	// IPostProcess methods.
+	void __cdecl Process(_In_ ID3D11DeviceContext *deviceContext,
+	                     _In_opt_ std::function<void __cdecl()> setCustomState = nullptr) override;
 
-        virtual ~DualPostProcess();
+	// Shader control
+	void __cdecl SetEffect(Effect fx);
 
-        // IPostProcess methods.
-        void __cdecl Process(_In_ ID3D11DeviceContext* deviceContext, _In_opt_ std::function<void __cdecl()> setCustomState = nullptr) override;
+	// Properties
+	void __cdecl SetSourceTexture(_In_opt_ ID3D11ShaderResourceView *value);
+	void __cdecl SetSourceTexture2(_In_opt_ ID3D11ShaderResourceView *value);
 
-        // Shader control
-        void __cdecl SetEffect(Effect fx);
+	// Sets parameters for Merge
+	void __cdecl SetMergeParameters(float weight1, float weight2);
 
-        // Properties
-        void __cdecl SetSourceTexture(_In_opt_ ID3D11ShaderResourceView* value);
-        void __cdecl SetSourceTexture2(_In_opt_ ID3D11ShaderResourceView* value);
+	// Sets parameters for BloomCombine
+	void __cdecl SetBloomCombineParameters(float bloom, float base, float bloomSaturation, float baseSaturation);
 
-        // Sets parameters for Merge
-        void __cdecl SetMergeParameters(float weight1, float weight2);
+  private:
+	// Private implementation.
+	class Impl;
 
-        // Sets parameters for BloomCombine
-        void __cdecl SetBloomCombineParameters(float bloom, float base, float bloomSaturation, float baseSaturation);
+	std::unique_ptr<Impl> pImpl;
+};
 
-    private:
-        // Private implementation.
-        class Impl;
+//----------------------------------------------------------------------------------
+// Tone-map post-process
+class ToneMapPostProcess : public IPostProcess
+{
+  public:
+	enum Operator // Tone-mapping operator
+	{
+		None,     // Pass-through
+		Saturate, // Clamp [0,1]
+		Reinhard, // x/(1+x)
+		ACESFilmic,
+		Operator_Max
+	};
 
-        std::unique_ptr<Impl> pImpl;
-    };
+	enum TransferFunction // Electro-Optical Transfer Function (EOTF)
+	{
+		Linear, // Pass-through
+		SRGB,   // sRGB (Rec.709 and approximate sRGB display curve)
+		ST2084, // HDR10 (Rec.2020 color primaries and ST.2084 display curve)
+		TransferFunction_Max
+	};
 
+	explicit ToneMapPostProcess(_In_ ID3D11Device *device);
+	ToneMapPostProcess(ToneMapPostProcess &&moveFrom) noexcept;
+	ToneMapPostProcess &operator=(ToneMapPostProcess &&moveFrom) noexcept;
 
-    //----------------------------------------------------------------------------------
-    // Tone-map post-process
-    class ToneMapPostProcess : public IPostProcess
-    {
-    public:
-        enum Operator           // Tone-mapping operator
-        {
-            None,               // Pass-through
-            Saturate,           // Clamp [0,1]
-            Reinhard,           // x/(1+x)
-            ACESFilmic,
-            Operator_Max
-        };
+	ToneMapPostProcess(ToneMapPostProcess const &) = delete;
+	ToneMapPostProcess &operator=(ToneMapPostProcess const &) = delete;
 
-        enum TransferFunction   // Electro-Optical Transfer Function (EOTF)
-        {
-            Linear,             // Pass-through
-            SRGB,               // sRGB (Rec.709 and approximate sRGB display curve)
-            ST2084,             // HDR10 (Rec.2020 color primaries and ST.2084 display curve)
-            TransferFunction_Max
-        };
+	virtual ~ToneMapPostProcess();
 
-        explicit ToneMapPostProcess(_In_ ID3D11Device* device);
-        ToneMapPostProcess(ToneMapPostProcess&& moveFrom) noexcept;
-        ToneMapPostProcess& operator= (ToneMapPostProcess&& moveFrom) noexcept;
+	// IPostProcess methods.
+	void __cdecl Process(_In_ ID3D11DeviceContext *deviceContext,
+	                     _In_opt_ std::function<void __cdecl()> setCustomState = nullptr) override;
 
-        ToneMapPostProcess(ToneMapPostProcess const&) = delete;
-        ToneMapPostProcess& operator= (ToneMapPostProcess const&) = delete;
+	// Shader control
+	void __cdecl SetOperator(Operator op);
 
-        virtual ~ToneMapPostProcess();
+	void __cdecl SetTransferFunction(TransferFunction func);
 
-        // IPostProcess methods.
-        void __cdecl Process(_In_ ID3D11DeviceContext* deviceContext, _In_opt_ std::function<void __cdecl()> setCustomState = nullptr) override;
+#if defined(_XBOX_ONE) && defined(_TITLE)
+	// Uses Multiple Render Targets to generate both HDR10 and GameDVR SDR signals
+	void __cdecl SetMRTOutput(bool value = true);
+#endif
 
-        // Shader control
-        void __cdecl SetOperator(Operator op);
+	// Properties
+	void __cdecl SetHDRSourceTexture(_In_opt_ ID3D11ShaderResourceView *value);
 
-        void __cdecl SetTransferFunction(TransferFunction func);
+	// Sets exposure value for LDR tonemap operators
+	void SetExposure(float exposureValue);
 
-        #if defined(_XBOX_ONE) && defined(_TITLE)
-        // Uses Multiple Render Targets to generate both HDR10 and GameDVR SDR signals
-        void __cdecl SetMRTOutput(bool value = true);
-        #endif
+	// Sets ST.2084 parameter for how bright white should be in nits
+	void SetST2084Parameter(float paperWhiteNits);
 
-        // Properties
-        void __cdecl SetHDRSourceTexture(_In_opt_ ID3D11ShaderResourceView* value);
+  private:
+	// Private implementation.
+	class Impl;
 
-        // Sets exposure value for LDR tonemap operators
-        void SetExposure(float exposureValue);
-
-        // Sets ST.2084 parameter for how bright white should be in nits
-        void SetST2084Parameter(float paperWhiteNits);
-
-    private:
-        // Private implementation.
-        class Impl;
-
-        std::unique_ptr<Impl> pImpl;
-    };
+	std::unique_ptr<Impl> pImpl;
+};
 }

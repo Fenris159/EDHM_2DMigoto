@@ -1,7 +1,7 @@
 // This file is compiled as a C file only, not C++
 // The reason to do this is because we can directly access the lpVtbl
 // pointers for DX11 functions, by using their normal C interface.
-// 
+//
 // For hooking purposes, we only actually need the exact address of any
 // given function.
 //
@@ -15,7 +15,7 @@
 // https://stackoverflow.com/questions/8121320/get-memory-address-of-member-function
 //
 // This can only be included here where it's used to fetch those routine addresses, because
-// it will make other C++ units fail to compile, like NativePlugin.cpp, so this is 
+// it will make other C++ units fail to compile, like NativePlugin.cpp, so this is
 // separated into this different compilation unit.
 
 #define CINTERFACE
@@ -27,63 +27,60 @@
 
 #include <dxgi1_2.h>
 
-
-LPVOID lpvtbl_QueryInterface(IDXGIFactory* pFactory)
+LPVOID lpvtbl_QueryInterface(IDXGIFactory *pFactory)
 {
 	if (!pFactory)
 		return NULL;
 
-	return pFactory->lpVtbl->QueryInterface;
+	return (LPVOID)(UINT_PTR)pFactory->lpVtbl->QueryInterface;
 }
 
-LPVOID lpvtbl_CreateSwapChain(IDXGIFactory* pFactory)
+LPVOID lpvtbl_CreateSwapChain(IDXGIFactory *pFactory)
 {
 	if (!pFactory)
 		return NULL;
 
-	return pFactory->lpVtbl->CreateSwapChain;
+	return (LPVOID)(UINT_PTR)pFactory->lpVtbl->CreateSwapChain;
 }
 
-LPVOID lpvtbl_CreateSwapChainForHwnd(IDXGIFactory2* pFactory2)
+LPVOID lpvtbl_CreateSwapChainForHwnd(IDXGIFactory2 *pFactory2)
 {
 	if (!pFactory2)
 		return NULL;
 
-	return pFactory2->lpVtbl->CreateSwapChainForHwnd;
+	return (LPVOID)(UINT_PTR)pFactory2->lpVtbl->CreateSwapChainForHwnd;
 }
 
-LPVOID lpvtbl_CreateSwapChainForComposition(IDXGIFactory2* pFactory2)
+LPVOID lpvtbl_CreateSwapChainForComposition(IDXGIFactory2 *pFactory2)
 {
 	if (!pFactory2)
 		return NULL;
 
-	return pFactory2->lpVtbl->CreateSwapChainForComposition;
+	return (LPVOID)(UINT_PTR)pFactory2->lpVtbl->CreateSwapChainForComposition;
 }
 
-LPVOID lpvtbl_CreateSwapChainForCoreWindow(IDXGIFactory2* pFactory2)
+LPVOID lpvtbl_CreateSwapChainForCoreWindow(IDXGIFactory2 *pFactory2)
 {
 	if (!pFactory2)
 		return NULL;
 
-	return pFactory2->lpVtbl->CreateSwapChainForCoreWindow;
+	return (LPVOID)(UINT_PTR)pFactory2->lpVtbl->CreateSwapChainForCoreWindow;
 }
 
-LPVOID lpvtbl_Present(IDXGISwapChain* pSwapChain)
+LPVOID lpvtbl_Present(IDXGISwapChain *pSwapChain)
 {
 	if (!pSwapChain)
 		return NULL;
 
-	return pSwapChain->lpVtbl->Present;
+	return (LPVOID)(UINT_PTR)pSwapChain->lpVtbl->Present;
 }
 
-LPVOID lpvtbl_Present1(IDXGISwapChain1* pSwapChain1)
+LPVOID lpvtbl_Present1(IDXGISwapChain1 *pSwapChain1)
 {
 	if (!pSwapChain1)
 		return NULL;
 
-	return pSwapChain1->lpVtbl->Present1;
+	return (LPVOID)(UINT_PTR)pSwapChain1->lpVtbl->Present1;
 }
-
-
 
 #undef CINTERFACE

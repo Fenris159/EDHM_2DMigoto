@@ -4,18 +4,14 @@
 #include <d3d11_1.h>
 #include <dxgi1_2.h>
 
-
 void InitD311();
 void DestroyDLL();
 
-extern "C" HMODULE (__stdcall *fnOrigLoadLibraryExW)(
-	_In_       LPCWSTR lpLibFileName,
-	_Reserved_ HANDLE  hFile,
-	_In_       DWORD   dwFlags
-	);
+extern "C" HMODULE(__stdcall *fnOrigLoadLibraryExW)(_In_ LPCWSTR lpLibFileName, _Reserved_ HANDLE hFile,
+                                                    _In_ DWORD dwFlags);
 
-extern "C" HMODULE __stdcall Hooked_LoadLibraryExW(_In_ LPCWSTR lpLibFileName, _Reserved_ HANDLE hFile, _In_ DWORD dwFlags);
-
+extern "C" HMODULE __stdcall Hooked_LoadLibraryExW(_In_ LPCWSTR lpLibFileName, _Reserved_ HANDLE hFile,
+                                                   _In_ DWORD dwFlags);
 
 // These are moved up to the header file so we can call them from elsewhere.
 // We can't include d3d11.lib as a linker connection, because we are reimplementing

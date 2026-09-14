@@ -10,8 +10,9 @@ class MigotoIncludeHandler : public ID3DInclude
 	std::vector<std::string> dir_stack;
 
 	void push_dir(const char *path);
-public:
-	MigotoIncludeHandler(const char *path);
+
+  public:
+	explicit MigotoIncludeHandler(const char *path);
 
 	STDMETHOD(Open)(D3D_INCLUDE_TYPE IncludeType, LPCSTR pFileName, LPCVOID pParentData, LPCVOID *ppData, UINT *pBytes);
 	STDMETHOD(Close)(LPCVOID pData);
@@ -25,4 +26,4 @@ void RegisterVisitedIndexBufferNoLock(uint32_t hash);
 void RegisterVisitedIndexBuffer(uint32_t hash);
 void RegisterVisitedVertexBufferNoLock(uint32_t hash, uint32_t slot_id);
 void RegisterVisitedVertexBuffer(uint32_t hash, uint32_t slot_id);
-void PurgeStaleVisitedBufferHashes(HackerDevice* device);
+void PurgeStaleVisitedBufferHashes(HackerDevice *device);

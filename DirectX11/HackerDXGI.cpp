@@ -4,41 +4,40 @@
 // IDXGIDevice2		Platform update	1.2				11.1
 // IDXGIDevice3		Win8.1			1.3
 // IDXGIDevice4						1.5
-// 
+//
 // IDXGIAdapter		Win7			1.0				11.0
 // IDXGIAdapter1	Win7			1.0				11.0
 // IDXGIAdapter2	Platform update	1.2				11.1
 // IDXGIAdapter3					1.3
-// 
+//
 // IDXGIFactory		Win7			1.0				11.0
 // IDXGIFactory1	Win7			1.0				11.0
 // IDXGIFactory2	Platform update	1.2				11.1
 // IDXGIFactory3	Win8.1			1.3
 // IDXGIFactory4					1.4
 // IDXGIFactory5					1.5
-// 
+//
 // IDXGIOutput		Win7			1.0				11.0
 // IDXGIOutput1		Platform update	1.2				11.1
 // IDXGIOutput2		Win8.1			1.3
 // IDXGIOutput3		Win8.1			1.3
 // IDXGIOutput4		Win10			1.4
 // IDXGIOutput5		Win10			1.5
-// 
+//
 // IDXGIResource	Win7			1.0				11.0
 // IDXGIResource1	Platform update	1.2				11.1
-// 
+//
 // IDXGISwapChain	Win7			1.0				11.0
 // IDXGISwapChain1	Platform update	1.2				11.1
 // IDXGISwapChain2	Win8.1			1.3
 // IDXGISwapChain3	Win10			1.4
 // IDXGISwapChain4					1.5
 
-
 // 1-15-18: New approach is keep a strict single-layer policy when wrapping
 // objects like IDXGISwapChain1.  Only the top level object we are interested
 // in can successfully wrapped, because otherwise the vtable is altered from
 // the DX11 definition, which led to crashes.
-// 
+//
 // Because of this, we are now creating only the HackerSwapChain and no
 // other objects.  IDXGIFactory does not need to be wrapped, because it must
 // be hooked in order to create the swap chains correctly. Device, Object,
@@ -72,32 +71,28 @@
 #include "profiling.h"
 #include "cursor.h" // For InstallHookLate
 
-
 // -----------------------------------------------------------------------------
 // SetWindowPos hook, activated by full_screen=2 in d3dx.ini
 
-static BOOL(WINAPI *fnOrigSetWindowPos)(_In_ HWND hWnd, _In_opt_ HWND hWndInsertAfter,
-	_In_ int X, _In_ int Y, _In_ int cx, _In_ int cy, _In_ UINT uFlags) = nullptr;
+static BOOL(WINAPI *fnOrigSetWindowPos)(_In_ HWND hWnd, _In_opt_ HWND hWndInsertAfter, _In_ int X, _In_ int Y,
+                                        _In_ int cx, _In_ int cy, _In_ UINT uFlags) = nullptr;
 
-static BOOL WINAPI Hooked_SetWindowPos(
-	_In_ HWND hWnd,
-	_In_opt_ HWND hWndInsertAfter,
-	_In_ int X,
-	_In_ int Y,
-	_In_ int cx,
-	_In_ int cy,
-	_In_ UINT uFlags)
+static BOOL WINAPI Hooked_SetWindowPos(_In_ HWND hWnd, _In_opt_ HWND hWndInsertAfter, _In_ int X, _In_ int Y,
+                                       _In_ int cx, _In_ int cy, _In_ UINT uFlags)
 {
-	if (G->SCREEN_UPSCALING != 0) {
+	if (G->SCREEN_UPSCALING != 0)
+	{
 		// Force desired upscaled resolution (only when desired resolution is provided!)
-		if (cx != 0 && cy != 0) {
+		if (cx != 0 && cy != 0)
+		{
 			cx = G->SCREEN_WIDTH;
 			cy = G->SCREEN_HEIGHT;
 			X = 0;
 			Y = 0;
 		}
 	}
-	else if (G->SCREEN_FULLSCREEN == 2) {
+	else if (G->SCREEN_FULLSCREEN == 2)
+	{
 		// Do nothing - passing this call through could change the game
 		// to a borderless window. Needed for The Witness.
 		return true;
@@ -105,7 +100,6 @@ static BOOL WINAPI Hooked_SetWindowPos(
 
 	return fnOrigSetWindowPos(hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
 }
-
 
 void InstallSetWindowPosHook()
 {
@@ -117,20 +111,20 @@ void InstallSetWindowPosHook()
 		return;
 
 	hUser32 = NktHookLibHelpers::GetModuleBaseAddress(L"User32.dll");
-	fail |= InstallHookLate(hUser32, "SetWindowPos", (void**)&fnOrigSetWindowPos, Hooked_SetWindowPos);
+	fail |= InstallHookLate(hUser32, "SetWindowPos", (void **)&fnOrigSetWindowPos, Hooked_SetWindowPos);
 
-	if (fail) {
+	if (fail)
+	{
 		LogOverlay(LOG_DIRE, "Failed to hook SetWindowPos for full_screen=2\n");
 		return;
 	}
 
 	LogInfo("Successfully hooked SetWindowPos for full_screen=2\n");
-	return;
 }
 
 // -----------------------------------------------------------------------------
 
-// In the Elite Dangerous case, they Release the HackerContext objects before creating the 
+// In the Elite Dangerous case, they Release the HackerContext objects before creating the
 // swap chain.  That causes problems, because we are not expecting anyone to get here without
 // having a valid context.  They later call GetImmediateContext, which will generate a wrapped
 // context.  So, since we need the context for our Overlay, let's do that a litte early in
@@ -157,9 +151,12 @@ HackerSwapChain::HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDev
 	// safer in case we ever change this again and forget about it.
 
 	mHackerDevice->AddRef();
-	if (mHackerContext) {
+	if (mHackerContext)
+	{
 		mHackerContext->AddRef();
-	} else {
+	}
+	else
+	{
 		ID3D11DeviceContext *tmpContext = nullptr;
 		// GetImmediateContext will bump the refcount for us.
 		// In the case of hooking, GetImmediateContext will not return
@@ -171,23 +168,24 @@ HackerSwapChain::HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDev
 
 	mHackerDevice->SetHackerSwapChain(this);
 
-	try {
+	try
+	{
 		// Create Overlay class that will be responsible for drawing any text
 		// info over the game. Using the Hacker Device and Context we gave the game.
 		mOverlay = new Overlay(mHackerDevice, mHackerContext, mOrigSwapChain1);
 	}
-	catch (...) {
+	catch (...)
+	{
 		LogInfo("  *** Failed to create Overlay. Exception caught.\n");
 		mOverlay = nullptr;
 	}
 }
 
-IDXGISwapChain1* HackerSwapChain::GetOrigSwapChain1()
+IDXGISwapChain1 *HackerSwapChain::GetOrigSwapChain1()
 {
 	LogDebug("HackerSwapChain::GetOrigSwapChain returns %p\n", mOrigSwapChain1);
 	return mOrigSwapChain1;
 }
-
 
 // Called at each DXGI::Present() to give us reliable time to execute user
 // input and hunting commands.
@@ -205,9 +203,11 @@ void HackerSwapChain::RunFrameActions()
 	// Avoid fflush every Present — that undoes OS write buffering and costs
 	// measurable time when enabled=1. Debug mode keeps per-frame accuracy;
 	// otherwise flush about once a second so a crash still loses little.
-	if (LogFile) {
+	if (LogFile)
+	{
 		static float last_log_flush_time = -1000.0f;
-		if (gLogDebug || (G->gTime - last_log_flush_time) >= 1.0f) {
+		if (gLogDebug || (G->gTime - last_log_flush_time) >= 1.0f)
+		{
 			fflush(LogFile);
 			last_log_flush_time = G->gTime;
 		}
@@ -221,16 +221,20 @@ void HackerSwapChain::RunFrameActions()
 	// affect something at the start of the frame.
 	RunCommandList(mHackerDevice, mHackerContext, &G->present_command_list, nullptr, false);
 
-	if (G->analyse_frame) {
+	if (G->analyse_frame)
+	{
 		// We don't allow hold to be changed mid-frame due to potential
 		// for filename conflicts, so use def_analyse_options:
-		if (G->def_analyse_options & FrameAnalysisOptions::HOLD) {
+		if (G->def_analyse_options & FrameAnalysisOptions::HOLD)
+		{
 			// If using analyse_options=hold we don't stop the
 			// analysis at the frame boundary (it will be stopped
 			// at the key up event instead), but we do increment
 			// the frame count and reset the draw count:
 			G->analyse_frame_no++;
-		} else {
+		}
+		else
+		{
 			G->analyse_frame = false;
 			if (G->DumpUsage)
 				DumpUsage(G->ANALYSIS_PATH);
@@ -259,16 +263,20 @@ void HackerSwapChain::RunFrameActions()
 	// EDHM auto_refresh_file_to_monitor: if the signal file's mtime changes,
 	// schedule a config reload (theme apply without requiring F11).
 	// Match EDHM's shipped d3d11.dll: poll at most every 2.0s (not every frame).
-	if (G->auto_refresh_file_to_monitor[0] &&
-	    (G->gTime - G->auto_refresh_last_check_time) >= 2.0f) {
+	if (G->auto_refresh_file_to_monitor[0] && (G->gTime - G->auto_refresh_last_check_time) >= 2.0f)
+	{
 		G->auto_refresh_last_check_time = G->gTime;
 		WIN32_FILE_ATTRIBUTE_DATA fad = {};
-		if (GetFileAttributesExW(G->auto_refresh_file_to_monitor, GetFileExInfoStandard, &fad)) {
+		if (GetFileAttributesExW(G->auto_refresh_file_to_monitor, GetFileExInfoStandard, &fad))
+		{
 			FILETIME write_time = fad.ftLastWriteTime;
-			if (!G->auto_refresh_have_last_write) {
+			if (!G->auto_refresh_have_last_write)
+			{
 				G->auto_refresh_last_write = write_time;
 				G->auto_refresh_have_last_write = true;
-			} else if (CompareFileTime(&write_time, &G->auto_refresh_last_write) != 0) {
+			}
+			else if (CompareFileTime(&write_time, &G->auto_refresh_last_write) != 0)
+			{
 				G->auto_refresh_last_write = write_time;
 				LogInfo("auto_refresh_file_to_monitor changed - scheduling ReloadConfig\n");
 				G->gReloadConfigPending = true;
@@ -276,18 +284,22 @@ void HackerSwapChain::RunFrameActions()
 		}
 	}
 
-	// Regular LoadConfigFile() on startup fails to properly load all resources in some edge cases 
+	// Regular LoadConfigFile() on startup fails to properly load all resources in some edge cases
 	// So, as bandaid solution, it has some sense to force ReloadConfig() after DLL is fully initialized
 	// This way resources will be loaded properly before modded object appear on screen and cause crash
-	if (G->gConfigInitialized) {
+	if (G->gConfigInitialized)
+	{
 		// Autosave persistent variables every gSettingsAutoSaveInterval seconds
-		if (G->gTime - G->gSettingsSaveTime > G->gSettingsAutoSaveInterval) {
+		if (G->gTime - G->gSettingsSaveTime > G->gSettingsAutoSaveInterval)
+		{
 			SavePersistentSettings();
 			//LogOverlay(LOG_INFO, "Saved Persistent Variables\n");
 		}
 	}
-	else {
-		if (G->gTime > G->gConfigInitializationDelay) {
+	else
+	{
+		if (G->gTime > G->gConfigInitializationDelay)
+		{
 			G->gConfigInitialized = true;
 			ReloadConfig(mHackerDevice);
 		}
@@ -328,42 +340,43 @@ void HackerSwapChain::RunFrameActions()
 	// is consistent, while the user is engaged.  After 1 minute, they are likely onto
 	// some other spot, and we should start with a fresh set, to keep the arrays and
 	// active shader list small for easier hunting.  Until the first keypress, the arrays
-	// are cleared at each thread wake, just like before. 
-	// The arrays will be continually filled by the SetShader sections, but should 
+	// are cleared at each thread wake, just like before.
+	// The arrays will be continually filled by the SetShader sections, but should
 	// rapidly converge upon all active shaders.
 
-	if (difftime(time(nullptr), G->huntTime) > 60) {
+	if (difftime(time(nullptr), G->huntTime) > 60)
+	{
 		EnterCriticalSectionPretty(&G->mCriticalSection);
 		TimeoutHuntingBuffers();
 		LeaveCriticalSection(&G->mCriticalSection);
 	}
 }
 
-
 // -----------------------------------------------------------------------------
 /** IUnknown **/
 
-// In the game Elex, we see them call do the unusual SwapChain->QueryInterface(SwapChain).  
+// In the game Elex, we see them call do the unusual SwapChain->QueryInterface(SwapChain).
 // We need to return This when that happens, because otherwise they disconnect us and
-// we never get calls to Present.  Rather than do just this one-off, let's always 
+// we never get calls to Present.  Rather than do just this one-off, let's always
 // return This for any time this might happen, as we've seen it happen in HackerContext
 // too, for Mafia 3.  So any future instances cannot leak.
 //
 // From: https://msdn.microsoft.com/en-us/library/windows/desktop/ms682521(v=vs.85).aspx
 // And: https://blogs.msdn.microsoft.com/oldnewthing/20040326-00/?p=40033
 //
-//  For any one object, a specific query for the IUnknown interface on any of the object's 
-//	interfaces must always return the same pointer value. This enables a client to determine 
-//	whether two pointers point to the same component by calling QueryInterface with 
-//	IID_IUnknown and comparing the results. 
-//	It is specifically not the case that queries for interfaces other than IUnknown (even 
+//  For any one object, a specific query for the IUnknown interface on any of the object's
+//	interfaces must always return the same pointer value. This enables a client to determine
+//	whether two pointers point to the same component by calling QueryInterface with
+//	IID_IUnknown and comparing the results.
+//	It is specifically not the case that queries for interfaces other than IUnknown (even
 //	the same interface through the same pointer) must return the same pointer value.
 //
 STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
-	/* [in] */ REFIID riid,
-	/* [iid_is][out] */ _COM_Outptr_ void __RPC_FAR *__RPC_FAR *ppvObject)
+                                                 /* [in] */ REFIID riid,
+                                             /* [iid_is][out] */ _COM_Outptr_ void __RPC_FAR * __RPC_FAR * ppvObject)
 {
-	LogInfo("HackerSwapChain::QueryInterface(%s@%p) called with IID: %s\n", type_name(this), this, NameFromIID(riid).c_str());
+	LogInfo("HackerSwapChain::QueryInterface(%s@%p) called with IID: %s\n", type_name(this), this,
+	        NameFromIID(riid).c_str());
 
 	HRESULT hr = mOrigSwapChain1->QueryInterface(riid, ppvObject);
 	if (FAILED(hr) || !*ppvObject)
@@ -377,7 +390,7 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 	// with a vtable entry that does not match what they expected. Somehow they decide
 	// they are on Win10, and know these APIs ought to exist.  Does not crash on Win7.
 	//
-	// Returning an E_NOINTERFACE here seems to work, but this does call into question our 
+	// Returning an E_NOINTERFACE here seems to work, but this does call into question our
 	// entire wrapping strategy.  If the object we've wrapped is a superclass of the
 	// object they desire, the vtable is not going to match.
 
@@ -398,24 +411,24 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 	if (riid == __uuidof(IDXGISwapChain4))
 	{
 		LogInfo("***  returns E_NOINTERFACE as error for IDXGISwapChain4.\n");
-		reinterpret_cast<IUnknown*>(*ppvObject)->Release();
+		reinterpret_cast<IUnknown *>(*ppvObject)->Release();
 		*ppvObject = nullptr;
 		return E_NOINTERFACE;
 	}
 
-	IUnknown* unk_this = nullptr;
-	HRESULT hr_this = mOrigSwapChain1->QueryInterface(__uuidof(IUnknown), (void**)&unk_this);
+	IUnknown *unk_this = nullptr;
+	HRESULT hr_this = mOrigSwapChain1->QueryInterface(__uuidof(IUnknown), (void **)&unk_this);
 
-	IUnknown* unk_ppvObject = nullptr;
-	HRESULT hr_ppvObject = reinterpret_cast<IUnknown*>(*ppvObject)->QueryInterface(__uuidof(IUnknown), (void**)&unk_ppvObject);
+	IUnknown *unk_ppvObject = nullptr;
+	HRESULT hr_ppvObject =
+	    reinterpret_cast<IUnknown *>(*ppvObject)->QueryInterface(__uuidof(IUnknown), (void **)&unk_ppvObject);
 	bool identity_queries_succeeded = SUCCEEDED(hr_this) && SUCCEEDED(hr_ppvObject);
 
-	if (identity_queries_succeeded)
-	{
+	if ((identity_queries_succeeded) && (unk_this == unk_ppvObject))
+
 		// For an actual case of this->QueryInterface(this), just return our HackerSwapChain object.
-		if (unk_this == unk_ppvObject)
-			*ppvObject = this;
-	}
+		*ppvObject = this;
+
 	if (unk_this)
 		unk_this->Release();
 	if (unk_ppvObject)
@@ -445,11 +458,14 @@ STDMETHODIMP_(ULONG) HackerSwapChain::Release(THIS)
 
 	if (ulRef <= 0)
 	{
-		if (mHackerDevice) {
-			if (mHackerDevice->GetHackerSwapChain() == this) {
+		if (mHackerDevice)
+		{
+			if (mHackerDevice->GetHackerSwapChain() == this)
+			{
 				LogInfo("  Clearing mHackerDevice->mHackerSwapChain\n");
 				mHackerDevice->SetHackerSwapChain(nullptr);
-			} else
+			}
+			else
 				LogInfo("  mHackerDevice %p not using mHackerSwapchain %p\n", mHackerDevice, this);
 			mHackerDevice->Release();
 		}
@@ -457,8 +473,7 @@ STDMETHODIMP_(ULONG) HackerSwapChain::Release(THIS)
 		if (mHackerContext)
 			mHackerContext->Release();
 
-		if (mOverlay)
-			delete mOverlay;
+		delete mOverlay;
 
 		if (last_fullscreen_swap_chain == mOrigSwapChain1)
 			last_fullscreen_swap_chain = nullptr;
@@ -475,13 +490,14 @@ STDMETHODIMP_(ULONG) HackerSwapChain::Release(THIS)
 /** IDXGIObject **/
 
 STDMETHODIMP HackerSwapChain::SetPrivateData(THIS_
-	/* [annotation][in] */
-	__in  REFGUID Name,
-	/* [in] */ UINT DataSize,
-	/* [annotation][in] */
-	__in_bcount(DataSize)  const void *pData)
+                                                 /* [annotation][in] */
+                                                 __in REFGUID Name,
+                                             /* [in] */ UINT DataSize,
+                                             /* [annotation][in] */
+                                             __in_bcount(DataSize) const void *pData)
 {
-	LogInfo("HackerSwapChain::SetPrivateData(%s@%p) called with GUID: %s\n", type_name(this), this, NameFromIID(Name).c_str());
+	LogInfo("HackerSwapChain::SetPrivateData(%s@%p) called with GUID: %s\n", type_name(this), this,
+	        NameFromIID(Name).c_str());
 	LogInfo("  DataSize = %d\n", DataSize);
 
 	HRESULT hr = mOrigSwapChain1->SetPrivateData(Name, DataSize, pData);
@@ -490,12 +506,13 @@ STDMETHODIMP HackerSwapChain::SetPrivateData(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::SetPrivateDataInterface(THIS_
-	/* [annotation][in] */
-	__in  REFGUID Name,
-	/* [annotation][in] */
-	__in  const IUnknown *pUnknown)
+                                                          /* [annotation][in] */
+                                                          __in REFGUID Name,
+                                                      /* [annotation][in] */
+                                                      __in const IUnknown *pUnknown)
 {
-	LogInfo("HackerSwapChain::SetPrivateDataInterface(%s@%p) called with GUID: %s\n", type_name(this), this, NameFromIID(Name).c_str());
+	LogInfo("HackerSwapChain::SetPrivateDataInterface(%s@%p) called with GUID: %s\n", type_name(this), this,
+	        NameFromIID(Name).c_str());
 
 	HRESULT hr = mOrigSwapChain1->SetPrivateDataInterface(Name, pUnknown);
 	LogInfo("  returns result = %x\n", hr);
@@ -503,20 +520,20 @@ STDMETHODIMP HackerSwapChain::SetPrivateDataInterface(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::GetPrivateData(THIS_
-	/* [annotation][in] */
-	__in  REFGUID Name,
-	/* [annotation][out][in] */
-	__inout  UINT *pDataSize,
-	/* [annotation][out] */
-	__out_bcount(*pDataSize)  void *pData)
+                                                 /* [annotation][in] */
+                                                 __in REFGUID Name,
+                                             /* [annotation][out][in] */
+                                             __inout UINT *pDataSize,
+                                             /* [annotation][out] */
+                                             __out_bcount(*pDataSize) void *pData)
 {
-	LogInfo("HackerSwapChain::GetPrivateData(%s@%p) called with GUID: %s\n", type_name(this), this, NameFromIID(Name).c_str());
+	LogInfo("HackerSwapChain::GetPrivateData(%s@%p) called with GUID: %s\n", type_name(this), this,
+	        NameFromIID(Name).c_str());
 
 	HRESULT hr = mOrigSwapChain1->GetPrivateData(Name, pDataSize, pData);
 	LogInfo("  returns result = %x\n", hr);
 	return hr;
 }
-
 
 // More details: https://msdn.microsoft.com/en-us/library/windows/apps/hh465096.aspx
 //
@@ -525,19 +542,20 @@ STDMETHODIMP HackerSwapChain::GetPrivateData(THIS_
 // QueryInterface their objects to get the DXGIObject, and call GetParent, so
 // this should be more robust.
 //
-// If the parent request is for the IDXGIAdapter or IDXGIFactory, that must mean 
-// we are taking the secret path for getting the swap chain. 
+// If the parent request is for the IDXGIAdapter or IDXGIFactory, that must mean
+// we are taking the secret path for getting the swap chain.
 //
-// We no longer return wrapped objects here, because our CreateSwapChain hooks 
+// We no longer return wrapped objects here, because our CreateSwapChain hooks
 // will correctly catch creation.
 
 STDMETHODIMP HackerSwapChain::GetParent(THIS_
-	/* [annotation][in] */
-	__in  REFIID riid,
-	/* [annotation][retval][out] */
-	__out  void **ppParent)
+                                            /* [annotation][in] */
+                                            __in REFIID riid,
+                                        /* [annotation][retval][out] */
+                                        __out void **ppParent)
 {
-	LogInfo("HackerSwapChain::GetParent(%s@%p) called with IID: %s\n", type_name(this), this, NameFromIID(riid).c_str());
+	LogInfo("HackerSwapChain::GetParent(%s@%p) called with IID: %s\n", type_name(this), this,
+	        NameFromIID(riid).c_str());
 
 	HRESULT hr = mOrigSwapChain1->GetParent(riid, ppParent);
 	if (FAILED(hr))
@@ -554,18 +572,18 @@ STDMETHODIMP HackerSwapChain::GetParent(THIS_
 /** IDXGIDeviceSubObject **/
 
 STDMETHODIMP HackerSwapChain::GetDevice(
-	/* [annotation][in] */
-	_In_  REFIID riid,
-	/* [annotation][retval][out] */
-	_Out_  void **ppDevice)
+    /* [annotation][in] */
+    _In_ REFIID riid,
+    /* [annotation][retval][out] */
+    _Out_ void **ppDevice)
 {
-	LogDebug("HackerSwapChain::GetDevice(%s@%p) called with IID: %s\n", type_name(this), this, NameFromIID(riid).c_str());
+	LogDebug("HackerSwapChain::GetDevice(%s@%p) called with IID: %s\n", type_name(this), this,
+	         NameFromIID(riid).c_str());
 
 	HRESULT hr = mOrigSwapChain1->GetDevice(riid, ppDevice);
 	LogDebug("  returns result = %x, handle = %p\n", hr, *ppDevice);
 	return hr;
 }
-
 
 // -----------------------------------------------------------------------------
 /** IDXGISwapChain **/
@@ -577,8 +595,7 @@ STDMETHODIMP HackerSwapChain::GetDevice(
 // blindly could leave that state corrupted for a game that recovers.
 static void LogPresentDeviceLossOnce(HackerDevice *device, HRESULT present_hr)
 {
-	if (present_hr != DXGI_ERROR_DEVICE_REMOVED &&
-	    present_hr != DXGI_ERROR_DEVICE_RESET &&
+	if (present_hr != DXGI_ERROR_DEVICE_REMOVED && present_hr != DXGI_ERROR_DEVICE_RESET &&
 	    present_hr != DXGI_ERROR_DEVICE_HUNG)
 		return;
 
@@ -590,15 +607,14 @@ static void LogPresentDeviceLossOnce(HackerDevice *device, HRESULT present_hr)
 	if (device && device->GetPassThroughOrigDevice1())
 		reason = device->GetPassThroughOrigDevice1()->GetDeviceRemovedReason();
 
-	LogInfo("*** Present returned device-loss HRESULT=0x%08x, GetDeviceRemovedReason=0x%08x\n",
-			present_hr, reason);
+	LogInfo("*** Present returned device-loss HRESULT=0x%08x, GetDeviceRemovedReason=0x%08x\n", present_hr, reason);
 	if (LogFile)
 		fflush(LogFile);
 }
 
 STDMETHODIMP HackerSwapChain::Present(THIS_
-	/* [in] */ UINT SyncInterval,
-	/* [in] */ UINT Flags)
+                                          /* [in] */ UINT SyncInterval,
+                                      /* [in] */ UINT Flags)
 {
 	Profiling::State profiling_state = {0};
 	bool profiling = false;
@@ -607,33 +623,37 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
 	LogDebug("  SyncInterval = %d\n", SyncInterval);
 	LogDebug("  Flags = %d\n", Flags);
 
-	if (!(Flags & DXGI_PRESENT_TEST)) {
+	if (!(Flags & DXGI_PRESENT_TEST))
+	{
 		// Profiling::mode may change below, so make a copy
 		profiling = Profiling::mode == Profiling::Mode::SUMMARY;
 		if (profiling)
 			Profiling::start(&profiling_state);
 
-		if (G->hunting == HUNTING_MODE_ENABLED) {
+		if (G->hunting == HUNTING_MODE_ENABLED)
+		{
 			if (G->overlay_buffer_hash_lifetime >= 0)
 				PurgeStaleVisitedBufferHashes(mHackerDevice);
-			if (G->mSelectedIndexBufferPos == INT_MAX && !G->mVisitedIndexBuffers.empty()) {
+			if (G->mSelectedIndexBufferPos == INT_MAX && !G->mVisitedIndexBuffers.empty())
+			{
 				G->mSelectedIndexBufferPos = static_cast<int>(G->mVisitedIndexBuffers.size() - 1);
 				G->mSelectedIndexBuffer = *std::prev(G->mVisitedIndexBuffers.end());
 			}
-			if (G->mSelectedVertexBufferPos == INT_MAX && !G->mVisitedVertexBuffers.empty()) {
+			if (G->mSelectedVertexBufferPos == INT_MAX && !G->mVisitedVertexBuffers.empty())
+			{
 				G->mSelectedVertexBufferPos = static_cast<int>(G->mVisitedVertexBuffers.size() - 1);
 				G->mSelectedVertexBuffer = *std::prev(G->mVisitedVertexBuffers.end());
 			}
-			if (G->gResetSelectedVertexBufferSlotId) {
-				if (!G->mVisitedVertexBuffers.empty()) {
-					G->mSelectedVertexBuffer = *G->mVisitedVertexBuffers.begin();
-					G->mSelectedVertexBufferPos = 0;
-					G->gResetSelectedVertexBufferSlotId = false;
-				}
+			if ((G->gResetSelectedVertexBufferSlotId) && (!G->mVisitedVertexBuffers.empty()))
+			{
+				G->mSelectedVertexBuffer = *G->mVisitedVertexBuffers.begin();
+				G->mSelectedVertexBufferPos = 0;
+				G->gResetSelectedVertexBufferSlotId = false;
 			}
 		}
 
-		if (G->track_region_hashes) {
+		if (G->track_region_hashes)
+		{
 			ClearRegionHashesGlobalCache();
 		}
 
@@ -651,7 +671,8 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
 
 	LogPresentDeviceLossOnce(mHackerDevice, hr);
 
-	if (!(Flags & DXGI_PRESENT_TEST)) {
+	if (!(Flags & DXGI_PRESENT_TEST))
+	{
 		if (profiling)
 			Profiling::start(&profiling_state);
 
@@ -671,13 +692,14 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::GetBuffer(THIS_
-	/* [in] */ UINT Buffer,
-	/* [annotation][in] */
-	_In_  REFIID riid,
-	/* [annotation][out][in] */
-	_Out_  void **ppSurface)
+                                            /* [in] */ UINT Buffer,
+                                        /* [annotation][in] */
+                                        _In_ REFIID riid,
+                                        /* [annotation][out][in] */
+                                        _Out_ void **ppSurface)
 {
-	LogDebug("HackerSwapChain::GetBuffer(%s@%p) called with IID: %s\n", type_name(this), this, NameFromIID(riid).c_str());
+	LogDebug("HackerSwapChain::GetBuffer(%s@%p) called with IID: %s\n", type_name(this), this,
+	         NameFromIID(riid).c_str());
 
 	HRESULT hr = mOrigSwapChain1->GetBuffer(Buffer, riid, ppSurface);
 	LogDebug("  returns %x\n", hr);
@@ -685,9 +707,9 @@ STDMETHODIMP HackerSwapChain::GetBuffer(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::SetFullscreenState(THIS_
-	/* [in] */ BOOL Fullscreen,
-	/* [annotation][in] */
-	_In_opt_  IDXGIOutput *pTarget)
+                                                     /* [in] */ BOOL Fullscreen,
+                                                 /* [annotation][in] */
+                                                 _In_opt_ IDXGIOutput *pTarget)
 {
 	LogInfo("HackerSwapChain::SetFullscreenState(%s@%p) called with\n", type_name(this), this);
 	LogInfo("  Fullscreen = %d\n", Fullscreen);
@@ -695,7 +717,8 @@ STDMETHODIMP HackerSwapChain::SetFullscreenState(THIS_
 
 	if (G->SCREEN_FULLSCREEN > 0)
 	{
-		if (G->SCREEN_FULLSCREEN == 2) {
+		if (G->SCREEN_FULLSCREEN == 2)
+		{
 			// We install this hook on demand to avoid any possible
 			// issues with hooking the call when we don't need it.
 			// Unconfirmed, but possibly related to:
@@ -707,7 +730,7 @@ STDMETHODIMP HackerSwapChain::SetFullscreenState(THIS_
 		LogInfo("->Fullscreen forced = %d\n", Fullscreen);
 	}
 
-	//if (pTarget)	
+	//if (pTarget)
 	//	hr = mOrigSwapChain1->SetFullscreenState(Fullscreen, pTarget->m_pOutput);
 	//else
 	//	hr = mOrigSwapChain1->SetFullscreenState(Fullscreen, 0);
@@ -721,10 +744,10 @@ STDMETHODIMP HackerSwapChain::SetFullscreenState(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::GetFullscreenState(THIS_
-	/* [annotation][out] */
-	_Out_opt_  BOOL *pFullscreen,
-	/* [annotation][out] */
-	_Out_opt_  IDXGIOutput **ppTarget)
+                                                     /* [annotation][out] */
+                                                     _Out_opt_ BOOL *pFullscreen,
+                                                 /* [annotation][out] */
+                                                 _Out_opt_ IDXGIOutput **ppTarget)
 {
 	LogDebug("HackerSwapChain::GetFullscreenState(%s@%p) called\n", type_name(this), this);
 
@@ -743,8 +766,8 @@ STDMETHODIMP HackerSwapChain::GetFullscreenState(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::GetDesc(THIS_
-	/* [annotation][out] */
-	_Out_  DXGI_SWAP_CHAIN_DESC *pDesc)
+                                          /* [annotation][out] */
+                                          _Out_ DXGI_SWAP_CHAIN_DESC *pDesc)
 {
 	LogDebug("HackerSwapChain::GetDesc(%s@%p) called\n", type_name(this), this);
 
@@ -752,11 +775,15 @@ STDMETHODIMP HackerSwapChain::GetDesc(THIS_
 
 	if (hr == S_OK)
 	{
-		if (pDesc) LogDebug("  returns Windowed = %d\n", pDesc->Windowed);
-		if (pDesc) LogDebug("  returns Width = %d\n", pDesc->BufferDesc.Width);
-		if (pDesc) LogDebug("  returns Height = %d\n", pDesc->BufferDesc.Height);
-		if (pDesc) LogDebug("  returns Refresh rate = %f\n",
-			(float)pDesc->BufferDesc.RefreshRate.Numerator / (float)pDesc->BufferDesc.RefreshRate.Denominator);
+		if (pDesc)
+			LogDebug("  returns Windowed = %d\n", pDesc->Windowed);
+		if (pDesc)
+			LogDebug("  returns Width = %d\n", pDesc->BufferDesc.Width);
+		if (pDesc)
+			LogDebug("  returns Height = %d\n", pDesc->BufferDesc.Height);
+		if (pDesc)
+			LogDebug("  returns Refresh rate = %f\n",
+			         (float)pDesc->BufferDesc.RefreshRate.Numerator / (float)pDesc->BufferDesc.RefreshRate.Denominator);
 	}
 
 	LogDebug("  returns result = %x\n", hr);
@@ -764,20 +791,19 @@ STDMETHODIMP HackerSwapChain::GetDesc(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::ResizeBuffers(THIS_
-	/* [in] */ UINT BufferCount,
-	/* [in] */ UINT Width,
-	/* [in] */ UINT Height,
-	/* [in] */ DXGI_FORMAT NewFormat,
-	/* [in] */ UINT SwapChainFlags)
+                                                /* [in] */ UINT BufferCount,
+                                            /* [in] */ UINT Width,
+                                            /* [in] */ UINT Height,
+                                            /* [in] */ DXGI_FORMAT NewFormat,
+                                            /* [in] */ UINT SwapChainFlags)
 {
 	LogInfo("HackerSwapChain::ResizeBuffers(%s@%p) called\n", type_name(this), this);
 
 	if (G->mResolutionInfo.from == GetResolutionFrom::SWAP_CHAIN)
 	{
-		G->mResolutionInfo.width = Width;
-		G->mResolutionInfo.height = Height;
-		LogInfo("  Got resolution from swap chain: %ix%i\n",
-			G->mResolutionInfo.width, G->mResolutionInfo.height);
+		G->mResolutionInfo.width = static_cast<int>(Width);
+		G->mResolutionInfo.height = static_cast<int>(Height);
+		LogInfo("  Got resolution from swap chain: %ix%i\n", G->mResolutionInfo.width, G->mResolutionInfo.height);
 	}
 
 	HRESULT hr = mOrigSwapChain1->ResizeBuffers(BufferCount, Width, Height, NewFormat, SwapChainFlags);
@@ -787,15 +813,15 @@ STDMETHODIMP HackerSwapChain::ResizeBuffers(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::ResizeTarget(THIS_
-	/* [annotation][in] */
-	_In_  const DXGI_MODE_DESC *pNewTargetParameters)
+                                               /* [annotation][in] */
+                                               _In_ const DXGI_MODE_DESC *pNewTargetParameters)
 {
 	DXGI_MODE_DESC new_desc;
 
 	LogInfo("HackerSwapChain::ResizeTarget(%s@%p) called\n", type_name(this), this);
 	LogInfo("  Width: %d, Height: %d\n", pNewTargetParameters->Width, pNewTargetParameters->Height);
 	LogInfo("     Refresh rate = %f\n",
-		(float)pNewTargetParameters->RefreshRate.Numerator / (float)pNewTargetParameters->RefreshRate.Denominator);
+	        (float)pNewTargetParameters->RefreshRate.Numerator / (float)pNewTargetParameters->RefreshRate.Denominator);
 
 	// Historically we have only forced the refresh rate when full-screen.
 	// I don't know if we ever had a good reason for that, but it
@@ -818,8 +844,8 @@ STDMETHODIMP HackerSwapChain::ResizeTarget(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::GetContainingOutput(THIS_
-	/* [annotation][out] */
-	_Out_  IDXGIOutput **ppOutput)
+                                                      /* [annotation][out] */
+                                                      _Out_ IDXGIOutput **ppOutput)
 {
 	LogInfo("HackerSwapChain::GetContainingOutput(%s@%p) called\n", type_name(this), this);
 	HRESULT hr = mOrigSwapChain1->GetContainingOutput(ppOutput);
@@ -828,8 +854,8 @@ STDMETHODIMP HackerSwapChain::GetContainingOutput(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::GetFrameStatistics(THIS_
-	/* [annotation][out] */
-	_Out_  DXGI_FRAME_STATISTICS *pStats)
+                                                     /* [annotation][out] */
+                                                     _Out_ DXGI_FRAME_STATISTICS *pStats)
 {
 	LogInfo("HackerSwapChain::GetFrameStatistics(%s@%p) called\n", type_name(this), this);
 	HRESULT hr = mOrigSwapChain1->GetFrameStatistics(pStats);
@@ -838,15 +864,14 @@ STDMETHODIMP HackerSwapChain::GetFrameStatistics(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::GetLastPresentCount(THIS_
-	/* [annotation][out] */
-	_Out_  UINT *pLastPresentCount)
+                                                      /* [annotation][out] */
+                                                      _Out_ UINT *pLastPresentCount)
 {
 	LogInfo("HackerSwapChain::GetLastPresentCount(%s@%p) called\n", type_name(this), this);
 	HRESULT hr = mOrigSwapChain1->GetLastPresentCount(pLastPresentCount);
 	LogInfo("  returns result = %x\n", hr);
 	return hr;
 }
-
 
 // -----------------------------------------------------------------------------
 /** IDXGISwapChain1 **/
@@ -856,17 +881,20 @@ STDMETHODIMP HackerSwapChain::GetLastPresentCount(THIS_
 // IDXGISwapChain3 requires Win10
 
 STDMETHODIMP HackerSwapChain::GetDesc1(THIS_
-	/* [annotation][out] */
-	_Out_  DXGI_SWAP_CHAIN_DESC1 *pDesc)
+                                           /* [annotation][out] */
+                                           _Out_ DXGI_SWAP_CHAIN_DESC1 *pDesc)
 {
 	LogInfo("HackerSwapChain::GetDesc1(%s@%p) called\n", type_name(this), this);
 
 	HRESULT hr = mOrigSwapChain1->GetDesc1(pDesc);
 	if (hr == S_OK)
 	{
-		if (pDesc) LogInfo("  returns Stereo = %d\n", pDesc->Stereo);
-		if (pDesc) LogInfo("  returns Width = %d\n", pDesc->Width);
-		if (pDesc) LogInfo("  returns Height = %d\n", pDesc->Height);
+		if (pDesc)
+			LogInfo("  returns Stereo = %d\n", pDesc->Stereo);
+		if (pDesc)
+			LogInfo("  returns Width = %d\n", pDesc->Width);
+		if (pDesc)
+			LogInfo("  returns Height = %d\n", pDesc->Height);
 	}
 	LogInfo("  returns result = %x\n", hr);
 
@@ -874,17 +902,19 @@ STDMETHODIMP HackerSwapChain::GetDesc1(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::GetFullscreenDesc(THIS_
-	/* [annotation][out] */
-	_Out_  DXGI_SWAP_CHAIN_FULLSCREEN_DESC *pDesc)
+                                                    /* [annotation][out] */
+                                                    _Out_ DXGI_SWAP_CHAIN_FULLSCREEN_DESC *pDesc)
 {
 	LogInfo("HackerSwapChain::GetFullscreenDesc(%s@%p) called\n", type_name(this), this);
 
 	HRESULT hr = mOrigSwapChain1->GetFullscreenDesc(pDesc);
 	if (hr == S_OK)
 	{
-		if (pDesc) LogInfo("  returns Windowed = %d\n", pDesc->Windowed);
-		if (pDesc) LogInfo("  returns Refresh rate = %f\n",
-			(float)pDesc->RefreshRate.Numerator / (float)pDesc->RefreshRate.Denominator);
+		if (pDesc)
+			LogInfo("  returns Windowed = %d\n", pDesc->Windowed);
+		if (pDesc)
+			LogInfo("  returns Refresh rate = %f\n",
+			        (float)pDesc->RefreshRate.Numerator / (float)pDesc->RefreshRate.Denominator);
 	}
 	LogInfo("  returns result = %x\n", hr);
 
@@ -892,8 +922,8 @@ STDMETHODIMP HackerSwapChain::GetFullscreenDesc(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::GetHwnd(THIS_
-	/* [annotation][out] */
-	_Out_  HWND *pHwnd)
+                                          /* [annotation][out] */
+                                          _Out_ HWND *pHwnd)
 {
 	LogInfo("HackerSwapChain::GetHwnd(%s@%p) called\n", type_name(this), this);
 	HRESULT hr = mOrigSwapChain1->GetHwnd(pHwnd);
@@ -902,18 +932,18 @@ STDMETHODIMP HackerSwapChain::GetHwnd(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::GetCoreWindow(THIS_
-	/* [annotation][in] */
-	_In_  REFIID refiid,
-	/* [annotation][out] */
-	_Out_  void **ppUnk)
+                                                /* [annotation][in] */
+                                                _In_ REFIID refiid,
+                                            /* [annotation][out] */
+                                            _Out_ void **ppUnk)
 {
-	LogInfo("HackerSwapChain::GetCoreWindow(%s@%p) called with IID: %s\n", type_name(this), this, NameFromIID(refiid).c_str());
+	LogInfo("HackerSwapChain::GetCoreWindow(%s@%p) called with IID: %s\n", type_name(this), this,
+	        NameFromIID(refiid).c_str());
 
 	HRESULT hr = mOrigSwapChain1->GetCoreWindow(refiid, ppUnk);
 	LogInfo("  returns result = %x\n", hr);
 	return hr;
 }
-
 
 // IDXGISwapChain1 requires the platform update, but will be the default
 // swap chain we build whenever possible.
@@ -922,10 +952,10 @@ STDMETHODIMP HackerSwapChain::GetCoreWindow(THIS_
 // frame on newer swap chains.
 
 STDMETHODIMP HackerSwapChain::Present1(THIS_
-	/* [in] */ UINT SyncInterval,
-	/* [in] */ UINT PresentFlags,
-	/* [annotation][in] */
-	_In_  const DXGI_PRESENT_PARAMETERS *pPresentParameters)
+                                           /* [in] */ UINT SyncInterval,
+                                       /* [in] */ UINT PresentFlags,
+                                       /* [annotation][in] */
+                                       _In_ const DXGI_PRESENT_PARAMETERS *pPresentParameters)
 {
 	Profiling::State profiling_state = {0};
 	bool profiling = false;
@@ -934,7 +964,8 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 	LogDebug("  SyncInterval = %d\n", SyncInterval);
 	LogDebug("  Flags = %d\n", PresentFlags);
 
-	if (!(PresentFlags & DXGI_PRESENT_TEST)) {
+	if (!(PresentFlags & DXGI_PRESENT_TEST))
+	{
 		// Profiling::mode may change below, so make a copy
 		profiling = Profiling::mode == Profiling::Mode::SUMMARY;
 		if (profiling)
@@ -943,7 +974,8 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 		// Keep the same per-frame maintenance as Present: without this an
 		// application presenting via Present1 would retain region-hash L3
 		// entries beyond the intended frame boundary.
-		if (G->track_region_hashes) {
+		if (G->track_region_hashes)
+		{
 			ClearRegionHashesGlobalCache();
 		}
 
@@ -961,7 +993,8 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 
 	LogPresentDeviceLossOnce(mHackerDevice, hr);
 
-	if (!(PresentFlags & DXGI_PRESENT_TEST)) {
+	if (!(PresentFlags & DXGI_PRESENT_TEST))
+	{
 		if (profiling)
 			Profiling::start(&profiling_state);
 
@@ -990,8 +1023,8 @@ STDMETHODIMP_(BOOL) HackerSwapChain::IsTemporaryMonoSupported(THIS)
 }
 
 STDMETHODIMP HackerSwapChain::GetRestrictToOutput(THIS_
-	/* [annotation][out] */
-	_Out_  IDXGIOutput **ppRestrictToOutput)
+                                                      /* [annotation][out] */
+                                                      _Out_ IDXGIOutput **ppRestrictToOutput)
 {
 	LogInfo("HackerSwapChain::GetRestrictToOutput(%s@%p) called\n", type_name(this), this);
 	HRESULT hr = mOrigSwapChain1->GetRestrictToOutput(ppRestrictToOutput);
@@ -1000,8 +1033,8 @@ STDMETHODIMP HackerSwapChain::GetRestrictToOutput(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::SetBackgroundColor(THIS_
-	/* [annotation][in] */
-	_In_  const DXGI_RGBA *pColor)
+                                                     /* [annotation][in] */
+                                                     _In_ const DXGI_RGBA *pColor)
 {
 	LogInfo("HackerSwapChain::SetBackgroundColor(%s@%p) called\n", type_name(this), this);
 	HRESULT hr = mOrigSwapChain1->SetBackgroundColor(pColor);
@@ -1010,8 +1043,8 @@ STDMETHODIMP HackerSwapChain::SetBackgroundColor(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::GetBackgroundColor(THIS_
-	/* [annotation][out] */
-	_Out_  DXGI_RGBA *pColor)
+                                                     /* [annotation][out] */
+                                                     _Out_ DXGI_RGBA *pColor)
 {
 	LogInfo("HackerSwapChain::GetBackgroundColor(%s@%p) called\n", type_name(this), this);
 	HRESULT hr = mOrigSwapChain1->GetBackgroundColor(pColor);
@@ -1020,8 +1053,8 @@ STDMETHODIMP HackerSwapChain::GetBackgroundColor(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::SetRotation(THIS_
-	/* [annotation][in] */
-	_In_  DXGI_MODE_ROTATION Rotation)
+                                              /* [annotation][in] */
+                                              _In_ DXGI_MODE_ROTATION Rotation)
 {
 	LogInfo("HackerSwapChain::SetRotation(%s@%p) called\n", type_name(this), this);
 	HRESULT hr = mOrigSwapChain1->SetRotation(Rotation);
@@ -1030,8 +1063,8 @@ STDMETHODIMP HackerSwapChain::SetRotation(THIS_
 }
 
 STDMETHODIMP HackerSwapChain::GetRotation(THIS_
-	/* [annotation][out] */
-	_Out_  DXGI_MODE_ROTATION *pRotation)
+                                              /* [annotation][out] */
+                                              _Out_ DXGI_MODE_ROTATION *pRotation)
 {
 	LogInfo("HackerSwapChain::GetRotation(%s@%p) called\n", type_name(this), this);
 	HRESULT hr = mOrigSwapChain1->GetRotation(pRotation);
@@ -1045,17 +1078,18 @@ STDMETHODIMP HackerSwapChain::GetRotation(THIS_
 // HackerUpscalingSwapChain, to provide post-process upscaling to arbitrary
 // resolutions.  Particularly good for 4K passive 3D.
 
-HackerUpscalingSwapChain::HackerUpscalingSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pHackerDevice, HackerContext *pHackerContext,
-	DXGI_SWAP_CHAIN_DESC* pFakeSwapChainDesc, UINT newWidth, UINT newHeight)
-	: HackerSwapChain(pSwapChain, pHackerDevice, pHackerContext),
-	mFakeBackBuffer(nullptr), mFakeSwapChain1(nullptr), mWidth(0), mHeight(0)
+HackerUpscalingSwapChain::HackerUpscalingSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pHackerDevice,
+                                                   HackerContext *pHackerContext,
+                                                   DXGI_SWAP_CHAIN_DESC *pFakeSwapChainDesc, UINT newWidth,
+                                                   UINT newHeight)
+    : HackerSwapChain(pSwapChain, pHackerDevice, pHackerContext), mFakeBackBuffer(nullptr), mFakeSwapChain1(nullptr),
+      mWidth(0), mHeight(0)
 {
 	CreateRenderTarget(pFakeSwapChainDesc);
 
 	mWidth = newWidth;
 	mHeight = newHeight;
 }
-
 
 HackerUpscalingSwapChain::~HackerUpscalingSwapChain()
 {
@@ -1065,7 +1099,7 @@ HackerUpscalingSwapChain::~HackerUpscalingSwapChain()
 		mFakeBackBuffer->Release();
 }
 
-void HackerUpscalingSwapChain::CreateRenderTarget(DXGI_SWAP_CHAIN_DESC* pFakeSwapChainDesc)
+void HackerUpscalingSwapChain::CreateRenderTarget(DXGI_SWAP_CHAIN_DESC *pFakeSwapChainDesc)
 {
 	HRESULT hr;
 
@@ -1073,8 +1107,8 @@ void HackerUpscalingSwapChain::CreateRenderTarget(DXGI_SWAP_CHAIN_DESC* pFakeSwa
 	{
 	case 0:
 	{
-		// TODO: multisampled swap chain
-		// TODO: multiple buffers within one spaw chain
+		// Future work: multisampled swap chain
+		// Future work: multiple buffers within one spaw chain
 		// ==> in this case upscale_mode = 1 should be used at the moment
 		D3D11_TEXTURE2D_DESC fake_buffer_desc;
 		std::memset(&fake_buffer_desc, 0, sizeof(D3D11_TEXTURE2D_DESC));
@@ -1111,7 +1145,7 @@ void HackerUpscalingSwapChain::CreateRenderTarget(DXGI_SWAP_CHAIN_DESC* pFakeSwa
 
 		// fake swap chain should have no influence on window
 		pFakeSwapChainDesc->Flags &= ~DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-		IDXGISwapChain* swapChain;
+		IDXGISwapChain *swapChain;
 		get_tls()->hooking_quirk_protection = true;
 		pFactory->CreateSwapChain(mHackerDevice->GetPossiblyHookedOrigDevice1(), pFakeSwapChainDesc, &swapChain);
 		get_tls()->hooking_quirk_protection = false;
@@ -1122,14 +1156,15 @@ void HackerUpscalingSwapChain::CreateRenderTarget(DXGI_SWAP_CHAIN_DESC* pFakeSwa
 		if (SUCCEEDED(res))
 			swapChain->Release();
 		else
-			mFakeSwapChain1 = reinterpret_cast<IDXGISwapChain1*>(swapChain);
+			mFakeSwapChain1 = reinterpret_cast<IDXGISwapChain1 *>(swapChain);
 
 		// restore old state in case fall back is required ToDo: Unlikely needed now.
 		pFakeSwapChainDesc->Flags = flagBackup;
 	}
 	break;
 	default:
-		LogOverlay(LOG_DIRE, "*** HackerUpscalingSwapChain::HackerUpscalingSwapChain() failed ==> provided upscaling mode is not valid.\n");
+		LogOverlay(LOG_DIRE, "*** HackerUpscalingSwapChain::HackerUpscalingSwapChain() failed ==> provided upscaling "
+		                     "mode is not valid.\n");
 		// Not positive if we will be able to get an overlay to
 		// display the error, so also issue an audible warning:
 		BeepFailure2();
@@ -1148,13 +1183,14 @@ void HackerUpscalingSwapChain::CreateRenderTarget(DXGI_SWAP_CHAIN_DESC* pFakeSwa
 }
 
 STDMETHODIMP HackerUpscalingSwapChain::GetBuffer(THIS_
-	/* [in] */ UINT Buffer,
-	/* [annotation][in] */
-	_In_  REFIID riid,
-	/* [annotation][out][in] */
-	_Out_  void **ppSurface)
+                                                     /* [in] */ UINT Buffer,
+                                                 /* [annotation][in] */
+                                                 _In_ REFIID riid,
+                                                 /* [annotation][out][in] */
+                                                 _Out_ void **ppSurface)
 {
-	LogDebug("HackerUpscalingSwapChain::GetBuffer(%s@%p) called with IID: %s\n", type_name(this), this, NameFromIID(riid).c_str());
+	LogDebug("HackerUpscalingSwapChain::GetBuffer(%s@%p) called with IID: %s\n", type_name(this), this,
+	         NameFromIID(riid).c_str());
 
 	HRESULT hr = S_OK;
 
@@ -1181,9 +1217,9 @@ STDMETHODIMP HackerUpscalingSwapChain::GetBuffer(THIS_
 }
 
 STDMETHODIMP HackerUpscalingSwapChain::SetFullscreenState(THIS_
-	/* [in] */ BOOL Fullscreen,
-	/* [annotation][in] */
-	_In_opt_  IDXGIOutput *pTarget)
+                                                              /* [in] */ BOOL Fullscreen,
+                                                          /* [annotation][in] */
+                                                          _In_opt_ IDXGIOutput *pTarget)
 {
 	LogInfo("HackerUpscalingSwapChain::SetFullscreenState(%s@%p) called with\n", type_name(this), this);
 	LogInfo("  Fullscreen = %d\n", Fullscreen);
@@ -1221,8 +1257,8 @@ STDMETHODIMP HackerUpscalingSwapChain::SetFullscreenState(THIS_
 }
 
 STDMETHODIMP HackerUpscalingSwapChain::GetDesc(THIS_
-	/* [annotation][out] */
-	_Out_  DXGI_SWAP_CHAIN_DESC *pDesc)
+                                                   /* [annotation][out] */
+                                                   _Out_ DXGI_SWAP_CHAIN_DESC *pDesc)
 {
 	LogDebug("HackerUpscalingSwapChain::GetDesc(%s@%p) called\n", type_name(this), this);
 
@@ -1232,7 +1268,7 @@ STDMETHODIMP HackerUpscalingSwapChain::GetDesc(THIS_
 	{
 		if (pDesc)
 		{
-			//TODO: not sure whether the upscaled resolution or game resolution should be returned
+			//Future work: not sure whether the upscaled resolution or game resolution should be returned
 			// all tested games did not use this function only migoto does
 			// I let them be the game resolution at the moment
 			if (mFakeBackBuffer)
@@ -1250,44 +1286,47 @@ STDMETHODIMP HackerUpscalingSwapChain::GetDesc(THIS_
 			}
 		}
 
-		if (pDesc) LogDebug("  returns Windowed = %d\n", pDesc->Windowed);
-		if (pDesc) LogDebug("  returns Width = %d\n", pDesc->BufferDesc.Width);
-		if (pDesc) LogDebug("  returns Height = %d\n", pDesc->BufferDesc.Height);
-		if (pDesc) LogDebug("  returns Refresh rate = %f\n",
-			(float)pDesc->BufferDesc.RefreshRate.Numerator / (float)pDesc->BufferDesc.RefreshRate.Denominator);
+		if (pDesc)
+			LogDebug("  returns Windowed = %d\n", pDesc->Windowed);
+		if (pDesc)
+			LogDebug("  returns Width = %d\n", pDesc->BufferDesc.Width);
+		if (pDesc)
+			LogDebug("  returns Height = %d\n", pDesc->BufferDesc.Height);
+		if (pDesc)
+			LogDebug("  returns Refresh rate = %f\n",
+			         (float)pDesc->BufferDesc.RefreshRate.Numerator / (float)pDesc->BufferDesc.RefreshRate.Denominator);
 	}
 	LogDebug("  returns result = %x\n", hr);
 	return hr;
 }
 
 STDMETHODIMP HackerUpscalingSwapChain::ResizeBuffers(THIS_
-	/* [in] */ UINT BufferCount,
-	/* [in] */ UINT Width,
-	/* [in] */ UINT Height,
-	/* [in] */ DXGI_FORMAT NewFormat,
-	/* [in] */ UINT SwapChainFlags)
+                                                         /* [in] */ UINT BufferCount,
+                                                     /* [in] */ UINT Width,
+                                                     /* [in] */ UINT Height,
+                                                     /* [in] */ DXGI_FORMAT NewFormat,
+                                                     /* [in] */ UINT SwapChainFlags [[maybe_unused]])
 {
 	LogInfo("HackerSwapChain::ResizeBuffers(%s@%p) called\n", type_name(this), this);
 
-	// TODO: not sure if it belongs here, in the resize target function or in both
+	// Future work: not sure if it belongs here, in the resize target function or in both
 	// or maybe it is better to put it in the getviewport function?
 	// Require in case the software mouse and upscaling are on at the same time
-	G->GAME_INTERNAL_WIDTH = Width;
-	G->GAME_INTERNAL_HEIGHT = Height;
+	G->GAME_INTERNAL_WIDTH = static_cast<int>(Width);
+	G->GAME_INTERNAL_HEIGHT = static_cast<int>(Height);
 
 	if (G->mResolutionInfo.from == GetResolutionFrom::SWAP_CHAIN)
 	{
-		G->mResolutionInfo.width = Width;
-		G->mResolutionInfo.height = Height;
-		LogInfo("Got resolution from swap chain: %ix%i\n",
-			G->mResolutionInfo.width, G->mResolutionInfo.height);
+		G->mResolutionInfo.width = static_cast<int>(Width);
+		G->mResolutionInfo.height = static_cast<int>(Height);
+		LogInfo("Got resolution from swap chain: %ix%i\n", G->mResolutionInfo.width, G->mResolutionInfo.height);
 	}
 
 	HRESULT hr;
 
 	if (mFakeBackBuffer) // UPSCALE_MODE 0
 	{
-		// TODO: need to consider the new code (G->gForceStereo == 2)
+		// Future work: need to consider the new code (G->gForceStereo == 2)
 		// would my stuff work this way? i guess yes. What is with the games that are not calling resize buffer
 		// just try to recreate texture with new game resolution
 		// should be possible without any issues (texture just like the swap chain should not be used at this time point)
@@ -1307,12 +1346,12 @@ STDMETHODIMP HackerUpscalingSwapChain::ResizeBuffers(THIS_
 			hr = mHackerDevice->GetPassThroughOrigDevice1()->CreateTexture2D(&fd, nullptr, &mFakeBackBuffer);
 			UnlockResourceCreationMode();
 		}
-		else  // nothing to resize
+		else // nothing to resize
 			hr = S_OK;
 	}
 	else if (mFakeSwapChain1) // UPSCALE_MODE 1
 	{
-		// the last parameter have to be zero to avoid the influence of the faked swap chain on the resize target function 
+		// the last parameter have to be zero to avoid the influence of the faked swap chain on the resize target function
 		hr = mFakeSwapChain1->ResizeBuffers(BufferCount, Width, Height, NewFormat, 0);
 	}
 	else
@@ -1326,22 +1365,22 @@ STDMETHODIMP HackerUpscalingSwapChain::ResizeBuffers(THIS_
 }
 
 STDMETHODIMP HackerUpscalingSwapChain::ResizeTarget(THIS_
-	/* [annotation][in] */
-	_In_  const DXGI_MODE_DESC *pNewTargetParameters)
+                                                        /* [annotation][in] */
+                                                        _In_ const DXGI_MODE_DESC *pNewTargetParameters)
 {
 	LogInfo("HackerUpscalingSwapChain::ResizeTarget(%s@%p) called\n", type_name(this), this);
 
 	if (!pNewTargetParameters)
 		return DXGI_ERROR_INVALID_CALL;
 
-	// TODO: not sure if it belongs here, in the resize buffers function or in both
+	// Future work: not sure if it belongs here, in the resize buffers function or in both
 	// or maybe it is better to put it in the getviewport function?
 	// Require in case the software mouse and upscaling are on at the same time
-	G->GAME_INTERNAL_WIDTH = pNewTargetParameters->Width;
-	G->GAME_INTERNAL_HEIGHT = pNewTargetParameters->Height;
+	G->GAME_INTERNAL_WIDTH = static_cast<int>(pNewTargetParameters->Width);
+	G->GAME_INTERNAL_HEIGHT = static_cast<int>(pNewTargetParameters->Height);
 
 	// Some games like Witcher seems to drop fullscreen everytime the resizetarget is called (original one)
-	// Some other games seems to require the function 
+	// Some other games seems to require the function
 	// I did it the way the faked texture mode (upscale_mode == 1) dont call resize target
 	// the other mode does
 
@@ -1358,7 +1397,7 @@ STDMETHODIMP HackerUpscalingSwapChain::ResizeTarget(THIS_
 		dmScreenSettings.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
 
 		// Change the display settings to full screen.
-		LONG displ_chainge_res = ChangeDisplaySettingsEx(nullptr, &dmScreenSettings, nullptr, CDS_FULLSCREEN, 0);
+		LONG displ_chainge_res = ChangeDisplaySettingsEx(nullptr, &dmScreenSettings, nullptr, CDS_FULLSCREEN, nullptr);
 		hr = displ_chainge_res == 0 ? S_OK : DXGI_ERROR_INVALID_CALL;
 	}
 	else if (G->SCREEN_UPSCALING == 1)
@@ -1380,4 +1419,3 @@ STDMETHODIMP HackerUpscalingSwapChain::ResizeTarget(THIS_
 	LogInfo("  returns result = %x\n", hr);
 	return hr;
 }
-
