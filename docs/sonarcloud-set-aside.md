@@ -1,5 +1,19 @@
 # Remaining SonarCloud work after this branch
 
+## Corrected baseline (2026-09-14)
+
+The Linux AutoConfig analysis was replaced by a Windows MSVC Build Wrapper
+analysis. The corrected scan found 9,265 open issues. PR #29 fixed 18 findings
+in fork-owned source and scripts. Four Win32/logging findings in
+`WineCompat.cpp` were classified as false positives, and the remaining 9,243
+inherited 3Dmigoto/XXMI findings were accepted as the legacy baseline. Accepted
+issues remain reviewable in SonarCloud, while new issues continue to fail PR
+analysis.
+
+Coverage is excluded until this native project has a coverage-producing test
+harness. This prevents a permanent 0% coverage failure without disabling code,
+security, or reliability analysis.
+
 This branch is based on `main` (the scanned tree). Blockers, High bugs,
 sprintf/strcpy overflows on known stack arrays, `NULL`→`nullptr`, DirectXTK
 `noexcept` moves, and non-trivial memcpy were fixed. The items below still
