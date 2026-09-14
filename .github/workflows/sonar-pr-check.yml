@@ -84,7 +84,7 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_CACHE_ARGUMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.full_analysis && '-Dsonar.analysisCache.enabled=false' || '' }}
+          SONAR_CACHE_ARGUMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.full_analysis && '-Dsonar.analysisCache.enabled=false -Dsonar.cfamily.analysisCache.mode=fs -Dsonar.cfamily.analysisCache.path=.quality/sonar-reconciliation-cache -Dsonar.cfamily.symbolicExecution.useIncrementalMode=false' || '' }}
         with:
           args: >
             -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
