@@ -7,7 +7,7 @@
 #include "internal_includes/debug.h"
 #include "log.h"
 
-#define FOURCC(a, b, c, d) ((uint32_t)(uint8_t)(a) | ((uint32_t)(uint8_t)(b) << 8) | ((uint32_t)(uint8_t)(c) << 16) | ((uint32_t)(uint8_t)(d) << 24 ))
+#define FOURCC(a, b, c, d) ((uint32_t)(uint8_t)(a) | ((uint32_t)(uint8_t)(b) << 8u) | ((uint32_t)(uint8_t)(c) << 16u) | ((uint32_t)(uint8_t)(d) << 24u))
 enum {FOURCC_DXBC = FOURCC('D', 'X', 'B', 'C')}; //DirectX byte code
 enum {FOURCC_SHDR = FOURCC('S', 'H', 'D', 'R')}; //Shader model 4 code
 enum {FOURCC_SHEX = FOURCC('S', 'H', 'E', 'X')}; //Shader model 5 code
@@ -137,16 +137,14 @@ void DecodeNameToken(const uint32_t* pui32NameToken, Operand* psOperand)
             break;
         }
     }
-
-    return;
 }
 
 // Find the declaration of the texture described by psTextureOperand and
 // mark it as a shadow type. (e.g. accessed via sampler2DShadow rather than sampler2D)
 void MarkTextureAsShadow(ShaderInfo* psShaderInfo, std::vector<Declaration> &psDeclList, const Operand* psTextureOperand)
 {
-    ResourceBinding* psBinding = 0;
-	int found;
+	ResourceBinding *psBinding = nullptr;
+	int found = 0;
 
 	ASSERT(psTextureOperand->eType == OPERAND_TYPE_RESOURCE);
 
@@ -156,14 +154,13 @@ void MarkTextureAsShadow(ShaderInfo* psShaderInfo, std::vector<Declaration> &psD
 	{
 		for (std::vector<Declaration>::iterator psDecl = psDeclList.begin(); psDecl != psDeclList.end(); ++psDecl)
 		{
-			if(psDecl->eOpcode == OPCODE_DCL_RESOURCE)
+			if ((psDecl->eOpcode == OPCODE_DCL_RESOURCE) &&
+			    (psDecl->asOperands[0].eType == OPERAND_TYPE_RESOURCE &&
+			     psDecl->asOperands[0].ui32RegisterNumber == psTextureOperand->ui32RegisterNumber))
+
 			{
-				if(psDecl->asOperands[0].eType == OPERAND_TYPE_RESOURCE &&
-					psDecl->asOperands[0].ui32RegisterNumber == psTextureOperand->ui32RegisterNumber)
-				{
-					psDecl->ui32IsShadowTex = 1;
-					break;
-				}
+				psDecl->ui32IsShadowTex = 1;
+				break;
 			}
 		}
 	}
@@ -191,9 +188,9 @@ uint32_t DecodeOperand (const uint32_t *pui32Tokens, Operand* psOperand)
 
 
     psOperand->eModifier = OPERAND_MODIFIER_NONE;
-    psOperand->psSubOperand[0] = 0;
-    psOperand->psSubOperand[1] = 0;
-    psOperand->psSubOperand[2] = 0;
+	psOperand->psSubOperand[0] = nullptr;
+	psOperand->psSubOperand[1] = nullptr;
+	psOperand->psSubOperand[2] = nullptr;
 
 	/* Check if this instruction is extended.  If it is,
 	 * we need to print the information first */
@@ -607,10 +604,10 @@ const uint32_t* DecodeDeclaration(Shader* psShader, const uint32_t* pui32Token, 
 		{
 			ui32TokenLength = pui32Token[1];
 			{
-				int iTupleSrc = 0, iTupleDest = 0;
+				int iTupleSrc [[maybe_unused]] = 0, iTupleDest [[maybe_unused]] = 0;
 				//const uint32_t ui32ConstCount = pui32Token[1] - 2;
 				//const uint32_t ui32TupleCount = (ui32ConstCount / 4);
-				CUSTOMDATA_CLASS eClass = DecodeCustomDataClass(pui32Token[0]);
+				CUSTOMDATA_CLASS eClass [[maybe_unused]] = DecodeCustomDataClass(pui32Token[0]);
 
 				const uint32_t ui32NumVec4 = (ui32TokenLength - 2) / 4;
 				uint32_t uIdx = 0;
@@ -650,8 +647,8 @@ const uint32_t* DecodeDeclaration(Shader* psShader, const uint32_t* pui32Token, 
         }
         case OPCODE_DCL_UNORDERED_ACCESS_VIEW_RAW:
         {
-            ResourceBinding* psBinding = nullptr;
-            ConstantBuffer* psBuffer = nullptr;
+            ResourceBinding* psBinding [[maybe_unused]] = nullptr;
+            ConstantBuffer* psBuffer [[maybe_unused]] = nullptr;
 
             psDecl->ui32NumOperands = 1;
             psDecl->sUAV.ui32GloballyCoherentAccess = DecodeAccessCoherencyFlags(*pui32Token);
@@ -713,8 +710,8 @@ const uint32_t* DecodeDeclaration(Shader* psShader, const uint32_t* pui32Token, 
         }
         case OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_STRUCTURED:
         {
-            ResourceBinding* psBinding = nullptr;
-            ConstantBuffer* psBuffer = nullptr;
+            ResourceBinding* psBinding [[maybe_unused]] = nullptr;
+            ConstantBuffer* psBuffer [[maybe_unused]] = nullptr;
 
             psDecl->ui32NumOperands = 1;
             psDecl->sUAV.ui32GloballyCoherentAccess = 0;
@@ -727,8 +724,8 @@ const uint32_t* DecodeDeclaration(Shader* psShader, const uint32_t* pui32Token, 
         }
         case OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_RAW:
         {
-            ResourceBinding* psBinding = nullptr;
-            ConstantBuffer* psBuffer = nullptr;
+            ResourceBinding* psBinding [[maybe_unused]] = nullptr;
+            ConstantBuffer* psBuffer [[maybe_unused]] = nullptr;
 
             psDecl->ui32NumOperands = 1;
             psDecl->sUAV.ui32GloballyCoherentAccess = 0;
@@ -754,8 +751,8 @@ const uint32_t* DecodeDeclaration(Shader* psShader, const uint32_t* pui32Token, 
         default:
         {
             //Reached end of declarations
-            return 0;
-        }
+		    return nullptr;
+	    }
     }
 
     return pui32Token + ui32TokenLength;
@@ -1267,7 +1264,7 @@ const void AllocateHullPhaseArrays(const uint32_t* pui32Tokens,
     while(1) //Keep going until we reach the first non-declaration token, or the end of the shader.
     {
 		uint32_t ui32TokenLength = DecodeInstructionLength(*pui32CurrentToken);
-		const uint32_t bExtended = DecodeIsOpcodeExtended(*pui32CurrentToken);
+		const uint32_t bExtended [[maybe_unused]] = DecodeIsOpcodeExtended(*pui32CurrentToken);
 		const OPCODE_TYPE eOpcode = DecodeOpcodeType(*pui32CurrentToken);
 
 		if(eOpcode == OPCODE_CUSTOMDATA)
@@ -1383,7 +1380,7 @@ Shader* DecodeDXBC(uint32_t* data)
 	uint32_t chunkCount;
 	uint32_t* chunkOffsets;
     ReflectionChunks refChunks;
-    uint32_t* shaderChunk = 0;
+	uint32_t *shaderChunk = nullptr;
 
 	if(header->fourcc != FOURCC_DXBC)
 	{
@@ -1395,7 +1392,7 @@ Shader* DecodeDXBC(uint32_t* data)
         {
             return DecodeDX9BC(data);
         }
-		return 0;
+		return nullptr;
 	}
 
     refChunks.pui32Inputs = nullptr;
@@ -1492,6 +1489,6 @@ Shader* DecodeDXBC(uint32_t* data)
         return psShader;
     }
 
-    return 0;
+	return nullptr;
 }
 

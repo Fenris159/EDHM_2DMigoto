@@ -30,7 +30,7 @@ static void ReadInputSignatures(const uint32_t* pui32Tokens,
     InOutSignature* psSignatures;
     const uint32_t* pui32FirstSignatureToken = pui32Tokens;
     const uint32_t ui32ElementCount = *pui32Tokens++;
-    const uint32_t ui32Key = *pui32Tokens++;
+    const uint32_t ui32Key [[maybe_unused]] = *pui32Tokens++;
 
     psSignatures = new InOutSignature[ui32ElementCount];
     psShaderInfo->psInputSignatures = psSignatures;
@@ -76,7 +76,7 @@ static void ReadOutputSignatures(const uint32_t* pui32Tokens,
     InOutSignature* psSignatures;
     const uint32_t* pui32FirstSignatureToken = pui32Tokens;
     const uint32_t ui32ElementCount = *pui32Tokens++;
-    const uint32_t ui32Key = *pui32Tokens++;
+    const uint32_t ui32Key [[maybe_unused]] = *pui32Tokens++;
 
     psSignatures = new InOutSignature[ui32ElementCount];
     psShaderInfo->psOutputSignatures = psSignatures;
@@ -122,7 +122,7 @@ static void ReadPatchConstantSignatures(const uint32_t* pui32Tokens,
     InOutSignature* psSignatures;
     const uint32_t* pui32FirstSignatureToken = pui32Tokens;
     const uint32_t ui32ElementCount = *pui32Tokens++;
-    const uint32_t ui32Key = *pui32Tokens++;
+    const uint32_t ui32Key [[maybe_unused]] = *pui32Tokens++;
 
     psSignatures = new InOutSignature[ui32ElementCount];
     psShaderInfo->psPatchConstantSignatures = psSignatures;
@@ -199,7 +199,7 @@ static void ReadShaderVariableType(const uint32_t ui32MajorVersion,
     varType->Elements = pui16Tokens[4];
 
     varType->MemberCount = ui32MemberCount = pui16Tokens[5];
-	varType->Members = 0;
+	varType->Members = nullptr;
 
 	if(varType->ParentCount)
 	{
@@ -271,7 +271,7 @@ static const uint32_t* ReadConstantBuffer(ShaderInfo* psShaderInfo,
 
 		psVar->sType.Name = psVar->Name;
 		psVar->sType.FullName = psVar->Name;
-		psVar->sType.Parent = 0;
+		psVar->sType.Parent = nullptr;
 		psVar->sType.ParentCount = 0;
 		psVar->sType.Offset = 0;
 
@@ -283,10 +283,10 @@ static const uint32_t* ReadConstantBuffer(ShaderInfo* psShaderInfo,
 
 		if (psShaderInfo->ui32MajorVersion  >= 5)
 		{
-			uint32_t StartTexture = *pui32VarToken++;
-			uint32_t TextureSize = *pui32VarToken++;
-			uint32_t StartSampler = *pui32VarToken++;
-			uint32_t SamplerSize = *pui32VarToken++;
+			uint32_t StartTexture [[maybe_unused]] = *pui32VarToken++;
+			uint32_t TextureSize [[maybe_unused]] = *pui32VarToken++;
+			uint32_t StartSampler [[maybe_unused]] = *pui32VarToken++;
+			uint32_t SamplerSize [[maybe_unused]] = *pui32VarToken++;
 		}
 
 		psVar->haveDefaultValue = false;
@@ -340,8 +340,8 @@ static void ReadResources(const uint32_t* pui32Tokens,//in
 
     uint32_t ui32NumResourceBindings = *pui32Tokens++;
     uint32_t ui32ResourceBindingOffset = *pui32Tokens++;
-    uint32_t ui32ShaderModel = *pui32Tokens++;
-    uint32_t ui32CompileFlags = *pui32Tokens++;//D3DCompile flags? http://msdn.microsoft.com/en-us/library/gg615083(v=vs.85).aspx
+    uint32_t ui32ShaderModel [[maybe_unused]] = *pui32Tokens++;
+    uint32_t ui32CompileFlags [[maybe_unused]] = *pui32Tokens++;//D3DCompile flags? http://msdn.microsoft.com/en-us/library/gg615083(v=vs.85).aspx
 
     //Resources
     pui32ResourceBindings = (const uint32_t*)((const char*)pui32FirstToken + ui32ResourceBindingOffset);
@@ -437,7 +437,7 @@ static void ReadInterfaces(const uint32_t* pui32Tokens,
     const uint32_t ui32ClassInstanceCount = *pui32Tokens++;
     const uint32_t ui32ClassTypeCount = *pui32Tokens++;
     const uint32_t ui32InterfaceSlotRecordCount = *pui32Tokens++;
-    const uint32_t ui32InterfaceSlotCount = *pui32Tokens++;
+    const uint32_t ui32InterfaceSlotCount [[maybe_unused]] = *pui32Tokens++;
     const uint32_t ui32ClassInstanceOffset = *pui32Tokens++;
     const uint32_t ui32ClassTypeOffset = *pui32Tokens++;
     const uint32_t ui32InterfaceSlotOffset = *pui32Tokens++;
@@ -514,15 +514,15 @@ int GetResourceFromBindingPoint(const ResourceGroup eGroup, uint32_t const ui32B
 
     for(i=0; i<ui32NumBindings; ++i)
     {
-        if(ResourceTypeToResourceGroup(psBindings[i].eType) == eGroup)
-        {
-			if(ui32BindPoint >= psBindings[i].ui32BindPoint && ui32BindPoint < (psBindings[i].ui32BindPoint + psBindings[i].ui32BindCount))
-			{
-				*ppsOutBinding = psBindings + i;
-				return 1;
-			}
-        }
-    }
+		if ((ResourceTypeToResourceGroup(psBindings[i].eType) == eGroup) &&
+		    (ui32BindPoint >= psBindings[i].ui32BindPoint &&
+		     ui32BindPoint < (psBindings[i].ui32BindPoint + psBindings[i].ui32BindCount)))
+
+		{
+			*ppsOutBinding = psBindings + i;
+			return 1;
+		}
+	}
     return 0;
 }
 
@@ -851,15 +851,22 @@ void LoadShaderInfo(const uint32_t ui32MajorVersion,
 
 void FreeShaderInfo(ShaderInfo* psShaderInfo)
 {
-    delete[] psShaderInfo->psInputSignatures; psShaderInfo->psInputSignatures = 0;
-    delete[] psShaderInfo->psResourceBindings; psShaderInfo->psResourceBindings = 0;
-    delete[] psShaderInfo->psConstantBuffers; psShaderInfo->psConstantBuffers = 0;
-    delete[] psShaderInfo->psClassTypes; psShaderInfo->psClassTypes = 0;
-    delete[] psShaderInfo->psClassInstances; psShaderInfo->psClassInstances = 0;
-    delete[] psShaderInfo->psOutputSignatures; psShaderInfo->psOutputSignatures = 0;
-    delete[] psShaderInfo->psPatchConstantSignatures; psShaderInfo->psPatchConstantSignatures = 0;
+    delete[] psShaderInfo->psInputSignatures;
+	psShaderInfo->psInputSignatures = nullptr;
+	delete[] psShaderInfo->psResourceBindings;
+	psShaderInfo->psResourceBindings = nullptr;
+	delete[] psShaderInfo->psConstantBuffers;
+	psShaderInfo->psConstantBuffers = nullptr;
+	delete[] psShaderInfo->psClassTypes;
+	psShaderInfo->psClassTypes = nullptr;
+	delete[] psShaderInfo->psClassInstances;
+	psShaderInfo->psClassInstances = nullptr;
+	delete[] psShaderInfo->psOutputSignatures;
+	psShaderInfo->psOutputSignatures = nullptr;
+	delete[] psShaderInfo->psPatchConstantSignatures;
+	psShaderInfo->psPatchConstantSignatures = nullptr;
 
-    psShaderInfo->ui32NumInputSignatures = 0;
+	psShaderInfo->ui32NumInputSignatures = 0;
     psShaderInfo->ui32NumResourceBindings = 0;
     psShaderInfo->ui32NumConstantBuffers = 0;
     psShaderInfo->ui32NumClassTypes = 0;
@@ -1006,10 +1013,10 @@ void LoadD3D9ConstantTable(const char* data,
 			var.sType.Columns = typeInfo->columns;
 			var.sType.Elements = typeInfo->elements;
 			var.sType.MemberCount = typeInfo->structMembers;
-			var.sType.Members = 0;
+			var.sType.Members = nullptr;
 			var.sType.Offset = 0;
 			var.sType.FullName = var.Name;
-			var.sType.Parent = 0;
+			var.sType.Parent = nullptr;
 			var.sType.ParentCount = 0;
 
 			switch(typeInfo->typeClass)

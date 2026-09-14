@@ -136,7 +136,8 @@ void set_file_last_write_time(wchar_t *path, FILETIME *ftWrite, DWORD flags)
 {
 	HANDLE f;
 
-	f = CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | flags, nullptr);
+	f = CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | flags,
+	               nullptr);
 	if (f == INVALID_HANDLE_VALUE)
 		return;
 
@@ -549,7 +550,7 @@ IDXGISwapChain *last_fullscreen_swap_chain;
 static CRITICAL_SECTION crash_handler_lock;
 static int crash_handler_level;
 
-static DWORD WINAPI crash_handler_switch_to_window(_In_ LPVOID lpParameter)
+static DWORD WINAPI crash_handler_switch_to_window(_In_ LPVOID lpParameter [[maybe_unused]])
 {
 	// Debugging is a pain in exclusive full screen, especially without a
 	// second monitor attached (and even with one if you don't know about
@@ -600,7 +601,7 @@ static bool is_ignorable_exception_code(DWORD code)
 static LONG WINAPI migoto_exception_filter(_In_ struct _EXCEPTION_POINTERS *ExceptionInfo)
 {
 	wchar_t path[MAX_PATH];
-	tm timestruct;
+	tm timestruct{};
 	time_t ltime;
 	LONG ret = EXCEPTION_EXECUTE_HANDLER;
 
@@ -673,8 +674,7 @@ static LONG WINAPI migoto_exception_filter(_In_ struct _EXCEPTION_POINTERS *Exce
 	// the rest stop here:
 	EnterCriticalSectionPretty(&crash_handler_lock);
 
-	auto fp = CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ,
-			0, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+	auto fp = CreateFile(path, GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (fp != INVALID_HANDLE_VALUE) {
 		LogInfo("Writing minidump to %S...\n", path);
 

@@ -33,7 +33,7 @@ LPVOID lpvtbl_QueryInterface(IDXGIFactory* pFactory)
 	if (!pFactory)
 		return NULL;
 
-	return pFactory->lpVtbl->QueryInterface;
+	return (LPVOID)(UINT_PTR)pFactory->lpVtbl->QueryInterface;
 }
 
 LPVOID lpvtbl_CreateSwapChain(IDXGIFactory* pFactory)
@@ -41,7 +41,7 @@ LPVOID lpvtbl_CreateSwapChain(IDXGIFactory* pFactory)
 	if (!pFactory)
 		return NULL;
 
-	return pFactory->lpVtbl->CreateSwapChain;
+	return (LPVOID)(UINT_PTR)pFactory->lpVtbl->CreateSwapChain;
 }
 
 LPVOID lpvtbl_CreateSwapChainForHwnd(IDXGIFactory2* pFactory2)
@@ -49,7 +49,7 @@ LPVOID lpvtbl_CreateSwapChainForHwnd(IDXGIFactory2* pFactory2)
 	if (!pFactory2)
 		return NULL;
 
-	return pFactory2->lpVtbl->CreateSwapChainForHwnd;
+	return (LPVOID)(UINT_PTR)pFactory2->lpVtbl->CreateSwapChainForHwnd;
 }
 
 LPVOID lpvtbl_CreateSwapChainForComposition(IDXGIFactory2* pFactory2)
@@ -57,7 +57,7 @@ LPVOID lpvtbl_CreateSwapChainForComposition(IDXGIFactory2* pFactory2)
 	if (!pFactory2)
 		return NULL;
 
-	return pFactory2->lpVtbl->CreateSwapChainForComposition;
+	return (LPVOID)(UINT_PTR)pFactory2->lpVtbl->CreateSwapChainForComposition;
 }
 
 LPVOID lpvtbl_CreateSwapChainForCoreWindow(IDXGIFactory2* pFactory2)
@@ -65,7 +65,7 @@ LPVOID lpvtbl_CreateSwapChainForCoreWindow(IDXGIFactory2* pFactory2)
 	if (!pFactory2)
 		return NULL;
 
-	return pFactory2->lpVtbl->CreateSwapChainForCoreWindow;
+	return (LPVOID)(UINT_PTR)pFactory2->lpVtbl->CreateSwapChainForCoreWindow;
 }
 
 LPVOID lpvtbl_Present(IDXGISwapChain* pSwapChain)
@@ -73,7 +73,7 @@ LPVOID lpvtbl_Present(IDXGISwapChain* pSwapChain)
 	if (!pSwapChain)
 		return NULL;
 
-	return pSwapChain->lpVtbl->Present;
+	return (LPVOID)(UINT_PTR)pSwapChain->lpVtbl->Present;
 }
 
 LPVOID lpvtbl_Present1(IDXGISwapChain1* pSwapChain1)
@@ -81,7 +81,7 @@ LPVOID lpvtbl_Present1(IDXGISwapChain1* pSwapChain1)
 	if (!pSwapChain1)
 		return NULL;
 
-	return pSwapChain1->lpVtbl->Present1;
+	return (LPVOID)(UINT_PTR)pSwapChain1->lpVtbl->Present1;
 }
 
 

@@ -97,8 +97,8 @@ enum DataType
 struct BufferEntry
 {
 	DataType bt;
-	int matrixRow;
-	bool isRowMajor;
+	int matrixRow{};
+	bool isRowMajor{};
 	string Name;
 };
 // Key is register << 16 + offset
@@ -109,10 +109,10 @@ typedef map<string, string> StringStringMap;
 struct ConstantValue
 {
 	string name;
-	float x;
-	float y;
-	float z;
-	float w;
+	float x{};
+	float y{};
+	float z{};
+	float w{};
 };
 //dx9
 
@@ -166,7 +166,7 @@ public:
 	map<string, DataType> mOutputRegisterType;
 	string mShaderType;
 	string mSV_Position;
-	bool mUsesProjection;
+	bool mUsesProjection{};
 	Instruction *mLastStatement;
 	string mMulOperand, mMulOperand2, mMulTarget;
 	StringStringMap mCorrectedIndexRegisters;
@@ -174,23 +174,19 @@ public:
 	vector<pair<string, string> > mRemappedInputRegisters;
 	set<string> mBooleanRegisters;
 
-	DecompilerSettings *G;
+	DecompilerSettings *G{};
 
 	vector<char> mOutput;
-	size_t mCodeStartPos;		// Used as index into buffer, name misleadingly suggests pointer usage.
-	bool mErrorOccurred;
-	bool mPatched;
+	size_t mCodeStartPos{}; // Used as index into buffer, name misleadingly suggests pointer usage.
+	bool mErrorOccurred{};
+	bool mPatched{};
 	int uuidVar;
 
 	// Auto-indent of generated code
 	const char* indent = "  ";
 	int nestCount;
 
-	Decompiler()
-		: mLastStatement(0),
-		uuidVar(0),
-		nestCount(0)
-	{}
+	Decompiler() : mLastStatement(nullptr), uuidVar(0), nestCount(0) {}
 
 	void logDecompileError(const string &err)
 	{
@@ -261,7 +257,7 @@ public:
 	// Just take the current input line, and copy it to the output.
 	// This is used when we aren't sure what to do with something, and gives us the lines
 	// in the output as ASM for reference. Specifically modifying the input pos.
-	void ASMLineOut(const char *c, size_t &pos, size_t max)
+	void ASMLineOut(const char *c, size_t &pos, size_t max [[maybe_unused]])
 	{
 		char buffer[256];
 
@@ -362,15 +358,15 @@ public:
 
 	string GetInterpolation(Shader *shader, string vRegister)
 	{
-		string interpolation = "";
+		string interpolation;
 
-		for each(Declaration declaration in shader->asPhase[MAIN_PHASE].ppsDecl[0])
+		for (const auto &declaration : shader->asPhase[MAIN_PHASE].ppsDecl[0])
 		{
 			if (declaration.eOpcode == OPCODE_DCL_INPUT_PS)
 			{
 				int regOut = stoi(vRegister.substr(1));
 				uint32_t binReg = declaration.asOperands[0].ui32RegisterNumber;
-				if (regOut == binReg)
+				if (regOut >= 0 && static_cast<uint32_t>(regOut) == binReg)
 				{
 					switch (declaration.value.eInterpolation)
 					{
@@ -680,7 +676,7 @@ public:
 			else if (numRead == 3)
 			{
 				char sysValue[64];
-				int numRead = sscanf_s(c + pos, "// %s %d %s %s %s %s",
+				int numRead [[maybe_unused]] = sscanf_s(c + pos, "// %s %d %s %s %s %s",
 					name, UCOUNTOF(name), &index, mask, UCOUNTOF(mask), sysValue, UCOUNTOF(sysValue), format2, UCOUNTOF(format2), format, UCOUNTOF(format));
 				// Write.
 				char buffer[256];
@@ -1121,7 +1117,7 @@ public:
 		return 0;
 	}
 
-	void ParseBufferDefinitions(Shader *shader, const char *c, size_t size)
+	void ParseBufferDefinitions(Shader *shader [[maybe_unused]], const char *c, size_t size)
 	{
 		mUsesProjection = false;
 		mCBufferData.clear();
@@ -1646,7 +1642,7 @@ public:
 		return false;
 	}
 
-	void ParseStructureDefinitions(Shader *shader, const char *c, size_t size)
+	void ParseStructureDefinitions(Shader *shader [[maybe_unused]], const char *c, size_t size)
 	{
 		// Pulls out struct type declaration for structured buffers.
 		// These will be referenced later when parsing the resource
@@ -1672,7 +1668,7 @@ public:
 		int n;
 		string hlsl;
 
-		while (pos = find_next_header("// Resource bind info for ", c, pos, size)) {
+	while ((pos = find_next_header("// Resource bind info for ", c, pos, size)) != 0) {
 			n = sscanf_s(c + pos, "// Resource bind info for %s", bind_name, UCOUNTOF(bind_name));
 			if (n != 1) {
 				logDecompileError("Error parsing structure bind name: " + string(c + pos, 80));
@@ -2271,10 +2267,10 @@ public:
 			strcpy_s(right, opcodeSize, right2);		// All input params are 128 char arrays, like op1, op2, op3
 	}
 
-
-	char statement[128],
-		op1[opcodeSize], op2[opcodeSize], op3[opcodeSize], op4[opcodeSize], op5[opcodeSize], op6[opcodeSize], op7[opcodeSize], op8[opcodeSize],
-		op9[opcodeSize], op10[opcodeSize], op11[opcodeSize], op12[opcodeSize], op13[opcodeSize], op14[opcodeSize], op15[opcodeSize];
+	char statement[128]{}, op1[opcodeSize]{}, op2[opcodeSize]{}, op3[opcodeSize]{}, op4[opcodeSize]{},
+	    op5[opcodeSize]{}, op6[opcodeSize]{}, op7[opcodeSize]{}, op8[opcodeSize]{}, op9[opcodeSize]{},
+	    op10[opcodeSize]{}, op11[opcodeSize]{}, op12[opcodeSize]{}, op13[opcodeSize]{}, op14[opcodeSize]{},
+	    op15[opcodeSize]{};
 	int ReadStatement(const char *pos)
 	{
 		// Kill newline.
@@ -2908,7 +2904,7 @@ public:
 					// This is a deferred rendering vertex shader.
 					isMono = true;
 					// Add view direction out parameter.
-					char *lastPos = 0;
+					char *lastPos = nullptr;
 					char *pos = mOutput.data();
 					while (pos)
 					{
@@ -3019,7 +3015,7 @@ public:
 					for (unsigned int j = 0; j < G->ZRepair_Dependencies1.size(); ++j)
 						if (i->second.Name == G->ZRepair_Dependencies1[j])
 							found |= 1 << j;
-				if (!G->ZRepair_Dependencies1.size() || found == (1 << G->ZRepair_Dependencies1.size()) - 1)
+				if (G->ZRepair_Dependencies1.empty() || found == (1 << G->ZRepair_Dependencies1.size()) - 1)
 				{
 					mOutput.push_back(0);
 					// Search depth texture usage.
@@ -3096,7 +3092,7 @@ public:
 						for (unsigned int j = 0; j < G->ZRepair_Dependencies2.size(); ++j)
 							if (i->second.Name == G->ZRepair_Dependencies2[j])
 								found |= 1 << j;
-					if (!G->ZRepair_Dependencies2.size() || found == (1 << G->ZRepair_Dependencies2.size()) - 1)
+					if (G->ZRepair_Dependencies2.empty() || found == (1 << G->ZRepair_Dependencies2.size()) - 1)
 					{
 						mOutput.push_back(0);
 						// Search depth texture usage.
@@ -3236,7 +3232,7 @@ public:
 				wposAvailable = true;
 			}
 
-			if (wposAvailable && G->InvTransforms.size())
+			if (wposAvailable && !G->InvTransforms.empty())
 			{
 				CBufferData::iterator keyFind;
 				for (keyFind = mCBufferData.begin(); keyFind != mCBufferData.end(); ++keyFind)
@@ -3651,7 +3647,7 @@ public:
 
 		if (var->ParentCount) {
 			ret = shadervar_name(var->Parent, offset);
-			if (ret.size())
+			if (!ret.empty())
 				ret += ".";
 		}
 
@@ -3811,7 +3807,7 @@ public:
 				// The swizzle is a bit more complicated than the mask here,
 				// because it represents extra 32bit offsets in the structure,
 				// which is one whole index in the "val" array in our fake type.
-				char *swiz_offset = "";
+				const char *swiz_offset = "";
 				switch (swiz_offsets[component]) {
 					case  0: break;
 					case  4: swiz_offset = "+1"; break;
@@ -3960,11 +3956,11 @@ public:
 	string GetComponentStrFromInstruction(Instruction * instr, int opIndex)
 	{
 		assert(instr != nullptr);
-		char * componentX = "x";
-		char * componentY = "y";
-		char * componentZ = "z";
-		char * componentW = "w";
-		char * component[] = { componentX, componentY, componentZ, componentW };
+		const char *componentX = "x";
+		const char *componentY = "y";
+		const char *componentZ = "z";
+		const char *componentW = "w";
+		const char *component[] = { componentX, componentY, componentZ, componentW };
 
 
 		char buff[opcodeSize];
@@ -6688,7 +6684,7 @@ public:
 			WritePatches();
 	}
 
-	void ParseCodeOnlyShaderType(Shader *shader, const char *c, size_t size)
+	void ParseCodeOnlyShaderType(Shader *shader [[maybe_unused]], const char *c, size_t size)
 	{
 		mOutputRegisterValues.clear();
 		mBooleanRegisters.clear();
@@ -6846,7 +6842,7 @@ const string DecompileBinaryHLSL(ParseParameters &params, bool &patched, std::st
 	catch (...)
 	{
 		// Fatal error, but catch it and mark it as bad.
-		LogInfo("   ******* Exception caught while decompiling shader ******\n");
+		LogInfo("   ******* Exception caught while decompiling shader ******n");
 
 		errorOccurred = true;
 		return string();

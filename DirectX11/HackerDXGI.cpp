@@ -125,7 +125,6 @@ void InstallSetWindowPosHook()
 	}
 
 	LogInfo("Successfully hooked SetWindowPos for full_screen=2\n");
-	return;
 }
 
 // -----------------------------------------------------------------------------
@@ -410,12 +409,11 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 	HRESULT hr_ppvObject = reinterpret_cast<IUnknown*>(*ppvObject)->QueryInterface(__uuidof(IUnknown), (void**)&unk_ppvObject);
 	bool identity_queries_succeeded = SUCCEEDED(hr_this) && SUCCEEDED(hr_ppvObject);
 
-	if (identity_queries_succeeded)
-	{
+	if ((identity_queries_succeeded) && (unk_this == unk_ppvObject))
+
 		// For an actual case of this->QueryInterface(this), just return our HackerSwapChain object.
-		if (unk_this == unk_ppvObject)
-			*ppvObject = this;
-	}
+		*ppvObject = this;
+
 	if (unk_this)
 		unk_this->Release();
 	if (unk_ppvObject)
@@ -457,8 +455,7 @@ STDMETHODIMP_(ULONG) HackerSwapChain::Release(THIS)
 		if (mHackerContext)
 			mHackerContext->Release();
 
-		if (mOverlay)
-			delete mOverlay;
+		    delete mOverlay;
 
 		if (last_fullscreen_swap_chain == mOrigSwapChain1)
 			last_fullscreen_swap_chain = nullptr;
@@ -624,12 +621,11 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
 				G->mSelectedVertexBufferPos = static_cast<int>(G->mVisitedVertexBuffers.size() - 1);
 				G->mSelectedVertexBuffer = *std::prev(G->mVisitedVertexBuffers.end());
 			}
-			if (G->gResetSelectedVertexBufferSlotId) {
-				if (!G->mVisitedVertexBuffers.empty()) {
-					G->mSelectedVertexBuffer = *G->mVisitedVertexBuffers.begin();
-					G->mSelectedVertexBufferPos = 0;
-					G->gResetSelectedVertexBufferSlotId = false;
-				}
+			if ((G->gResetSelectedVertexBufferSlotId) && (!G->mVisitedVertexBuffers.empty()))
+			{
+				G->mSelectedVertexBuffer = *G->mVisitedVertexBuffers.begin();
+				G->mSelectedVertexBufferPos = 0;
+				G->gResetSelectedVertexBufferSlotId = false;
 			}
 		}
 
@@ -1265,7 +1261,7 @@ STDMETHODIMP HackerUpscalingSwapChain::ResizeBuffers(THIS_
 	/* [in] */ UINT Width,
 	/* [in] */ UINT Height,
 	/* [in] */ DXGI_FORMAT NewFormat,
-	/* [in] */ UINT SwapChainFlags)
+	/* [in] */ UINT SwapChainFlags [[maybe_unused]])
 {
 	LogInfo("HackerSwapChain::ResizeBuffers(%s@%p) called\n", type_name(this), this);
 
@@ -1358,7 +1354,7 @@ STDMETHODIMP HackerUpscalingSwapChain::ResizeTarget(THIS_
 		dmScreenSettings.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
 
 		// Change the display settings to full screen.
-		LONG displ_chainge_res = ChangeDisplaySettingsEx(nullptr, &dmScreenSettings, nullptr, CDS_FULLSCREEN, 0);
+		LONG displ_chainge_res = ChangeDisplaySettingsEx(nullptr, &dmScreenSettings, nullptr, CDS_FULLSCREEN, nullptr);
 		hr = displ_chainge_res == 0 ? S_OK : DXGI_ERROR_INVALID_CALL;
 	}
 	else if (G->SCREEN_UPSCALING == 1)

@@ -2,7 +2,7 @@
 static const uint32_t D3D9SHADER_TYPE_VERTEX = 0xFFFE0000;
 static const uint32_t D3D9SHADER_TYPE_PIXEL = 0xFFFF0000;
 
-static SHADER_TYPE DecodeShaderTypeDX9(const uint32_t ui32Token)
+[[maybe_unused]] static SHADER_TYPE DecodeShaderTypeDX9(const uint32_t ui32Token)
 {
     uint32_t ui32Type = ui32Token & 0xFFFF0000;
     if(ui32Type == D3D9SHADER_TYPE_VERTEX)
@@ -14,12 +14,12 @@ static SHADER_TYPE DecodeShaderTypeDX9(const uint32_t ui32Token)
     return INVALID_SHADER;
 }
 
-static uint32_t DecodeProgramMajorVersionDX9(const uint32_t ui32Token)
+[[maybe_unused]] static uint32_t DecodeProgramMajorVersionDX9(const uint32_t ui32Token)
 {
     return ((ui32Token)>>8)&0xFF;
 }
 
-static uint32_t DecodeProgramMinorVersionDX9(const uint32_t ui32Token)
+[[maybe_unused]] static uint32_t DecodeProgramMinorVersionDX9(const uint32_t ui32Token)
 {
     return ui32Token & 0xFF;
 }
@@ -117,22 +117,22 @@ typedef enum
     OPCODE_DX9_FORCE_DWORD  = 0x7fffffff,   // force 32-bit size enum
 } OPCODE_TYPE_DX9;
 
-static OPCODE_TYPE_DX9 DecodeOpcodeTypeDX9(const uint32_t ui32Token)
+[[maybe_unused]] static OPCODE_TYPE_DX9 DecodeOpcodeTypeDX9(const uint32_t ui32Token)
 {
     return (OPCODE_TYPE_DX9)(ui32Token & 0x0000FFFF);
 }
 
-static uint32_t DecodeInstructionLengthDX9(const uint32_t ui32Token)
+[[maybe_unused]] static uint32_t DecodeInstructionLengthDX9(const uint32_t ui32Token)
 {
     return (ui32Token & 0x0F000000)>>24;
 }
 
-static uint32_t DecodeCommentLengthDX9(const uint32_t ui32Token)
+[[maybe_unused]] static uint32_t DecodeCommentLengthDX9(const uint32_t ui32Token)
 {
     return (ui32Token & 0x7FFF0000)>>16;
 }
 
-static uint32_t DecodeOperandRegisterNumberDX9(const uint32_t ui32Token)
+[[maybe_unused]] static uint32_t DecodeOperandRegisterNumberDX9(const uint32_t ui32Token)
 {
     return ui32Token & 0x000007FF;
 }
@@ -164,13 +164,13 @@ typedef enum
     OPERAND_TYPE_DX9_FORCE_DWORD  = 0x7fffffff,         // force 32-bit size enum
 } OPERAND_TYPE_DX9;
 
-static OPERAND_TYPE_DX9 DecodeOperandTypeDX9(const uint32_t ui32Token)
+[[maybe_unused]] static OPERAND_TYPE_DX9 DecodeOperandTypeDX9(const uint32_t ui32Token)
 {
     return (OPERAND_TYPE_DX9)(((ui32Token & 0x70000000) >> 28) |
             ((ui32Token & 0x00001800) >> 8));
 }
 
-static uint32_t CreateOperandTokenDX9(const uint32_t ui32RegNum, const OPERAND_TYPE_DX9 eType)
+[[maybe_unused]] static uint32_t CreateOperandTokenDX9(const uint32_t ui32RegNum, const OPERAND_TYPE_DX9 eType)
 {
     uint32_t ui32Token = ui32RegNum;
     ui32Token |= (eType <<28) & 0x70000000;
@@ -195,17 +195,17 @@ typedef enum {
   DECLUSAGE_SAMPLE        = 13
 } DECLUSAGE_DX9;
 
-static DECLUSAGE_DX9 DecodeUsageDX9(const uint32_t ui32Token)
+[[maybe_unused]] static DECLUSAGE_DX9 DecodeUsageDX9(const uint32_t ui32Token)
 {
     return (DECLUSAGE_DX9) (ui32Token & 0x0000000f);
 }
 
-static uint32_t DecodeUsageIndexDX9(const uint32_t ui32Token)
+[[maybe_unused]] static uint32_t DecodeUsageIndexDX9(const uint32_t ui32Token)
 {
     return (ui32Token & 0x000f0000)>>16;
 }
 
-static uint32_t DecodeOperandIsRelativeAddressModeDX9(const uint32_t ui32Token)
+[[maybe_unused]] static uint32_t DecodeOperandIsRelativeAddressModeDX9(const uint32_t ui32Token)
 {
     return ui32Token & (1<<13);
 }
@@ -215,7 +215,7 @@ static const uint32_t DX9_SWIZZLE_SHIFT = 16;
 
 #define REPLICATE_SWIZZLE_DX9(CHANNEL) ((CHANNEL<<DX9_SWIZZLE_SHIFT)|(CHANNEL<<(DX9_SWIZZLE_SHIFT+2))|(CHANNEL<<(DX9_SWIZZLE_SHIFT+4))|(CHANNEL<<(DX9_SWIZZLE_SHIFT+6)))
 
-static uint32_t DecodeOperandSwizzleDX9(const uint32_t ui32Token)
+[[maybe_unused]] static uint32_t DecodeOperandSwizzleDX9(const uint32_t ui32Token)
 {
     return ui32Token & 0x00FF0000;
 }
@@ -226,12 +226,12 @@ static const uint32_t DX9_WRITEMASK_2 = 0x00040000;  // Component 2 (Z;Blue)
 static const uint32_t DX9_WRITEMASK_3 = 0x00080000;  // Component 3 (W;Alpha)
 static const uint32_t DX9_WRITEMASK_ALL = 0x000F0000;  // All Components
 
-static uint32_t DecodeDestWriteMaskDX9(const uint32_t ui32Token)
+[[maybe_unused]] static uint32_t DecodeDestWriteMaskDX9(const uint32_t ui32Token)
 {
     return ui32Token & DX9_WRITEMASK_ALL;
 }
 
-static RESOURCE_DIMENSION DecodeTextureTypeMaskDX9(const uint32_t ui32Token)
+[[maybe_unused]] static RESOURCE_DIMENSION DecodeTextureTypeMaskDX9(const uint32_t ui32Token)
 {
 
     switch(ui32Token & 0x78000000)
@@ -253,7 +253,7 @@ static const uint32_t DESTMOD_DX9_NONE	= 0;
 static const uint32_t DESTMOD_DX9_SATURATE	= (1 << 20);
 static const uint32_t DESTMOD_DX9_PARTIALPRECISION	= (2 << 20);
 static const uint32_t DESTMOD_DX9_MSAMPCENTROID = (4 << 20);
-static uint32_t DecodeDestModifierDX9(const uint32_t ui32Token)
+[[maybe_unused]] static uint32_t DecodeDestModifierDX9(const uint32_t ui32Token)
 {
     return ui32Token & 0xf00000;
 }
@@ -276,7 +276,7 @@ typedef enum
 	SRCMOD_DX9_NOT = 13 << 24,
 	SRCMOD_DX9_FORCE_DWORD = 0xffffffff
 } SRCMOD_DX9;
-static uint32_t DecodeSrcModifierDX9(const uint32_t ui32Token)
+[[maybe_unused]] static uint32_t DecodeSrcModifierDX9(const uint32_t ui32Token)
 {
     return ui32Token & 0xf000000;
 }
@@ -293,7 +293,7 @@ typedef enum
 	D3DSPC_BOOLEAN = 7, //Make use of the RESERVED1 bit to indicate if-bool opcode.
 } COMPARISON_DX9;
 
-static COMPARISON_DX9 DecodeComparisonDX9(const uint32_t ui32Token)
+[[maybe_unused]] static COMPARISON_DX9 DecodeComparisonDX9(const uint32_t ui32Token)
 {
     return (COMPARISON_DX9)((ui32Token & (0x07<<16))>>16);
 }

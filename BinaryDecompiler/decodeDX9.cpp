@@ -59,11 +59,11 @@ static void DecodeOperandDX9(const Shader* psShader,
     psOperand->iWriteMaskEnabled = 0;
     psOperand->iGSInput = 0;
     psOperand->iExtended = 0;
-    psOperand->psSubOperand[0] = 0;
-    psOperand->psSubOperand[1] = 0;
-    psOperand->psSubOperand[2] = 0;
+	psOperand->psSubOperand[0] = nullptr;
+	psOperand->psSubOperand[1] = nullptr;
+	psOperand->psSubOperand[2] = nullptr;
 
-    psOperand->iIndexDims = INDEX_0D;
+	psOperand->iIndexDims = INDEX_0D;
  
     psOperand->iIntegerImmediate = 0;
 
@@ -397,7 +397,7 @@ static void DecodeOperandDX9(const Shader* psShader,
     }
 }
 
-static void DeclareNumTemps(Shader* psShader,
+static void DeclareNumTemps(Shader* psShader [[maybe_unused]],
     const uint32_t ui32NumTemps,
     Declaration* psDecl)
 {
@@ -405,7 +405,7 @@ static void DeclareNumTemps(Shader* psShader,
     psDecl->value.ui32NumTemps = ui32NumTemps;
 }
 
-static void SetupRegisterUsage(const Shader* psShader,
+static void SetupRegisterUsage(const Shader* psShader [[maybe_unused]],
                                 const uint32_t ui32Token0,
                                 const uint32_t ui32Token1)
 {
@@ -427,12 +427,13 @@ static void SetupRegisterUsage(const Shader* psShader,
 static void DeclareConstantBuffer(const Shader* psShader,
                                 Declaration* psDecl)
 {
-    DECLUSAGE_DX9 eUsage = (DECLUSAGE_DX9)0;
-    uint32_t ui32UsageIndex = 0;
+    DECLUSAGE_DX9 eUsage [[maybe_unused]] = (DECLUSAGE_DX9)0;
+    uint32_t ui32UsageIndex [[maybe_unused]] = 0;
 	//Pick any constant register in the table. Might not start at c0 (e.g. when register(cX) is used).
 
 	// This code differs from upstream. Is this a bug fix? -DSS
-	if (psShader->sInfo->psConstantBuffers->asVars.size() > 0) {
+	if (!psShader->sInfo->psConstantBuffers->asVars.empty())
+	{
 		uint32_t ui32RegNum = psShader->sInfo->psConstantBuffers->asVars[0].ui32StartOffset / 16;
 		OPERAND_TYPE_DX9 ui32RegType = OPERAND_TYPE_DX9_CONST;
 
@@ -473,9 +474,9 @@ static void DecodeDeclarationDX9(const Shader* psShader,
                                 const uint32_t ui32Token1,
                                 Declaration* psDecl)
 {
-    DECLUSAGE_DX9 eUsage = DecodeUsageDX9(ui32Token0);
-    uint32_t ui32UsageIndex = DecodeUsageIndexDX9(ui32Token0);
-    uint32_t ui32RegNum = DecodeOperandRegisterNumberDX9(ui32Token1);
+    DECLUSAGE_DX9 eUsage [[maybe_unused]] = DecodeUsageDX9(ui32Token0);
+    uint32_t ui32UsageIndex [[maybe_unused]] = DecodeUsageIndexDX9(ui32Token0);
+    uint32_t ui32RegNum [[maybe_unused]] = DecodeOperandRegisterNumberDX9(ui32Token1);
     uint32_t ui32RegType = DecodeOperandTypeDX9(ui32Token1);
 
 	if(psShader->eShaderType == VERTEX_SHADER)
@@ -520,7 +521,7 @@ static void DecodeDeclarationDX9(const Shader* psShader,
     }
 }
 
-static void DefineDX9(Shader* psShader,
+static void DefineDX9(Shader* psShader [[maybe_unused]],
                       const uint32_t ui32RegNum,
 					  const uint32_t ui32Flags,
                       const uint32_t c0,
@@ -648,7 +649,7 @@ Shader* DecodeDX9BC(const uint32_t* pui32Tokens)
 
 				ASSERT(psShader->sInfo->ui32NumConstantBuffers);
 
-				if(psShader->sInfo->psConstantBuffers[0].Name.size())
+				if (!psShader->sInfo->psConstantBuffers[0].Name.empty())
 				{
 					++ui32NumDeclarations;
 					bDeclareConstantTable = 1;

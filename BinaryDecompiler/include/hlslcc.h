@@ -403,23 +403,25 @@ struct ShaderInfo
 	ShaderInfo() :
 		ui32MajorVersion(0),
 		ui32MinorVersion(0),
-		psInputSignatures(0),
 		ui32NumInputSignatures(0),
-		psOutputSignatures(0), 
+		psInputSignatures(0),
 		ui32NumOutputSignatures(0),
-		psPatchConstantSignatures(0),
+		psOutputSignatures(0),
 		ui32NumPatchConstantSignatures(0),
-		psResourceBindings(0),
+		psPatchConstantSignatures(0),
 		ui32NumResourceBindings(0),
+		psResourceBindings(0),
 		ui32NumConstantBuffers(0),
 		psConstantBuffers(0),
 		psThisPointerConstBuffer(0),
-		psClassTypes(0),
 		ui32NumClassTypes(0),
-		psClassInstances(0),
+		psClassTypes(0),
 		ui32NumClassInstances(0),
+		psClassInstances(0),
 		aui32TableIDToTypeID(),
-		aui32ResourceMap()
+		aui32ResourceMap(),
+		eTessPartitioning(TESSELLATOR_PARTITIONING_UNDEFINED),
+		eTessOutPrim(TESSELLATOR_OUTPUT_UNDEFINED)
 	{
 	}
 };

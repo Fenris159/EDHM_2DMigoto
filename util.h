@@ -105,7 +105,7 @@ static uint32_t crc32c_hw(uint32_t seed, const void *buffer, size_t length)
 	catch (...)
 	{
 		// Fatal error, but catch it and return null for hash.
-		LogInfo("   ******* Exception caught while calculating crc32c_hw hash ******\n");
+		LogInfo("   ******* Exception caught while calculating crc32c_hw hash ******n");
 		return 0;
 	}
 }
@@ -117,7 +117,7 @@ static uint32_t crc32c_hw(uint32_t seed, const void *buffer, size_t length)
 
 // 64 bit magic FNV-0 and FNV-1 prime
 #define FNV_64_PRIME ((UINT64)0x100000001b3ULL)
-static UINT64 fnv_64_buf(const void *buf, size_t len)
+[[maybe_unused]] static UINT64 fnv_64_buf(const void *buf, size_t len)
 {
 	UINT64 hval = 0;
 	unsigned const char *bp = (unsigned const char *)buf;	/* start of buffer */
@@ -147,7 +147,7 @@ static char *RightStripA(char *buf)
 	*(end + 1) = 0;
 	return end;
 }
-static wchar_t *RightStripW(wchar_t *buf)
+[[maybe_unused]] static wchar_t *RightStripW(wchar_t *buf)
 {
 	wchar_t *end = buf + wcslen(buf) - 1;
 	while (end > buf && iswspace(*end))
@@ -156,7 +156,7 @@ static wchar_t *RightStripW(wchar_t *buf)
 	return end;
 }
 
-static char *readStringParameter(wchar_t *val)
+[[maybe_unused]] static char *readStringParameter(wchar_t *val)
 {
 	static char buf[MAX_PATH];
 	wcstombs(buf, val, MAX_PATH);
@@ -165,19 +165,19 @@ static char *readStringParameter(wchar_t *val)
 	return start;
 }
 
-static void BeepSuccess() 
+[[maybe_unused]] static void BeepSuccess() 
 {
 	// High beep for success
 	Beep(1800, 400);
 }
 
-static void BeepShort() 
+[[maybe_unused]] static void BeepShort() 
 {
 	// Short High beep
 	Beep(1800, 100);
 }
 
-static void BeepFailure() 
+[[maybe_unused]] static void BeepFailure() 
 {
 	// Bonk sound for failure.
 	Beep(200, 150);
@@ -189,7 +189,7 @@ static void BeepFailure2()
 	Beep(300, 200); Beep(200, 150);
 }
 
-static void BeepProfileFail()
+[[maybe_unused]] static void BeepProfileFail()
 {
 	// Brnk, du-du-dunk sound to signify the profile failed to install.
 	// This is more likely to hit than the others for an end user (e.g. if
@@ -201,7 +201,7 @@ static void BeepProfileFail()
 	Beep(200, 200);
 }
 
-static DECLSPEC_NORETURN void DoubleBeepExit()
+[[maybe_unused]] static DECLSPEC_NORETURN void DoubleBeepExit()
 {
 	// Fatal error somewhere, known to crash, might as well exit cleanly
 	// with some notification.
@@ -220,11 +220,11 @@ static DECLSPEC_NORETURN void DoubleBeepExit()
 
 // -----------------------------------------------------------------------------------------------
 
-static int _autoicmp(const wchar_t *s1, const wchar_t *s2)
+[[maybe_unused]] static int _autoicmp(const wchar_t *s1, const wchar_t *s2)
 {
 	return _wcsicmp(s1, s2);
 }
-static int _autoicmp(const char *s1, const char *s2)
+[[maybe_unused]] static int _autoicmp(const char *s1, const char *s2)
 {
 	return _stricmp(s1, s2);
 }
@@ -232,7 +232,7 @@ static int _autoicmp(const char *s1, const char *s2)
 // To use this function be sure to terminate an EnumName_t list with {nullptr, 0}
 // as it cannot use ArraySize on passed in arrays.
 template <class T1, class T2>
-static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, T2 default, bool *found=nullptr)
+static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, T2 fallback, bool *found=nullptr)
 {
 	for (; enum_names->name; enum_names++) {
 		if (!_autoicmp(name, enum_names->name)) {
@@ -245,10 +245,10 @@ static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, T2 def
 	if (found)
 		*found = false;
 
-	return default;
+	return fallback;
 }
 template <class T1, class T2>
-static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, size_t len, T2 default, bool *found=nullptr)
+static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, size_t len, T2 fallback, bool *found=nullptr)
 {
 	for (; enum_names->name; enum_names++) {
 		if (!_wcsnicmp(name, enum_names->name, len)) {
@@ -261,7 +261,7 @@ static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, size_t
 	if (found)
 		*found = false;
 
-	return default;
+	return fallback;
 }
 template <class T1, class T2>
 static T1 lookup_enum_name(struct EnumName_t<T1, T2> *enum_names, T2 val)
@@ -311,7 +311,7 @@ static wstring lookup_enum_bit_names(struct EnumName_t<const wchar_t*, T2> *enum
 // unrecognised option will be returned. Multiple unrecognised options are
 // still considered errors.
 template <class T1, class T2, class T3>
-static T2 parse_enum_option_string(struct EnumName_t<T1, T2> *enum_names, T3 option_string, T1 *unrecognised)
+static T2 parse_enum_option_string(struct EnumName_t<T1, T2> *enum_names, T3 option_string, T3 *unrecognised)
 {
 	T3 ptr = option_string, cur;
 	T2 ret = (T2)0;
@@ -344,7 +344,7 @@ static T2 parse_enum_option_string(struct EnumName_t<T1, T2> *enum_names, T3 opt
 			if (unrecognised && !(*unrecognised)) {
 				*unrecognised = cur;
 			} else {
-				LogOverlayW(LOG_WARNING, L"WARNING: Unknown option: %s\n", cur);
+				LogInfoW(L"WARNING: Unknown option: %s\n", cur);
 				ret |= T2::INVALID;
 			}
 		}
@@ -410,7 +410,7 @@ static T2 parse_enum_option_string_prefix(struct EnumName_t<T1, T2> *enum_names,
 
 #if MIGOTO_DX == 11
 // http://msdn.microsoft.com/en-us/library/windows/desktop/bb173059(v=vs.85).aspx
-static char *DXGIFormats[] = {
+static const char *DXGIFormats[] = {
 	"UNKNOWN",
 	"R32G32B32A32_TYPELESS",
 	"R32G32B32A32_FLOAT",
@@ -529,7 +529,7 @@ static char *DXGIFormats[] = {
 	"B4G4R4A4_UNORM"
 };
 
-static char *TexFormatStr(unsigned int format)
+[[maybe_unused]] static const char *TexFormatStr(unsigned int format)
 {
 	if (format < sizeof(DXGIFormats) / sizeof(DXGIFormats[0]))
 		return DXGIFormats[format];
@@ -545,7 +545,7 @@ static DXGI_FORMAT ParseFormatString(const char *fmt, bool allow_numeric_format)
 	if (allow_numeric_format) {
 		// Try parsing format string as decimal:
 		nargs = sscanf_s(fmt, "%u%n", &format, &end);
-		if (nargs == 1 && end == strlen(fmt))
+		if (nargs == 1 && static_cast<size_t>(end) == strlen(fmt))
 			return (DXGI_FORMAT)format;
 	}
 
@@ -563,7 +563,7 @@ static DXGI_FORMAT ParseFormatString(const char *fmt, bool allow_numeric_format)
 	return (DXGI_FORMAT)-1;
 }
 
-static DXGI_FORMAT ParseFormatString(const wchar_t *wfmt, bool allow_numeric_format)
+[[maybe_unused]] static DXGI_FORMAT ParseFormatString(const wchar_t *wfmt, bool allow_numeric_format)
 {
 	char afmt[42];
 
@@ -574,7 +574,7 @@ static DXGI_FORMAT ParseFormatString(const wchar_t *wfmt, bool allow_numeric_for
 }
 
 // From DirectXTK with extra formats added
-static DXGI_FORMAT EnsureNotTypeless( DXGI_FORMAT fmt )
+[[maybe_unused]] static DXGI_FORMAT EnsureNotTypeless( DXGI_FORMAT fmt )
 {
     // Assumes UNORM or FLOAT; doesn't use UINT or SINT
     switch( fmt )
@@ -608,7 +608,7 @@ static DXGI_FORMAT EnsureNotTypeless( DXGI_FORMAT fmt )
 }
 
 // Is there already a utility function that does this?
-static UINT dxgi_format_size(DXGI_FORMAT format)
+[[maybe_unused]] static UINT dxgi_format_size(DXGI_FORMAT format)
 {
 	switch (format) {
 		case DXGI_FORMAT_R32G32B32A32_TYPELESS:
@@ -700,7 +700,7 @@ static UINT dxgi_format_size(DXGI_FORMAT format)
 }
 
 
-static const char* type_name(IUnknown *object)
+[[maybe_unused]] static const char* type_name(IUnknown *object)
 {
 	ID3D11Device1 *device;
 	ID3D11DeviceContext1 *context;
@@ -841,7 +841,7 @@ static string BinaryToAsmText(const void *pShaderBytecode, size_t BytecodeLength
 //	return shaderModel;
 //}
 
-static string GetShaderModel(const void *pShaderBytecode, size_t bytecodeLength)
+[[maybe_unused]] static string GetShaderModel(const void *pShaderBytecode, size_t bytecodeLength)
 {
 	string asmText = BinaryToAsmText(pShaderBytecode, bytecodeLength, false);
 	if (asmText.empty())
@@ -901,7 +901,7 @@ static HRESULT CreateTextFile(wchar_t *fullPath, string *asmText, bool overwrite
 
 // Specific variant to name files consistently, so we know they are Asm text.
 
-static HRESULT CreateAsmTextFile(wchar_t* fileDirectory, UINT64 hash, const wchar_t* shaderType, 
+[[maybe_unused]] static HRESULT CreateAsmTextFile(wchar_t* fileDirectory, UINT64 hash, const wchar_t* shaderType, 
 	const void *pShaderBytecode, size_t bytecodeLength, bool patch_cb_offsets)
 {
 	// TODO: Poorly added try catch. Must replace for a more robust solution in line with the rest of the codebase
@@ -935,7 +935,7 @@ static HRESULT CreateAsmTextFile(wchar_t* fileDirectory, UINT64 hash, const wcha
 
 // Specific variant to name files, so we know they are HLSL text.
 
-static HRESULT CreateHLSLTextFile(UINT64 hash, string hlslText)
+[[maybe_unused]] static HRESULT CreateHLSLTextFile(UINT64 hash, string hlslText)
 {
 	(void)hash;
 	(void)hlslText;
@@ -945,7 +945,7 @@ static HRESULT CreateHLSLTextFile(UINT64 hash, string hlslText)
 // -----------------------------------------------------------------------------------------------
 
 // Parses the name of one of the IniParam constants: x, y, z, w, x1, y1, ..., z7, w7
-static bool ParseIniParamName(const wchar_t *name, int *idx, float DirectX::XMFLOAT4::**component)
+[[maybe_unused]] static bool ParseIniParamName(const wchar_t *name, int *idx, float DirectX::XMFLOAT4::**component)
 {
 	int ret, len1, len2;
 	wchar_t component_chr;
@@ -955,9 +955,9 @@ static bool ParseIniParamName(const wchar_t *name, int *idx, float DirectX::XMFL
 
 	// May or may not have matched index. Make sure entire string was
 	// matched either way and check index is valid if it was matched:
-	if (ret == 1 && len1 == length) {
+	if (ret == 1 && static_cast<size_t>(len1) == length) {
 		*idx = 0;
-	} else if (ret == 2 && len2 == length) {
+	} else if (ret == 2 && static_cast<size_t>(len2) == length) {
 #if MIGOTO_DX == 9
 		// Added gating for this DX9 specific limitation that we definitely do
 		// not want to enforce in DX11 as that would break a bunch of mods -DSS

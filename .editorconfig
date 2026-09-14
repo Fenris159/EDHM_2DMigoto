@@ -1,0 +1,40 @@
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{c,cc,cpp,cxx,h,hh,hpp,hxx,inl}]
+end_of_line = crlf
+indent_style = tab
+indent_size = 4
+tab_width = 4
+
+[*.{hlsl,fx,fxh}]
+end_of_line = crlf
+indent_style = tab
+indent_size = 4
+tab_width = 4
+
+[*.{ps1,psm1,psd1}]
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+
+[*.{json,md,properties,yml,yaml}]
+end_of_line = lf
+indent_style = space
+indent_size = 2
+
+[*.{props,targets,vcxproj,filters}]
+end_of_line = crlf
+indent_style = space
+indent_size = 2
+
+[*.sln]
+end_of_line = crlf
+indent_style = tab
+
+[*.md]
+trim_trailing_whitespace = false

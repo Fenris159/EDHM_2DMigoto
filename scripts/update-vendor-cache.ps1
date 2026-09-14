@@ -29,7 +29,8 @@ $ErrorActionPreference = 'Stop'
 if (-not $RepoRoot) {
     if ($PSScriptRoot) {
         $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-    } else {
+    }
+    else {
         $RepoRoot = (Get-Location).Path
     }
 }

@@ -39,7 +39,7 @@ Globals StaticG;
 Globals *G = &StaticG;
 const std::wstring Globals::gDefaultNamespace = L"d3dx.ini";
 
-FILE *LogFile = 0;		// off by default.
+FILE *LogFile = nullptr; // off by default.
 bool gLogDebug = false;
 
 
@@ -150,7 +150,7 @@ typedef struct D3D10DDIARG_OPENADAPTER
 	};
 } D3D10DDIARG_OPENADAPTER;
 
-static HMODULE hD3D11 = 0;
+static HMODULE hD3D11 = nullptr;
 
 typedef int (WINAPI *tOpenAdapter10)(D3D10DDIARG_OPENADAPTER *adapter);
 static tOpenAdapter10 _OpenAdapter10;
@@ -1142,5 +1142,5 @@ HMODULE __stdcall Hooked_LoadLibraryExW(_In_ LPCWSTR lpLibFileName, _Reserved_ H
 // the container allows) may result in us being mercilessly killed.
 LRESULT CALLBACK CBTProc(_In_ int nCode, _In_ WPARAM wParam, _In_ LPARAM lParam)
 {
-	return CallNextHookEx(0, nCode, wParam, lParam);
+	return CallNextHookEx(nullptr, nCode, wParam, lParam);
 }

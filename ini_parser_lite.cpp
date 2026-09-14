@@ -40,7 +40,7 @@ const char* find_ini_section_lite(const char *buf, const char *section_name)
 		}
 	}
 
-	return 0;
+	return nullptr;
 }
 
 // Searches for the setting. If found in the current section, copies the value

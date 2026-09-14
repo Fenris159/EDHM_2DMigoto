@@ -60,7 +60,7 @@ public:
 	bool aborted;
 
 	bool scissor_valid;
-	D3D11_RECT scissor_rects[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
+	D3D11_RECT scissor_rects[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE]{};
 
 	// If set this resource is in some way related to the command list
 	// invocation - a constant buffer we are analysing, a render target
@@ -74,18 +74,18 @@ public:
 	// somewhere that is updated at most once per frame rather than once
 	// per command list execution, and we would ideally skip the resource
 	// creation if the cursor is unchanged.
-	CURSORINFO cursor_info;
-	POINT cursor_window_coords;
-	ICONINFO cursor_info_ex;
+	CURSORINFO cursor_info{};
+	POINT cursor_window_coords{};
+	ICONINFO cursor_info_ex{};
 	ID3D11Texture2D *cursor_mask_tex;
 	ID3D11Texture2D *cursor_color_tex;
 	ID3D11ShaderResourceView *cursor_mask_view;
 	ID3D11ShaderResourceView *cursor_color_view;
-	RECT window_rect;
+	RECT window_rect{};
 
 	int recursion;
 	int extra_indent;
-	LARGE_INTEGER profiling_time_recursive;
+	LARGE_INTEGER profiling_time_recursive{};
 
 	// Anything that needs to be updated at the end of the command list:
 	bool update_params;
@@ -107,8 +107,8 @@ public:
 	virtual ~CommandListCommand() {};
 
 	virtual void run(CommandListState*) = 0;
-	virtual bool optimise(HackerDevice *device) { return false; }
-	virtual bool noop(bool post, bool ignore_cto_pre, bool ignore_cto_post) { return false; }
+	virtual bool optimise(HackerDevice *device [[maybe_unused]]) { return false; }
+	virtual bool noop(bool post [[maybe_unused]], bool ignore_cto_pre [[maybe_unused]], bool ignore_cto_post [[maybe_unused]]) { return false; }
 };
 
 enum class VariableFlags {
@@ -124,7 +124,7 @@ static EnumName_t<const wchar_t *, VariableFlags> VariableFlagNames[] = {
 	{L"persist", VariableFlags::PERSIST},
 	{L"locked",  VariableFlags::LOCKED},
 
-	{NULL,       VariableFlags::INVALID} // End of list marker
+	{nullptr,       VariableFlags::INVALID} // End of list marker
 };
 
 class CommandListVariable {
@@ -190,7 +190,7 @@ public:
 
 	CommandList() :
 		post(false),
-		scope(NULL)
+		scope(nullptr)
 	{}
 
 private:
@@ -211,7 +211,7 @@ public:
 	bool exclude;
 
 	PresetCommand() :
-		preset(NULL),
+		preset(nullptr),
 		exclude(false)
 	{}
 
@@ -234,7 +234,7 @@ public:
 	bool run_pre_and_post_together;
 
 	RunExplicitCommandList() :
-		command_list_section(NULL),
+		command_list_section(nullptr),
 		run_pre_and_post_together(false)
 	{}
 
@@ -309,7 +309,7 @@ static EnumName_t<const wchar_t *, D3DCompileFlags> D3DCompileFlagNames[] = {
 	{L"resources_may_alias", D3DCompileFlags::RESOURCES_MAY_ALIAS},
 	{L"enable_unbounded_descriptor_tables", D3DCompileFlags::ENABLE_UNBOUNDED_DESCRIPTOR_TABLES},
 	{L"all_resources_bound", D3DCompileFlags::ALL_RESOURCES_BOUND},
-	{NULL, D3DCompileFlags::INVALID} // End of list marker
+	{nullptr, D3DCompileFlags::INVALID} // End of list marker
 };
 
 class CustomShader
@@ -328,25 +328,25 @@ public:
 	ID3DBlob *gs_bytecode, *ps_bytecode, *cs_bytecode;
 
 	int blend_override;
-	D3D11_BLEND_DESC blend_desc;
-	D3D11_BLEND_DESC blend_mask;
+	D3D11_BLEND_DESC blend_desc{};
+	D3D11_BLEND_DESC blend_mask{};
 	ID3D11BlendState *blend_state;
-	FLOAT blend_factor[4], blend_factor_merge_mask[4];
+	FLOAT blend_factor[4]{}, blend_factor_merge_mask[4]{};
 	UINT blend_sample_mask, blend_sample_mask_merge_mask;
 
 	int depth_stencil_override;
-	D3D11_DEPTH_STENCIL_DESC depth_stencil_desc;
-	D3D11_DEPTH_STENCIL_DESC depth_stencil_mask;
+	D3D11_DEPTH_STENCIL_DESC depth_stencil_desc{};
+	D3D11_DEPTH_STENCIL_DESC depth_stencil_mask{};
 	ID3D11DepthStencilState *depth_stencil_state;
 	UINT stencil_ref, stencil_ref_mask;
 
 	int rs_override;
-	D3D11_RASTERIZER_DESC rs_desc;
-	D3D11_RASTERIZER_DESC rs_mask;
+	D3D11_RASTERIZER_DESC rs_desc{};
+	D3D11_RASTERIZER_DESC rs_mask{};
 	ID3D11RasterizerState *rs_state;
 
 	int sampler_override;
-	D3D11_SAMPLER_DESC sampler_desc;
+	D3D11_SAMPLER_DESC sampler_desc{};
 	ID3D11SamplerState* sampler_state;
 
 	D3D11_PRIMITIVE_TOPOLOGY topology;
@@ -379,7 +379,7 @@ public:
 	CustomShader *custom_shader;
 
 	RunCustomShaderCommand() :
-		custom_shader(NULL)
+		custom_shader(nullptr)
 	{}
 
 	void run(CommandListState*) override;
@@ -443,7 +443,7 @@ static EnumName_t<const wchar_t *, CustomResourceType> CustomResourceTypeNames[]
 	{L"RWTexture2D", CustomResourceType::TEXTURE2D},
 	{L"RWTexture3D", CustomResourceType::TEXTURE3D},
 
-	{NULL, CustomResourceType::INVALID} // End of list marker
+	{nullptr, CustomResourceType::INVALID} // End of list marker
 };
 
 // The bind flags are usually set automatically, but there are cases where
@@ -478,7 +478,7 @@ static EnumName_t<const wchar_t *, CustomResourceBindFlags> CustomResourceBindFl
 	{L"unordered_access", CustomResourceBindFlags::UNORDERED_ACCESS},
 	{L"decoder", CustomResourceBindFlags::DECODER},
 	{L"video_encoder", CustomResourceBindFlags::VIDEO_ENCODER},
-	{NULL, CustomResourceBindFlags::INVALID} // End of list marker
+	{nullptr, CustomResourceBindFlags::INVALID} // End of list marker
 };
 
 // The ResourcePool holds a pool of cached resources for when a single copy
@@ -610,7 +610,7 @@ static EnumName_t<const wchar_t*, PoolIndexType> PoolIndexTypeNames[] = {
 	{L"fifo",    PoolIndexType::FIFO},
 	{L"static",  PoolIndexType::STATIC},
 	{L"spatial", PoolIndexType::SPATIAL},
-	{NULL, PoolIndexType::INVALID} // End of list marker
+	{nullptr, PoolIndexType::INVALID} // End of list marker
 };
 
 struct PoolElement
@@ -759,7 +759,7 @@ static EnumName_t<const wchar_t*, ResourceCopyTargetType> ResourceCopyTargetType
 	{L"FakeSwapChain", ResourceCopyTargetType::FAKE_SWAP_CHAIN},
 	{L"CPU", ResourceCopyTargetType::CPU},
 
-	{NULL, ResourceCopyTargetType::INVALID} // End of list marker
+	{nullptr, ResourceCopyTargetType::INVALID} // End of list marker
 };
 
 enum class ResourceCopyTargetEvaluationMode : uint32_t {
@@ -817,7 +817,7 @@ static EnumName_t<const wchar_t*, ResourceCopyTargetEvaluationMode> ResourceCopy
 	{L"LayoutElementFormat", ResourceCopyTargetEvaluationMode::LAYOUT_ELEMENT_FORMAT},
 	{L"LayoutElementOffset", ResourceCopyTargetEvaluationMode::LAYOUT_ELEMENT_OFFSET},
 
-	{NULL, ResourceCopyTargetEvaluationMode::INVALID} // End of list marker
+	{nullptr, ResourceCopyTargetEvaluationMode::INVALID} // End of list marker
 };
 
 class CommandListExpression;
@@ -894,7 +894,7 @@ public:
 			UINT *offset,
 			DXGI_FORMAT *format,
 			UINT *buf_size,
-			ResourceCopyTarget *dst=NULL);
+			ResourceCopyTarget *dst=nullptr);
 	void SetResource(CommandListState *state,
 			ID3D11Resource *res,
 			ID3D11View *view,
@@ -917,7 +917,7 @@ public:
 	float GetResourceSpatialHash(CommandListState* state);
 	float GetPoolElementLastFrame(CommandListState* state);
 
-	D3D11_BIND_FLAG BindFlags(CommandListState *state, D3D11_RESOURCE_MISC_FLAG *misc_flags=NULL);
+	D3D11_BIND_FLAG BindFlags(CommandListState *state, D3D11_RESOURCE_MISC_FLAG *misc_flags=nullptr);
 
 private:
 	IniParserResult ParseTargetPrefix(const wchar_t*& target, size_t& length);
@@ -970,7 +970,7 @@ static EnumName_t<const wchar_t *, ResourceCopyOptions> ResourceCopyOptionNames[
 	// using a shader to resolve any unsupported formats.
 	{L"resolve_msaa", ResourceCopyOptions::RESOLVE_MSAA},
 
-	{NULL, ResourceCopyOptions::INVALID} // End of list marker
+	{nullptr, ResourceCopyOptions::INVALID} // End of list marker
 };
 // TODO: Add support for more behaviour modifiers, here's a few ideas
 // off the top of my head - I don't intend to implement all these
@@ -1059,8 +1059,8 @@ class CommandListEvaluatable {
 public:
 	virtual ~CommandListEvaluatable() {}; // Because C++
 
-	virtual float evaluate(CommandListState *state, HackerDevice *device=NULL) = 0;
-	virtual bool static_evaluate(float *ret, HackerDevice *device=NULL, bool evaluate_variables=false) = 0;
+	virtual float evaluate(CommandListState *state, HackerDevice *device=nullptr) = 0;
+	virtual bool static_evaluate(float *ret, HackerDevice *device=nullptr, bool evaluate_variables=false) = 0;
 	virtual bool optimise(HackerDevice *device, std::shared_ptr<CommandListEvaluatable> *replacement) = 0;
 };
 
@@ -1140,8 +1140,8 @@ public:
 	{}
 
 	std::shared_ptr<CommandListEvaluatable> finalise() override;
-	float evaluate(CommandListState *state, HackerDevice *device=NULL) override;
-	bool static_evaluate(float *ret, HackerDevice *device=NULL, bool evaluate_variables=false) override;
+	float evaluate(CommandListState *state, HackerDevice *device=nullptr) override;
+	bool static_evaluate(float *ret, HackerDevice *device=nullptr, bool evaluate_variables=false) override;
 	bool optimise(HackerDevice *device, std::shared_ptr<CommandListEvaluatable> *replacement) override;
 	Walk walk() override;
 
@@ -1272,7 +1272,7 @@ static EnumName_t<const wchar_t *, ParamOverrideType> ParamOverrideTypeNames[] =
 	{L"frame_number", ParamOverrideType::FRAME_NUMBER},
 	{L"draw_number", ParamOverrideType::DRAW_NUMBER},
 	{L"dispatch_number", ParamOverrideType::DISPATCH_NUMBER},
-	{NULL, ParamOverrideType::INVALID} // End of list marker
+	{nullptr, ParamOverrideType::INVALID} // End of list marker
 };
 class CommandListOperand :
 	public CommandListToken,
@@ -1303,9 +1303,9 @@ public:
 		CommandListToken(pos, token),
 		type(ParamOverrideType::INVALID),
 		val(FLT_MAX),
-		param_component(NULL),
+		param_component(nullptr),
 		param_idx(0),
-		var_ftarget(NULL),
+		var_ftarget(nullptr),
 		scissor(0)
 	{}
 
@@ -1318,8 +1318,8 @@ public:
 	bool parse_scissor(const wstring* operand, const wstring* ini_namespace, CommandListScope* scope);
 	bool parse_ini_keywords(const wstring* operand, const wstring* ini_namespace, CommandListScope* scope);
 
-	float evaluate(CommandListState *state, HackerDevice *device=NULL) override;
-	bool static_evaluate(float *ret, HackerDevice *device=NULL, bool evaluate_variables=false) override;
+	float evaluate(CommandListState *state, HackerDevice *device=nullptr) override;
+	bool static_evaluate(float *ret, HackerDevice *device=nullptr, bool evaluate_variables=false) override;
 	bool optimise(HackerDevice *device, std::shared_ptr<CommandListEvaluatable> *replacement) override;
 };
 
@@ -1328,8 +1328,8 @@ public:
 	std::shared_ptr<CommandListEvaluatable> evaluatable;
 
 	bool parse(const wstring *expression, const wstring *ini_namespace, CommandListScope *scope);
-	float evaluate(CommandListState *state, HackerDevice *device=NULL);
-	bool static_evaluate(float *ret, HackerDevice *device=NULL, bool evaluate_variables=false);
+	float evaluate(CommandListState *state, HackerDevice *device=nullptr);
+	bool static_evaluate(float *ret, HackerDevice *device=nullptr, bool evaluate_variables=false);
 	bool optimise(HackerDevice *device);
 };
 
@@ -1347,7 +1347,7 @@ public:
 
 	ParamOverride() :
 		param_idx(-1),
-		param_component(NULL)
+		param_component(nullptr)
 	{}
 
 	void run(CommandListState*) override;
@@ -1358,7 +1358,7 @@ public:
 	CommandListVariable *var;
 
 	VariableAssignment() :
-		var(NULL)
+		var(nullptr)
 	{}
 
 	void run(CommandListState*) override;
@@ -1455,11 +1455,11 @@ public:
 	CommandListExpression args[5];
 	ResourceCopyTarget indirect_buffer;
 
-	DrawCommand::DrawCommand() :
+	DrawCommand() :
 		type(DrawCommandType::INVALID)
 	{}
 
-	void do_indirect_draw_call(CommandListState *state, char *name,
+	void do_indirect_draw_call(CommandListState *state, const char *name,
 		void (__stdcall ID3D11DeviceContext::*IndirectDrawCall)(THIS_
 		ID3D11Buffer *pBufferForArgs,
 		UINT AlignedByteOffsetForArgs));
@@ -1492,8 +1492,8 @@ public:
 	// fval is used for RTV colours and UAVs when clearing them with
 	// floating point values. uval is used for UAVs if nothing looked like
 	// a float.
-	FLOAT fval[4];
-	UINT uval[4];
+	FLOAT fval[4]{};
+	UINT uval[4]{};
 	bool clear_uav_uint;
 
 	ClearViewCommand();
@@ -1512,8 +1512,8 @@ public:
 	CustomResource *resource;
 
 	ResetPerFrameLimitsCommand() :
-		shader(NULL),
-		resource(NULL)
+		shader(nullptr),
+		resource(nullptr)
 	{}
 
 	void run(CommandListState*) override;

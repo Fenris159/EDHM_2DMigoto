@@ -185,7 +185,7 @@ enum class FrameAnalysisOptions {
 	DEPRECATED      = (signed)0x80000000,
 };
 SENSIBLE_ENUM(FrameAnalysisOptions);
-static EnumName_t<wchar_t *, FrameAnalysisOptions> FrameAnalysisOptionNames[] = {
+static EnumName_t<const wchar_t *, FrameAnalysisOptions> FrameAnalysisOptionNames[] = {
 	// Bind flag selection:
 	{L"dump_rt", FrameAnalysisOptions::DUMP_RT},
 	{L"dump_depth", FrameAnalysisOptions::DUMP_DEPTH},
@@ -649,21 +649,21 @@ struct Globals
 		mSelectedRenderTargetSnapshot(0),
 		mSelectedRenderTargetPos(-1),
 		mSelectedRenderTarget((ID3D11Resource *)-1),
-		mSelectedPixelShader(-1),
+		mSelectedPixelShader(UINT64_MAX),
 		mSelectedPixelShaderPos(-1),
-		mSelectedVertexShader(-1),
+		mSelectedVertexShader(UINT64_MAX),
 		mSelectedVertexShaderPos(-1),
-		mSelectedIndexBuffer(-1),
+		mSelectedIndexBuffer(UINT32_MAX),
 		mSelectedIndexBufferPos(-1),
-		mSelectedVertexBuffer(-1),
+		mSelectedVertexBuffer(UINT32_MAX),
 		mSelectedVertexBufferPos(-1),
-		mSelectedComputeShader(-1),
+		mSelectedComputeShader(UINT64_MAX),
 		mSelectedComputeShaderPos(-1),
-		mSelectedGeometryShader(-1),
+		mSelectedGeometryShader(UINT64_MAX),
 		mSelectedGeometryShaderPos(-1),
-		mSelectedDomainShader(-1),
+		mSelectedDomainShader(UINT64_MAX),
 		mSelectedDomainShaderPos(-1),
-		mSelectedHullShader(-1),
+		mSelectedHullShader(UINT64_MAX),
 		mSelectedHullShaderPos(-1),
 		mPinkingShader(0),
 

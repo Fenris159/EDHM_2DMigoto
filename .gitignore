@@ -29,6 +29,9 @@ Zip Release/
 build/
 [Bb]in/
 [Oo]bj/
+.quality/
+bw-output/
+.scannerwork/
 *.zip
 
 # Built DLLs and packages live under dist/; ignore by default so only

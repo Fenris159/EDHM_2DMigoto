@@ -48,7 +48,7 @@ FrameAnalysisContext::~FrameAnalysisContext()
 		fclose(frame_analysis_log);
 }
 
-void FrameAnalysisContext::vFrameAnalysisLog(char *fmt, va_list ap)
+void FrameAnalysisContext::vFrameAnalysisLog(const char *fmt, va_list ap)
 {
 	wchar_t filename[MAX_PATH];
 
@@ -101,7 +101,7 @@ void FrameAnalysisContext::vFrameAnalysisLog(char *fmt, va_list ap)
 	vfprintf(frame_analysis_log, fmt, ap);
 }
 
-void FrameAnalysisContext::vFrameAnalysisLogW(wchar_t* fmt, va_list ap)
+void FrameAnalysisContext::vFrameAnalysisLogW(const wchar_t* fmt, va_list ap)
 {
 	wchar_t filename[MAX_PATH];
 
@@ -154,7 +154,7 @@ void FrameAnalysisContext::vFrameAnalysisLogW(wchar_t* fmt, va_list ap)
 	vfwprintf(frame_analysis_log, fmt, ap);
 }
 
-void FrameAnalysisContext::FrameAnalysisLog(char *fmt, ...)
+void FrameAnalysisContext::FrameAnalysisLog(const char *fmt, ...)
 {
 	va_list ap;
 
@@ -163,7 +163,7 @@ void FrameAnalysisContext::FrameAnalysisLog(char *fmt, ...)
 	va_end(ap);
 }
 
-void FrameAnalysisContext::FrameAnalysisLogW(wchar_t* fmt, ...)
+void FrameAnalysisContext::FrameAnalysisLogW(const wchar_t* fmt, ...)
 {
 	va_list ap;
 
@@ -182,7 +182,7 @@ void FrameAnalysisContext::FrameAnalysisLogW(wchar_t* fmt, ...)
 } while (0)
 
 
-static void FrameAnalysisLogSlot(FILE *frame_analysis_log, int slot, char *slot_name)
+static void FrameAnalysisLogSlot(FILE *frame_analysis_log, int slot, const char *slot_name)
 {
 	if (slot_name)
 		fprintf(frame_analysis_log, "       %s:", slot_name);
@@ -268,7 +268,7 @@ void FrameAnalysisContext::FrameAnalysisLogResourceHash(ID3D11Resource* resource
 	fprintf(frame_analysis_log, "\n");
 }
 
-void FrameAnalysisContext::FrameAnalysisLogResource(int slot, char *slot_name, ID3D11Resource *resource)
+void FrameAnalysisContext::FrameAnalysisLogResource(int slot, const char *slot_name, ID3D11Resource *resource)
 {
 	if (!resource || !G->analyse_frame || !frame_analysis_log)
 		return;
@@ -279,7 +279,7 @@ void FrameAnalysisContext::FrameAnalysisLogResource(int slot, char *slot_name, I
 	FrameAnalysisLogResourceHash(resource);
 }
 
-void FrameAnalysisContext::FrameAnalysisLogView(int slot, char *slot_name, ID3D11View *view)
+void FrameAnalysisContext::FrameAnalysisLogView(int slot, const char *slot_name, ID3D11View *view)
 {
 	ID3D11Resource *resource;
 
@@ -513,7 +513,7 @@ void FrameAnalysisContext::Dump2DResourceImmediateCtx(ID3D11Texture2D *staging,
 	HRESULT hr = S_OK;
 	wchar_t dedupe_filename[MAX_PATH];
 	wstring save_filename;
-	wchar_t *wic_ext = L".jpg";
+	const wchar_t *wic_ext = L".jpg";
 	size_t ext, save_ext;
 
 	save_filename = dedupe_tex2d_filename(staging, orig_desc, dedupe_filename, MAX_PATH, filename.c_str(), format);
@@ -746,7 +746,7 @@ static void copy_until_extension(wchar_t *txt_filename, const wchar_t *bin_filen
 }
 
 void FrameAnalysisContext::dedupe_buf_filename_txt(const wchar_t *bin_filename,
-		wchar_t *txt_filename, size_t size, char type, int idx,
+		wchar_t *txt_filename, size_t size [[maybe_unused]], char type, int idx,
 		UINT stride, UINT offset)
 {
 	wchar_t *pos;
@@ -776,7 +776,7 @@ void FrameAnalysisContext::DumpBufferTxt(wchar_t *filename, D3D11_MAPPED_SUBRESO
 		UINT size, char type, int idx, UINT stride, UINT offset)
 {
 	FILE *fd = nullptr;
-	char *components = "xyzw";
+	const char *components = "xyzw";
 	float *buf = (float*)map->pData;
 	UINT i, c;
 	errno_t err;
@@ -854,7 +854,7 @@ static const char* TopologyStr(D3D11_PRIMITIVE_TOPOLOGY topology)
 }
 
 void FrameAnalysisContext::dedupe_buf_filename_vb_txt(const wchar_t *bin_filename,
-		wchar_t *txt_filename, size_t size, int idx, UINT stride,
+		wchar_t *txt_filename, size_t size [[maybe_unused]], int idx, UINT stride,
 		UINT offset, UINT first, UINT count, HackerInputLayout *layout,
 		D3D11_PRIMITIVE_TOPOLOGY topology, DrawCallInfo *call_info)
 {
@@ -912,12 +912,12 @@ static void dump_ia_layout(FILE *fd, const D3D11_INPUT_ELEMENT_DESC *layout_desc
 		switch(layout_desc[i].InputSlotClass) {
 			case D3D11_INPUT_PER_VERTEX_DATA:
 				fprintf(fd, "  InputSlotClass: per-vertex\n");
-				if (layout_desc[i].InputSlot == slot)
+				if (slot >= 0 && layout_desc[i].InputSlot == static_cast<UINT>(slot))
 					*per_vert = true;
 				break;
 			case D3D11_INPUT_PER_INSTANCE_DATA:
 				fprintf(fd, "  InputSlotClass: per-instance\n");
-				if (layout_desc[i].InputSlot == slot)
+				if (slot >= 0 && layout_desc[i].InputSlot == static_cast<UINT>(slot))
 					*per_inst = true;
 				break;
 			default:
@@ -1085,7 +1085,7 @@ static int fprint_dxgi_format(FILE *fd, DXGI_FORMAT format, uint8_t *buf)
 	int32_t *s32 = (int32_t*)buf;
 	uint16_t *u16 = (uint16_t*)buf;
 	int16_t *s16 = (int16_t*)buf;
-	uint8_t *u8 = (uint8_t*)buf;
+	uint8_t *u8 = buf;
 	int8_t *s8 = (int8_t*)buf;
 	unsigned i;
 
@@ -1257,12 +1257,12 @@ static int fprint_dxgi_format(FILE *fd, DXGI_FORMAT format, uint8_t *buf)
 
 
 static void dump_vb_elem(FILE *fd, uint8_t *buf,
-		const D3D11_INPUT_ELEMENT_DESC *layout_desc, size_t layout_elements,
+		const D3D11_INPUT_ELEMENT_DESC *layout_desc, size_t layout_elements [[maybe_unused]],
 		int slot, UINT vb_idx, UINT elem, UINT stride)
 {
 	UINT offset = 0, alignment, size;
 
-	if (layout_desc[elem].InputSlot != slot)
+	if (slot < 0 || layout_desc[elem].InputSlot != static_cast<UINT>(slot))
 		return;
 
 	if (layout_desc[elem].AlignedByteOffset != D3D11_APPEND_ALIGNED_ELEMENT) {
@@ -1414,7 +1414,7 @@ out_close:
 }
 
 void FrameAnalysisContext::dedupe_buf_filename_ib_txt(const wchar_t *bin_filename,
-		wchar_t *txt_filename, size_t size, DXGI_FORMAT ib_fmt,
+		wchar_t *txt_filename, size_t size [[maybe_unused]], DXGI_FORMAT ib_fmt,
 		UINT offset, UINT first, UINT count, D3D11_PRIMITIVE_TOPOLOGY topology)
 {
 	wchar_t *pos;
@@ -1937,7 +1937,7 @@ void FrameAnalysisContext::get_deduped_dir(wchar_t *path, size_t size)
 }
 
 HRESULT FrameAnalysisContext::FrameAnalysisFilename(wchar_t *filename, size_t size, bool compute,
-		wchar_t *reg, char shader_type, int idx, ID3D11Resource *handle, uint32_t override_hash)
+		const wchar_t *reg, char shader_type, int idx, ID3D11Resource *handle, uint32_t override_hash)
 {
 	struct ResourceHashInfo *info;
 	uint32_t hash, orig_hash;
@@ -2172,7 +2172,7 @@ err:
 	return traditional_filename;
 }
 
-void FrameAnalysisContext::dedupe_buf_filename(ID3D11Buffer *resource,
+void FrameAnalysisContext::dedupe_buf_filename(ID3D11Buffer *resource [[maybe_unused]],
 		D3D11_BUFFER_DESC *orig_desc, D3D11_MAPPED_SUBRESOURCE *map,
 		wchar_t *dedupe_filename, size_t size)
 {
@@ -2266,10 +2266,8 @@ void FrameAnalysisContext::rotate_when_nearing_hard_link_limit(const wchar_t *de
 	if (f == INVALID_HANDLE_VALUE)
 		return;
 
-	if (GetFileInformationByHandle(f, &info)) {
-		if (info.nNumberOfLinks >= 1023)
-			rotate_deduped_file(dedupe_filename);
-	}
+	if ((GetFileInformationByHandle(f, &info)) && (info.nNumberOfLinks >= 1023))
+		rotate_deduped_file(dedupe_filename);
 
 	CloseHandle(f);
 }
@@ -2382,7 +2380,7 @@ void FrameAnalysisContext::_DumpTextures(char shader_type, bool compute,
 		if (!views[i])
 			continue;
 
-		if (i == G->IniParamsReg) {
+		if (G->IniParamsReg >= 0 && i == static_cast<UINT>(G->IniParamsReg)) {
 			FALogInfo(L"Skipped 3DMigoto resource in slot %Cs-t%i\n", shader_type, i);
 			continue;
 		}
@@ -2482,7 +2480,7 @@ static bool vb_slot_in_layout(int slot, const HackerInputLayout* layout)
 
 	for (UINT i = 0; i < count; ++i)
 	{
-		if (elements[i].InputSlot == slot)
+		if (slot >= 0 && elements[i].InputSlot == static_cast<UINT>(slot))
 			return true;
 	}
 
@@ -2910,7 +2908,7 @@ void FrameAnalysisContext::FrameAnalysisAfterDraw(bool compute, DrawCallInfo *ca
 }
 
 void FrameAnalysisContext::_FrameAnalysisAfterUpdate(ID3D11Resource *resource,
-		FrameAnalysisOptions type_mask, wchar_t *type)
+		FrameAnalysisOptions type_mask, const wchar_t *type)
 {
 	wchar_t filename[MAX_PATH];
 	HRESULT hr;

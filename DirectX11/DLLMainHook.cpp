@@ -45,7 +45,7 @@ bool bLog = false;
 // We cannot log to our normal file, because this is too early, in DLLMain.
 // Nektra provides a safe log though, so we will use this when debugging.
 
-static void LogHooking(char *fmt, ...)
+static void LogHooking(const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
@@ -58,7 +58,7 @@ static void LogHooking(char *fmt, ...)
 
 
 // ----------------------------------------------------------------------------
-static HRESULT InstallHookDLLMain(LPCWSTR moduleName, char *func, void **trampoline, void *hook)
+static HRESULT InstallHookDLLMain(LPCWSTR moduleName, const char *func, void **trampoline, void *hook)
 {
 	HINSTANCE hModule;
 	SIZE_T hook_id;
@@ -257,7 +257,7 @@ static bool verify_intended_target(HINSTANCE our_dll)
 	// structures as yet, so we can bail out of unwanted targets sooner.
 
 	wcsncat_s(our_path, MAX_PATH, L"\\d3dx.ini", _TRUNCATE);
-	f = CreateFile(our_path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+	f = CreateFile(our_path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (f == INVALID_HANDLE_VALUE)
 		return false;
 
@@ -272,7 +272,7 @@ static bool verify_intended_target(HINSTANCE our_dll)
 	if (!buf)
 		goto out_close;
 
-	if (!ReadFile(f, buf, filesize, &readsize, 0) || filesize != readsize)
+	if (!ReadFile(f, buf, filesize, &readsize, nullptr) || filesize != readsize)
 		goto out_free;
 
 	buf[filesize] = '\0';
@@ -282,13 +282,12 @@ static bool verify_intended_target(HINSTANCE our_dll)
 		goto out_free;
 
 	// Allow our DLL to load from any location as long as it's loaded by specified loader exe
-	if (find_ini_setting_lite(section, "loader", loader, MAX_PATH)) {
-		if (MultiByteToWideChar(CP_UTF8, 0, loader, -1, loader_w, MAX_PATH)) {
-			if (!_wcsicmp(exe_basename, loader_w)) {
-				rc = true;
-				goto out_free;
-			}
-		}
+	if ((find_ini_setting_lite(section, "loader", loader, MAX_PATH)) &&
+	    (MultiByteToWideChar(CP_UTF8, 0, loader, -1, loader_w, MAX_PATH)) && (!_wcsicmp(exe_basename, loader_w)))
+
+	{
+		rc = true;
+		goto out_free;
 	}
 
 	if (!find_ini_setting_lite(section, "target", target, MAX_PATH))

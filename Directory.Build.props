@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <EdhmStrictBuild Condition="'$(EdhmStrictBuild)' == ''">false</EdhmStrictBuild>
+    <EdhmWarningsAsErrors Condition="'$(EdhmWarningsAsErrors)' == ''">true</EdhmWarningsAsErrors>
+    <EdhmCodeAnalysis Condition="'$(EdhmCodeAnalysis)' == ''">false</EdhmCodeAnalysis>
+  </PropertyGroup>
+</Project>

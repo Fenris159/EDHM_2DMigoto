@@ -288,7 +288,7 @@ void HackerContext::RecordGraphicsShaderStats()
 	ShaderInfoData *info;
 	ID3D11Resource *resource;
 	UINT i;
-	Profiling::State profiling_state;
+	Profiling::State profiling_state{};
 
 	if (Profiling::mode == Profiling::Mode::SUMMARY)
 		Profiling::start(&profiling_state);
@@ -361,7 +361,7 @@ void HackerContext::RecordComputeShaderStats()
 	UINT num_uavs = (level >= D3D_FEATURE_LEVEL_11_1 ? D3D11_1_UAV_SLOT_COUNT : D3D11_PS_CS_UAV_REGISTER_COUNT);
 	ID3D11Resource *resource;
 	UINT i;
-	Profiling::State profiling_state;
+	Profiling::State profiling_state{};
 
 	if (Profiling::mode == Profiling::Mode::SUMMARY)
 		Profiling::start(&profiling_state);
@@ -560,7 +560,7 @@ template <class ID3D11Shader,
 	void (__stdcall ID3D11DeviceContext::*SetShaderVS2013BUGWORKAROUND)(ID3D11Shader*, ID3D11ClassInstance*const*, UINT),
 	HRESULT (__stdcall ID3D11Device::*CreateShader)(const void*, SIZE_T, ID3D11ClassLinkage*, ID3D11Shader**)
 >
-void HackerContext::DeferredShaderReplacement(ID3D11DeviceChild *shader, UINT64 hash, wchar_t *shader_type)
+void HackerContext::DeferredShaderReplacement(ID3D11DeviceChild *shader, UINT64 hash, const wchar_t *shader_type)
 {
 	ID3D11Shader *orig_shader = nullptr, *patched_shader = nullptr;
 	ID3D11ClassInstance *class_instances[256];
@@ -735,7 +735,7 @@ out_drop:
 
 void HackerContext::DeferredShaderReplacementBeforeDraw()
 {
-	Profiling::State profiling_state;
+	Profiling::State profiling_state{};
 
 	if (shader_regex_groups.empty())
 		return;
@@ -886,7 +886,7 @@ void HackerContext::BeforeDraw(DrawContext &data)
 {
 	draw_number++;
 
-	Profiling::State profiling_state;
+	Profiling::State profiling_state{};
 
 	if (Profiling::mode == Profiling::Mode::SUMMARY)
 		Profiling::start(&profiling_state);
@@ -959,7 +959,7 @@ void HackerContext::BeforeDraw(DrawContext &data)
 				for (i = 0; i < D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT; ++i) {
 					if (mCurrentVertexBuffers[i] == G->mSelectedVertexBuffer) {
 						G->gVisitedVertexBufferSlotIds.insert(i);
-						if (G->gSelectedVertexBufferSlotId == -1 || i == G->gSelectedVertexBufferSlotId) {
+						if (G->gSelectedVertexBufferSlotId == -1 || static_cast<int32_t>(i) == G->gSelectedVertexBufferSlotId) {
 							G->gSelectedVertexBufferDrawInfo = data.call_info;
 							selectedVertexBufferPos = i;
 						}
@@ -1037,11 +1037,9 @@ void HackerContext::BeforeDraw(DrawContext &data)
 					// use a second skip flag specifically for hunting:
 					data.call_info.hunting_skip = true;
 				}
-				else if (G->marking_mode == MarkingMode::PINK)
-				{
-					if (G->mPinkingShader)
-						data.oldPixelShader = SwitchPSShader(G->mPinkingShader);
-				}
+				else if ((G->marking_mode == MarkingMode::PINK) && (G->mPinkingShader))
+
+					data.oldPixelShader = SwitchPSShader(G->mPinkingShader);
 			}
 		}
 		LeaveCriticalSection(&G->mCriticalSection);
@@ -1103,7 +1101,7 @@ out_profile:
 void HackerContext::AfterDraw(DrawContext &data)
 {
 	int i;
-	Profiling::State profiling_state;
+	Profiling::State profiling_state{};
 
 	if (Profiling::mode == Profiling::Mode::SUMMARY)
 		Profiling::start(&profiling_state);
@@ -1332,9 +1330,9 @@ STDMETHODIMP_(void) HackerContext::VSSetConstantBuffers(THIS_
 bool HackerContext::MapDenyCPURead(
 	ID3D11Resource *pResource,
 	UINT Subresource,
-	D3D11_MAP MapType,
-	UINT MapFlags,
-	D3D11_MAPPED_SUBRESOURCE *pMappedResource)
+	D3D11_MAP MapType [[maybe_unused]],
+	UINT MapFlags [[maybe_unused]],
+	D3D11_MAPPED_SUBRESOURCE *pMappedResource [[maybe_unused]])
 {
 	uint32_t hash;
 	TextureOverrideMap::iterator i;
@@ -1389,7 +1387,7 @@ void HackerContext::TrackAndDivertMap(HRESULT map_hr, ID3D11Resource *pResource,
 	void *replace = nullptr;
 	bool divertable = false, divert = false, track = false;
 	bool write = false, read = false, deny = false;
-	Profiling::State profiling_state;
+	Profiling::State profiling_state{};
 
 	if (Profiling::mode == Profiling::Mode::SUMMARY)
 		Profiling::start(&profiling_state);
@@ -1431,10 +1429,8 @@ void HackerContext::TrackAndDivertMap(HRESULT map_hr, ID3D11Resource *pResource,
 
 	// Divert IB or VB buffer for use in region hashes system cache.
 	// Data will be copied during TrackAndDivertUnmap from allocated replacement.
-	if (G->track_region_hashes) {
-		if (!divert)
-			divert = MapTrackRegionHashes(pResource, MapType, &dim);
-	}
+	if ((G->track_region_hashes) && (!divert))
+		divert = MapTrackRegionHashes(pResource, MapType, &dim);
 
 	if (!track && !divert)
 		goto out_profile;
@@ -1522,7 +1518,7 @@ void HackerContext::TrackAndDivertUnmap(ID3D11Resource *pResource, UINT Subresou
 {
 	MappedResources::iterator i;
 	MappedResourceInfo *map_info = nullptr;
-	Profiling::State profiling_state;
+	Profiling::State profiling_state{};
 	bool deallocate_diverted_memory = true;
 
 	if (Profiling::mode == Profiling::Mode::SUMMARY)
@@ -1818,10 +1814,8 @@ bool HackerContext::BeforeDispatch(DispatchContext *context)
 		if (G->DumpUsage)
 			RecordComputeShaderStats();
 
-		if (mCurrentComputeShader == G->mSelectedComputeShader) {
-			if (G->marking_mode == MarkingMode::SKIP)
-				return false;
-		}
+		if ((mCurrentComputeShader == G->mSelectedComputeShader) && (G->marking_mode == MarkingMode::SKIP))
+			return false;
 	}
 
 	if (!G->fix_enabled)
@@ -2471,16 +2465,15 @@ STDMETHODIMP_(void) HackerContext::SetShader(THIS_
 			repl_shader = (ID3D11Shader*)it->second.replacement;
 		}
 
-		if (G->hunting == HUNTING_MODE_ENABLED) {
-			// Replacement map.
-			if (G->marking_mode == MarkingMode::ORIGINAL || !G->fix_enabled) {
-				ShaderReplacementMap::iterator j = lookup_original_shader(pShader);
-				if ((selectedShader == *currentShaderHash || !G->fix_enabled) && j != G->mOriginalShaders.end()) {
-					repl_shader = (ID3D11Shader*)j->second;
-				}
+		if ((G->hunting == HUNTING_MODE_ENABLED) && (G->marking_mode == MarkingMode::ORIGINAL || !G->fix_enabled))
+		// Replacement map.
+		{
+			ShaderReplacementMap::iterator j = lookup_original_shader(pShader);
+			if ((selectedShader == *currentShaderHash || !G->fix_enabled) && j != G->mOriginalShaders.end())
+			{
+				repl_shader = (ID3D11Shader *)j->second;
 			}
 		}
-
 	} else {
 		*currentShaderHash = 0;
 	}
@@ -3113,15 +3106,15 @@ void HackerContext::SetShaderResources(UINT StartSlot, UINT NumViews,
 	if (!mHackerDevice)
 		return;
 
-	if (mHackerDevice->mIniResourceView && G->IniParamsReg >= 0) {
-		if (NumViews > G->IniParamsReg - StartSlot) {
-			LogDebug("  Game attempted to unbind IniParams, pinning in slot %i\n", G->IniParamsReg);
-			if (!override_srvs) {
-				override_srvs = new ID3D11ShaderResourceView*[NumViews];
-				memcpy(override_srvs, ppShaderResourceViews, sizeof(ID3D11ShaderResourceView*) * NumViews);
-			}
-			override_srvs[G->IniParamsReg - StartSlot] = mHackerDevice->mIniResourceView;
+	if ((mHackerDevice->mIniResourceView && G->IniParamsReg >= 0) && (NumViews > G->IniParamsReg - StartSlot))
+	{
+		LogDebug("  Game attempted to unbind IniParams, pinning in slot %i\n", G->IniParamsReg);
+		if (!override_srvs)
+		{
+			override_srvs = new ID3D11ShaderResourceView *[NumViews];
+			memcpy(override_srvs, ppShaderResourceViews, sizeof(ID3D11ShaderResourceView *) * NumViews);
 		}
+		override_srvs[G->IniParamsReg - StartSlot] = mHackerDevice->mIniResourceView;
 	}
 
 	if (override_srvs) {
@@ -3175,18 +3168,16 @@ STDMETHODIMP_(void) HackerContext::PSSetShader(THIS_
 		 &mCurrentPixelShader,
 		 &mCurrentPixelShaderHandle);
 
-	if (pPixelShader) {
-		// Set custom depth texture.
-		if (G->ZBufferHashToInject)
+	if ((pPixelShader) && (G->ZBufferHashToInject))
+	// Set custom depth texture.
+	{
+		ID3D11ShaderResourceView *z_buffer_view = mHackerDevice->GetZBufferResourceView();
+		if (z_buffer_view)
 		{
-			ID3D11ShaderResourceView *z_buffer_view = mHackerDevice->GetZBufferResourceView();
-			if (z_buffer_view)
-			{
-				LogDebug("  adding Z buffer to shader resources in slot 126.\n");
+			LogDebug("  adding Z buffer to shader resources in slot 126.\n");
 
-				mOrigContext1->PSSetShaderResources(126, 1, &z_buffer_view);
-				z_buffer_view->Release();
-			}
+			mOrigContext1->PSSetShaderResources(126, 1, &z_buffer_view);
+			z_buffer_view->Release();
 		}
 	}
 }
@@ -3311,7 +3302,7 @@ STDMETHODIMP_(void) HackerContext::OMSetRenderTargets(THIS_
 	/* [annotation] */
 	__in_opt ID3D11DepthStencilView *pDepthStencilView)
 {
-	Profiling::State profiling_state;
+	Profiling::State profiling_state{};
 
 	if (G->hunting == HUNTING_MODE_ENABLED) {
 		EnterCriticalSectionPretty(&G->mCriticalSection);
@@ -3358,7 +3349,7 @@ STDMETHODIMP_(void) HackerContext::OMSetRenderTargetsAndUnorderedAccessViews(THI
 	/* [annotation] */
 	__in_ecount_opt(NumUAVs)  const UINT *pUAVInitialCounts)
 {
-	Profiling::State profiling_state;
+	Profiling::State profiling_state{};
 
 	if (G->hunting == HUNTING_MODE_ENABLED) {
 		EnterCriticalSectionPretty(&G->mCriticalSection);

@@ -44,7 +44,7 @@ private:
 	HackerDevice* mHackerDevice;
 	HackerContext* mHackerContext;
 
-	DirectX::XMUINT2 mResolution;
+	DirectX::XMUINT2 mResolution{};
 	std::unique_ptr<DirectX::SpriteBatch> mSpriteBatch;
 	std::unique_ptr<DirectX::CommonStates> mStates;
 	std::unique_ptr<DirectX::BasicEffect> mEffect;
@@ -94,12 +94,12 @@ private:
 		UINT Offset;
 
 		ID3D11ShaderResourceView *pShaderResourceViews[1];
-	} state;
+	} state{};
 
 	void SaveState();
 	void RestoreState();
 	HRESULT InitDrawState();
-	void DrawShaderInfoLine(char *type, UINT64 selectedShader, float *y, bool shader);
+	void DrawShaderInfoLine(const char *type, UINT64 selectedShader, float *y, bool shader);
 	void DrawShaderInfoLines(float *y);
 	void DrawNotices(float *y);
 	void DrawProfiling(float *y);
@@ -118,5 +118,5 @@ public:
 };
 
 void ClearNotices();
-void LogOverlayW(LogLevel level, wchar_t *fmt, ...);
-void LogOverlay(LogLevel level, char *fmt, ...);
+void LogOverlayW(LogLevel level, const wchar_t *fmt, ...);
+void LogOverlay(LogLevel level, const char *fmt, ...);

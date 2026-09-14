@@ -42,7 +42,7 @@ extern bool gLogDebug;
 #define LogDebugNoNL LogDebug
 #define LogDebugWNoNL LogDebugW
 
-static string LogTime()
+[[maybe_unused]] static string LogTime()
 {
 	string timeStr;
 	char cTime[32];

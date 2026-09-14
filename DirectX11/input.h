@@ -59,6 +59,7 @@ public:
 // Abstract base class of all input backend button classes
 class InputButton {
 public:
+	virtual ~InputButton() = default;
 	virtual bool CheckState() = 0;
 };
 

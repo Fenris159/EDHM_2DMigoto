@@ -57,7 +57,7 @@ static void SwitchToXinpuGetStateEx()
 // VS2013 BUG WORKAROUND: Make sure this class has a unique type name!
 class KeyParseError: public exception {} keyParseError;
 
-void InputListener::UpEvent(HackerDevice *device)
+void InputListener::UpEvent(HackerDevice *device [[maybe_unused]])
 {
 }
 
@@ -242,7 +242,7 @@ bool XInputButton::_CheckState(int controller)
 	return false ^ invert;
 }
 
-static EnumName_t<wchar_t *, WORD> XInputButtons[] = {
+static EnumName_t<const wchar_t *, WORD> XInputButtons[] = {
 	{L"DPAD_UP", XINPUT_GAMEPAD_DPAD_UP},
 	{L"DPAD_DOWN", XINPUT_GAMEPAD_DPAD_DOWN},
 	{L"DPAD_LEFT", XINPUT_GAMEPAD_DPAD_LEFT},
@@ -330,7 +330,7 @@ XInputButton::XInputButton(const wchar_t *keyName) :
 		threshold = _wtoi(keyName);
 	}
 
-	*trigger = min(threshold + 1, 255);
+	*trigger = static_cast<BYTE>(min(threshold + 1, 255));
 }
 
 bool XInputButton::CheckState()
@@ -475,7 +475,7 @@ bool RegisterIniKeyBinding(LPCWSTR app, LPCWSTR iniKey,
 	shared_ptr<InputCallbacks> callbacks = make_shared<InputCallbacks>(down_cb, up_cb, private_data);
 	wchar_t keyName[MAX_PATH];
 
-	if (!GetIniString(app, iniKey, 0, keyName, MAX_PATH))
+	if (!GetIniString(app, iniKey, nullptr, keyName, MAX_PATH))
 		return false;
 
 	RegisterKeyBinding(iniKey, keyName, callbacks, auto_repeat, 0, 0);
@@ -491,7 +491,7 @@ wstring user_friendly_ini_key_binding(LPCWSTR app, LPCWSTR iniKey)
 	wchar_t keyName[MAX_PATH];
 	wstring ret;
 
-	if (!GetIniString(app, iniKey, 0, keyName, MAX_PATH))
+	if (!GetIniString(app, iniKey, nullptr, keyName, MAX_PATH))
 		return L"<None>";
 
 	std::wistringstream tokens(keyName);

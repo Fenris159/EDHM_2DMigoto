@@ -10,7 +10,7 @@ ShaderRegexGroups shader_regex_groups;
 std::vector<ShaderRegexGroup*> shader_regex_group_index;
 uint32_t shader_regex_hash;
 
-static void log_pcre2_error_nonl(int err, char *fmt, ...)
+static void log_pcre2_error_nonl(int err, const char *fmt, ...)
 {
 	PCRE2_UCHAR buf[120]; // doco says "120 code units is ample"
 	va_list ap;
@@ -190,7 +190,7 @@ bool ShaderRegexPattern::named_group_overlaps(ShaderRegexTemps &other_set)
 				other_set.end(),
 				std::inserter(intersection, intersection.begin()));
 
-	return intersection.size() != 0;
+	return !intersection.empty();
 }
 
 bool ShaderRegexPattern::matches(std::string *asm_text)
@@ -490,11 +490,11 @@ ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type
 
 	suffix = swprintf_s(path, MAX_PATH, L"%ls\\%016llx-%ls_regex.", G->SHADER_CACHE_PATH, hash, shader_type);
 	wcscpy_s(path+suffix, MAX_PATH-suffix, L"dat");
-	meta_f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+	meta_f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (meta_f == INVALID_HANDLE_VALUE)
 		return ret;
 
-	size = GetFileSize(meta_f, 0);
+	size = GetFileSize(meta_f, nullptr);
 	if (size < sizeof(ShaderRegexCacheHeader))
 		goto out;
 
@@ -542,10 +542,10 @@ ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type
 
 	if (header->patched) {
 		wcscpy_s(path+suffix, MAX_PATH-suffix, L"bin");
-		bin_f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+		bin_f = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 		if (bin_f == INVALID_HANDLE_VALUE)
 			goto out;
-		size = GetFileSize(bin_f, 0);
+		size = GetFileSize(bin_f, nullptr);
 		bytecode->resize(size);
 		if (!size || !ReadFile(bin_f, bytecode->data(), size, &size2, nullptr) || size != size2)
 			goto out;
@@ -554,8 +554,8 @@ ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type
 		ret = ShaderRegexCache::MATCH;
 
 out:
-	if (buf)
-		delete [] buf;
+
+	    delete [] buf;
 	if (bin_f != INVALID_HANDLE_VALUE)
 		CloseHandle(bin_f);
 	if (meta_f != INVALID_HANDLE_VALUE)
@@ -566,7 +566,7 @@ out:
 static void save_shader_regex_cache_meta(UINT64 hash, const wchar_t *shader_type, vector<uint32_t> *match_ids,
 		bool patched, std::string *asm_text, std::wstring *tagline)
 {
-	ShaderRegexCacheHeader header;
+	ShaderRegexCacheHeader header{};
 	wchar_t path[MAX_PATH];
 	FILE *f = nullptr;
 	size_t suffix;

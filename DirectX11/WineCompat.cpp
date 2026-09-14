@@ -198,8 +198,8 @@ void LogHostCompatReport()
 	std::array<wchar_t, MAX_PATH> migoto_path = {};
 	std::array<wchar_t, MAX_PATH> exe_path = {};
 
-	DWORD migoto_path_len = GetModuleFileNameW(migoto_handle, migoto_path.data(), migoto_path.size());
-	DWORD exe_path_len = GetModuleFileNameW(nullptr, exe_path.data(), exe_path.size());
+	DWORD migoto_path_len = GetModuleFileNameW(migoto_handle, migoto_path.data(), static_cast<DWORD>(migoto_path.size()));
+	DWORD exe_path_len = GetModuleFileNameW(nullptr, exe_path.data(), static_cast<DWORD>(exe_path.size()));
 	if (!migoto_path_len || migoto_path_len >= MAX_PATH)
 		wcscpy_s(migoto_path.data(), migoto_path.size(), L"(unknown)");
 	if (!exe_path_len || exe_path_len >= MAX_PATH)

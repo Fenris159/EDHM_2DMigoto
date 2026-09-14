@@ -52,7 +52,7 @@ static HCURSOR InvisibleCursor()
 	static HCURSOR cursor = nullptr;
 	int width, height;
 	unsigned pitch, size;
-	char *and, *xor;
+	char *and_mask, *xor_mask;
 
 	if (!cursor) {
 		width = GetSystemMetrics(SM_CXCURSOR);
@@ -60,16 +60,16 @@ static HCURSOR InvisibleCursor()
 		pitch = ((width + 31) / 32) * 4;
 		size = pitch * height;
 
-		and = new char[size];
-		xor = new char[size];
+		and_mask = new char[size];
+		xor_mask = new char[size];
 
-		memset(and, 0xff, size);
-		memset(xor, 0x00, size);
+		memset(and_mask, 0xff, size);
+		memset(xor_mask, 0x00, size);
 
-		cursor = CreateCursor(GetModuleHandle(nullptr), 0, 0, width, height, and, xor);
+		cursor = CreateCursor(GetModuleHandle(nullptr), 0, 0, width, height, and_mask, xor_mask);
 
-		delete[] and;
-		delete[] xor;
+		delete[] and_mask;
+		delete[] xor_mask;
 	}
 
 	return cursor;
@@ -299,7 +299,7 @@ static LRESULT WINAPI Hooked_DefWindowProcW(_In_ HWND hWnd, _In_ UINT Msg, _In_ 
 }
 
 
-int InstallHookLate(HINSTANCE hModule, char *func, void **trampoline, void *hook)
+int InstallHookLate(HINSTANCE hModule, const char *func, void **trampoline, void *hook)
 {
 	SIZE_T hook_id;
 	DWORD dwOsErr;

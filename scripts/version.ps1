@@ -27,7 +27,8 @@ $ErrorActionPreference = 'Stop'
 if (-not $RepoRoot) {
     if ($PSScriptRoot) {
         $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-    } else {
+    }
+    else {
         $RepoRoot = (Get-Location).Path
     }
 }
@@ -47,13 +48,13 @@ function Parse-SemVer {
         throw "VERSION '$Raw' is not valid SemVer for this project (expected X.Y.Z or X.Y.Z-label.N)"
     }
     return [pscustomobject]@{
-        Major       = [int]$Matches['maj']
-        Minor       = [int]$Matches['min']
-        Patch       = [int]$Matches['pat']
-        PreLabel    = $Matches['pre']
-        PreNumber   = if ($Matches['pren']) { [int]$Matches['pren'] } else { $null }
-        Core        = "$($Matches['maj']).$($Matches['min']).$($Matches['pat'])"
-        Raw         = $Raw
+        Major        = [int]$Matches['maj']
+        Minor        = [int]$Matches['min']
+        Patch        = [int]$Matches['pat']
+        PreLabel     = $Matches['pre']
+        PreNumber    = if ($Matches['pren']) { [int]$Matches['pren'] } else { $null }
+        Core         = "$($Matches['maj']).$($Matches['min']).$($Matches['pat'])"
+        Raw          = $Raw
         IsPrerelease = [bool]$Matches['pre']
     }
 }
@@ -159,7 +160,8 @@ switch ($Action) {
         if (-not $v.IsPrerelease -or $v.PreLabel -ne $PreLabel) {
             # Start or reset pre-release series on current core
             $out = Format-SemVer $v -ForcePreLabel $PreLabel -ForcePreNumber 1
-        } else {
+        }
+        else {
             $out = Format-SemVer $v -ForcePreLabel $PreLabel -ForcePreNumber ($v.PreNumber + 1)
         }
         Write-Version $out
@@ -180,10 +182,12 @@ switch ($Action) {
                 "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
                 "prerelease=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
             }
-        } else {
+        }
+        else {
             if (-not $v.IsPrerelease) {
                 $tagVer = Format-SemVer $v -ForcePreLabel $PreLabel -ForcePreNumber 1
-            } else {
+            }
+            else {
                 $tagVer = $v.Raw
             }
             $tag = "v$tagVer"

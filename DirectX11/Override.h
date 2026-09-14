@@ -77,14 +77,14 @@ public:
 class Override : public virtual OverrideBase
 {
 private:
-	int transition, release_transition;
-	TransitionType transition_type, release_transition_type;
+  int transition{}, release_transition{};
+  TransitionType transition_type, release_transition_type;
 
-	bool is_conditional;
-	CommandListExpression condition;
+  bool is_conditional;
+  CommandListExpression condition;
 
-	CommandList activate_command_list;
-	CommandList deactivate_command_list;
+  CommandList activate_command_list;
+  CommandList deactivate_command_list;
 
 protected:
 	bool active;
@@ -245,7 +245,7 @@ public:
 			OverrideParams *targets, OverrideVars *vars,
 			int time, TransitionType transition_type);
 	void UpdatePresets(HackerDevice *wrapper);
-	void OverrideTransition::UpdateTransitions(HackerDevice *wrapper);
+	void UpdateTransitions(HackerDevice *wrapper);
 	void Stop();
 };
 

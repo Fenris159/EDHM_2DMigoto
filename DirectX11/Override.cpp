@@ -65,7 +65,8 @@ void Override::ParseIniSection(LPCWSTR section)
 	transition_type = GetIniEnumClass(section, L"transition_type", TransitionType::LINEAR, nullptr, TransitionTypeNames);
 	release_transition_type = GetIniEnumClass(section, L"release_transition_type", TransitionType::LINEAR, nullptr, TransitionTypeNames);
 
-	if (GetIniStringAndLog(section, L"condition", 0, buf, MAX_PATH)) {
+	if (GetIniStringAndLog(section, L"condition", nullptr, buf, MAX_PATH))
+	{
 		wstring sbuf(buf);
 		// Expressions are case insensitive:
 		std::transform(sbuf.begin(), sbuf.end(), sbuf.begin(), ::towlower);
@@ -142,7 +143,7 @@ struct KeyOverrideCycleParam
 			LogInfoNoNL(" %S=%s", name, cur.c_str());
 	}
 
-	float as_float(float default)
+	float as_float(float fallback)
 	{
 		float val;
 		int n;
@@ -150,12 +151,12 @@ struct KeyOverrideCycleParam
 		n = sscanf_s(cur.c_str(), "%f", &val);
 		if (!n || n == EOF) {
 			// Blank entry
-			return default;
+			return fallback;
 		}
 		return val;
 	}
 
-	int as_int(int default)
+	int as_int(int fallback)
 	{
 		int val;
 		int n;
@@ -163,25 +164,25 @@ struct KeyOverrideCycleParam
 		n = sscanf_s(cur.c_str(), "%i", &val);
 		if (!n || n == EOF) {
 			// Blank entry
-			return default;
+			return fallback;
 		}
 		return val;
 	}
 
 	template <class T1, class T2>
-	T2 as_enum(EnumName_t<T1, T2> *enum_names, T2 default)
+	T2 as_enum(EnumName_t<T1, T2> *enum_names, T2 fallback)
 	{
 		T2 val;
 
 		if (cur.empty()) {
 			// Blank entry
-			return default;
+			return fallback;
 		}
 
 		val = lookup_enum_val<T1, T2>(enum_names, cur.c_str(), (T2)-1);
 		if (val == (T2)-1) {
 			LogOverlayW(LOG_WARNING, L"Unmatched value \"%S\"\n", cur.c_str());
-			return default;
+			return fallback;
 		}
 
 		return val;
@@ -261,7 +262,8 @@ void KeyOverrideCycle::ParseIniSection(LPCWSTR section)
 			// Reserve space in IniParams for this variable:
 			G->iniParamsReserved = max(G->iniParamsReserved, param_idx + 1);
 
-			GetIniString(section, entry->first.c_str(), 0, &param_bufs[OverrideParam(param_idx, param_component)].buf);
+			GetIniString(section, entry->first.c_str(), nullptr,
+			             &param_bufs[OverrideParam(param_idx, param_component)].buf);
 		} else if (entry->first.c_str()[0] == L'$') {
 			CommandArgumentReader args(L"key", entry->first, section, &entry->ini_namespace, nullptr);
 			if (!args.GetVariable(var, false) || !args.Finished())
@@ -270,16 +272,16 @@ void KeyOverrideCycle::ParseIniSection(LPCWSTR section)
 				continue;
 			}
 
-			GetIniString(section, entry->first.c_str(), 0, &var_bufs[var].buf);
+			GetIniString(section, entry->first.c_str(), nullptr, &var_bufs[var].buf);
 		}
 	}
 
-	GetIniString(section, L"transition", 0, &transition.buf);
-	GetIniString(section, L"release_transition", 0, &release_transition.buf);
-	GetIniString(section, L"transition_type", 0, &transition_type.buf);
-	GetIniString(section, L"release_transition_type", 0, &release_transition_type.buf);
-	GetIniString(section, L"condition", 0, &condition.buf);
-	GetIniString(section, L"run", 0, &run.buf);
+	GetIniString(section, L"transition", nullptr, &transition.buf);
+	GetIniString(section, L"release_transition", nullptr, &release_transition.buf);
+	GetIniString(section, L"transition_type", nullptr, &transition_type.buf);
+	GetIniString(section, L"release_transition_type", nullptr, &release_transition_type.buf);
+	GetIniString(section, L"condition", nullptr, &condition.buf);
+	GetIniString(section, L"run", nullptr, &run.buf);
 
 	for (i = 1; not_done; i++) {
 		not_done = false;
@@ -338,7 +340,7 @@ void KeyOverrideCycle::ParseIniSection(LPCWSTR section)
 	}
 }
 
-bool Override::MatchesCurrent(HackerDevice *device)
+bool Override::MatchesCurrent(HackerDevice *device [[maybe_unused]])
 {
 	OverrideParams::iterator i;
 	OverrideVars::iterator j;
@@ -379,7 +381,7 @@ void KeyOverrideCycle::UpdateCurrent(HackerDevice *device)
 	// The current preset doesn't match reality - we've got out of sync.
 	// Search for any other presets that do match:
 	for (unsigned i = 0; i < presets.size(); i++) {
-		if (i != current && presets[i].MatchesCurrent(device)) {
+		if (static_cast<int>(i) != current && presets[i].MatchesCurrent(device)) {
 			LogInfo("Resynced key cycle: %i -> %i\n", current, i);
 			current = i;
 			return;
@@ -591,7 +593,7 @@ static void _ScheduleTransition(struct OverrideTransitionParam *transition,
 	transition->transition_type = transition_type;
 }
 
-void OverrideTransition::ScheduleTransition(HackerDevice *wrapper,
+void OverrideTransition::ScheduleTransition(HackerDevice *wrapper [[maybe_unused]],
 		OverrideParams *targets,
 		OverrideVars *var_targets,
 		int time, TransitionType transition_type)
@@ -727,7 +729,7 @@ float OverrideGlobalSaveParam::Reset()
 	return ret;
 }
 
-void OverrideGlobalSave::Reset(HackerDevice* wrapper)
+void OverrideGlobalSave::Reset(HackerDevice* wrapper [[maybe_unused]])
 {
 	params.clear();
 	vars.clear();
@@ -751,7 +753,7 @@ void OverrideGlobalSaveParam::Save(float val)
 // intermediate transition value from being saved and restored later (e.g. if
 // rapidly pressing RMB with a release_transition set).
 
-void OverrideGlobalSave::Save(HackerDevice *wrapper, Override *preset)
+void OverrideGlobalSave::Save(HackerDevice *wrapper [[maybe_unused]], Override *preset)
 {
 	OverrideParams::iterator i;
 	OverrideVars::iterator j;
@@ -809,22 +811,20 @@ void OverrideGlobalSave::Restore(Override *preset)
 	for (auto next = begin(params), i = next; i != end(params); i = next) {
 		next++;
 		j = preset->mOverrideParams.find(i->first);
-		if (j != preset->mOverrideParams.end()) {
-			if (!i->second.Restore(&preset->mSavedParams[i->first])) {
-				LogDebug("removed ini param %c%.0i save area\n", i->first.chr(), i->first.idx);
-				next = params.erase(i);
-			}
+		if ((j != preset->mOverrideParams.end()) && (!i->second.Restore(&preset->mSavedParams[i->first])))
+		{
+			LogDebug("removed ini param %c%.0i save area\n", i->first.chr(), i->first.idx);
+			next = params.erase(i);
 		}
 	}
 
 	for (auto next = begin(vars), k = next; k != end(vars); k = next) {
 		next++;
 		l = preset->mOverrideVars.find(k->first);
-		if (l != preset->mOverrideVars.end()) {
-			if (!k->second.Restore(&preset->mSavedVars[k->first])) {
-				LogDebug("removed var %S save area\n", k->first->name.c_str());
-				next = vars.erase(k);
-			}
+		if ((l != preset->mOverrideVars.end()) && (!k->second.Restore(&preset->mSavedVars[k->first])))
+		{
+			LogDebug("removed var %S save area\n", k->first->name.c_str());
+			next = vars.erase(k);
 		}
 	}
 }

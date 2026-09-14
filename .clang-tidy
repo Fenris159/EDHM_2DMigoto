@@ -1,0 +1,35 @@
+---
+Checks: >
+  -*,
+  clang-analyzer-*,
+  -clang-analyzer-optin.core.EnumCastOutOfRange,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-signed-bitwise,
+  cert-err58-cpp,
+  cert-oop11-cpp,
+  cppcoreguidelines-pro-type-member-init,
+  misc-misplaced-const,
+  misc-new-delete-overloads,
+  misc-redundant-expression,
+  modernize-use-nullptr,
+  modernize-use-override,
+  performance-*,
+  -performance-enum-size,
+  -performance-no-int-to-ptr,
+  -performance-unnecessary-value-param,
+  portability-*,
+  readability-container-size-empty,
+  readability-delete-null-pointer,
+  readability-redundant-*,
+  -readability-redundant-parentheses,
+WarningsAsErrors: >
+  clang-analyzer-*,
+  bugprone-*,
+  cert-*,
+  performance-*,
+  portability-*
+HeaderFilterRegex: '^(?!.*[\\/](DirectXTK[\\/]Src[\\/]Shaders[\\/]Compiled|vendor|pcre2|Nektra|crc32c-hw-1\.0\.5)[\\/]).*$'
+SystemHeaders: false
+FormatStyle: file
+...

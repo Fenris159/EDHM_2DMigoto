@@ -535,7 +535,7 @@ static UINT CompressedFormatBlockSize(DXGI_FORMAT Format)
 
 static size_t Texture1DLength(
 	const D3D11_TEXTURE1D_DESC *pDesc,
-	const D3D11_SUBRESOURCE_DATA *pInitialData,
+	const D3D11_SUBRESOURCE_DATA *pInitialData [[maybe_unused]],
 	UINT level)
 {
 	// At the moment we are only using the first mip-map level, but this
@@ -986,7 +986,7 @@ void MarkResourceHashContaminated(ID3D11Resource *dest, UINT DstSubresource,
 	UINT dstWidth = 1, dstHeight = 1, dstDepth = 1, dstMip = 0, dstIdx = 0, dstArraySize = 1;
 	bool partial = false;
 	ResourceInfoMap::iterator info_i;
-	Profiling::State profiling_state;
+	Profiling::State profiling_state{};
 
 	if (!dest)
 		return;
@@ -1111,7 +1111,7 @@ void UpdateResourceHashFromCPU(ID3D11Resource *resource,
 	D3D11_TEXTURE3D_DESC *desc3D;
 	uint32_t old_data_hash, old_hash;
 	ResourceHandleInfo *info = nullptr;
-	Profiling::State profiling_state;
+	Profiling::State profiling_state{};
 
 	if (!resource || !data)
 		return;
@@ -1187,7 +1187,7 @@ void PropagateResourceHash(ID3D11Resource *dst, ID3D11Resource *src)
 	D3D11_TEXTURE2D_DESC *desc2D;
 	D3D11_TEXTURE3D_DESC *desc3D;
 	uint32_t old_data_hash, old_hash;
-	Profiling::State profiling_state;
+	Profiling::State profiling_state{};
 
 	if (Profiling::mode == Profiling::Mode::SUMMARY)
 		Profiling::start(&profiling_state);
@@ -1375,25 +1375,25 @@ FuzzyMatch::FuzzyMatch()
 	denominator = 1;
 }
 
-static UINT get_resource_width(const D3D11_BUFFER_DESC *desc)    { return 0; }
+static UINT get_resource_width(const D3D11_BUFFER_DESC *desc [[maybe_unused]])    { return 0; }
 static UINT get_resource_width(const D3D11_TEXTURE1D_DESC *desc) { return desc->Width; }
 static UINT get_resource_width(const D3D11_TEXTURE2D_DESC *desc) { return desc->Width; }
 static UINT get_resource_width(const D3D11_TEXTURE3D_DESC *desc) { return desc->Width; }
 
-static UINT get_resource_height(const D3D11_BUFFER_DESC *desc)    { return 0; }
-static UINT get_resource_height(const D3D11_TEXTURE1D_DESC *desc) { return 0; }
+static UINT get_resource_height(const D3D11_BUFFER_DESC *desc [[maybe_unused]])    { return 0; }
+static UINT get_resource_height(const D3D11_TEXTURE1D_DESC *desc [[maybe_unused]]) { return 0; }
 static UINT get_resource_height(const D3D11_TEXTURE2D_DESC *desc) { return desc->Height; }
 static UINT get_resource_height(const D3D11_TEXTURE3D_DESC *desc) { return desc->Height; }
 
-static UINT get_resource_depth(const D3D11_BUFFER_DESC *desc)    { return 0; }
-static UINT get_resource_depth(const D3D11_TEXTURE1D_DESC *desc) { return 0; }
-static UINT get_resource_depth(const D3D11_TEXTURE2D_DESC *desc) { return 0; }
+static UINT get_resource_depth(const D3D11_BUFFER_DESC *desc [[maybe_unused]])    { return 0; }
+static UINT get_resource_depth(const D3D11_TEXTURE1D_DESC *desc [[maybe_unused]]) { return 0; }
+static UINT get_resource_depth(const D3D11_TEXTURE2D_DESC *desc [[maybe_unused]]) { return 0; }
 static UINT get_resource_depth(const D3D11_TEXTURE3D_DESC *desc) { return desc->Depth; }
 
-static UINT get_resource_array(const D3D11_BUFFER_DESC *desc)    { return 0; }
+static UINT get_resource_array(const D3D11_BUFFER_DESC *desc [[maybe_unused]])    { return 0; }
 static UINT get_resource_array(const D3D11_TEXTURE1D_DESC *desc) { return desc->ArraySize; }
 static UINT get_resource_array(const D3D11_TEXTURE2D_DESC *desc) { return desc->ArraySize; }
-static UINT get_resource_array(const D3D11_TEXTURE3D_DESC *desc) { return 0; }
+static UINT get_resource_array(const D3D11_TEXTURE3D_DESC *desc [[maybe_unused]]) { return 0; }
 
 template <typename DescType>
 static UINT eval_field(FuzzyMatchOperandType type, UINT val, const DescType *desc)
@@ -1912,7 +1912,7 @@ void RegionHashesCache::Add(const RegionHashKeyL2& key, uint32_t hash)
 	if (!cache)
 		cache = std::make_unique<FlatHashMap<RegionHashKeyL2, RegionCacheEntry, RegionHashKeyHasherL2>>(page_versions.size() / (PAGE_SIZE / HASHES_PER_PAGE));
 
-	RegionCacheEntry entry;
+	RegionCacheEntry entry{};
 	entry.hash = hash;
 	entry.version = version;
 
@@ -2304,7 +2304,7 @@ uint32_t GetRegionHash(HackerContext* context, ID3D11Buffer* buffer, UINT offset
 	uint32_t hash;
 
 	// Lookup offset in L2 cache. This one is slower and requires `handle_info` lookup.
-	RegionHashKeyL2 level_2_cache_key{ (uint64_t)offset, size };
+	RegionHashKeyL2 level_2_cache_key{ offset, size };
 	hash = handle_info->GetCachedRegionHash(level_2_cache_key);
 	if (hash) {
 		RegionHashesGlobalCacheInsert(level_3_cache_key, hash);
@@ -2565,7 +2565,8 @@ uint32_t GetSpatialHash(HackerContext* context, ID3D11Buffer* buffer, UINT offse
 
 	// Calculate the minimal buffer size required to fit requested X Y Z offsets.
 	const size_t max_offset = (std::max)((std::max)((size_t)offset_x, (size_t)offset_y), (size_t)offset_z);
-	if (max_offset > ((std::numeric_limits<size_t>::max)() - 4) / 4) {
+	if (max_offset > ((std::numeric_limits<size_t>::max)() - 4) / 4)
+	{
 		LeaveCriticalSection(&G->mCriticalSection);
 		return 0;
 	}

@@ -26,6 +26,8 @@ namespace Profiling {
 		LARGE_INTEGER start_time;
 	};
 
+	extern Mode mode;
+
 	static inline void start(State *state)
 	{
 		QueryPerformanceCounter(&state->start_time);
@@ -51,7 +53,7 @@ namespace Profiling {
 		auto ret = map.find(key);
 		if (Profiling::mode == Profiling::Mode::SUMMARY) {
 			Profiling::end(&state, overhead);
-			if (ret != end(map))
+			if (ret != map.end())
 				overhead->hits++;
 		}
 		return ret;
@@ -61,7 +63,6 @@ namespace Profiling {
 	void update_cto_warning(bool warn);
 	void clear();
 
-	extern Mode mode;
 	extern Overhead present_overhead;
 	extern Overhead overlay_overhead;
 	extern Overhead draw_overhead;

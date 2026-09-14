@@ -192,7 +192,7 @@ void writeLUT()
 		fputs(it->first.c_str(), f);
 		fputs(":->", f);
 		vector<DWORD> b = it->second;
-		int nextOperand = 1;
+		int nextOperand [[maybe_unused]] = 1;
 		for (DWORD i = 0; i < b.size(); i++) {
 			if (i == 0) {
 				char hex[40];
@@ -225,28 +225,36 @@ static void handleSwizzle(string s, token_operand* tOp, bool special = false)
 	if (special == true){
 		// Mask
 		tOp->mode = 0; // Mask
-		if (s.size() > 0 && s[0] == 'x') {
+		if (!s.empty() && s[0] == 'x')
+		{
 			tOp->sel |= 0x1;
 			s.erase(s.begin());
 		}
-		if (s.size() > 0 && s[0] == 'y') {
+		if (!s.empty() && s[0] == 'y')
+		{
 			tOp->sel |= 0x2;
 			s.erase(s.begin());
 		}
-		if (s.size() > 0 && s[0] == 'z') {
+		if (!s.empty() && s[0] == 'z')
+		{
 			tOp->sel |= 0x4;
 			s.erase(s.begin());
 		}
-		if (s.size() > 0 && s[0] == 'w') {
+		if (!s.empty() && s[0] == 'w')
+		{
 			tOp->sel |= 0x8;
 			s.erase(s.begin());
 		}
 		return;
-	} else if (s.size() == 0) {
+	}
+	else if (s.empty())
+	{
 		tOp->mode = 0;
 		tOp->comps_enum = 0;
 		return;
-	} else if(s.size() == 4) {
+	}
+	else if (s.size() == 4)
+	{
 		// Swizzle
 		tOp->mode = 1; // Swizzle
 		for (int i = 0; i < 4; i++) {
@@ -259,7 +267,9 @@ static void handleSwizzle(string s, token_operand* tOp, bool special = false)
 			if (s[i] == 'w')
 				tOp->sel |= 3 << (2 * i);
 		}
-	} else if (s.size() == 1){
+	}
+	else if (s.size() == 1)
+	{
 		tOp->mode = 2; // Scalar
 		if (s[0] == 'x')
 			tOp->sel = 0;
@@ -269,22 +279,28 @@ static void handleSwizzle(string s, token_operand* tOp, bool special = false)
 			tOp->sel = 2;
 		if (s[0] == 'w')
 			tOp->sel = 3;
-	} else {
+	}
+	else
+	{
 		// Mask
 		tOp->mode = 0; // Mask
-		if (s.size() > 0 && s[0] == 'x') {
+		if (!s.empty() && s[0] == 'x')
+		{
 			tOp->sel |= 0x1;
 			s.erase(s.begin());
 		}
-		if (s.size() > 0 && s[0] == 'y') {
+		if (!s.empty() && s[0] == 'y')
+		{
 			tOp->sel |= 0x2;
 			s.erase(s.begin());
 		}
-		if (s.size() > 0 && s[0] == 'z') {
+		if (!s.empty() && s[0] == 'z')
+		{
 			tOp->sel |= 0x4;
 			s.erase(s.begin());
 		}
-		if (s.size() > 0 && s[0] == 'w') {
+		if (!s.empty() && s[0] == 'w')
+		{
 			tOp->sel |= 0x8;
 			s.erase(s.begin());
 		}
@@ -311,7 +327,7 @@ struct special_purpose_register
 	// may interact with this, but this is at least passing all test cases.
 	unsigned comps_enum;
 
-	char *name;
+	const char *name;
 };
 
 static struct special_purpose_register special_purpose_registers[] = {
@@ -475,18 +491,19 @@ static vector<DWORD> assemble_cbvox_operand(string &s, vector<DWORD> &v, token_o
 			DWORD idx = atoi(s2.c_str());
 			string s3 = index.substr(0, index.find('+') - 1);
 			vector<DWORD> reg = assembleOp(s3);
-			if (sNum.size() > 0) {
+			if (!sNum.empty())
+			{
 				num = atoi(sNum.c_str());
 				v.push_back(num);
 			}
 			if (idx != 0) {
 				v.push_back(idx);
-				if (sNum.size() > 0)
+				if (!sNum.empty())
 					tOp->index1_repr = 3; // Reg + imm
 				else
 					tOp->index0_repr = 3; // Reg + imm
 			} else {
-				if (sNum.size() > 0)
+				if (!sNum.empty())
 					tOp->index1_repr = 2; // Reg;
 				else
 					tOp->index0_repr = 2; // Reg;
@@ -637,7 +654,7 @@ static DWORD encode_min_precision_type(const char *type)
 	return 0;
 }
 
-static void parse_min_precision_tag(string &s, vector<DWORD> &v, token_operand *tOp, DWORD *ext)
+static void parse_min_precision_tag(string &s, vector<DWORD> &v [[maybe_unused]], token_operand *tOp, DWORD *ext)
 {
 	size_t tag;
 
@@ -690,8 +707,8 @@ static vector<DWORD> assembleOp(string s, bool special)
 	DWORD op = 0;
 	DWORD ext = 0;
 	DWORD num = 0;
-	DWORD index = 0;
-	DWORD value = 0;
+	DWORD index [[maybe_unused]] = 0;
+	DWORD value [[maybe_unused]] = 0;
 	token_operand* tOp = (token_operand*)&op;
 	tOp->comps_enum = 2; // 4
 
@@ -1619,6 +1636,7 @@ static vector<DWORD> assembleIns(string s)
 		}
 		vector<vector<DWORD>> Os;
 		int numSpecial = 1;
+		Os.reserve(numOps);
 		for (int i = 0; i < numOps; i++)
 			Os.push_back(assembleOp(w[i + 1], i < numSpecial));
 		ins->length = 1;
@@ -1635,6 +1653,7 @@ static vector<DWORD> assembleIns(string s)
 		int numSpecial = 1;
 		if (vIns.size() > 2)
 			numSpecial = vIns[2];
+		Os.reserve(numOps);
 		for (int i = 0; i < numOps; i++)
 			Os.push_back(assembleOp(w[i + 1], i < numSpecial));
 		ins->opcode = vIns[1];
@@ -1659,6 +1678,7 @@ static vector<DWORD> assembleIns(string s)
 		int startPos = 1 + (vIns[2] & 3);
 		//startPos = w.size() - numOps;
 		check_num_ops(s, w, startPos + numOps - 1);
+		Os.reserve(numOps);
 		for (int i = 0; i < numOps; i++)
 			Os.push_back(assembleOp(w[i + startPos], i == 0));
 		ins->opcode = vIns[1];
@@ -1962,7 +1982,7 @@ static vector<DWORD> assembleIns(string s)
 			// FIXME: Missing D3D_SHADER_REQUIRES_TILED_RESOURCES
 			//   - https://docs.microsoft.com/en-gb/windows/desktop/api/d3d11shader/nf-d3d11shader-id3d11shaderreflection-getrequiresflags
 			//   -DarkStarSword
-			string s = w[i];
+			const string &s = w[i];
 			if (s == "refactoringAllowed")
 				ins->_11_23 |= 0x01;
 			if (s == "enableDoublePrecisionFloatOps")
@@ -2253,6 +2273,7 @@ static vector<DWORD> assembleIns(string s)
 		ins->opcode = 0x6e;
 		int numOps = 3;
 		check_num_ops(s, w, numOps);
+		os.reserve(numOps);
 		for (int i = 0; i < numOps; i++)
 			os.push_back(assembleOp(w[i + 1], i < 1));
 
@@ -2314,7 +2335,8 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 		return s;
 	}
 
-	if (v2.size() > 0) {
+	if (!v2.empty())
+	{
 		if (v2.size() == v.size()) {
 			for (DWORD i = 0; i < v.size(); i++) {
 				if (v[i] == 0x1835) {
@@ -2509,14 +2531,16 @@ static string assembleAndCompare(string s, vector<DWORD> v)
 				codeBin[s2] = v2;
 			}
 		}
-	} else {
+	}
+	else
+	{
 		if (s != "undecipherable custom data") {
 			s2 = "!missing ";
 			s2.append(s);
 			codeBin[s2] = v;
 		}
 	}
-	string ret = "";
+	string ret;
 	for (int i = 0; i < numSpaces; i++) {
 		ret.append(" ");
 	}
@@ -2549,7 +2573,7 @@ vector<string> stringToLines(const char* start, size_t size)
 		// Bug fixed: This would not strip carriage returns from DOS
 		// style newlines if they were the only character on the line,
 		// corrupting the resulting shader binary. -DarkStarSword
-		if (s.size() >= 1 && s[s.size() - 1] == '\r')
+		if (!s.empty() && s[s.size() - 1] == '\r')
 			s.erase(--s.end());
 
 		// Strip whitespace from the end of each line. This isn't
@@ -2560,14 +2584,14 @@ vector<string> stringToLines(const char* start, size_t size)
 		// understand why the pattern isn't matching. By removing
 		// excess spaces from the end of each line now we can make this
 		// gotcha go away.
-		while (s.size() >= 1 && s[s.size() - 1] == ' ')
+		while (!s.empty() && s[s.size() - 1] == ' ')
 			s.erase(--s.end());
 
 		lines[i] = s;
 	}
 	return lines;
 }
-static vector<string> stringToLinesDX9(const char* start, size_t size) {
+[[maybe_unused]] static vector<string> stringToLinesDX9(const char* start, size_t size) {
 	vector<string> lines;
 	const char* pStart = start;
 	const char* pEnd = pStart;
@@ -2591,7 +2615,7 @@ static vector<string> stringToLinesDX9(const char* start, size_t size) {
 		// Bug fixed: This would not strip carriage returns from DOS
 		// style newlines if they were the only character on the line,
 		// corrupting the resulting shader binary. -DarkStarSword
-		if (s.size() >= 1 && s[s.size() - 1] == '\r')
+		if (!s.empty() && s[s.size() - 1] == '\r')
 			s.erase(--s.end());
 
 		// Strip whitespace from the end of each line. This isn't
@@ -2602,10 +2626,10 @@ static vector<string> stringToLinesDX9(const char* start, size_t size) {
 		// understand why the pattern isn't matching. By removing
 		// excess spaces from the end of each line now we can make this
 		// gotcha go away.
-		while (s.size() >= 1 && s[s.size() - 1] == ' ')
+		while (!s.empty() && s[s.size() - 1] == ' ')
 			s.erase(--s.end());
 
-		while (s.size() >= 1 && s[0] == ' ')
+		while (!s.empty() && s[0] == ' ')
 			s.erase(s.begin());
 
 		lines[i] = s;
@@ -2979,7 +3003,7 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 	DWORD codeChunk = 0;
 	DWORD codeChunkOffset = 0;
 	DWORD codeChunkSize = 0;
-	byte* codeByteStart = NULL;
+	byte *codeByteStart = nullptr;
 	if (!find_dxbc_code_chunk(buffer->data(), buffer->size(), &numChunks,
 			&codeChunk, &codeChunkOffset, &codeChunkSize, &codeByteStart))
 		return S_FALSE;
@@ -3022,7 +3046,8 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 
 		vector<DWORD> v;
 		if (!codeStarted) {
-			if (s.size() > 0 && s[0] != ' ') {
+			if (!s.empty() && s[0] != ' ')
+			{
 				codeStarted = true;
 				v.push_back(*codeStart);
 				codeStart += 2;
@@ -3039,7 +3064,7 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 			s = s2;
 			multiLine = false;
 			multiLines++;
-			shader_ins* ins = (shader_ins*)codeStart;
+			shader_ins* ins [[maybe_unused]] = (shader_ins*)codeStart;
 			v.push_back(*codeStart);
 			codeStart++;
 			DWORD length = *codeStart;
@@ -3060,7 +3085,9 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 			s2.append("\n");
 			s2.append(s);
 			multiLines++;
-		} else if (s.size() > 0) {
+		}
+		else if (!s.empty())
+		{
 			shader_ins* ins = (shader_ins*)codeStart;
 			v.push_back(*codeStart);
 			codeStart++;
@@ -3088,9 +3115,9 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 				// Opcode 0x35 is custom data (specifically printf/errorf).
 				// Instruction length is in the next word instead:
 				uint32_t len = *codeStart;
-				v.push_back(*(codeStart)++);
+				v.push_back(*codeStart++);
 				for (uint32_t j = 1; j < len - 1; j++)
-					v.push_back(*(codeStart)++);
+					v.push_back(*codeStart++);
 				s = assembleAndCompare(s, v);
 			} else {
 				s = assembleAndCompare(s, v);
@@ -3157,7 +3184,7 @@ static vector<DWORD> ComputeHash(byte const* input, DWORD size)
 	DWORD Dst[16];
 	DWORD Data[] = { 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	DWORD loopSize2 = loopSize - (sizeHash56 ? 2 : 1);
-	DWORD start_0 = 0;
+	DWORD start_0 [[maybe_unused]] = 0;
 	DWORD* pSrc = (DWORD*)input;
 	DWORD h[] = { 0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476 };
 	if (loopSize > 0) {
@@ -3283,7 +3310,7 @@ vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode,
 	DWORD codeChunk = 0;
 	DWORD codeChunkOffset = 0;
 	DWORD codeChunkSize = 0;
-	byte* codeByteStart = NULL;
+	byte *codeByteStart = nullptr;
 	if (!find_dxbc_code_chunk(origBytecode.data(), origBytecode.size(), &numChunks,
 			&codeChunk, &codeChunkOffset, &codeChunkSize, &codeByteStart))
 		throw std::invalid_argument("assembler: Bad shader binary");
@@ -3304,7 +3331,8 @@ vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode,
 			preprocessLine(s);
 			vector<DWORD> v;
 			if (!codeStarted) {
-				if (s.size() > 0 && s[0] != ' ') {
+				if (!s.empty() && s[0] != ' ')
+				{
 					codeStarted = true;
 					vector<DWORD> ins = assembleIns(s);
 					o.insert(o.end(), ins.begin(), ins.end());
@@ -3348,7 +3376,7 @@ vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode,
 			parse_errors->push_back(e);
 		}
 	}
-	codeStart = (DWORD*)(codeByteStart); // Endian bug, not that we care
+	codeStart = (DWORD *)codeByteStart; // Endian bug, not that we care
 	auto it = origBytecode.begin() + codeChunkOffset + 8;
 	size_t codeSize = codeChunkSize;
 	origBytecode.erase(it, it + codeSize);

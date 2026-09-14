@@ -298,7 +298,7 @@ static void validate_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock)
 }
 
 static void push_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock, uintptr_t ret,
-		char *function = nullptr, int line = 0)
+		const char *function = nullptr, int line = 0)
 {
 	size_t stack_hash = 0;
 
@@ -356,7 +356,7 @@ static void EnterCriticalSectionHook(CRITICAL_SECTION *lock)
 	get_tls()->hooking_quirk_protection = false;
 }
 
-void _EnterCriticalSectionPretty(CRITICAL_SECTION *lock, char *function, int line)
+void _EnterCriticalSectionPretty(CRITICAL_SECTION *lock, const char *function, int line)
 {
 	if (!lock_dependency_checks_enabled)
 		return EnterCriticalSection(lock);
@@ -420,7 +420,7 @@ static void LeaveCriticalSectionHook(CRITICAL_SECTION *lock)
 		return;
 	get_tls()->hooking_quirk_protection = true;
 
-	LockStack *locks_held = &(get_tls()->locks_held);
+	LockStack *locks_held = &get_tls()->locks_held;
 	for (auto i = locks_held->rbegin(); i != locks_held->rend(); i++) {
 		if (i->lock == lock) {
 			// C++ gotcha: reverse_iterator::base() points to the *next* element
@@ -470,7 +470,7 @@ static void DeleteCriticalSectionHook(CRITICAL_SECTION *lock)
 	_DeleteCriticalSection(lock);
 }
 
-void _InitializeCriticalSectionPretty(CRITICAL_SECTION *lock, char *lock_name)
+void _InitializeCriticalSectionPretty(CRITICAL_SECTION *lock, const char *lock_name)
 {
 	InitializeCriticalSection(lock);
 	// NOTE: If we have been called from a global constructor, this may

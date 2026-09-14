@@ -145,7 +145,7 @@ static inline void profile_command_list_cmd_end(CommandListCommand *cmd, Command
 static void _RunCommandList(CommandList *command_list, CommandListState *state, bool recursive=true)
 {
 	CommandList::Commands::iterator i;
-	command_list_profiling_state profiling_state;
+	command_list_profiling_state profiling_state{};
 
 	command_list = command_list->ResolveCommandList();
 	
@@ -184,7 +184,7 @@ static void _RunCommandList(CommandList *command_list, CommandListState *state, 
 #pragma region InputLayoutOverride
 
 static void RealignInputLayoutOffsets(
-	std::vector<D3D11_INPUT_ELEMENT_DESC>& elements, size_t modified_index, UINT original_offset, DXGI_FORMAT original_format, INT size_delta
+	std::vector<D3D11_INPUT_ELEMENT_DESC>& elements, size_t modified_index, UINT original_offset [[maybe_unused]], DXGI_FORMAT original_format, INT size_delta
 )
 {
 	const UINT inputSlot = elements[modified_index].InputSlot;
@@ -454,12 +454,11 @@ void RunCommandList(HackerDevice *mHackerDevice,
 		DrawCallInfo *call_info,
 		bool post)
 {
-	ID3D11Resource **resource = NULL;
+	ID3D11Resource **resource = nullptr;
 	if (call_info)
 		resource = (ID3D11Resource**)call_info->indirect_buffer;
 
-	RunCommandListComplete(mHackerDevice, mHackerContext, command_list,
-		call_info, resource, NULL, post);
+	RunCommandListComplete(mHackerDevice, mHackerContext, command_list, call_info, resource, nullptr, post);
 }
 
 void RunResourceCommandList(HackerDevice *mHackerDevice,
@@ -468,8 +467,7 @@ void RunResourceCommandList(HackerDevice *mHackerDevice,
 		ID3D11Resource **resource,
 		bool post)
 {
-	RunCommandListComplete(mHackerDevice, mHackerContext, command_list,
-			NULL, resource, NULL, post);
+	RunCommandListComplete(mHackerDevice, mHackerContext, command_list, nullptr, resource, nullptr, post);
 }
 
 void RunViewCommandList(HackerDevice *mHackerDevice,
@@ -478,13 +476,12 @@ void RunViewCommandList(HackerDevice *mHackerDevice,
 		ID3D11View *view,
 		bool post)
 {
-	ID3D11Resource *res = NULL;
+	ID3D11Resource *res = nullptr;
 
 	if (view)
 		view->GetResource(&res);
 
-	RunCommandListComplete(mHackerDevice, mHackerContext, command_list,
-			NULL, &res, view, post);
+	RunCommandListComplete(mHackerDevice, mHackerContext, command_list, nullptr, &res, view, post);
 
 	if (res)
 		res->Release();
@@ -636,7 +633,7 @@ int find_local_variable(const wstring& name, CommandListScope* scope, CommandLis
 bool declare_local_variable(const wchar_t* section, wstring& name,
 	CommandList* pre_command_list, const wstring* ini_namespace)
 {
-	CommandListVariable* var = NULL;
+	CommandListVariable *var = nullptr;
 
 	if (!valid_variable_name(name)) {
 		LogOverlayW(LOG_WARNING, L"Illegal local variable name:  \"%ls\"\n - [%ls]\n", name.c_str(), section);
@@ -692,7 +689,8 @@ static bool ParseCheckTextureOverride(const wchar_t *section,
 		else if (post_command_list)
 			G->implicit_post_checktextureoverride_used = true;
 
-		return AddCommandToList(operation, explicit_command_list, NULL, pre_command_list, post_command_list, section, key, val);
+		return AddCommandToList(operation, explicit_command_list, nullptr, pre_command_list, post_command_list, section,
+		                        key, val);
 	}
 
 	delete operation;
@@ -703,7 +701,7 @@ static bool ParseResetPerFrameLimits(const wchar_t *section,
 		const wchar_t *key, wstring *val,
 		CommandList *explicit_command_list,
 		CommandList *pre_command_list,
-		CommandList *post_command_list,
+		CommandList *post_command_list [[maybe_unused]],
 		const wstring *ini_namespace)
 {
 	CustomResources::iterator res;
@@ -713,7 +711,7 @@ static bool ParseResetPerFrameLimits(const wchar_t *section,
 	ResetPerFrameLimitsCommand *operation = new ResetPerFrameLimitsCommand();
 
 	if (!wcsncmp(val->c_str(), L"resource", 8)) {
-		wstring resource_id(val->c_str());
+		wstring resource_id(*val);
 
 		res = customResources.end();
 		if (get_namespaced_section_name_lower(&resource_id, ini_namespace, &namespaced_section))
@@ -727,7 +725,7 @@ static bool ParseResetPerFrameLimits(const wchar_t *section,
 	}
 
 	if (!wcsncmp(val->c_str(), L"customshader", 12) || !wcsncmp(val->c_str(), L"builtincustomshader", 19)) {
-		wstring shader_id(val->c_str());
+		wstring shader_id(*val);
 
 		shader = customShaders.end();
 		if (get_namespaced_section_name_lower(&shader_id, ini_namespace, &namespaced_section))
@@ -740,7 +738,7 @@ static bool ParseResetPerFrameLimits(const wchar_t *section,
 		operation->shader = &shader->second;
 	}
 
-	return AddCommandToList(operation, explicit_command_list, pre_command_list, NULL, NULL, section, key, val);
+	return AddCommandToList(operation, explicit_command_list, pre_command_list, nullptr, nullptr, section, key, val);
 
 bail:
 	delete operation;
@@ -751,7 +749,7 @@ static bool ParseClearView(const wchar_t *section,
 		const wchar_t *key, wstring *val,
 		CommandList *explicit_command_list,
 		CommandList *pre_command_list,
-		CommandList *post_command_list,
+		CommandList *post_command_list [[maybe_unused]],
 		const wstring *ini_namespace)
 {
 	CustomResources::iterator res;
@@ -780,7 +778,7 @@ static bool ParseClearView(const wchar_t *section,
 			// would be lost if we only parsed the string as a
 			// float, e.g. 0xffffffff cannot be stored as a float
 			ret = swscanf_s(token.c_str(), L"0x%x%n", &uval, &len1);
-			if (ret != 0 && ret != EOF && len1 == token.length()) {
+			if (ret != 0 && ret != EOF && static_cast<size_t>(len1) == token.length()) {
 				operation->uval[idx] = uval;
 				operation->fval[idx] = *(float*)&uval;
 				operation->clear_uav_uint = true;
@@ -794,7 +792,7 @@ static bool ParseClearView(const wchar_t *section,
 			// by default, but store it in both arrays in case we
 			// later determine that we need to use an integer clear.
 			ret = swscanf_s(token.c_str(), L"%f%n", &fval, &len1);
-			if (ret != 0 && ret != EOF && len1 == token.length()) {
+			if (ret != 0 && ret != EOF && static_cast<size_t>(len1) == token.length()) {
 				operation->fval[idx] = fval;
 				operation->uval[idx] = (UINT)fval;
 				idx++;
@@ -824,9 +822,9 @@ static bool ParseClearView(const wchar_t *section,
 	// DSV, and the second as the stencil value, unless we are only
 	// clearing the stencil side, in which case use the first:
 	operation->dsv_depth = operation->fval[0];
-	operation->dsv_stencil = operation->uval[1];
+		operation->dsv_stencil = static_cast<UINT8>(operation->uval[1]);
 	if (operation->clear_stencil && !operation->clear_depth)
-		operation->dsv_stencil = operation->uval[0];
+		operation->dsv_stencil = static_cast<UINT8>(operation->uval[0]);
 
 	// Propagate the final specified value to the remaining channels. This
 	// allows a single value to be specified to clear all channels in RTVs
@@ -837,7 +835,7 @@ static bool ParseClearView(const wchar_t *section,
 		operation->fval[idx] = operation->fval[idx - 1];
 	}
 
-	return AddCommandToList(operation, explicit_command_list, pre_command_list, NULL, NULL, section, key, val);
+	return AddCommandToList(operation, explicit_command_list, pre_command_list, nullptr, nullptr, section, key, val);
 
 bail:
 	delete operation;
@@ -849,7 +847,7 @@ static bool ParseRunShader(const wchar_t *section,
 		const wchar_t *key, wstring *val,
 		CommandList *explicit_command_list,
 		CommandList *pre_command_list,
-		CommandList *post_command_list,
+		CommandList *post_command_list [[maybe_unused]],
 		const wstring *ini_namespace)
 {
 	RunCustomShaderCommand *operation = new RunCustomShaderCommand();
@@ -859,7 +857,7 @@ static bool ParseRunShader(const wchar_t *section,
 	// Value should already have been transformed to lower case from
 	// ParseCommandList, so our keys will be consistent in the
 	// unordered_map:
-	wstring shader_id(val->c_str());
+	wstring shader_id(*val);
 
 	shader = customShaders.end();
 	if (get_namespaced_section_name_lower(&shader_id, ini_namespace, &namespaced_section))
@@ -870,7 +868,7 @@ static bool ParseRunShader(const wchar_t *section,
 		goto bail;
 
 	operation->custom_shader = &shader->second;
-	return AddCommandToList(operation, explicit_command_list, pre_command_list, NULL, NULL, section, key, val);
+	return AddCommandToList(operation, explicit_command_list, pre_command_list, nullptr, nullptr, section, key, val);
 
 bail:
 	delete operation;
@@ -921,7 +919,8 @@ bool ParseRunExplicitCommandList(const wchar_t *section,
 	if (explicit_command_list)
 		operation->run_pre_and_post_together = true;
 
-	return AddCommandToList(operation, explicit_command_list, NULL, pre_command_list, post_command_list, section, key, val);
+	return AddCommandToList(operation, explicit_command_list, nullptr, pre_command_list, post_command_list, section,
+	                        key, val);
 
 bail:
 	delete operation;
@@ -968,7 +967,8 @@ bool ParseCopyCommandListCommand(const wchar_t* section,
 	operation->dst->command_list.runtime_populated = true;
 	operation->dst->post_command_list.runtime_populated = true;
 
-	return AddCommandToList(operation, explicit_command_list, NULL, pre_command_list, post_command_list, section, key, val);
+	return AddCommandToList(operation, explicit_command_list, nullptr, pre_command_list, post_command_list, section,
+	                        key, val);
 
 bail:
 	delete operation;
@@ -979,7 +979,7 @@ static bool ParsePreset(const wchar_t *section,
 		const wchar_t *key, wstring *val,
 		CommandList *explicit_command_list,
 		CommandList *pre_command_list,
-		CommandList *post_command_list,
+		CommandList *post_command_list [[maybe_unused]],
 		bool exclude, const wstring *ini_namespace)
 {
 	PresetCommand *operation = new PresetCommand();
@@ -990,7 +990,7 @@ static bool ParsePreset(const wchar_t *section,
 	// Value should already have been transformed to lower case from
 	// ParseCommandList, so our keys will be consistent in the
 	// unordered_map:
-	wstring preset_id(val->c_str());
+	wstring preset_id(*val);
 
 	// The original preset code did not accept the "Preset" prefix on the
 	// prefix command, as in it would only accept 'preset = Foo', not
@@ -1010,10 +1010,10 @@ static bool ParsePreset(const wchar_t *section,
 	if (get_namespaced_section_name_lower(&prefixed_section, ini_namespace, &namespaced_section))
 		i = presetOverrides.find(namespaced_section);
 	// Second, try namespaced without adding the prefix:
-	if (i == presetOverrides.end()) {
-		if (get_namespaced_section_name_lower(&preset_id, ini_namespace, &namespaced_section))
-			i = presetOverrides.find(namespaced_section);
-	}
+	if ((i == presetOverrides.end()) &&
+	    (get_namespaced_section_name_lower(&preset_id, ini_namespace, &namespaced_section)))
+		i = presetOverrides.find(namespaced_section);
+
 	// Third, add the 'Preset' and try global:
 	if (i == presetOverrides.end())
 		i = presetOverrides.find(prefixed_section);
@@ -1026,7 +1026,7 @@ static bool ParsePreset(const wchar_t *section,
 	operation->preset = &i->second;
 	operation->exclude = exclude;
 
-	return AddCommandToList(operation, explicit_command_list, pre_command_list, NULL, NULL, section, key, val);
+	return AddCommandToList(operation, explicit_command_list, pre_command_list, nullptr, nullptr, section, key, val);
 
 bail:
 	delete operation;
@@ -1078,7 +1078,7 @@ static bool ParseDrawCommand(const wchar_t *section,
 		const wchar_t *key, wstring *val,
 		CommandList *explicit_command_list,
 		CommandList *pre_command_list,
-		CommandList *post_command_list,
+		CommandList *post_command_list [[maybe_unused]],
 		const wstring *ini_namespace)
 {
 	DrawCommand *operation = new DrawCommand();
@@ -1131,7 +1131,7 @@ static bool ParseDrawCommand(const wchar_t *section,
 		goto bail;
 
 	operation->ini_section = section;
-	return AddCommandToList(operation, explicit_command_list, pre_command_list, NULL, NULL, section, key, val);
+	return AddCommandToList(operation, explicit_command_list, pre_command_list, nullptr, nullptr, section, key, val);
 
 bail:
 	delete operation;
@@ -1142,13 +1142,13 @@ static bool ParseFrameAnalysisDump(const wchar_t *section,
 		const wchar_t *key, wstring *val,
 		CommandList *explicit_command_list,
 		CommandList *pre_command_list,
-		CommandList *post_command_list,
+		CommandList *post_command_list [[maybe_unused]],
 		const wstring *ini_namespace)
 {
 	FrameAnalysisDumpCommand *operation = new FrameAnalysisDumpCommand();
 	wchar_t *buf;
 	size_t size = val->size() + 1;
-	wchar_t *target = NULL;
+	wchar_t *target = nullptr;
 
 	// parse_enum_option_string replaces spaces with NULLs, so it can't
 	// operate on the buffer in the wstring directly. I could potentially
@@ -1157,7 +1157,7 @@ static bool ParseFrameAnalysisDump(const wchar_t *section,
 	buf = new wchar_t[size];
 	wcscpy_s(buf, size, val->c_str());
 
-	operation->analyse_options = parse_enum_option_string<wchar_t *, FrameAnalysisOptions>
+	operation->analyse_options = parse_enum_option_string<const wchar_t *, FrameAnalysisOptions, wchar_t *>
 		(FrameAnalysisOptionNames, buf, &target);
 
 	if (!target)
@@ -1179,7 +1179,7 @@ static bool ParseFrameAnalysisDump(const wchar_t *section,
 	std::replace(operation->target_name.begin(), operation->target_name.end(), L'*', L'_');
 
 	delete [] buf;
-	return AddCommandToList(operation, explicit_command_list, pre_command_list, NULL, NULL, section, key, val);
+	return AddCommandToList(operation, explicit_command_list, pre_command_list, nullptr, nullptr, section, key, val);
 
 bail:
 	delete [] buf;
@@ -1190,7 +1190,7 @@ bail:
 bool ParseStoreCommand(const wchar_t* section,
 	const wchar_t* key, wstring* val,
 	CommandList* explicit_command_list,
-	CommandList* pre_command_list, CommandList* post_command_list,
+	CommandList* pre_command_list, CommandList* post_command_list [[maybe_unused]],
 	const wstring* ini_namespace)
 {
 	auto operation = std::make_unique<StoreCommand>();
@@ -1217,7 +1217,8 @@ bool ParseStoreCommand(const wchar_t* section,
 
 	operation->ini_section = section;
 
-	return AddCommandToList(operation.release(), explicit_command_list, pre_command_list, NULL, NULL, section, key, val);
+	return AddCommandToList(operation.release(), explicit_command_list, pre_command_list, nullptr, nullptr, section,
+	                        key, val);
 }
 
 bool ParseCommandListGeneralCommands(const wchar_t *section,
@@ -1246,12 +1247,14 @@ bool ParseCommandListGeneralCommands(const wchar_t *section,
 		// skip only makes sense in pre command lists, since it needs
 		// to run before the original draw call:
 		if (!wcscmp(val->c_str(), L"skip"))
-			return AddCommandToList(new SkipCommand(section), explicit_command_list, pre_command_list, NULL, NULL, section, key, val);
+			return AddCommandToList(new SkipCommand(section), explicit_command_list, pre_command_list, nullptr, nullptr,
+			                        section, key, val);
 
 		// abort defaults to both command lists, to abort command list
 		// execution both before and after the draw call:
 		if (!wcscmp(val->c_str(), L"abort"))
-			return AddCommandToList(new AbortCommand(section), explicit_command_list, NULL, pre_command_list, post_command_list, section, key, val);
+			return AddCommandToList(new AbortCommand(section), explicit_command_list, nullptr, pre_command_list,
+			                        post_command_list, section, key, val);
 	}
 
 	if (!wcscmp(key, L"reset_per_frame_limits"))
@@ -1261,17 +1264,20 @@ bool ParseCommandListGeneralCommands(const wchar_t *section,
 		return ParseClearView(section, key, val, explicit_command_list, pre_command_list, post_command_list, ini_namespace);
 
 	if (!wcscmp(key, L"analyse_options"))
-		return AddCommandToList(new FrameAnalysisChangeOptionsCommand(val), explicit_command_list, pre_command_list, NULL, NULL, section, key, val);
+		return AddCommandToList(new FrameAnalysisChangeOptionsCommand(val), explicit_command_list, pre_command_list,
+		                        nullptr, nullptr, section, key, val);
 
 	if (!wcscmp(key, L"dump"))
 		return ParseFrameAnalysisDump(section, key, val, explicit_command_list, pre_command_list, post_command_list, ini_namespace);
 
 	if (!wcscmp(key, L"special")) {
 		if (!wcscmp(val->c_str(), L"upscaling_switch_bb"))
-			return AddCommandToList(new UpscalingFlipBBCommand(section), explicit_command_list, pre_command_list, NULL, NULL, section, key, val);
+			return AddCommandToList(new UpscalingFlipBBCommand(section), explicit_command_list, pre_command_list,
+			                        nullptr, nullptr, section, key, val);
 
 		if (!wcscmp(val->c_str(), L"draw_3dmigoto_overlay"))
-			return AddCommandToList(new Draw3DMigotoOverlayCommand(section), explicit_command_list, pre_command_list, NULL, NULL, section, key, val);
+			return AddCommandToList(new Draw3DMigotoOverlayCommand(section), explicit_command_list, pre_command_list,
+			                        nullptr, nullptr, section, key, val);
 	}
 
 	if (!wcscmp(key, L"store")) {
@@ -1292,13 +1298,13 @@ bool ParseCommandListGeneralCommands(const wchar_t *section,
 void CheckTextureOverrideCommand::run(CommandListState *state)
 {
 	TextureOverrideMatches matches;
-	ResourceCopyTarget *saved_this = NULL;
+	ResourceCopyTarget *saved_this = nullptr;
 	bool saved_post;
 	unsigned i;
 
 	COMMAND_LIST_LOG(state, "%S\n", ini_line.c_str());
 
-	target.FindTextureOverrides(state, NULL, &matches);
+	target.FindTextureOverrides(state, nullptr, &matches);
 
 	saved_this = state->this_target;
 	state->this_target = &target;
@@ -1475,25 +1481,25 @@ static UINT get_index_count_from_current_ib(ID3D11DeviceContext *mOrigContext1)
 	return 0;
 }
 
-void DrawCommand::do_indirect_draw_call(CommandListState *state, char *name,
+void DrawCommand::do_indirect_draw_call(CommandListState *state, const char *name,
 		void (__stdcall ID3D11DeviceContext::*IndirectDrawCall)(THIS_
 		ID3D11Buffer *pBufferForArgs,
 		UINT AlignedByteOffsetForArgs))
 {
-	ID3D11Resource *resource = NULL;
-	ID3D11View *view = NULL;
+	ID3D11Resource *resource = nullptr;
+	ID3D11View *view = nullptr;
 	UINT stride = 0;
 	UINT offset = 0;
-	UINT buf_size = 0;
+	UINT buf_size [[maybe_unused]] = 0;
 	DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
 	UINT arg = (UINT)args[0].evaluate(state);
 
-	resource = indirect_buffer.GetResource(state, &view, &stride, &offset, &format, NULL);
+	resource = indirect_buffer.GetResource(state, &view, &stride, &offset, &format, nullptr);
 	if (view)
 		view->Release();
 
 	if (!resource) {
-		COMMAND_LIST_LOG(state, "[%S] %s(%p, %u) -> INDIRECT BUFFER IS NULL\n",
+		COMMAND_LIST_LOG(state, "[%S] %s(%p, %u) -> INDIRECT BUFFER IS nullptr\n",
 				ini_section.c_str(), name, resource, arg);
 		return;
 	}
@@ -1513,7 +1519,6 @@ void DrawCommand::eval_args(int nargs, INT result[5], CommandListState *state)
 
 void DrawCommand::run(CommandListState *state)
 {
-	HackerContext *mHackerContext = state->mHackerContext;
 	ID3D11DeviceContext *mOrigContext1 = state->mOrigContext1;
 	DrawCallInfo *info = state->call_info;
 	UINT auto_count = 0;
@@ -1552,13 +1557,13 @@ void DrawCommand::run(CommandListState *state)
 		case DrawCommandType::DRAW_INDEXED:
 			eval_args(3, eargs, state);
 			COMMAND_LIST_LOG(state, "[%S] DrawIndexed(%u, %u, %i)\n", ini_section.c_str(), eargs[0], eargs[1], (INT)eargs[2]);
-			mOrigContext1->DrawIndexed(eargs[0], eargs[1], (INT)eargs[2]);
-			break;
+		    mOrigContext1->DrawIndexed(eargs[0], eargs[1], eargs[2]);
+		    break;
 		case DrawCommandType::DRAW_INDEXED_INSTANCED:
 			eval_args(5, eargs, state);
 			COMMAND_LIST_LOG(state, "[%S] DrawIndexedInstanced(%u, %u, %u, %i, %u)\n", ini_section.c_str(), eargs[0], eargs[1], eargs[2], (INT)eargs[3], eargs[4]);
-			mOrigContext1->DrawIndexedInstanced(eargs[0], eargs[1], eargs[2], (INT)eargs[3], eargs[4]);
-			break;
+		    mOrigContext1->DrawIndexedInstanced(eargs[0], eargs[1], eargs[2], eargs[3], eargs[4]);
+		    break;
 		case DrawCommandType::DRAW_INSTANCED:
 			eval_args(4, eargs, state);
 			COMMAND_LIST_LOG(state, "[%S] DrawInstanced(%u, %u, %u, %u)\n", ini_section.c_str(), eargs[0], eargs[1], eargs[2], eargs[3]);
@@ -1693,7 +1698,7 @@ void StoreCommand::run(CommandListState* state)
 		return;
 	}
 
-	UINT offset = offset_expression->evaluate(state);
+	UINT offset = static_cast<UINT>(offset_expression->evaluate(state));
 
 	// Copy the requested float into the staging buffer for CPU readback.
 	D3D11_BOX box = {};
@@ -1755,8 +1760,8 @@ FrameAnalysisChangeOptionsCommand::FrameAnalysisChangeOptionsCommand(wstring *va
 	buf = new wchar_t[size];
 	wcscpy_s(buf, size, val->c_str());
 
-	analyse_options = parse_enum_option_string<wchar_t *, FrameAnalysisOptions>
-		(FrameAnalysisOptionNames, buf, NULL);
+	analyse_options = parse_enum_option_string<const wchar_t *, FrameAnalysisOptions, wchar_t *>(
+	    FrameAnalysisOptionNames, buf, nullptr);
 
 	delete [] buf;
 }
@@ -1768,7 +1773,7 @@ void FrameAnalysisChangeOptionsCommand::run(CommandListState *state)
 	state->mHackerContext->FrameAnalysisTrigger(analyse_options);
 }
 
-bool FrameAnalysisChangeOptionsCommand::noop(bool post, bool ignore_cto_pre, bool ignore_cto_post)
+bool FrameAnalysisChangeOptionsCommand::noop(bool post [[maybe_unused]], bool ignore_cto_pre [[maybe_unused]], bool ignore_cto_post [[maybe_unused]])
 {
 	return (G->hunting == HUNTING_MODE_DISABLED || G->frame_analysis_registered == false);
 }
@@ -1780,10 +1785,10 @@ static void FillInMissingInfo(ResourceCopyTargetType type, ID3D11Resource *resou
 	D3D11_BUFFER_DESC buf_desc;
 	ID3D11Buffer *buffer;
 
-	ID3D11ShaderResourceView *resource_view = NULL;
-	ID3D11RenderTargetView *render_view = NULL;
-	ID3D11DepthStencilView *depth_view = NULL;
-	ID3D11UnorderedAccessView *unordered_view = NULL;
+	ID3D11ShaderResourceView *resource_view = nullptr;
+	ID3D11RenderTargetView *render_view = nullptr;
+	ID3D11DepthStencilView *depth_view = nullptr;
+	ID3D11UnorderedAccessView *unordered_view = nullptr;
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC resource_view_desc;
 	D3D11_RENDER_TARGET_VIEW_DESC render_view_desc;
@@ -1903,8 +1908,8 @@ static void FillInMissingInfo(ResourceCopyTargetType type, ID3D11Resource *resou
 
 void FrameAnalysisDumpCommand::run(CommandListState *state)
 {
-	ID3D11Resource *resource = NULL;
-	ID3D11View *view = NULL;
+	ID3D11Resource *resource = nullptr;
+	ID3D11View *view = nullptr;
 	UINT stride = 0;
 	UINT offset = 0;
 	UINT buf_size = 0;
@@ -1916,7 +1921,7 @@ void FrameAnalysisDumpCommand::run(CommandListState *state)
 
 	COMMAND_LIST_LOG(state, "%S\n", ini_line.c_str());
 
-	resource = target.GetResource(state, &view, &stride, &offset, &format, NULL);
+	resource = target.GetResource(state, &view, &stride, &offset, &format, nullptr);
 	if (!resource) {
 		COMMAND_LIST_LOG(state, "  No resource to dump\n");
 		return;
@@ -1935,7 +1940,7 @@ void FrameAnalysisDumpCommand::run(CommandListState *state)
 		view->Release();
 }
 
-bool FrameAnalysisDumpCommand::noop(bool post, bool ignore_cto_pre, bool ignore_cto_post)
+bool FrameAnalysisDumpCommand::noop(bool post [[maybe_unused]], bool ignore_cto_pre [[maybe_unused]], bool ignore_cto_post [[maybe_unused]])
 {
 	return (G->hunting == HUNTING_MODE_DISABLED || G->frame_analysis_registered == false);
 }
@@ -2008,25 +2013,15 @@ void CopyCommandListCommand::run(CommandListState* state)
 
 #pragma region CustomShader
 
-CustomShader::CustomShader() :
-	vs_override(false), hs_override(false), ds_override(false),
-	gs_override(false), ps_override(false), cs_override(false),
-	vs(NULL), hs(NULL), ds(NULL), gs(NULL), ps(NULL), cs(NULL),
-	vs_bytecode(NULL), hs_bytecode(NULL), ds_bytecode(NULL),
-	gs_bytecode(NULL), ps_bytecode(NULL), cs_bytecode(NULL),
-	blend_override(0), blend_state(NULL),
-	blend_sample_mask(0xffffffff), blend_sample_mask_merge_mask(0xffffffff),
-	depth_stencil_override(0), depth_stencil_state(NULL),
-	stencil_ref(0), stencil_ref_mask(~0),
-	rs_override(0), rs_state(NULL),
-	topology(D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED),
-	substantiated(false),
-	max_executions_per_frame(0),
-	frame_no(0),
-	executions_this_frame(0),
-	sampler_override(0),
-	sampler_state(nullptr),
-	compile_flags(D3DCompileFlags::OPTIMIZATION_LEVEL3)
+CustomShader::CustomShader()
+    : vs_override(false), hs_override(false), ds_override(false), gs_override(false), ps_override(false),
+      cs_override(false), vs(nullptr), hs(nullptr), ds(nullptr), gs(nullptr), ps(nullptr), cs(nullptr),
+      vs_bytecode(nullptr), hs_bytecode(nullptr), ds_bytecode(nullptr), gs_bytecode(nullptr), ps_bytecode(nullptr),
+      cs_bytecode(nullptr), blend_override(0), blend_state(nullptr), blend_sample_mask(0xffffffff),
+      blend_sample_mask_merge_mask(0xffffffff), depth_stencil_override(0), depth_stencil_state(nullptr), stencil_ref(0),
+      stencil_ref_mask(~0u), rs_override(0), rs_state(nullptr), topology(D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED),
+      substantiated(false), max_executions_per_frame(0), frame_no(0), executions_this_frame(0), sampler_override(0),
+      sampler_state(nullptr), compile_flags(D3DCompileFlags::OPTIMIZATION_LEVEL3)
 {
 	int i;
 
@@ -2080,24 +2075,27 @@ static bool load_cached_shader(FILETIME hlsl_timestamp, wchar_t *cache_path, ID3
 	HANDLE f_cache;
 	DWORD filesize, readsize;
 
-	f_cache = CreateFile(cache_path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	f_cache =
+	    CreateFile(cache_path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (f_cache == INVALID_HANDLE_VALUE)
 		return false;
 
-	if (!GetFileTime(f_cache, NULL, NULL, &cache_timestamp)
-	 || CompareFileTime(&hlsl_timestamp, &cache_timestamp)) {
+	if (!GetFileTime(f_cache, nullptr, nullptr, &cache_timestamp) || CompareFileTime(&hlsl_timestamp, &cache_timestamp))
+	{
 		LogInfo("    Discarding stale cached shader: %S\n", cache_path);
 		goto err_close;
 	}
 
-	filesize = GetFileSize(f_cache, 0);
+	filesize = GetFileSize(f_cache, nullptr);
 	if (FAILED(D3DCreateBlob(filesize, ppBytecode))) {
 		LogInfo("    D3DCreateBlob failed\n");
 		goto err_close;
 	}
 
-	if (!ReadFile(f_cache, (*ppBytecode)->GetBufferPointer(), (DWORD)(*ppBytecode)->GetBufferSize(), &readsize, 0)
-			|| readsize != filesize) {
+	if (!ReadFile(f_cache, (*ppBytecode)->GetBufferPointer(), (DWORD)(*ppBytecode)->GetBufferSize(), &readsize,
+	              nullptr) ||
+	    readsize != filesize)
+	{
 		LogInfo("    Error reading cached shader\n");
 		goto err_free;
 	}
@@ -2108,33 +2106,34 @@ static bool load_cached_shader(FILETIME hlsl_timestamp, wchar_t *cache_path, ID3
 
 err_free:
 	(*ppBytecode)->Release();
-	*ppBytecode = NULL;
+	*ppBytecode = nullptr;
 err_close:
 	CloseHandle(f_cache);
 	return false;
 }
 
-static const D3D_SHADER_MACRO vs_macros[] = { "VERTEX_SHADER", "", NULL, NULL };
-static const D3D_SHADER_MACRO hs_macros[] = { "HULL_SHADER", "", NULL, NULL };
-static const D3D_SHADER_MACRO ds_macros[] = { "DOMAIN_SHADER", "", NULL, NULL };
-static const D3D_SHADER_MACRO gs_macros[] = { "GEOMETRY_SHADER", "", NULL, NULL };
-static const D3D_SHADER_MACRO ps_macros[] = { "PIXEL_SHADER", "", NULL, NULL };
-static const D3D_SHADER_MACRO cs_macros[] = { "COMPUTE_SHADER", "", NULL, NULL };
+static const D3D_SHADER_MACRO vs_macros[] = {"VERTEX_SHADER", "", nullptr, nullptr};
+static const D3D_SHADER_MACRO hs_macros[] = {"HULL_SHADER", "", nullptr, nullptr};
+static const D3D_SHADER_MACRO ds_macros[] = {"DOMAIN_SHADER", "", nullptr, nullptr};
+static const D3D_SHADER_MACRO gs_macros[] = {"GEOMETRY_SHADER", "", nullptr, nullptr};
+static const D3D_SHADER_MACRO ps_macros[] = {"PIXEL_SHADER", "", nullptr, nullptr};
+static const D3D_SHADER_MACRO cs_macros[] = {"COMPUTE_SHADER", "", nullptr, nullptr};
 
 // This is similar to the other compile routines, but still distinct enough to
 // get it's own function for now - TODO: Refactor out the common code
-bool CustomShader::compile(char type, wchar_t *filename, const wstring *wname, const wstring *namespace_path)
+bool CustomShader::compile(char type, wchar_t *filename, const wstring *wname [[maybe_unused]], const wstring *namespace_path)
 {
 	wchar_t wpath[MAX_PATH], cache_path[MAX_PATH];
+	wchar_t *ext;
 	char apath[MAX_PATH];
 	HANDLE f;
 	DWORD srcDataSize, readSize;
 	vector<char> srcData;
 	HRESULT hr;
 	char shaderModel[7];
-	ID3DBlob **ppBytecode = NULL;
-	ID3DBlob *pErrorMsgs = NULL;
-	const D3D_SHADER_MACRO *macros = NULL;
+	ID3DBlob **ppBytecode = nullptr;
+	ID3DBlob *pErrorMsgs = nullptr;
+	const D3D_SHADER_MACRO *macros = nullptr;
 	bool found = false;
 	FILETIME timestamp;
 
@@ -2202,7 +2201,7 @@ bool CustomShader::compile(char type, wchar_t *filename, const wstring *wname, c
 		wcscat(wpath, filename);
 	}
 
-	f = CreateFile(wpath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	f = CreateFile(wpath, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (f == INVALID_HANDLE_VALUE) {
 		LogOverlayW(LOG_WARNING, L"Shader not found: %ls\n", wpath);
 		goto err;
@@ -2215,23 +2214,23 @@ bool CustomShader::compile(char type, wchar_t *filename, const wstring *wname, c
 	// XXX: If we allow the compilation to be customised further (e.g. with
 	// addition preprocessor defines), make the cache filename unique for
 	// each possible combination
-	wchar_t *ext = wcsrchr(wpath, L'.');
+	ext = wcsrchr(wpath, L'.');
 	if (ext > wcsrchr(wpath, L'\\'))
 		swprintf_s(cache_path, MAX_PATH, L"%.*s.%S.%x.bin", (int)(ext - wpath), wpath, shaderModel, (UINT)compile_flags);
 	else
 		swprintf_s(cache_path, MAX_PATH, L"%s.%S.%x.bin", wpath, shaderModel, (UINT)compile_flags);
 
-	GetFileTime(f, NULL, NULL, &timestamp);
+	GetFileTime(f, nullptr, nullptr, &timestamp);
 	if (load_cached_shader(timestamp, cache_path, ppBytecode)) {
 		CloseHandle(f);
 		return false;
 	}
 
-	srcDataSize = GetFileSize(f, 0);
+	srcDataSize = GetFileSize(f, nullptr);
 	srcData.resize(srcDataSize);
 
-	if (!ReadFile(f, srcData.data(), srcDataSize, &readSize, 0)
-			|| srcDataSize != readSize) {
+	if (!ReadFile(f, srcData.data(), srcDataSize, &readSize, nullptr) || srcDataSize != readSize)
+	{
 		LogInfo("    Error reading HLSL file\n");
 		goto err_close;
 	}
@@ -2295,40 +2294,40 @@ void CustomShader::substantiate(ID3D11Device *mOrigDevice1)
 	substantiated = true;
 
 	if (vs_bytecode) {
-		mOrigDevice1->CreateVertexShader(vs_bytecode->GetBufferPointer(), vs_bytecode->GetBufferSize(), NULL, &vs);
+		mOrigDevice1->CreateVertexShader(vs_bytecode->GetBufferPointer(), vs_bytecode->GetBufferSize(), nullptr, &vs);
 		CleanupShaderMaps(vs);
 		vs_bytecode->Release();
-		vs_bytecode = NULL;
+		vs_bytecode = nullptr;
 	}
 	if (hs_bytecode) {
-		mOrigDevice1->CreateHullShader(hs_bytecode->GetBufferPointer(), hs_bytecode->GetBufferSize(), NULL, &hs);
+		mOrigDevice1->CreateHullShader(hs_bytecode->GetBufferPointer(), hs_bytecode->GetBufferSize(), nullptr, &hs);
 		CleanupShaderMaps(hs);
 		hs_bytecode->Release();
-		hs_bytecode = NULL;
+		hs_bytecode = nullptr;
 	}
 	if (ds_bytecode) {
-		mOrigDevice1->CreateDomainShader(ds_bytecode->GetBufferPointer(), ds_bytecode->GetBufferSize(), NULL, &ds);
+		mOrigDevice1->CreateDomainShader(ds_bytecode->GetBufferPointer(), ds_bytecode->GetBufferSize(), nullptr, &ds);
 		CleanupShaderMaps(ds);
 		ds_bytecode->Release();
-		ds_bytecode = NULL;
+		ds_bytecode = nullptr;
 	}
 	if (gs_bytecode) {
-		mOrigDevice1->CreateGeometryShader(gs_bytecode->GetBufferPointer(), gs_bytecode->GetBufferSize(), NULL, &gs);
+		mOrigDevice1->CreateGeometryShader(gs_bytecode->GetBufferPointer(), gs_bytecode->GetBufferSize(), nullptr, &gs);
 		CleanupShaderMaps(gs);
 		gs_bytecode->Release();
-		gs_bytecode = NULL;
+		gs_bytecode = nullptr;
 	}
 	if (ps_bytecode) {
-		mOrigDevice1->CreatePixelShader(ps_bytecode->GetBufferPointer(), ps_bytecode->GetBufferSize(), NULL, &ps);
+		mOrigDevice1->CreatePixelShader(ps_bytecode->GetBufferPointer(), ps_bytecode->GetBufferSize(), nullptr, &ps);
 		CleanupShaderMaps(ps);
 		ps_bytecode->Release();
-		ps_bytecode = NULL;
+		ps_bytecode = nullptr;
 	}
 	if (cs_bytecode) {
-		mOrigDevice1->CreateComputeShader(cs_bytecode->GetBufferPointer(), cs_bytecode->GetBufferSize(), NULL, &cs);
+		mOrigDevice1->CreateComputeShader(cs_bytecode->GetBufferPointer(), cs_bytecode->GetBufferSize(), nullptr, &cs);
 		CleanupShaderMaps(cs);
 		cs_bytecode->Release();
-		cs_bytecode = NULL;
+		cs_bytecode = nullptr;
 	}
 
 	if (blend_override == 1) // 2 will merge the blend state at draw time
@@ -2368,7 +2367,7 @@ void CustomShader::merge_blend_states(ID3D11BlendState *src_state, FLOAT src_ble
 
 	if (blend_state)
 		blend_state->Release();
-	blend_state = NULL;
+	blend_state = nullptr;
 
 	if (src_state) {
 		src_state->GetDesc(&src_desc);
@@ -2410,7 +2409,7 @@ void CustomShader::merge_depth_stencil_states(ID3D11DepthStencilState *src_state
 
 	if (depth_stencil_state)
 		depth_stencil_state->Release();
-	depth_stencil_state = NULL;
+	depth_stencil_state = nullptr;
 
 	if (src_state) {
 		src_state->GetDesc(&src_desc);
@@ -2449,7 +2448,7 @@ void CustomShader::merge_rasterizer_states(ID3D11RasterizerState *src_state, ID3
 
 	if (rs_state)
 		rs_state->Release();
-	rs_state = NULL;
+	rs_state = nullptr;
 
 	if (src_state) {
 		src_state->GetDesc(&src_desc);
@@ -2476,7 +2475,7 @@ void CustomShader::merge_rasterizer_states(ID3D11RasterizerState *src_state, ID3
 
 struct saved_shader_inst
 {
-	ID3D11ClassInstance *instances[256];
+	ID3D11ClassInstance *instances[256]{};
 	UINT num_instances;
 
 	saved_shader_inst() :
@@ -2498,24 +2497,24 @@ void RunCustomShaderCommand::run(CommandListState *state)
 {
 	ID3D11Device *mOrigDevice1 = state->mOrigDevice1;
 	ID3D11DeviceContext *mOrigContext1 = state->mOrigContext1;
-	ID3D11VertexShader *saved_vs = NULL;
-	ID3D11HullShader *saved_hs = NULL;
-	ID3D11DomainShader *saved_ds = NULL;
-	ID3D11GeometryShader *saved_gs = NULL;
-	ID3D11PixelShader *saved_ps = NULL;
-	ID3D11ComputeShader *saved_cs = NULL;
-	ID3D11BlendState *saved_blend = NULL;
-	ID3D11DepthStencilState *saved_depth_stencil = NULL;
-	ID3D11RasterizerState *saved_rs = NULL;
+	ID3D11VertexShader *saved_vs = nullptr;
+	ID3D11HullShader *saved_hs = nullptr;
+	ID3D11DomainShader *saved_ds = nullptr;
+	ID3D11GeometryShader *saved_gs = nullptr;
+	ID3D11PixelShader *saved_ps = nullptr;
+	ID3D11ComputeShader *saved_cs = nullptr;
+	ID3D11BlendState *saved_blend = nullptr;
+	ID3D11DepthStencilState *saved_depth_stencil = nullptr;
+	ID3D11RasterizerState *saved_rs = nullptr;
 	UINT num_viewports = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
 	D3D11_VIEWPORT saved_viewports[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
 	FLOAT saved_blend_factor[4];
-	UINT saved_sample_mask;
-	UINT saved_stencil_ref;
+	UINT saved_sample_mask = 0;
+	UINT saved_stencil_ref = 0;
 	bool saved_post;
-	struct OMState om_state;
+	struct OMState om_state{};
 	UINT i;
-	D3D11_PRIMITIVE_TOPOLOGY saved_topology;
+	D3D11_PRIMITIVE_TOPOLOGY saved_topology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
 	UINT num_sampler = D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT;
 	ID3D11SamplerState* saved_sampler_states[D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT];
 
@@ -2550,27 +2549,27 @@ void RunCustomShaderCommand::run(CommandListState *state)
 
 	if (custom_shader->vs_override) {
 		mOrigContext1->VSGetShader(&saved_vs, vs_inst.instances, &vs_inst.num_instances);
-		mOrigContext1->VSSetShader(custom_shader->vs, NULL, 0);
+		mOrigContext1->VSSetShader(custom_shader->vs, nullptr, 0);
 	}
 	if (custom_shader->hs_override) {
 		mOrigContext1->HSGetShader(&saved_hs, hs_inst.instances, &hs_inst.num_instances);
-		mOrigContext1->HSSetShader(custom_shader->hs, NULL, 0);
+		mOrigContext1->HSSetShader(custom_shader->hs, nullptr, 0);
 	}
 	if (custom_shader->ds_override) {
 		mOrigContext1->DSGetShader(&saved_ds, ds_inst.instances, &ds_inst.num_instances);
-		mOrigContext1->DSSetShader(custom_shader->ds, NULL, 0);
+		mOrigContext1->DSSetShader(custom_shader->ds, nullptr, 0);
 	}
 	if (custom_shader->gs_override) {
 		mOrigContext1->GSGetShader(&saved_gs, gs_inst.instances, &gs_inst.num_instances);
-		mOrigContext1->GSSetShader(custom_shader->gs, NULL, 0);
+		mOrigContext1->GSSetShader(custom_shader->gs, nullptr, 0);
 	}
 	if (custom_shader->ps_override) {
 		mOrigContext1->PSGetShader(&saved_ps, ps_inst.instances, &ps_inst.num_instances);
-		mOrigContext1->PSSetShader(custom_shader->ps, NULL, 0);
+		mOrigContext1->PSSetShader(custom_shader->ps, nullptr, 0);
 	}
 	if (custom_shader->cs_override) {
 		mOrigContext1->CSGetShader(&saved_cs, cs_inst.instances, &cs_inst.num_instances);
-		mOrigContext1->CSSetShader(custom_shader->cs, NULL, 0);
+		mOrigContext1->CSSetShader(custom_shader->cs, nullptr, 0);
 	}
 	if (custom_shader->blend_override) {
 		mOrigContext1->OMGetBlendState(&saved_blend, saved_blend_factor, &saved_sample_mask);
@@ -2665,7 +2664,7 @@ void RunCustomShaderCommand::run(CommandListState *state)
 	}
 }
 
-bool RunCustomShaderCommand::noop(bool post, bool ignore_cto_pre, bool ignore_cto_post)
+bool RunCustomShaderCommand::noop(bool post [[maybe_unused]], bool ignore_cto_pre [[maybe_unused]], bool ignore_cto_post [[maybe_unused]])
 {
 	return (custom_shader->command_list.noop() && custom_shader->post_command_list.noop());
 }
@@ -2694,7 +2693,7 @@ void RunExplicitCommandList::run(CommandListState *state)
 		_RunCommandList(&command_list_section->command_list, state);
 }
 
-bool RunExplicitCommandList::noop(bool post, bool ignore_cto_pre, bool ignore_cto_post)
+bool RunExplicitCommandList::noop(bool post, bool ignore_cto_pre [[maybe_unused]], bool ignore_cto_post [[maybe_unused]])
 {
 	if (run_pre_and_post_together)
 		return (command_list_section->command_list.noop() 
@@ -2720,7 +2719,7 @@ void RunLinkedCommandList::run(CommandListState *state)
 	_RunCommandList(link, state, false);
 }
 
-bool RunLinkedCommandList::noop(bool post, bool ignore_cto_pre, bool ignore_cto_post)
+bool RunLinkedCommandList::noop(bool post [[maybe_unused]], bool ignore_cto_pre [[maybe_unused]], bool ignore_cto_post [[maybe_unused]])
 {
 	return link->noop();
 }
@@ -2729,14 +2728,14 @@ static void ProcessParamRTSize(CommandListState *state)
 {
 	D3D11_RENDER_TARGET_VIEW_DESC view_desc;
 	D3D11_TEXTURE2D_DESC res_desc;
-	ID3D11RenderTargetView *view = NULL;
-	ID3D11Resource *res = NULL;
-	ID3D11Texture2D *tex = NULL;
+	ID3D11RenderTargetView *view = nullptr;
+	ID3D11Resource *res = nullptr;
+	ID3D11Texture2D *tex = nullptr;
 
 	if (state->rt_width != -1)
 		return;
 
-	state->mOrigContext1->OMGetRenderTargets(1, &view, NULL);
+	state->mOrigContext1->OMGetRenderTargets(1, &view, nullptr);
 	if (!view)
 		return;
 
@@ -2885,7 +2884,7 @@ float CommandListOperand::process_texture_filter(CommandListState *state)
 float CommandListOperand::process_shader_filter(CommandListState *state)
 {
 	HackerContext *mHackerContext = state->mHackerContext;
-	ID3D11DeviceChild *shader = NULL;
+	ID3D11DeviceChild *shader = nullptr;
 
 	switch (shader_filter_target) {
 		case L'v':
@@ -2977,27 +2976,11 @@ bool CommandList::noop()
 	return resolved->commands.empty();
 }
 
-CommandListState::CommandListState() :
-	mHackerDevice(NULL),
-	mHackerContext(NULL),
-	mOrigDevice1(NULL),
-	mOrigContext1(NULL),
-	rt_width(-1),
-	rt_height(-1),
-	call_info(NULL),
-	this_target(NULL),
-	resource(NULL),
-	view(NULL),
-	post(false),
-	update_params(false),
-	cursor_mask_tex(NULL),
-	cursor_mask_view(NULL),
-	cursor_color_tex(NULL),
-	cursor_color_view(NULL),
-	recursion(0),
-	extra_indent(0),
-	aborted(false),
-	scissor_valid(false)
+CommandListState::CommandListState()
+    : mHackerDevice(nullptr), mHackerContext(nullptr), mOrigDevice1(nullptr), mOrigContext1(nullptr), rt_width(-1),
+      rt_height(-1), call_info(nullptr), this_target(nullptr), resource(nullptr), view(nullptr), post(false),
+      update_params(false), cursor_mask_tex(nullptr), cursor_mask_view(nullptr), cursor_color_tex(nullptr),
+      cursor_color_view(nullptr), recursion(0), extra_indent(0), aborted(false), scissor_valid(false)
 {
 	memset(&cursor_info, 0, sizeof(CURSORINFO));
 	memset(&cursor_info_ex, 0, sizeof(ICONINFO));
@@ -3067,8 +3050,8 @@ static void UpdateCursorInfoEx(CommandListState *state)
 static unsigned GetCursorFrame(HCURSOR cursor)
 {
 	typedef HCURSOR(WINAPI* GET_CURSOR_FRAME_INFO)(HCURSOR, LPCWSTR, DWORD, DWORD*, DWORD*);
-	static GET_CURSOR_FRAME_INFO fnGetCursorFrameInfo = NULL;
-	HMODULE libUser32 = NULL;
+	static GET_CURSOR_FRAME_INFO fnGetCursorFrameInfo = nullptr;
+	HMODULE libUser32 = nullptr;
 	DWORD period = 6, frames = 1;
 
 	if (!fnGetCursorFrameInfo) {
@@ -3172,7 +3155,7 @@ static void _CreateTextureFromBitmap(HDC dc, BITMAP *bitmap_obj,
 	return;
 err_release_tex:
 	(*tex)->Release();
-	*tex = NULL;
+	*tex = nullptr;
 err_free:
 	delete [] data.pSysMem;
 }
@@ -3228,7 +3211,8 @@ static void CreateTextureFromAnimatedCursor(
 	// draw it to another bitmap, then we can create a texture from that
 	// bitmap:
 	SelectObject(dc_mem, ani_bitmap);
-	if (!DrawIconEx(dc_mem, 0, 0, cursor, bitmap_obj.bmWidth, bitmap_obj.bmHeight, frame, NULL, flags)) {
+	if (!DrawIconEx(dc_mem, 0, 0, cursor, bitmap_obj.bmWidth, bitmap_obj.bmHeight, frame, nullptr, flags))
+	{
 		LogInfo("Software Mouse: DrawIconEx failed\n");
 		// Fall back to getting the first frame from the static_bitmap we already have:
 		_CreateTextureFromBitmap(dc, &bitmap_obj, static_bitmap, state, tex, view);
@@ -3246,7 +3230,7 @@ out_delete_mem_dc:
 static void UpdateCursorResources(CommandListState *state)
 {
 	HDC dc;
-	Profiling::State profiling_state;
+	Profiling::State profiling_state{};
 
 	if (state->cursor_mask_tex || state->cursor_color_tex)
 		return;
@@ -3257,7 +3241,7 @@ static void UpdateCursorResources(CommandListState *state)
 	UpdateCursorInfoEx(state);
 
 	// XXX: Should maybe be the device context for the window?
-	dc = GetDC(NULL);
+	dc = GetDC(nullptr);
 	if (!dc) {
 		LogInfo("Software Mouse: GetDC() failed\n");
 		return;
@@ -3300,7 +3284,7 @@ static void UpdateCursorResources(CommandListState *state)
 				&state->cursor_mask_view);
 	}
 
-	ReleaseDC(NULL, dc);
+	ReleaseDC(nullptr, dc);
 
 	if (Profiling::mode == Profiling::Mode::SUMMARY)
 		Profiling::end(&profiling_state, &Profiling::cursor_overhead);
@@ -3386,8 +3370,8 @@ float CommandListOperand::evaluate(CommandListState *state, HackerDevice *device
 		case ParamOverrideType::RES_HEIGHT:
 			return (float)G->mResolutionInfo.height;
 		case ParamOverrideType::TIME:
-			return (float)G->gTime;
-		case ParamOverrideType::FRAME_NUMBER:
+		    return G->gTime;
+	    case ParamOverrideType::FRAME_NUMBER:
 			return (float)G->frame_no;
 		case ParamOverrideType::HUNTING:
 			return (float)G->hunting;
@@ -3544,7 +3528,7 @@ float CommandListOperand::evaluate(CommandListState *state, HackerDevice *device
 	return 0;
 }
 
-bool CommandListOperand::static_evaluate(float *ret, HackerDevice *device, bool evaluate_variables)
+bool CommandListOperand::static_evaluate(float *ret, HackerDevice *device [[maybe_unused]], bool evaluate_variables)
 {
 	switch (type) {
 		case ParamOverrideType::VALUE:
@@ -3558,8 +3542,8 @@ bool CommandListOperand::static_evaluate(float *ret, HackerDevice *device, bool 
 			return false;
 		case ParamOverrideType::TIME:
 			if (evaluate_variables) {
-				*ret = (float)G->gTime;
-				return true;
+			    *ret = G->gTime;
+			    return true;
 			}
 			return false;
 		case ParamOverrideType::FRAME_NUMBER:
@@ -3589,7 +3573,7 @@ bool CommandListOperand::static_evaluate(float *ret, HackerDevice *device, bool 
 	return false;
 }
 
-bool CommandListOperand::optimise(HackerDevice *device, std::shared_ptr<CommandListEvaluatable> *replacement)
+bool CommandListOperand::optimise(HackerDevice *device, std::shared_ptr<CommandListEvaluatable> *replacement [[maybe_unused]])
 {
 	if (type == ParamOverrideType::VALUE)
 		return false;
@@ -3770,7 +3754,6 @@ private:
 		return true;
 	}
 
-private:
 	NamespaceState state_ = NamespaceState::Waiting;
 };
 
@@ -3946,11 +3929,9 @@ bool CommandArgumentReader::PeekToken(wstring* token, PeekMode mode)
 
 bool CommandArgumentReader::ConsumeToken()
 {
-	if (!m_has_peek_token)
-	{
-		if (!GetTokenInternal(m_pos, &m_peek_token, &m_peek_end_pos))
-			return false;
-	}
+	if ((!m_has_peek_token) && (!GetTokenInternal(m_pos, &m_peek_token, &m_peek_end_pos)))
+
+		return false;
 
 	m_pos = m_peek_end_pos;
 
@@ -4456,6 +4437,10 @@ static void tokenise(const wstring* expression, CommandListSyntaxTree* tree, con
 			continue;
 
 		operand = make_shared<CommandListOperand>(friendly_pos, token);
+		bool has_variable_prefix = false;
+		bool has_prefix = false;
+		size_t len = 0;
+		size_t len_target = 0;
 
 		// Numeric Literal
 		if (std::isdigit(remain[0]))
@@ -4477,7 +4462,7 @@ static void tokenise(const wstring* expression, CommandListSyntaxTree* tree, con
 			throw CommandListSyntaxError(L"Float not recognized: " + remain, friendly_pos);
 		}
 
-		bool has_variable_prefix = remain[0] == L'$';
+		has_variable_prefix = remain[0] == L'$';
 
 		// Variable
 		if (has_variable_prefix)
@@ -4503,9 +4488,7 @@ static void tokenise(const wstring* expression, CommandListSyntaxTree* tree, con
 			}
 		}
 
-		bool has_prefix = has_variable_prefix || remain[0] == L'@' || remain[0] == L'#';
-
-		size_t len = 0;
+		has_prefix = has_variable_prefix || remain[0] == L'@' || remain[0] == L'#';
 
 		// Other Tokens
 		if (!has_prefix)
@@ -4565,7 +4548,7 @@ static void tokenise(const wstring* expression, CommandListSyntaxTree* tree, con
 		
 		// More loose match with hyphens, brackets and UTF-8.
 		// Allows strings like `Pool\path like\namespace\chars_UTF-8[$index]->Call($PoolFoo[$index], 1)`.
-		size_t len_target = FindResourceCopyTargetTokenEnd(remain, has_prefix ? 1 : 0);
+		len_target = FindResourceCopyTargetTokenEnd(remain, has_prefix ? 1 : 0);
 		if (len_target)
 		{
 			token = remain.substr(0, len_target);
@@ -4656,65 +4639,65 @@ public: \
 		) : CommandListOperator(lhs, t, rhs) \
 	{} \
 	static const wchar_t* pattern() { return L##operator_pattern; } \
-	float evaluate(float lhs, float rhs) override { return (fn); } \
+	float evaluate(float left_value [[maybe_unused]], float right_value [[maybe_unused]]) override { return static_cast<float>(fn); } \
 }; \
 static CommandListOperatorFactory<name##T> name;
 
 // Highest level of precedence, allows for negative numbers
-DEFINE_OPERATOR(unary_not_operator,     "!",  (!rhs));
-DEFINE_OPERATOR(bitwise_not_operator,   "~",  (~(int32_t)rhs));
-DEFINE_OPERATOR(unary_plus_operator,    "+",  (+rhs));
-DEFINE_OPERATOR(unary_negate_operator,  "-",  (-rhs));
+DEFINE_OPERATOR(unary_not_operator,     "!",  (!right_value));
+DEFINE_OPERATOR(bitwise_not_operator,   "~",  (~(int32_t)right_value));
+DEFINE_OPERATOR(unary_plus_operator,    "+",  (+right_value));
+DEFINE_OPERATOR(unary_negate_operator,  "-",  (-right_value));
 
 // Functions
-DEFINE_OPERATOR(countbits_operator,     "countbits", popcount((uint32_t)rhs));
+DEFINE_OPERATOR(countbits_operator,     "countbits", popcount((uint32_t)right_value));
 
-DEFINE_OPERATOR(sin_operator,           "sin",       sin(rhs));
-DEFINE_OPERATOR(cos_operator,           "cos",       cos(rhs));
-DEFINE_OPERATOR(tan_operator,           "tan",       tan(rhs));
-DEFINE_OPERATOR(asin_operator,          "asin",      asin(rhs));
-DEFINE_OPERATOR(acos_operator,          "acos",      acos(rhs));
-DEFINE_OPERATOR(atan_operator,          "atan",      atan(rhs));
+DEFINE_OPERATOR(sin_operator,           "sin",       sin(right_value));
+DEFINE_OPERATOR(cos_operator,           "cos",       cos(right_value));
+DEFINE_OPERATOR(tan_operator,           "tan",       tan(right_value));
+DEFINE_OPERATOR(asin_operator,          "asin",      asin(right_value));
+DEFINE_OPERATOR(acos_operator,          "acos",      acos(right_value));
+DEFINE_OPERATOR(atan_operator,          "atan",      atan(right_value));
 
-DEFINE_OPERATOR(abs_operator,           "abs",       abs(rhs));
-DEFINE_OPERATOR(sign_operator,          "sign",      (rhs > 0) - (rhs < 0));
-DEFINE_OPERATOR(ceil_operator,          "ceil",      ceil(rhs));
-DEFINE_OPERATOR(floor_operator,         "floor",     floor(rhs));
-DEFINE_OPERATOR(trunc_operator,         "trunc",     trunc(rhs));
-DEFINE_OPERATOR(round_operator,         "round",     round(rhs));
-DEFINE_OPERATOR(frac_operator,          "frac",      rhs - floor(rhs));
+DEFINE_OPERATOR(abs_operator,           "abs",       abs(right_value));
+DEFINE_OPERATOR(sign_operator,          "sign",      (right_value > 0) - (right_value < 0));
+DEFINE_OPERATOR(ceil_operator,          "ceil",      ceil(right_value));
+DEFINE_OPERATOR(floor_operator,         "floor",     floor(right_value));
+DEFINE_OPERATOR(trunc_operator,         "trunc",     trunc(right_value));
+DEFINE_OPERATOR(round_operator,         "round",     round(right_value));
+DEFINE_OPERATOR(frac_operator,          "frac",      right_value - floor(right_value));
 
-DEFINE_OPERATOR(sqrt_operator,          "sqrt",      sqrt(rhs));
-DEFINE_OPERATOR(rsqrt_operator,         "rsqrt",     1.0 / sqrt(rhs));
+DEFINE_OPERATOR(sqrt_operator,          "sqrt",      sqrt(right_value));
+DEFINE_OPERATOR(rsqrt_operator,         "rsqrt",     1.0 / sqrt(right_value));
 
-DEFINE_OPERATOR(exp_operator,           "exp",       exp(rhs));
-DEFINE_OPERATOR(exp2_operator,          "exp2",      exp2(rhs));
-DEFINE_OPERATOR(log_operator,           "log",       log(rhs));
-DEFINE_OPERATOR(log2_operator,          "log2",      log2(rhs));
+DEFINE_OPERATOR(exp_operator,           "exp",       exp(right_value));
+DEFINE_OPERATOR(exp2_operator,          "exp2",      exp2(right_value));
+DEFINE_OPERATOR(log_operator,           "log",       log(right_value));
+DEFINE_OPERATOR(log2_operator,          "log2",      log2(right_value));
 
-DEFINE_OPERATOR(saturate_operator,      "saturate",  max(0.0, min(rhs, 1.0)));
+DEFINE_OPERATOR(saturate_operator,      "saturate",  max(0.0, min(right_value, 1.0)));
 
-DEFINE_OPERATOR(random_operator,        "random",    random(rhs));
+DEFINE_OPERATOR(random_operator,        "random",    random(right_value));
 
 // High level of precedence, right-associative. Lower than unary operators, so
 // that 4**-2 works for square root
-DEFINE_OPERATOR(exponent_operator,      "**", (pow(lhs, rhs)));
+DEFINE_OPERATOR(exponent_operator,      "**", (pow(left_value, right_value)));
 
-DEFINE_OPERATOR(multiplication_operator,"*",  (lhs * rhs));
-DEFINE_OPERATOR(division_operator,      "/",  (lhs / rhs));
-DEFINE_OPERATOR(floor_division_operator,"//", (floor(lhs / rhs)));
-DEFINE_OPERATOR(modulus_operator,       "%",  (fmod(lhs, rhs)));
+DEFINE_OPERATOR(multiplication_operator,"*",  (left_value * right_value));
+DEFINE_OPERATOR(division_operator,      "/",  (left_value / right_value));
+DEFINE_OPERATOR(floor_division_operator,"//", (floor(left_value / right_value)));
+DEFINE_OPERATOR(modulus_operator,       "%",  (fmod(left_value, right_value)));
 
-DEFINE_OPERATOR(addition_operator,      "+",  (lhs + rhs));
-DEFINE_OPERATOR(subtraction_operator,   "-",  (lhs - rhs));
+DEFINE_OPERATOR(addition_operator,      "+",  (left_value + right_value));
+DEFINE_OPERATOR(subtraction_operator,   "-",  (left_value - right_value));
 
-DEFINE_OPERATOR(left_shift_operator,    "<<", ((int32_t)lhs << (int32_t)rhs));
-DEFINE_OPERATOR(right_shift_operator,   ">>", ((int32_t)lhs >> (int32_t)rhs));
+DEFINE_OPERATOR(left_shift_operator,    "<<", ((int32_t)left_value << (int32_t)right_value));
+DEFINE_OPERATOR(right_shift_operator,   ">>", ((int32_t)left_value >> (int32_t)right_value));
 
-DEFINE_OPERATOR(less_operator,          "<",  (lhs < rhs));
-DEFINE_OPERATOR(less_equal_operator,    "<=", (lhs <= rhs));
-DEFINE_OPERATOR(greater_operator,       ">",  (lhs > rhs));
-DEFINE_OPERATOR(greater_equal_operator, ">=", (lhs >= rhs));
+DEFINE_OPERATOR(less_operator,          "<",  (left_value < right_value));
+DEFINE_OPERATOR(less_equal_operator,    "<=", (left_value <= right_value));
+DEFINE_OPERATOR(greater_operator,       ">",  (left_value > right_value));
+DEFINE_OPERATOR(greater_equal_operator, ">=", (left_value >= right_value));
 
 // The triple equals operator tests for binary equivalence - in particular,
 // this allows us to test for negative zero, used in texture filtering to
@@ -4722,18 +4705,18 @@ DEFINE_OPERATOR(greater_equal_operator, ">=", (lhs >= rhs));
 // tested for using the regular equals operator, since -0.0 == +0.0. This
 // operator could also test for specific cases of NAN (though, without the
 // vs2015 toolchain "nan" won't parse as such).
-DEFINE_OPERATOR(equality_operator,      "==", (lhs == rhs));
-DEFINE_OPERATOR(inequality_operator,    "!=", (lhs != rhs));
-DEFINE_OPERATOR(identical_operator,     "===",(*(uint32_t*)&lhs == *(uint32_t*)&rhs));
-DEFINE_OPERATOR(not_identical_operator, "!==",(*(uint32_t*)&lhs != *(uint32_t*)&rhs));
+DEFINE_OPERATOR(equality_operator,      "==", (left_value == right_value));
+DEFINE_OPERATOR(inequality_operator,    "!=", (left_value != right_value));
+DEFINE_OPERATOR(identical_operator,     "===",(*(uint32_t*)&left_value == *(uint32_t*)&right_value));
+DEFINE_OPERATOR(not_identical_operator, "!==",(*(uint32_t*)&left_value != *(uint32_t*)&right_value));
 
-DEFINE_OPERATOR(bitwise_and_operator,   "&",  ((int32_t)lhs& (int32_t)rhs));
-DEFINE_OPERATOR(bitwise_xor_operator,   "^",  ((int32_t)lhs ^ (int32_t)rhs));
-DEFINE_OPERATOR(bitwise_or_operator,    "|",  ((int32_t)lhs | (int32_t)rhs));
+DEFINE_OPERATOR(bitwise_and_operator,   "&",  ((int32_t)left_value& (int32_t)right_value));
+DEFINE_OPERATOR(bitwise_xor_operator,   "^",  ((int32_t)left_value ^ (int32_t)right_value));
+DEFINE_OPERATOR(bitwise_or_operator,    "|",  ((int32_t)left_value | (int32_t)right_value));
 
-DEFINE_OPERATOR(and_operator,           "&&", (lhs && rhs));
+DEFINE_OPERATOR(and_operator,           "&&", (left_value && right_value));
 
-DEFINE_OPERATOR(or_operator,            "||", (lhs || rhs));
+DEFINE_OPERATOR(or_operator,            "||", (left_value || right_value));
 
 // TODO: Ternary if operator
 
@@ -5069,7 +5052,7 @@ bool CommandListExpression::optimise(HackerDevice *device)
 	ret = evaluatable->optimise(device, &replacement);
 
 	if (replacement)
-		evaluatable = replacement;
+		evaluatable = std::move(replacement);
 
 	return ret;
 }
@@ -5092,7 +5075,7 @@ std::shared_ptr<CommandListEvaluatable> CommandListOperator::finalise()
 		if (!lhs && lhs_finalisable)
 			lhs = lhs_finalisable->finalise();
 		if (!lhs && lhs_evaluatable)
-			lhs = lhs_evaluatable;
+			lhs = std::move(lhs_evaluatable);
 		if (!lhs)
 			throw CommandListSyntaxError(L"BUG: LHS operand invalid", token_pos);
 		lhs_tree = nullptr;
@@ -5101,7 +5084,7 @@ std::shared_ptr<CommandListEvaluatable> CommandListOperator::finalise()
 	if (!rhs && rhs_finalisable)
 		rhs = rhs_finalisable->finalise();
 	if (!rhs && rhs_evaluatable)
-		rhs = rhs_evaluatable;
+		rhs = std::move(rhs_evaluatable);
 	if (!rhs)
 		throw CommandListSyntaxError(L"BUG: RHS operand invalid", token_pos);
 	rhs_tree = nullptr;
@@ -5358,7 +5341,7 @@ bool parse_command_list_var_name(const wstring &name, const wstring *ini_namespa
 	return true;
 }
 
-bool CommandListOperand::parse_float(const wstring* operand, const wstring* ini_namespace, CommandListScope* scope, size_t& out_length)
+bool CommandListOperand::parse_float(const wstring* operand, const wstring* ini_namespace [[maybe_unused]], CommandListScope* scope, size_t& out_length)
 {
 	if (ParseFloatToken(*operand, val, out_length))
 	{
@@ -5368,7 +5351,7 @@ bool CommandListOperand::parse_float(const wstring* operand, const wstring* ini_
 	return false;
 }
 
-bool CommandListOperand::parse_ini_param(const wstring* operand, const wstring* ini_namespace, CommandListScope* scope)
+bool CommandListOperand::parse_ini_param(const wstring* operand, const wstring* ini_namespace [[maybe_unused]], CommandListScope* scope)
 {
 	if (ParseIniParamName(operand->c_str(), &param_idx, &param_component)) {
 		type = ParamOverrideType::INI_PARAM;
@@ -5414,7 +5397,7 @@ bool CommandListOperand::parse_target(const wstring* operand, const wstring* ini
 	return false;
 }
 
-bool CommandListOperand::parse_shader(const wstring* operand, const wstring* ini_namespace, CommandListScope* scope)
+bool CommandListOperand::parse_shader(const wstring* operand, const wstring* ini_namespace [[maybe_unused]], CommandListScope* scope)
 {
 	// WARNING: This test is especially susceptible to an uninitialised
 	//          %n fooling it into thinking it has parsed the entire string
@@ -5428,7 +5411,7 @@ bool CommandListOperand::parse_shader(const wstring* operand, const wstring* ini
 	//          len1 or dumb luck gave different values in the stack.
 	int len1 = 0;
 	int ret = swscanf_s(operand->c_str(), L"%lcs%n", &shader_filter_target, 1, &len1);
-	if (ret == 1 && len1 == operand->length()) {
+	if (ret == 1 && static_cast<size_t>(len1) == operand->length()) {
 		switch (shader_filter_target) {
 		case L'v': case L'h': case L'd': case L'g': case L'p': case L'c':
 			type = ParamOverrideType::SHADER;
@@ -5438,7 +5421,7 @@ bool CommandListOperand::parse_shader(const wstring* operand, const wstring* ini
 	return false;
 }
 
-bool CommandListOperand::parse_scissor(const wstring* operand, const wstring* ini_namespace, CommandListScope* scope)
+bool CommandListOperand::parse_scissor(const wstring* operand, const wstring* ini_namespace [[maybe_unused]], CommandListScope* scope)
 {
 	int len1 = 0;
 	int ret = swscanf_s(operand->c_str(), L"scissor%u_%n", &scissor, &len1);
@@ -5458,7 +5441,7 @@ bool CommandListOperand::parse_scissor(const wstring* operand, const wstring* in
 	return false;
 }
 
-bool CommandListOperand::parse_ini_keywords(const wstring* operand, const wstring* ini_namespace, CommandListScope* scope)
+bool CommandListOperand::parse_ini_keywords(const wstring* operand, const wstring* ini_namespace [[maybe_unused]], CommandListScope* scope)
 {
 	type = lookup_enum_val<const wchar_t*, ParamOverrideType>
 		(ParamOverrideTypeNames, operand->c_str(), ParamOverrideType::INVALID);
@@ -5497,7 +5480,7 @@ bail:
 
 bool ParseCommandListVariableAssignment(const wchar_t *section,
 		const wchar_t *key, wstring *val, const wstring *raw_line,
-		CommandList *command_list, CommandList *pre_command_list, CommandList *post_command_list,
+		CommandList *command_list, CommandList *pre_command_list, CommandList *post_command_list [[maybe_unused]],
 		const wstring *ini_namespace)
 {
 	wstring line = key;
@@ -5610,13 +5593,13 @@ static ResourceType* GetResourceFromPool(
 		CommandListState *state,
 		DescType *desc)
 {
-	ResourceType *resource = NULL;
-	DescType old_desc;
+	ResourceType *resource = nullptr;
+	DescType old_desc{};
 	uint32_t hash;
 	size_t size;
 	HRESULT hr;
 	ResourcePoolCache::iterator pool_i;
-	ID3D11Device *old_device = NULL;
+	ID3D11Device *old_device = nullptr;
 
 	// We don't want to use the CalTexture2D/3DDescHash functions because
 	// the resolution override could produce the same hash for distinct
@@ -5629,11 +5612,11 @@ static ResourceType* GetResourceFromPool(
 		resource = (ResourceType*)pool_i->second.first;
 		old_device = pool_i->second.second;
 		if (!resource)
-			return NULL;
+			return nullptr;
 
 		if (old_device == state->mOrigDevice1) {
 			if (resource == dst_resource)
-				return NULL;
+				return nullptr;
 
 			LogDebug("Switching cached resource %S\n", ini_line->c_str());
 			Profiling::resource_pool_swaps++;
@@ -5649,7 +5632,7 @@ static ResourceType* GetResourceFromPool(
 	LogInfo("Creating cached resource %S\n", ini_line->c_str());
 	Profiling::resources_created++;
 
-	hr = (state->mOrigDevice1->*CreateResource)(desc, NULL, &resource);
+	hr = (state->mOrigDevice1->*CreateResource)(desc, nullptr, &resource);
 	if (FAILED(hr)) {
 		LogInfo("Resource copy failed %S: 0x%x\n", ini_line->c_str(), hr);
 		LogResourceDesc(desc);
@@ -5658,9 +5641,9 @@ static ResourceType* GetResourceFromPool(
 		LogResourceDesc(&old_desc);
 
 		// Prevent further attempts:
-		resource_pool->emplace(hash, NULL, NULL);
+		resource_pool->emplace(hash, nullptr, nullptr);
 
-		return NULL;
+		return nullptr;
 	}
 	resource_pool->emplace(hash, resource, state->mOrigDevice1);
 	size = resource_pool->cache.size();
@@ -5676,41 +5659,15 @@ static ResourceType* GetResourceFromPool(
 
 #pragma region CustomResource
 
-CustomResource::CustomResource() :
-	resource(NULL),
-	device(NULL),
-	view(NULL),
-	is_null(true),
-	substantiated(false),
-	bind_flags((D3D11_BIND_FLAG)0),
-	misc_flags((D3D11_RESOURCE_MISC_FLAG)0),
-	stride(0),
-	offset(0),
-	buf_size(0),
-	format(DXGI_FORMAT_UNKNOWN),
-	source_stride(0),
-	max_copies_per_frame(0),
-	frame_no(0),
-	copies_this_frame(0),
-	pool(nullptr),
-	pool_index(-2),
-	override_type(CustomResourceType::INVALID),
-	override_bind_flags(CustomResourceBindFlags::INVALID),
-	override_misc_flags(ResourceMiscFlags::INVALID),
-	override_format((DXGI_FORMAT)-1),
-	override_width(-1),
-	override_height(-1),
-	override_depth(-1),
-	override_mips(-1),
-	override_array(-1),
-	override_msaa(-1),
-	override_msaa_quality(-1),
-	override_byte_width(-1),
-	override_stride(-1),
-	width_multiply(1.0f),
-	height_multiply(1.0f),
-	initial_data(NULL),
-	initial_data_size(0)
+CustomResource::CustomResource()
+    : resource(nullptr), device(nullptr), view(nullptr), is_null(true), substantiated(false),
+      bind_flags((D3D11_BIND_FLAG)0), misc_flags((D3D11_RESOURCE_MISC_FLAG)0), stride(0), offset(0), buf_size(0),
+      format(DXGI_FORMAT_UNKNOWN), source_stride(0), max_copies_per_frame(0), frame_no(0), copies_this_frame(0),
+      pool(nullptr), pool_index(-2), override_type(CustomResourceType::INVALID),
+      override_bind_flags(CustomResourceBindFlags::INVALID), override_misc_flags(ResourceMiscFlags::INVALID),
+      override_format((DXGI_FORMAT)-1), override_width(-1), override_height(-1), override_depth(-1), override_mips(-1),
+      override_array(-1), override_msaa(-1), override_msaa_quality(-1), override_byte_width(-1), override_stride(-1),
+      width_multiply(1.0f), height_multiply(1.0f), initial_data(nullptr), initial_data_size(0)
 {}
 
 CustomResource::~CustomResource()
@@ -5812,7 +5769,7 @@ ResourceHandleInfo* CustomResource::GetHandleInfo()
 void CustomResource::Substantiate(ID3D11Device *mOrigDevice1,
 		D3D11_BIND_FLAG bind_flags, D3D11_RESOURCE_MISC_FLAG misc_flags)
 {
-	bool restore_create_mode = false;
+	bool restore_create_mode [[maybe_unused]] = false;
 
 	// We only allow a custom resource to be substantiated once. Otherwise
 	// we could end up reloading it again if it is later set to null. Also
@@ -5855,8 +5812,8 @@ void CustomResource::Substantiate(ID3D11Device *mOrigDevice1,
 			case CustomResourceType::BUFFER:
 			case CustomResourceType::STRUCTURED_BUFFER:
 			case CustomResourceType::RAW_BUFFER:
-				SubstantiateBuffer(mOrigDevice1, NULL, 0);
-				break;
+			    SubstantiateBuffer(mOrigDevice1, nullptr, 0);
+			    break;
 			case CustomResourceType::TEXTURE1D:
 				SubstantiateTexture1D(mOrigDevice1);
 				break;
@@ -5876,23 +5833,25 @@ void CustomResource::Substantiate(ID3D11Device *mOrigDevice1,
 void CustomResource::LoadBufferFromFile(ID3D11Device *mOrigDevice1)
 {
 	DWORD size, read_size;
-	void *buf = NULL;
+	void *buf = nullptr;
 	HANDLE f;
 
-	f = CreateFile(filename.c_str(), GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	f = CreateFile(filename.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+	               nullptr);
 	if (f == INVALID_HANDLE_VALUE) {
 		LogOverlayW(LOG_WARNING, L"Failed to load custom buffer resource %ls: %d\n", filename.c_str(), GetLastError());
 		return;
 	}
 
-	size = GetFileSize(f, 0);
+	size = GetFileSize(f, nullptr);
 	buf = malloc(size); // malloc to allow realloc to resize it if the user overrode the size
 	if (!buf) {
 		LogOverlayW(LOG_DIRE, L"Out of memory loading %ls\n", filename.c_str());
 		goto out_close;
 	}
 
-	if (!ReadFile(f, buf, size, &read_size, 0) || size != read_size) {
+	if (!ReadFile(f, buf, size, &read_size, nullptr) || size != read_size)
+	{
 		LogOverlayW(LOG_WARNING, L"Error reading custom buffer from file %ls\n", filename.c_str());
 		goto out_delete;
 	}
@@ -5953,16 +5912,13 @@ void CustomResource::LoadFromFile(ID3D11Device *mOrigDevice1)
 	ext = filename.substr(filename.rfind(L"."));
 	if (!_wcsicmp(ext.c_str(), L".dds")) {
 		LogInfoW(L"Loading custom resource %s as DDS, bind_flags=0x%03x\n", filename.c_str(), bind_flags);
-		hr = DirectX::CreateDDSTextureFromFileEx(mOrigDevice1,
-				filename.c_str(), 0,
-				D3D11_USAGE_DEFAULT, bind_flags, 0, misc_flags,
-				false, &resource, NULL, NULL);
+		hr = DirectX::CreateDDSTextureFromFileEx(mOrigDevice1, filename.c_str(), 0, D3D11_USAGE_DEFAULT, bind_flags, 0,
+		                                         misc_flags, false, &resource, nullptr, nullptr);
 	} else {
 		LogInfoW(L"Loading custom resource %s as WIC, bind_flags=0x%03x\n", filename.c_str(), bind_flags);
-		hr = DirectX::CreateWICTextureFromFileEx(mOrigDevice1,
-				filename.c_str(), 0,
-				D3D11_USAGE_DEFAULT, bind_flags, 0, misc_flags,
-				DirectX::WIC_LOADER_FLAGS::WIC_LOADER_DEFAULT, &resource, NULL);
+		hr = DirectX::CreateWICTextureFromFileEx(mOrigDevice1, filename.c_str(), 0, D3D11_USAGE_DEFAULT, bind_flags, 0,
+		                                         misc_flags, DirectX::WIC_LOADER_FLAGS::WIC_LOADER_DEFAULT, &resource,
+		                                         nullptr);
 	}
 	if (SUCCEEDED(hr)) {
 		device = mOrigDevice1;
@@ -5975,7 +5931,7 @@ void CustomResource::LoadFromFile(ID3D11Device *mOrigDevice1)
 
 void CustomResource::SubstantiateBuffer(ID3D11Device *mOrigDevice1, void **buf, DWORD size)
 {
-	D3D11_SUBRESOURCE_DATA data = {0}, *pInitialData = NULL;
+	D3D11_SUBRESOURCE_DATA data = {nullptr}, *pInitialData = nullptr;
 	ID3D11Buffer *buffer;
 	D3D11_BUFFER_DESC desc;
 	HRESULT hr;
@@ -6054,7 +6010,7 @@ void CustomResource::SubstantiateTexture1D(ID3D11Device *mOrigDevice1)
 	desc.MiscFlags = misc_flags;
 	OverrideTexDesc(&desc);
 
-	hr = mOrigDevice1->CreateTexture1D(&desc, NULL, &tex1d);
+	hr = mOrigDevice1->CreateTexture1D(&desc, nullptr, &tex1d);
 	if (SUCCEEDED(hr)) {
 		LogInfo("Substantiated custom %S [%S], bind_flags=0x%03x\n",
 				lookup_enum_name(CustomResourceTypeNames, override_type), name.c_str(), desc.BindFlags);
@@ -6081,7 +6037,7 @@ void CustomResource::SubstantiateTexture2D(ID3D11Device *mOrigDevice1)
 	desc.MiscFlags = misc_flags;
 	OverrideTexDesc(&desc);
 
-	hr = mOrigDevice1->CreateTexture2D(&desc, NULL, &tex2d);
+	hr = mOrigDevice1->CreateTexture2D(&desc, nullptr, &tex2d);
 	if (SUCCEEDED(hr)) {
 		LogInfo("Substantiated custom %S [%S], bind_flags=0x%03x\n",
 				lookup_enum_name(CustomResourceTypeNames, override_type), name.c_str(), desc.BindFlags);
@@ -6108,7 +6064,7 @@ void CustomResource::SubstantiateTexture3D(ID3D11Device *mOrigDevice1)
 	desc.MiscFlags = misc_flags;
 	OverrideTexDesc(&desc);
 
-	hr = mOrigDevice1->CreateTexture3D(&desc, NULL, &tex3d);
+	hr = mOrigDevice1->CreateTexture3D(&desc, nullptr, &tex3d);
 	if (SUCCEEDED(hr)) {
 		LogInfo("Substantiated custom %S [%S], bind_flags=0x%03x\n",
 				lookup_enum_name(CustomResourceTypeNames, override_type), name.c_str(), desc.BindFlags);
@@ -6334,11 +6290,11 @@ static int is_dsv_format(DXGI_FORMAT fmt)
 //
 static ID3D11Resource * inter_device_resource_transfer(ID3D11Device *dst_dev, ID3D11DeviceContext *dst_ctx, ID3D11Resource *src_res, wstring *name)
 {
-	ID3D11Device *src_dev = NULL;
-	ID3D11DeviceContext *src_ctx = NULL;
-	ID3D11Resource *stg_res = NULL;
-	ID3D11Resource *dtg_res = NULL;
-	ID3D11Resource *dst_res = NULL;
+	ID3D11Device *src_dev = nullptr;
+	ID3D11DeviceContext *src_ctx = nullptr;
+	ID3D11Resource *stg_res = nullptr;
+	ID3D11Resource *dtg_res [[maybe_unused]] = nullptr;
+	ID3D11Resource *dst_res = nullptr;
 	D3D11_RESOURCE_DIMENSION dimension;
 	D3D11_MAPPED_SUBRESOURCE src_map;
 	UINT item, level, index;
@@ -6379,8 +6335,8 @@ static ID3D11Resource * inter_device_resource_transfer(ID3D11Device *dst_dev, ID
 			if (buf_desc.Usage == D3D11_USAGE_IMMUTABLE)
 				buf_desc.Usage = D3D11_USAGE_DEFAULT;
 
-			dst_dev->CreateBuffer(&buf_desc, NULL, (ID3D11Buffer**)&dst_res);
-			if (!dst_res) {
+		    dst_dev->CreateBuffer(&buf_desc, nullptr, (ID3D11Buffer **)&dst_res);
+		    if (!dst_res) {
 				reason = "Error creating final destination Buffer\n";
 				LogResourceDesc(&buf_desc);
 				goto err;
@@ -6389,8 +6345,8 @@ static ID3D11Resource * inter_device_resource_transfer(ID3D11Device *dst_dev, ID
 			buf_desc.Usage = D3D11_USAGE_STAGING;
 			buf_desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 			buf_desc.BindFlags = 0;
-			src_dev->CreateBuffer(&buf_desc, NULL, (ID3D11Buffer**)&stg_res);
-			if (!stg_res) {
+		    src_dev->CreateBuffer(&buf_desc, nullptr, (ID3D11Buffer **)&stg_res);
+		    if (!stg_res) {
 				reason = "Error creating source staging Buffer\n";
 				LogResourceDesc(&buf_desc);
 				goto err;
@@ -6402,8 +6358,8 @@ static ID3D11Resource * inter_device_resource_transfer(ID3D11Device *dst_dev, ID
 			reason = "Error mapping source staging Buffer\n";
 			if (FAILED(src_ctx->Map(stg_res, index, D3D11_MAP_READ, 0, &src_map)))
 				goto err;
-			dst_ctx->UpdateSubresource(dst_res, index, NULL, src_map.pData, src_map.RowPitch, src_map.DepthPitch);
-			src_ctx->Unmap(stg_res, index);
+		    dst_ctx->UpdateSubresource(dst_res, index, nullptr, src_map.pData, src_map.RowPitch, src_map.DepthPitch);
+		    src_ctx->Unmap(stg_res, index);
 			break;
 		}
 		case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
@@ -6431,8 +6387,8 @@ static ID3D11Resource * inter_device_resource_transfer(ID3D11Device *dst_dev, ID
 						name->c_str(), TexFormatStr(tex1d_desc.Format));
 			}
 
-			dst_dev->CreateTexture1D(&tex1d_desc, NULL, (ID3D11Texture1D**)&dst_res);
-			if (!dst_res) {
+		    dst_dev->CreateTexture1D(&tex1d_desc, nullptr, (ID3D11Texture1D **)&dst_res);
+		    if (!dst_res) {
 				reason = "Error creating final destination Texture1D\n";
 				LogResourceDesc(&tex1d_desc);
 				goto err;
@@ -6442,8 +6398,8 @@ static ID3D11Resource * inter_device_resource_transfer(ID3D11Device *dst_dev, ID
 			tex1d_desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 			tex1d_desc.BindFlags = 0;
 			tex1d_desc.MiscFlags &= ~D3D11_RESOURCE_MISC_GENERATE_MIPS;
-			src_dev->CreateTexture1D(&tex1d_desc, NULL, (ID3D11Texture1D**)&stg_res);
-			if (!stg_res) {
+		    src_dev->CreateTexture1D(&tex1d_desc, nullptr, (ID3D11Texture1D **)&stg_res);
+		    if (!stg_res) {
 				reason = "Error creating staging Texture1D\n";
 				LogResourceDesc(&tex1d_desc);
 				goto err;
@@ -6456,8 +6412,9 @@ static ID3D11Resource * inter_device_resource_transfer(ID3D11Device *dst_dev, ID
 					reason = "Error mapping source staging Texture1D\n";
 					if (FAILED(src_ctx->Map(stg_res, index, D3D11_MAP_READ, 0, &src_map)))
 						goto err;
-					dst_ctx->UpdateSubresource(dst_res, index, NULL, src_map.pData, src_map.RowPitch, src_map.DepthPitch);
-					src_ctx->Unmap(stg_res, index);
+				    dst_ctx->UpdateSubresource(dst_res, index, nullptr, src_map.pData, src_map.RowPitch,
+					                           src_map.DepthPitch);
+				    src_ctx->Unmap(stg_res, index);
 				}
 			}
 			break;
@@ -6495,8 +6452,8 @@ static ID3D11Resource * inter_device_resource_transfer(ID3D11Device *dst_dev, ID
 						name->c_str(), TexFormatStr(tex2d_desc.Format));
 			}
 
-			dst_dev->CreateTexture2D(&tex2d_desc, NULL, (ID3D11Texture2D**)&dst_res);
-			if (!dst_res) {
+		    dst_dev->CreateTexture2D(&tex2d_desc, nullptr, (ID3D11Texture2D **)&dst_res);
+		    if (!dst_res) {
 				reason = "Error creating final destination Texture2D\n";
 				LogResourceDesc(&tex2d_desc);
 				goto err;
@@ -6506,8 +6463,8 @@ static ID3D11Resource * inter_device_resource_transfer(ID3D11Device *dst_dev, ID
 			tex2d_desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 			tex2d_desc.BindFlags = 0;
 			tex2d_desc.MiscFlags &= ~D3D11_RESOURCE_MISC_GENERATE_MIPS;
-			src_dev->CreateTexture2D(&tex2d_desc, NULL, (ID3D11Texture2D**)&stg_res);
-			if (!stg_res) {
+		    src_dev->CreateTexture2D(&tex2d_desc, nullptr, (ID3D11Texture2D **)&stg_res);
+		    if (!stg_res) {
 				reason = "Error creating staging Texture2D\n";
 				LogResourceDesc(&tex2d_desc);
 				goto err;
@@ -6520,8 +6477,9 @@ static ID3D11Resource * inter_device_resource_transfer(ID3D11Device *dst_dev, ID
 					reason = "Error mapping source staging Texture2D\n";
 					if (FAILED(src_ctx->Map(stg_res, index, D3D11_MAP_READ, 0, &src_map)))
 						goto err;
-					dst_ctx->UpdateSubresource(dst_res, index, NULL, src_map.pData, src_map.RowPitch, src_map.DepthPitch);
-					src_ctx->Unmap(stg_res, index);
+				    dst_ctx->UpdateSubresource(dst_res, index, nullptr, src_map.pData, src_map.RowPitch,
+					                           src_map.DepthPitch);
+				    src_ctx->Unmap(stg_res, index);
 				}
 			}
 			break;
@@ -6538,8 +6496,8 @@ static ID3D11Resource * inter_device_resource_transfer(ID3D11Device *dst_dev, ID
 			if (tex3d_desc.Usage == D3D11_USAGE_IMMUTABLE)
 				tex3d_desc.Usage = D3D11_USAGE_DEFAULT;
 
-			dst_dev->CreateTexture3D(&tex3d_desc, NULL, (ID3D11Texture3D**)&dst_res);
-			if (!dst_res) {
+		    dst_dev->CreateTexture3D(&tex3d_desc, nullptr, (ID3D11Texture3D **)&dst_res);
+		    if (!dst_res) {
 				reason = "Error creating final destination Texture3D\n";
 				LogResourceDesc(&tex3d_desc);
 				goto err;
@@ -6549,8 +6507,8 @@ static ID3D11Resource * inter_device_resource_transfer(ID3D11Device *dst_dev, ID
 			tex3d_desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 			tex3d_desc.BindFlags = 0;
 			tex3d_desc.MiscFlags &= ~D3D11_RESOURCE_MISC_GENERATE_MIPS;
-			src_dev->CreateTexture3D(&tex3d_desc, NULL, (ID3D11Texture3D**)&stg_res);
-			if (!stg_res) {
+		    src_dev->CreateTexture3D(&tex3d_desc, nullptr, (ID3D11Texture3D **)&stg_res);
+		    if (!stg_res) {
 				reason = "Error creating staging Texture3D\n";
 				LogResourceDesc(&tex3d_desc);
 				goto err;
@@ -6563,8 +6521,9 @@ static ID3D11Resource * inter_device_resource_transfer(ID3D11Device *dst_dev, ID
 				reason = "Error mapping source staging Texture3D\n";
 				if (FAILED(src_ctx->Map(stg_res, index, D3D11_MAP_READ, 0, &src_map)))
 					goto err;
-				dst_ctx->UpdateSubresource(dst_res, index, NULL, src_map.pData, src_map.RowPitch, src_map.DepthPitch);
-				src_ctx->Unmap(stg_res, index);
+			    dst_ctx->UpdateSubresource(dst_res, index, nullptr, src_map.pData, src_map.RowPitch,
+				                           src_map.DepthPitch);
+			    src_ctx->Unmap(stg_res, index);
 			}
 			break;
 		}
@@ -6587,13 +6546,13 @@ err:
 	LogOverlay(LOG_DIRE, "Inter-device transfer of [%S] failed: %s\n", name->c_str(), reason);
 	if (dst_res)
 		dst_res->Release();
-	dst_res = NULL;
+	dst_res = nullptr;
 	goto out;
 }
 
 void CustomResource::expire(ID3D11Device *mOrigDevice1, ID3D11DeviceContext *mOrigContext1)
 {
-	ID3D11Resource *new_resource = NULL;
+	ID3D11Resource *new_resource = nullptr;
 
 	if (!resource || is_null)
 		return;
@@ -6688,10 +6647,8 @@ bool CustomResourcePool::PropagateFlags(D3D11_BIND_FLAG bind_flags, D3D11_RESOUR
 	bool ret = resource_template->AddFlags(bind_flags, misc_flags, false);
 
 	for (const PoolElement& element : elements) {
-		if (element.resource) {
-			if (!element.resource->AddFlags(bind_flags, misc_flags, false))
-				ret = false;
-		}
+		if ((element.resource) && (!element.resource->AddFlags(bind_flags, misc_flags, false)))
+			ret = false;
 	}
 
 	return ret;
@@ -7055,7 +7012,7 @@ void CustomResourcePool::InitializeResource(size_t pool_index)
 
 		element.resource->name = resource_id;
 		element.resource->pool = this;
-		element.resource->pool_index = pool_index;
+	element.resource->pool_index = static_cast<int>(pool_index);
 	}
 
 	element.resource->CopyMetadataFrom(*resource_template);
@@ -7289,11 +7246,9 @@ bool ResourceCopyTarget::ParseMemberArguments(
 			return false;
 		}
 
-		if (i + 1 < num_args)
-		{
-			if (!args.ConsumeSeparator(SeparatorMode::Comma))
-				return args.Fail();
-		}
+		if ((i + 1 < num_args) && (!args.ConsumeSeparator(SeparatorMode::Comma)))
+
+			return args.Fail();
 	}
 
 	return args.Finished();
@@ -7410,7 +7365,7 @@ IniParserResult ResourceCopyTarget::ParseTargetMember(
 	return IniParserResult::TOKEN_NOT_FOUND;
 }
 
-IniParserResult ResourceCopyTarget::ParseTargetCustomResource(const wchar_t*& target, size_t length, const wstring* ini_namespace, CommandListScope* scope)
+IniParserResult ResourceCopyTarget::ParseTargetCustomResource(const wchar_t*& target, size_t length, const wstring* ini_namespace, CommandListScope* scope [[maybe_unused]])
 {
 	//LogInfo("ParseTargetCustomResource: target=%ls, length=%d\n", target, length);
 	if (length < 9 || wcsncmp(target, L"resource", 8))
@@ -7586,10 +7541,10 @@ IniParserResult ResourceCopyTarget::ParseTargetPipelineSlot(const wchar_t*& targ
 	int ret, len;
 
 	struct TargetInfo {
-		const wchar_t* keyword;
-		size_t len;
+		const wchar_t *keyword{};
+		size_t len{};
 		ResourceCopyTargetType type;
-		bool source_only;
+		bool source_only{};
 		bool parse_shader = false;
 		int max_slot_count = 0;
 	};
@@ -7627,7 +7582,7 @@ IniParserResult ResourceCopyTarget::ParseTargetPipelineSlot(const wchar_t*& targ
 	};
 
 	// Consume member keyword (adjust `target` and `length` accordingly).
-	bool found = false;
+	bool found [[maybe_unused]] = false;
 	for (const auto& t : targets) {
 		// Targets are listed by ASC length. Exit loop if token length is shorter than minimal length of current target.
 		if (length < t.len)
@@ -7638,14 +7593,15 @@ IniParserResult ResourceCopyTarget::ParseTargetPipelineSlot(const wchar_t*& targ
 		// Match token against pattern with shader type and slot id.
 		if (t.parse_shader) {
 			ret = swscanf_s(target, t.keyword, &shader_type, 1, &slot, &len);
-			if (ret == 2 && len == length && slot < t.max_slot_count) {
+			if (ret == 2 && static_cast<size_t>(len) == length && slot < static_cast<UINT>(t.max_slot_count)) {
 				type = t.type;
-				if (type == ResourceCopyTargetType::UNORDERED_ACCESS_VIEW) {
-					// These views are only valid for pixel and compute shaders:
-					if (shader_type != L'p' && shader_type != L'c') {
-						return IniParserResult::SYNTAX_ERROR;
-					}
+				if ((type == ResourceCopyTargetType::UNORDERED_ACCESS_VIEW) &&
+				    (shader_type != L'p' && shader_type != L'c'))
+				// These views are only valid for pixel and compute shaders:
+				{
+					return IniParserResult::SYNTAX_ERROR;
 				}
+
 				//LogInfo("ParseTargetPipelineSlot: TOKEN_FOUND target=%ls, shader_type=%lc, slot=%d\n", t.keyword, shader_type, slot);
 				return is_shader_resource(shader_type) ? IniParserResult::TOKEN_FOUND : IniParserResult::SYNTAX_ERROR;
 			}
@@ -7654,7 +7610,7 @@ IniParserResult ResourceCopyTarget::ParseTargetPipelineSlot(const wchar_t*& targ
 		else if (t.max_slot_count) 
 		{
 			ret = swscanf_s(target, t.keyword, &slot, &len);
-			if (ret == 1 && len == length && slot < t.max_slot_count) {
+			if (ret == 1 && static_cast<size_t>(len) == length && slot < static_cast<UINT>(t.max_slot_count)) {
 				type = t.type;
 				//LogInfo("ParseTargetPipelineSlot: TOKEN_FOUND target=%ls, slot=%d\n", t.keyword, slot);
 				return IniParserResult::TOKEN_FOUND;
@@ -7752,7 +7708,7 @@ bool ResourceCopyTarget::ParseTarget(const wchar_t *target, bool is_source, cons
 #pragma region PoolCopyOperation
 
 static CommandListCommand* parse_pool_copy_operation(
-	const wchar_t* section, ResourceCopyTarget& dst, ResourceCopyTarget& src, ResourceCopyOptions options, CommandList* command_list, const wstring* ini_namespace
+	const wchar_t* section, ResourceCopyTarget& dst, ResourceCopyTarget& src, ResourceCopyOptions options, CommandList* command_list [[maybe_unused]], const wstring* ini_namespace
 )
 {
 	//LogInfoW(L"parse_pool_copy_operation dst_type=%ls, dst_mode=%ls, src_type=%ls, src_mode=%ls\n",
@@ -7841,7 +7797,7 @@ void PoolCopyOperation::run(CommandListState* state)
 #pragma region ParseResourceCopyOperation
 
 static CommandListCommand* parse_resource_copy_operation(
-	const wchar_t* section, ResourceCopyTarget& dst, ResourceCopyTarget& src, ResourceCopyOptions options, CommandList* command_list, const wstring* ini_namespace
+	const wchar_t* section, ResourceCopyTarget& dst, ResourceCopyTarget& src, ResourceCopyOptions options, CommandList* command_list [[maybe_unused]], const wstring* ini_namespace
 )
 {
 	//LogInfoW(L"parse_resource_copy_operation dst_type=%ls, dst_mode=%ls, src_type=%ls, src_mode=%ls\n",
@@ -7905,7 +7861,8 @@ static CommandListCommand* parse_resource_copy_operation(
 	if (src.type == ResourceCopyTargetType::CUSTOM_RESOURCE && (options & ResourceCopyOptions::REFERENCE)) {
 		CustomResource* src_custom_resource = src.GetCustomResource(nullptr, true);
 		D3D11_RESOURCE_MISC_FLAG misc_flags = (D3D11_RESOURCE_MISC_FLAG)0;
-		if (!src_custom_resource->AddFlags(dst.BindFlags(NULL, &misc_flags), misc_flags, true)) {
+		if (!src_custom_resource->AddFlags(dst.BindFlags(nullptr, &misc_flags), misc_flags, true))
+		{
 			LogOverlayW(LOG_WARNING, L"To use resources with incompatible flags explicitly add 'copy' keyword, e.g. 'vs-cb0 = copy ResourceRWBufferCB'\n - [%ls] @ [%ls]\n", section, ini_namespace->c_str());
 			return nullptr;
 		}
@@ -7926,7 +7883,7 @@ static CommandListCommand* parse_resource_copy_operation(
 #pragma region LayoutElementOperation
 
 static CommandListCommand* parse_layout_operation(
-	const wchar_t* section, ResourceCopyTarget& dst, wstring* val, CommandList* command_list, const wstring* ini_namespace
+	const wchar_t* section, ResourceCopyTarget& dst, wstring* val, CommandList* command_list [[maybe_unused]], const wstring* ini_namespace
 )
 {
 	if (dst.type != ResourceCopyTargetType::VERTEX_BUFFER)
@@ -7973,7 +7930,10 @@ static CommandListCommand* parse_layout_operation(
 	if (arg0.size() > 256 || arg0.find_first_not_of(L"ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789") != std::wstring::npos)
 		goto bail;
 
-	operation->override.match.semantic_name = std::string(arg0.begin(), arg0.end());
+	operation->override.match.semantic_name.clear();
+	operation->override.match.semantic_name.reserve(arg0.size());
+	for (wchar_t character : arg0)
+		operation->override.match.semantic_name.push_back(static_cast<char>(character));
 	operation->override.match.input_slot = dst.slot;
 
 	//LogInfo("input_slot=%d, semantic_name=%s, semantic_index=%d ",
@@ -8003,7 +7963,7 @@ void LayoutElementOperation::run(CommandListState* state)
 {
 	COMMAND_LIST_LOG(state, "%S\n", ini_line.c_str());
 
-	override.match.semantic_index = dst.member_args[1].GetValue(state);
+	override.match.semantic_index = static_cast<UINT>(dst.member_args[1].GetValue(state));
 
 	if (state->input_layout_overrides.empty())
 		state->input_layout_overrides.reserve(16);
@@ -8017,7 +7977,7 @@ void LayoutElementOperation::run(CommandListState* state)
 
 	state->input_layout_overrides.push_back(&override);
 
-	const auto& added = state->input_layout_overrides.back();
+	const auto& added [[maybe_unused]] = state->input_layout_overrides.back();
 }
 
 #pragma endregion LayoutElementOperation
@@ -8025,17 +7985,17 @@ void LayoutElementOperation::run(CommandListState* state)
 
 #pragma region PoolVariableOperation
 
-CommandListCommand* parse_pool_variable_operation(const wchar_t *section, ResourceCopyTarget& dst, wstring *val, CommandList *command_list, const wstring *ini_namespace)
+CommandListCommand* parse_pool_variable_operation(const wchar_t *section [[maybe_unused]], ResourceCopyTarget& dst, wstring *val, CommandList *command_list, const wstring *ini_namespace)
 {
 
 	//LogInfoW(L"parse_pool_variable_operation dst_type=%ls, dst_mode=%ls, val=%ls\n",
 	//	lookup_enum_name(ResourceCopyTargetTypeNames, dst.type), lookup_enum_name(ResourceCopyTargetEvaluationModeNames, dst.evaluation_mode), val->c_str());
 
 	if (!dst.custom_resource_pool)
-		return false;
+		return nullptr;
 
 	if (val->empty())
-		return false;
+		return nullptr;
 
 	PoolVariableOperation* command = new PoolVariableOperation();
 
@@ -8133,11 +8093,9 @@ static bool parse_resource_copy_target_source(
 
 		args.ConsumeToken();
 
-		if (!args.Finished())
-		{
-			if (!args.ConsumeSeparator(SeparatorMode::Space))
-				return args.Fail();
-		}
+		if ((!args.Finished()) && (!args.ConsumeSeparator(SeparatorMode::Space)))
+
+			return args.Fail();
 
 		unknown_token_count++;
 
@@ -8257,7 +8215,8 @@ static bool ParseIfCommand(const wchar_t *section, const wstring *line,
 	// New scope level to isolate local variables:
 	pre_command_list->scope->emplace_front();
 
-	return AddCommandToList(operation, NULL, NULL, pre_command_list, post_command_list, section, line->c_str(), NULL);
+	return AddCommandToList(operation, nullptr, nullptr, pre_command_list, post_command_list, section, line->c_str(),
+	                        nullptr);
 bail:
 	delete operation;
 	return false;
@@ -8279,20 +8238,23 @@ static bool ParseElseIfCommand(const wchar_t *section, const wstring *line, int 
 	// "else if" is implemented by nesting another if/endif inside the
 	// parent if command's else clause. We add both an ElsePlaceholder and
 	// an ElseIfCommand here, and will fix up the "endif" balance later.
-	AddCommandToList(new ElsePlaceholder(), NULL, NULL, pre_command_list, post_command_list, section, line->c_str(), NULL);
-	return AddCommandToList(operation, NULL, NULL, pre_command_list, post_command_list, section, line->c_str(), NULL);
+	AddCommandToList(new ElsePlaceholder(), nullptr, nullptr, pre_command_list, post_command_list, section,
+	                 line->c_str(), nullptr);
+	return AddCommandToList(operation, nullptr, nullptr, pre_command_list, post_command_list, section, line->c_str(),
+	                        nullptr);
 bail:
 	delete operation;
 	return false;
 }
 
 static bool ParseElseCommand(const wchar_t *section,
-		CommandList *pre_command_list, CommandList *post_command_list, const wstring* ini_namespace)
+		CommandList *pre_command_list, CommandList *post_command_list, const wstring* ini_namespace [[maybe_unused]])
 {
 	// Clear deepest scope level to isolate local variables:
 	pre_command_list->scope->front().clear();
 
-	return AddCommandToList(new ElsePlaceholder(), NULL, NULL, pre_command_list, post_command_list, section, L"else", NULL);
+	return AddCommandToList(new ElsePlaceholder(), nullptr, nullptr, pre_command_list, post_command_list, section,
+	                        L"else", nullptr);
 }
 
 static bool _ParseEndIfCommand(const wchar_t *section,
@@ -8301,7 +8263,7 @@ static bool _ParseEndIfCommand(const wchar_t *section,
 	CommandList::Commands::reverse_iterator rit;
 	IfCommand *if_command;
 	ElseIfCommand *else_if_command;
-	ElsePlaceholder *else_command = NULL;
+	ElsePlaceholder *else_command = nullptr;
 	CommandList::Commands::iterator else_pos = command_list->commands.end();
 
 	for (rit = command_list->commands.rbegin(); rit != command_list->commands.rend(); rit++) {
@@ -8463,7 +8425,7 @@ bool IfCommand::optimise(HackerDevice *device)
 	return expression.optimise(device);
 }
 
-bool IfCommand::noop(bool post, bool ignore_cto_pre, bool ignore_cto_post)
+bool IfCommand::noop(bool post, bool ignore_cto_pre [[maybe_unused]], bool ignore_cto_post [[maybe_unused]])
 {
 	float static_val;
 	bool is_static;
@@ -8494,7 +8456,7 @@ void CommandPlaceholder::run(CommandListState*)
 	LogOverlay(LOG_DIRE, "BUG: Placeholder command executed: %S\n", ini_line.c_str());
 }
 
-bool CommandPlaceholder::noop(bool post, bool ignore_cto_pre, bool ignore_cto_post)
+bool CommandPlaceholder::noop(bool post [[maybe_unused]], bool ignore_cto_pre [[maybe_unused]], bool ignore_cto_post [[maybe_unused]])
 {
 	LogOverlayW(LOG_WARNING, L"Command not terminated\n - [%ls]\n", ini_line.c_str());
 	return true;
@@ -8571,13 +8533,13 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 	HackerDevice *mHackerDevice = state->mHackerDevice;
 	ID3D11Device1 *mOrigDevice1 = state->mOrigDevice1;
 	ID3D11DeviceContext1 *mOrigContext1 = state->mOrigContext1;
-	ID3D11Resource *res = NULL;
-	ID3D11Buffer *buf = NULL;
+	ID3D11Resource *res = nullptr;
+	ID3D11Buffer *buf = nullptr;
 	ID3D11Buffer *so_bufs[D3D11_SO_STREAM_COUNT];
-	ID3D11ShaderResourceView *resource_view = NULL;
+	ID3D11ShaderResourceView *resource_view = nullptr;
 	ID3D11RenderTargetView *render_view[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
-	ID3D11DepthStencilView *depth_view = NULL;
-	ID3D11UnorderedAccessView *unordered_view = NULL;
+	ID3D11DepthStencilView *depth_view = nullptr;
+	ID3D11UnorderedAccessView *unordered_view = nullptr;
 	D3D11_BIND_FLAG bind_flags = (D3D11_BIND_FLAG)0;
 	D3D11_RESOURCE_MISC_FLAG misc_flags = (D3D11_RESOURCE_MISC_FLAG)0;
 	unsigned i;
@@ -8606,16 +8568,16 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 			break;
 		default:
 			// Should not happen
-			return NULL;
+			return nullptr;
 		}
 		// Derive data offset in bytes from FirstConstant, where each constant is 16 bytes long (4 * 32-bit components).
 		// FirstConstant specifies index of the first constant of CB region that is currently visible to shaders (bound via VSSetConstantBuffers1).
-		// Runtime sets *FirstConstant (pointer!) to NULL if it is not defined in VSSetConstantBuffers(1) call used to bind CB.
+		// Runtime sets *FirstConstant (pointer!) to nullptr if it is not defined in VSSetConstantBuffers(1) call used to bind CB.
 		if (offset)
 			*offset *= 16;
 		// Derive data size in bytes from NumConstants, where each constant is 16 bytes long (4 * 32-bit components).
 		// NumConstants define length of CB region in constants that is currently visible to shaders (bound via VSSetConstantBuffers1).
-		// Runtime sets *NumConstants (pointer!) to NULL if it is not defined in VSSetConstantBuffers(1) call used to bind CB.
+		// Runtime sets *NumConstants (pointer!) to nullptr if it is not defined in VSSetConstantBuffers(1) call used to bind CB.
 		if (buf_size)
 			*buf_size *= 16;
 
@@ -8643,16 +8605,16 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 			break;
 		default:
 			// Should not happen
-			return NULL;
+			return nullptr;
 		}
 
 		if (!resource_view)
-			return NULL;
+			return nullptr;
 
 		resource_view->GetResource(&res);
 		if (!res) {
 			resource_view->Release();
-			return NULL;
+			return nullptr;
 		}
 
 		*view = resource_view;
@@ -8684,44 +8646,44 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 		for (i = 0; i < slot; i++) {
 			if (so_bufs[i]) {
 				so_bufs[i]->Release();
-				so_bufs[i] = NULL;
+				so_bufs[i] = nullptr;
 			}
 		}
 
 		return so_bufs[slot];
 
 	case ResourceCopyTargetType::RENDER_TARGET:
-		mOrigContext1->OMGetRenderTargets(slot + 1, render_view, NULL);
+		mOrigContext1->OMGetRenderTargets(slot + 1, render_view, nullptr);
 
 		// Release any views we aren't after:
 		for (i = 0; i < slot; i++) {
 			if (render_view[i]) {
 				render_view[i]->Release();
-				render_view[i] = NULL;
+				render_view[i] = nullptr;
 			}
 		}
 
 		if (!render_view[slot])
-			return NULL;
+			return nullptr;
 
 		render_view[slot]->GetResource(&res);
 		if (!res) {
 			render_view[slot]->Release();
-			return NULL;
+			return nullptr;
 		}
 
 		*view = render_view[slot];
 		return res;
 
 	case ResourceCopyTargetType::DEPTH_STENCIL_TARGET:
-		mOrigContext1->OMGetRenderTargets(0, NULL, &depth_view);
+		mOrigContext1->OMGetRenderTargets(0, nullptr, &depth_view);
 		if (!depth_view)
-			return NULL;
+			return nullptr;
 
 		depth_view->GetResource(&res);
 		if (!res) {
 			depth_view->Release();
-			return NULL;
+			return nullptr;
 		}
 
 		// Depth buffers can't be buffers
@@ -8734,23 +8696,23 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 		case L'p':
 			// XXX: Not clear if the start slot is ok like this from the docs?
 			// Particularly, what happens if we retrieve a subsequent UAV?
-			mOrigContext1->OMGetRenderTargetsAndUnorderedAccessViews(0, NULL, NULL, slot, 1, &unordered_view);
+			mOrigContext1->OMGetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, slot, 1, &unordered_view);
 			break;
 		case L'c':
 			mOrigContext1->CSGetUnorderedAccessViews(slot, 1, &unordered_view);
 			break;
 		default:
 			// Should not happen
-			return NULL;
+			return nullptr;
 		}
 
 		if (!unordered_view)
-			return NULL;
+			return nullptr;
 
 		unordered_view->GetResource(&res);
 		if (!res) {
 			unordered_view->Release();
-			return NULL;
+			return nullptr;
 		}
 
 		*view = unordered_view;
@@ -8783,9 +8745,9 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 				// Optimisation to allow the resource to be set to null
 				// without throwing away the cache so we don't
 				// endlessly create & destroy temporary resources.
-				*view = NULL;
-				return NULL;
-			}
+			    *view = nullptr;
+			    return nullptr;
+		    }
 
 			if (custom_resource->view)
 				custom_resource->view->AddRef();
@@ -8835,7 +8797,7 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 		}
 
 		COMMAND_LIST_LOG(state, "  \"this\"  is not valid in this context\n");
-		return NULL;
+		return nullptr;
 
 	case ResourceCopyTargetType::SWAP_CHAIN:
 		{
@@ -8871,7 +8833,7 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 		return res;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 void ResourceCopyTarget::SetResource(
@@ -8884,13 +8846,13 @@ void ResourceCopyTarget::SetResource(
 		UINT buf_size)
 {
 	ID3D11DeviceContext1 *mOrigContext1 = state->mOrigContext1;
-	ID3D11Buffer *buf = NULL;
+	ID3D11Buffer *buf = nullptr;
 	ID3D11Buffer *so_bufs[D3D11_SO_STREAM_COUNT];
-	ID3D11ShaderResourceView *resource_view = NULL;
+	ID3D11ShaderResourceView *resource_view = nullptr;
 	ID3D11RenderTargetView *render_view[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
-	ID3D11DepthStencilView *depth_view = NULL;
-	ID3D11UnorderedAccessView *unordered_view = NULL;
-	UINT uav_counter = -1; // TODO: Allow this to be set
+	ID3D11DepthStencilView *depth_view = nullptr;
+	ID3D11UnorderedAccessView *unordered_view = nullptr;
+	UINT uav_counter = UINT_MAX; // TODO: Allow this to be set
 	int i;
 
 	switch(type) {
@@ -9006,10 +8968,10 @@ void ResourceCopyTarget::SetResource(
 		if (so_bufs[slot])
 			so_bufs[slot]->Release();
 		so_bufs[slot] = buf;
-		// XXX: We set offsets to NULL here. We should really preserve
+		// XXX: We set offsets to nullptr here. We should really preserve
 		// them, but I'm not sure how to get their original values,
 		// so... too bad. Probably will never even use this anyway.
-		mOrigContext1->SOSetTargets(D3D11_SO_STREAM_COUNT, so_bufs, NULL);
+		mOrigContext1->SOSetTargets(D3D11_SO_STREAM_COUNT, so_bufs, nullptr);
 
 		for (i = 0; i < D3D11_SO_STREAM_COUNT; i++) {
 			if (so_bufs[i])
@@ -9028,7 +8990,7 @@ void ResourceCopyTarget::SetResource(
 		mOrigContext1->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, render_view, depth_view);
 
 		for (i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; i++) {
-			if (i != slot && render_view[i])
+			if (static_cast<UINT>(i) != slot && render_view[i])
 				render_view[i]->Release();
 		}
 		if (depth_view)
@@ -9058,8 +9020,8 @@ void ResourceCopyTarget::SetResource(
 		case L'p':
 			// XXX: Not clear if this will unbind other UAVs or not?
 			// TODO: Allow pUAVInitialCounts to optionally be set
-			mOrigContext1->OMSetRenderTargetsAndUnorderedAccessViews(D3D11_KEEP_RENDER_TARGETS_AND_DEPTH_STENCIL,
-				NULL, NULL, slot, 1, &unordered_view, &uav_counter);
+			mOrigContext1->OMSetRenderTargetsAndUnorderedAccessViews(
+			    D3D11_KEEP_RENDER_TARGETS_AND_DEPTH_STENCIL, nullptr, nullptr, slot, 1, &unordered_view, &uav_counter);
 			return;
 		case L'c':
 			// TODO: Allow pUAVInitialCounts to optionally be set
@@ -9080,7 +9042,8 @@ void ResourceCopyTarget::SetResource(
 		custom_resource->format = format;
 		custom_resource->buf_size = buf_size;
 
-		if (res == NULL && view == NULL) {
+		if (res == nullptr && view == nullptr)
+		{
 			// Optimisation to allow the resource to be set to null
 			// without throwing away the cache so we don't
 			// endlessly create & destroy temporary resources.
@@ -9200,11 +9163,11 @@ D3D11_BIND_FLAG ResourceCopyTarget::BindFlags(CommandListState *state, D3D11_RES
 
 void ResourceCopyTarget::FindTextureOverrides(CommandListState *state, bool *resource_found, TextureOverrideMatches *matches)
 {
-	ID3D11View *view = NULL;
+	ID3D11View *view = nullptr;
 	UINT stride = 0, offset = 0;
 	DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
 
-	ID3D11Resource* resource = GetResource(state, &view, &stride, &offset, &format, NULL);
+	ID3D11Resource *resource = GetResource(state, &view, &stride, &offset, &format, nullptr);
 
 	if (resource_found)
 		*resource_found = !!resource;
@@ -9258,7 +9221,7 @@ void ResourceCopyTarget::FindTextureOverrides(CommandListState *state, bool *res
 
 			// Filter prefiltering results by hash.
 			if (draw_info_matches) {
-				Profiling::State profiling_state;
+				Profiling::State profiling_state{};
 				if (Profiling::mode == Profiling::Mode::SUMMARY)
 					Profiling::start(&profiling_state);
 
@@ -9296,9 +9259,9 @@ void ResourceCopyTarget::FindTextureOverrides(CommandListState *state, bool *res
 
 float ResourceCopyTarget::GetResourceId(CommandListState* state)
 {
-	ID3D11View* view = NULL;
+	ID3D11View *view = nullptr;
 
-	ID3D11Resource* resource = GetResource(state, &view, NULL, NULL, NULL, NULL);
+	ID3D11Resource *resource = GetResource(state, &view, nullptr, nullptr, nullptr, nullptr);
 
 	if (!resource)
 		return 0.0f;
@@ -9452,11 +9415,11 @@ float ResourceCopyTarget::GetResourceSize(CommandListState* state)
 float ResourceCopyTarget::GetResourceOffset(CommandListState* state)
 {
 
-	ID3D11View* view = NULL;
+	ID3D11View *view = nullptr;
 	UINT stride = 0, offset = 0;
 	DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
 
-	ID3D11Resource* resource = GetResource(state, &view, &stride, &offset, &format, NULL);
+	ID3D11Resource *resource = GetResource(state, &view, &stride, &offset, &format, nullptr);
 
 	float ret = ResourcePropertyResult::UNKNOWN;
 
@@ -9472,7 +9435,7 @@ float ResourceCopyTarget::GetResourceOffset(CommandListState* state)
 			ret = ResourcePropertyResult::NOT_A_BUFFER;
 		}
 		else {
-			auto buf = static_cast<ID3D11Buffer*>(resource);
+			auto buf [[maybe_unused]] = static_cast<ID3D11Buffer*>(resource);
 
 			switch (this->type) {
 			case ResourceCopyTargetType::VERTEX_BUFFER:
@@ -9499,7 +9462,7 @@ float ResourceCopyTarget::GetResourceOffset(CommandListState* state)
 
 float ResourceCopyTarget::GetResourceRegionHash(CommandListState* state)
 {
-	ID3D11View* view = NULL;
+	ID3D11View *view = nullptr;
 	UINT stride = 0, offset = 0, size = 0;
 	DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
 
@@ -9559,7 +9522,7 @@ float ResourceCopyTarget::GetResourceRegionHash(CommandListState* state)
 
 float ResourceCopyTarget::GetResourceSpatialHash(CommandListState* state)
 {
-	ID3D11View* view = NULL;
+	ID3D11View *view = nullptr;
 	UINT stride = 0, offset = 0, size = 0;
 	DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
 
@@ -9636,7 +9599,7 @@ float ResourceCopyTarget::GetPoolElementLastFrame(CommandListState* state)
 #pragma region CompatibleResourceCreation
 
 static bool IsConversionToStructuredBufferRequired(ID3D11View *view, UINT stride,
-		UINT offset, DXGI_FORMAT format, D3D11_BIND_FLAG bind_flags)
+		UINT offset [[maybe_unused]], DXGI_FORMAT format, D3D11_BIND_FLAG bind_flags)
 {
 	// If we are copying a vertex buffer into a shader resource we need to
 	// convert it into a structured buffer, which requires a flag set when
@@ -9670,8 +9633,8 @@ static bool IsConversionToStructuredBufferRequired(ID3D11View *view, UINT stride
 
 static ID3D11Buffer *RecreateCompatibleBuffer(
 		wstring *ini_line,
-		ResourceCopyTarget *src, // May be NULL
-		ResourceCopyTarget *dst, // May be NULL
+		ResourceCopyTarget *src, // May be nullptr
+		ResourceCopyTarget *dst, // May be nullptr
 		ID3D11Buffer *src_resource,
 		ID3D11Buffer *dst_resource,
 		ResourcePool *resource_pool,
@@ -9686,7 +9649,7 @@ static ID3D11Buffer *RecreateCompatibleBuffer(
 		UINT *buf_dst_size)
 {
 	D3D11_BUFFER_DESC new_desc;
-	ID3D11Buffer *buffer = NULL;
+	ID3D11Buffer *buffer [[maybe_unused]] = nullptr;
 	UINT dst_size;
 
 	src_resource->GetDesc(&new_desc);
@@ -9711,12 +9674,11 @@ static ID3D11Buffer *RecreateCompatibleBuffer(
 	if (bind_flags & D3D11_BIND_CONSTANT_BUFFER || (src && src->type == ResourceCopyTargetType::CONSTANT_BUFFER)) {
 		// Constant buffers created via SetConstantBuffer1 may have region size specified (derived from NumConstants).
 		// So we'll use source CB size whenever it's available, since other data is irrelevant for current shader call.
-		if (src && src->type == ResourceCopyTargetType::CONSTANT_BUFFER) {
-			if (*buf_src_size) {
-				*buf_dst_size = *buf_src_size;      // Set DST CB size to "visible region" size
-				*buf_src_size = new_desc.ByteWidth; // Set SRC CB size to its actual size
-				new_desc.ByteWidth = *buf_dst_size; // Set DST DESC size to "visible region" size
-			}
+		if ((src && src->type == ResourceCopyTargetType::CONSTANT_BUFFER) && (*buf_src_size))
+		{
+			*buf_dst_size = *buf_src_size;      // Set DST CB size to "visible region" size
+			*buf_src_size = new_desc.ByteWidth; // Set SRC CB size to its actual size
+			new_desc.ByteWidth = *buf_dst_size; // Set DST DESC size to "visible region" size
 		}
 
 		if (bind_flags & D3D11_BIND_CONSTANT_BUFFER) {
@@ -9970,9 +9932,9 @@ static DXGI_FORMAT MakeNonDSVFormat(DXGI_FORMAT fmt)
 // duplicate the entire RecreateCompatibleTexture() routine for such a small
 // difference.
 template <typename DescType>
-static void Texture2DDescResolveMSAA(DescType *desc) {}
+static void Texture2DDescResolveMSAA(DescType *desc [[maybe_unused]]) {}
 template <>
-static void Texture2DDescResolveMSAA(D3D11_TEXTURE2D_DESC *desc)
+void Texture2DDescResolveMSAA(D3D11_TEXTURE2D_DESC *desc)
 {
 	desc->SampleDesc.Count = 1;
 	desc->SampleDesc.Quality = 0;
@@ -9987,7 +9949,7 @@ template <typename ResourceType,
 	>
 static ResourceType* RecreateCompatibleTexture(
 		wstring *ini_line,
-		ResourceCopyTarget *dst, // May be NULL
+		ResourceCopyTarget *dst, // May be nullptr
 		ResourceType *src_resource,
 		ResourceType *dst_resource,
 		ResourcePool *resource_pool,
@@ -9995,7 +9957,7 @@ static ResourceType* RecreateCompatibleTexture(
 		CommandListState *state,
 		ResourceCopyOptions options)
 {
-	DescType new_desc;
+	DescType new_desc{};
 
 	src_resource->GetDesc(&new_desc);
 	new_desc.BindFlags = bind_flags;
@@ -10039,8 +10001,8 @@ static ResourceType* RecreateCompatibleTexture(
 
 static void RecreateCompatibleResource(
 		wstring *ini_line,
-		ResourceCopyTarget *src, // May be NULL
-		ResourceCopyTarget *dst, // May be NULL
+		ResourceCopyTarget *src, // May be nullptr
+		ResourceCopyTarget *dst, // May be nullptr
 		ID3D11Resource *src_resource,
 		ID3D11Resource **dst_resource,
 		ResourcePool *resource_pool,
@@ -10057,8 +10019,8 @@ static void RecreateCompatibleResource(
 	D3D11_RESOURCE_DIMENSION src_dimension;
 	D3D11_BIND_FLAG bind_flags = (D3D11_BIND_FLAG)0;
 	D3D11_RESOURCE_MISC_FLAG misc_flags = (D3D11_RESOURCE_MISC_FLAG)0;
-	ID3D11Resource *res = NULL;
-	bool restore_create_mode = false;
+	ID3D11Resource *res = nullptr;
+	bool restore_create_mode [[maybe_unused]] = false;
 
 	if (dst)
 		bind_flags = dst->BindFlags(state, &misc_flags);
@@ -10098,7 +10060,7 @@ static void RecreateCompatibleResource(
 
 		*dst_resource = res;
 		if (dst_view)
-			*dst_view = NULL;
+			*dst_view = nullptr;
 	}
 }
 
@@ -10201,9 +10163,9 @@ static D3D11_SHADER_RESOURCE_VIEW_DESC* FillOutBufferDesc(ID3D11Buffer *buf,
 	}
 	return desc;
 }
-static D3D11_RENDER_TARGET_VIEW_DESC* FillOutBufferDesc(ID3D11Buffer *buf,
+static D3D11_RENDER_TARGET_VIEW_DESC* FillOutBufferDesc(ID3D11Buffer *buf [[maybe_unused]],
 		D3D11_RENDER_TARGET_VIEW_DESC *desc, UINT stride,
-		UINT offset, UINT buf_src_size, ResourceCopyOptions options)
+		UINT offset, UINT buf_src_size, ResourceCopyOptions options [[maybe_unused]])
 {
 	desc->ViewDimension = D3D11_RTV_DIMENSION_BUFFER;
 
@@ -10227,12 +10189,12 @@ static D3D11_UNORDERED_ACCESS_VIEW_DESC* FillOutBufferDesc(ID3D11Buffer *buf,
 	FillOutBufferDescCommon<D3D11_BUFFER_UAV>(&desc->Buffer, stride, offset, desc->Format, buf_src_size);
 	return desc;
 }
-static D3D11_DEPTH_STENCIL_VIEW_DESC* FillOutBufferDesc(ID3D11Buffer *buf,
-		D3D11_DEPTH_STENCIL_VIEW_DESC *desc, UINT stride,
-		UINT offset, UINT buf_src_size, ResourceCopyOptions options)
+static D3D11_DEPTH_STENCIL_VIEW_DESC* FillOutBufferDesc(ID3D11Buffer *buf [[maybe_unused]],
+		D3D11_DEPTH_STENCIL_VIEW_DESC *desc [[maybe_unused]], UINT stride [[maybe_unused]],
+		UINT offset [[maybe_unused]], UINT buf_src_size [[maybe_unused]], ResourceCopyOptions options [[maybe_unused]])
 {
 	// Depth views don't support buffers:
-	return NULL;
+	return nullptr;
 }
 
 
@@ -10251,11 +10213,11 @@ static D3D11_SHADER_RESOURCE_VIEW_DESC* FillOutTex1DDesc(
 	if (resource_desc->ArraySize == 1) {
 		view_desc->ViewDimension = D3D11_SRV_DIMENSION_TEXTURE1D;
 		view_desc->Texture1D.MostDetailedMip = 0;
-		view_desc->Texture1D.MipLevels = -1;
+			view_desc->Texture1D.MipLevels = UINT_MAX;
 	} else {
 		view_desc->ViewDimension = D3D11_SRV_DIMENSION_TEXTURE1DARRAY;
 		view_desc->Texture1DArray.MostDetailedMip = 0;
-		view_desc->Texture1DArray.MipLevels = -1;
+			view_desc->Texture1DArray.MipLevels = UINT_MAX;
 		view_desc->Texture1DArray.FirstArraySlice = 0;
 		view_desc->Texture1DArray.ArraySize = resource_desc->ArraySize;
 	}
@@ -10326,11 +10288,11 @@ static D3D11_SHADER_RESOURCE_VIEW_DESC* FillOutTex2DDesc(
 		if (resource_desc->ArraySize == 1) {
 			view_desc->ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBE;
 			view_desc->TextureCube.MostDetailedMip = 0;
-			view_desc->TextureCube.MipLevels = -1;
+			view_desc->TextureCube.MipLevels = UINT_MAX;
 		} else {
 			view_desc->ViewDimension = D3D11_SRV_DIMENSION_TEXTURECUBEARRAY;
 			view_desc->TextureCubeArray.MostDetailedMip = 0;
-			view_desc->TextureCubeArray.MipLevels = -1;
+			view_desc->TextureCubeArray.MipLevels = UINT_MAX;
 			view_desc->TextureCubeArray.First2DArrayFace = 0; // FIXME: Get from original view
 			view_desc->TextureCubeArray.NumCubes = resource_desc->ArraySize / 6;
 		}
@@ -10338,11 +10300,11 @@ static D3D11_SHADER_RESOURCE_VIEW_DESC* FillOutTex2DDesc(
 		if (resource_desc->ArraySize == 1) {
 			view_desc->ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 			view_desc->Texture2D.MostDetailedMip = 0;
-			view_desc->Texture2D.MipLevels = -1;
+			view_desc->Texture2D.MipLevels = UINT_MAX;
 		} else {
 			view_desc->ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
 			view_desc->Texture2DArray.MostDetailedMip = 0;
-			view_desc->Texture2DArray.MipLevels = -1;
+			view_desc->Texture2DArray.MipLevels = UINT_MAX;
 			view_desc->Texture2DArray.FirstArraySlice = 0;
 			view_desc->Texture2DArray.ArraySize = resource_desc->ArraySize;
 		}
@@ -10441,7 +10403,7 @@ static D3D11_SHADER_RESOURCE_VIEW_DESC* FillOutTex3DDesc(
 
 	view_desc->ViewDimension = D3D11_SRV_DIMENSION_TEXTURE3D;
 	view_desc->Texture3D.MostDetailedMip = 0;
-	view_desc->Texture3D.MipLevels = -1;
+			view_desc->Texture3D.MipLevels = UINT_MAX;
 
 	return view_desc;
 }
@@ -10454,17 +10416,17 @@ static D3D11_RENDER_TARGET_VIEW_DESC* FillOutTex3DDesc(
 	view_desc->ViewDimension = D3D11_RTV_DIMENSION_TEXTURE3D;
 	view_desc->Texture3D.MipSlice = 0;
 	view_desc->Texture3D.FirstWSlice = 0;
-	view_desc->Texture3D.WSize = -1;
+			view_desc->Texture3D.WSize = UINT_MAX;
 
 	return view_desc;
 }
 static D3D11_DEPTH_STENCIL_VIEW_DESC* FillOutTex3DDesc(
-		D3D11_DEPTH_STENCIL_VIEW_DESC *view_desc,
-		DXGI_FORMAT format)
+		D3D11_DEPTH_STENCIL_VIEW_DESC *view_desc [[maybe_unused]],
+		DXGI_FORMAT format [[maybe_unused]])
 {
 	// DSV cannot be a Texture3D
 
-	return NULL;
+	return nullptr;
 }
 static D3D11_UNORDERED_ACCESS_VIEW_DESC* FillOutTex3DDesc(
 		D3D11_UNORDERED_ACCESS_VIEW_DESC *view_desc,
@@ -10475,7 +10437,7 @@ static D3D11_UNORDERED_ACCESS_VIEW_DESC* FillOutTex3DDesc(
 	view_desc->ViewDimension = D3D11_UAV_DIMENSION_TEXTURE3D;
 	view_desc->Texture3D.MipSlice = 0;
 	view_desc->Texture3D.FirstWSlice = 0;
-	view_desc->Texture3D.WSize = -1;
+			view_desc->Texture3D.WSize = UINT_MAX;
 
 	return view_desc;
 }
@@ -10505,8 +10467,8 @@ static ID3D11View* _CreateCompatibleView(
 	ID3D11Texture2D *tex2d;
 	D3D11_TEXTURE1D_DESC tex1d_desc;
 	D3D11_TEXTURE2D_DESC tex2d_desc;
-	ViewType *view = NULL;
-	DescType view_desc, *pDesc = NULL;
+	ViewType *view = nullptr;
+	DescType view_desc{}, *pDesc = nullptr;
 	HRESULT hr;
 
 	resource->GetType(&dimension);
@@ -10563,7 +10525,7 @@ static ID3D11View* _CreateCompatibleView(
 		if (pDesc)
 			LogViewDesc(pDesc);
 		LogResourceDesc(resource);
-		return NULL;
+		return nullptr;
 	}
 
 	if (pDesc)
@@ -10608,7 +10570,7 @@ static ID3D11View* CreateCompatibleView(
 				return CreateCompatibleView(state->this_target, resource, state, stride, offset, format, buf_src_size, options);
 			break;
 	}
-	return NULL;
+	return nullptr;
 }
 
 #pragma endregion CompatibleResourceCreation
@@ -10747,10 +10709,10 @@ static void SpecialCopyBufferRegion(ID3D11Resource *dst_resource,ID3D11Resource 
 static UINT get_resource_bind_flags(ID3D11Resource *resource)
 {
 	D3D11_RESOURCE_DIMENSION dimension;
-	ID3D11Buffer *buf = NULL;
-	ID3D11Texture1D *tex1d = NULL;
-	ID3D11Texture2D *tex2d = NULL;
-	ID3D11Texture3D *tex3d = NULL;
+	ID3D11Buffer *buf = nullptr;
+	ID3D11Texture1D *tex1d = nullptr;
+	ID3D11Texture2D *tex2d = nullptr;
+	ID3D11Texture3D *tex3d = nullptr;
 	D3D11_BUFFER_DESC buf_desc;
 	D3D11_TEXTURE1D_DESC tex1d_desc;
 	D3D11_TEXTURE2D_DESC tex2d_desc;
@@ -10796,8 +10758,7 @@ ID3D11View* ClearViewCommand::create_best_view(
 	// which type? We will guess based on what the user specified
 	// and what bind flags the resource has.
 
-	FillInMissingInfo(target.type, resource, NULL, &stride, &offset,
-			&buf_src_size, &format);
+	FillInMissingInfo(target.type, resource, nullptr, &stride, &offset, &buf_src_size, &format);
 
 	// If the user specified "depth" and/or "stencil" they gave us
 	// the answer:
@@ -10842,14 +10803,14 @@ ID3D11View* ClearViewCommand::create_best_view(
 			       (resource, state, stride, offset, format, buf_src_size, options);
 	}
 	// TODO: In DX 11.1 there is a generic clear routine, so SRVs might work?
-	return NULL;
+	return nullptr;
 }
 
 void ClearViewCommand::clear_unknown_view(ID3D11View *view, CommandListState *state)
 {
-	ID3D11RenderTargetView *rtv = NULL;
-	ID3D11DepthStencilView *dsv = NULL;
-	ID3D11UnorderedAccessView *uav = NULL;
+	ID3D11RenderTargetView *rtv = nullptr;
+	ID3D11DepthStencilView *dsv = nullptr;
+	ID3D11UnorderedAccessView *uav = nullptr;
 
 	// We have a view, but we don't know what kind of view it is. We could
 	// infer that from the target type, but in the future CustomResource
@@ -10907,8 +10868,8 @@ void ClearViewCommand::clear_unknown_view(ID3D11View *view, CommandListState *st
 
 void ClearViewCommand::run(CommandListState *state)
 {
-	ID3D11Resource *resource = NULL;
-	ID3D11View *view = NULL;
+	ID3D11Resource *resource = nullptr;
+	ID3D11View *view = nullptr;
 	UINT stride = 0;
 	UINT offset = 0;
 	DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
@@ -10941,10 +10902,8 @@ void ClearViewCommand::run(CommandListState *state)
 
 #pragma region ResourceCopyOperation
 
-ResourceCopyOperation::ResourceCopyOperation() :
-	options(ResourceCopyOptions::INVALID),
-	cached_resource(NULL),
-	cached_view(NULL)
+ResourceCopyOperation::ResourceCopyOperation()
+    : options(ResourceCopyOptions::INVALID), cached_resource(nullptr), cached_view(nullptr)
 {
 }
 
@@ -10959,7 +10918,7 @@ ResourceCopyOperation::~ResourceCopyOperation()
 
 static bool ViewMatchesResource(ID3D11View *view, ID3D11Resource *resource)
 {
-	ID3D11Resource *tmp_resource = NULL;
+	ID3D11Resource *tmp_resource = nullptr;
 
 	view->GetResource(&tmp_resource);
 	if (!tmp_resource)
@@ -10988,14 +10947,14 @@ void ResourceCopyOperation::CopyResourceToResource(
 )
 {
 	if (!src_resource) {
-		COMMAND_LIST_LOG(state, "  Copy source was NULL\n");
+		COMMAND_LIST_LOG(state, "  Copy source was nullptr\n");
 		if (!(options & ResourceCopyOptions::UNLESS_NULL)) {
-			// Still set destination to NULL - if we are copying a
+			// Still set destination to nullptr - if we are copying a
 			// resource we generally expect it to be there, and
 			// this will make errors more obvious if we copy
 			// something that doesn't exist. This behaviour can be
 			// overridden with the unless_null keyword.
-			dst.SetResource(state, NULL, NULL, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
+			dst.SetResource(state, nullptr, nullptr, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
 		}
 		return;
 	}
@@ -11003,7 +10962,7 @@ void ResourceCopyOperation::CopyResourceToResource(
 	CustomResource* dst_custom_resource = nullptr;
 
 	ID3D11Resource** pp_cached_resource = &cached_resource;
-	ID3D11Device** pp_cached_device = NULL;
+	ID3D11Device **pp_cached_device = nullptr;
 	ResourcePool* p_resource_pool = &resource_pool;
 	ID3D11View** pp_cached_view = &cached_view;
 
@@ -11043,8 +11002,8 @@ void ResourceCopyOperation::CopyResourceToResource(
 
 	FillInMissingInfo(src.type, src_resource, src_view, &stride, &offset, &buf_src_size, &format);
 
-	ID3D11Resource* dst_resource = NULL;
-	ID3D11View* dst_view = NULL;
+	ID3D11Resource *dst_resource = nullptr;
+	ID3D11View *dst_view = nullptr;
 	UINT buf_dst_size = 0;
 
 	if (options & ResourceCopyOptions::COPY_MASK) {
@@ -11101,7 +11060,7 @@ void ResourceCopyOperation::CopyResourceToResource(
 			} else {
 				LogDebug("Resource copying: Releasing stale view cache\n");
 				(*pp_cached_view)->Release();
-				*pp_cached_view = NULL;
+				*pp_cached_view = nullptr;
 			}
 		}
 		// TODO: If we are referencing to/from a custom resource we
@@ -11114,7 +11073,7 @@ void ResourceCopyOperation::CopyResourceToResource(
 	if (!dst_view) {
 		dst_view = CreateCompatibleView(&dst, dst_resource, state,
 				stride, offset, format, buf_src_size, options);
-		// Not checking for NULL return as view's are not applicable to
+		// Not checking for nullptr return as view's are not applicable to
 		// all types. Legitimate failures are logged.
 		*pp_cached_view = dst_view;
 	}
@@ -11143,7 +11102,7 @@ out_release:
 	if ((options & ResourceCopyOptions::NO_VIEW_CACHE || src.forbid_view_cache) && *pp_cached_view)
 	{
 		(*pp_cached_view)->Release();
-		*pp_cached_view = NULL;
+		*pp_cached_view = nullptr;
 	}
 }
 
@@ -11178,19 +11137,20 @@ void ResourceCopyOperation::run(CommandListState *state)
 	COMMAND_LIST_LOG(state, "%S\n", ini_line.c_str());
 
 	if (src.type == ResourceCopyTargetType::EMPTY) {
-		dst.SetResource(state, NULL, NULL, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
+		dst.SetResource(state, nullptr, nullptr, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
 		return;
 	}
 
-	ID3D11Resource* src_resource = NULL;
-	ID3D11View* src_view = NULL;
+	ID3D11Resource *src_resource = nullptr;
+	ID3D11View *src_view = nullptr;
 	UINT stride = 0;
 	UINT offset = 0;
 	DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
 	UINT buf_src_size = 0;
 
-	src_resource = src.GetResource(state, &src_view, &stride, &offset, &format, &buf_src_size, ((options & ResourceCopyOptions::REFERENCE) ? &dst : NULL));
-	
+	src_resource = src.GetResource(state, &src_view, &stride, &offset, &format, &buf_src_size,
+	                               ((options & ResourceCopyOptions::REFERENCE) ? &dst : nullptr));
+
 	if (src.evaluation_mode == ResourceCopyTargetEvaluationMode::RESOURCE_REGION)
 	{
 		offset = (UINT)src.member_args[0].GetValue(state);

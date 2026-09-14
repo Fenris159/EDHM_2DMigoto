@@ -118,23 +118,23 @@ private:
 	bool mOwnsHackerDeviceReference;
 
 	// These are per-context, moved from globals.h:
-	uint32_t mCurrentVertexBuffers[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
-	uint32_t mCurrentIndexBuffer; // Only valid while hunting=1
+	uint32_t mCurrentVertexBuffers[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT]{};
+	uint32_t mCurrentIndexBuffer{}; // Only valid while hunting=1
 	struct VertexBufferBinding {
 		ID3D11Buffer* buffer;
 		UINT offset;
 		UINT stride;
-	} mCurrentVertexBuffersBindings[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
+	} mCurrentVertexBuffersBindings[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT]{};
 	struct IndexBufferBinding {
 		ID3D11Buffer* buffer;
 		UINT offset;
 		DXGI_FORMAT format;
 		bool is_explicit;
-	} mCurrentIndexBufferBinding;
+	} mCurrentIndexBufferBinding{};
 	std::vector<ID3D11Resource *> mCurrentRenderTargets;
-	ID3D11Resource *mCurrentDepthTarget;
-	UINT mCurrentPSUAVStartSlot;
-	UINT mCurrentPSNumUAVs;
+	ID3D11Resource *mCurrentDepthTarget{};
+	UINT mCurrentPSUAVStartSlot{};
+	UINT mCurrentPSNumUAVs{};
 
 	HackerInputLayout* mCurrentInputLayout;
 	HackerInputLayout* mOriginalInputLayout;
@@ -161,7 +161,7 @@ private:
 		void (__stdcall ID3D11DeviceContext::*SetShaderVS2013BUGWORKAROUND)(ID3D11Shader*, ID3D11ClassInstance*const*, UINT),
 		HRESULT (__stdcall ID3D11Device::*CreateShader)(const void*, SIZE_T, ID3D11ClassLinkage*, ID3D11Shader**)
 	>
-	void DeferredShaderReplacement(ID3D11DeviceChild *shader, UINT64 hash, wchar_t *shader_type);
+	void DeferredShaderReplacement(ID3D11DeviceChild *shader, UINT64 hash, const wchar_t *shader_type);
 	void DeferredShaderReplacementBeforeDraw();
 	void DeferredShaderReplacementBeforeDispatch();
 	bool ExpandRegionCopy(ID3D11Resource *pDstResource, UINT DstX,
@@ -225,12 +225,12 @@ protected:
 	// until it has been further decoupled from HackerContext. Be wary of
 	// relying on these - they will be zero in release mode with no
 	// ShaderOverrides / ShaderRegex:
-	UINT64 mCurrentVertexShader;
-	UINT64 mCurrentHullShader;
-	UINT64 mCurrentDomainShader;
-	UINT64 mCurrentGeometryShader;
-	UINT64 mCurrentPixelShader;
-	UINT64 mCurrentComputeShader;
+  UINT64 mCurrentVertexShader{};
+  UINT64 mCurrentHullShader{};
+  UINT64 mCurrentDomainShader{};
+  UINT64 mCurrentGeometryShader{};
+  UINT64 mCurrentPixelShader{};
+  UINT64 mCurrentComputeShader{};
 
 public:
 	HackerContext(ID3D11Device1 *pDevice1, ID3D11DeviceContext1 *pContext1);
@@ -245,10 +245,10 @@ public:
 	void HookContext();
 
 	// public to allow CommandList access
-	virtual void FrameAnalysisLog(char *fmt, ...) {};
-	virtual void FrameAnalysisTrigger(FrameAnalysisOptions new_options) {};
-	virtual void FrameAnalysisDump(ID3D11Resource *resource, FrameAnalysisOptions options,
-		const wchar_t *target, DXGI_FORMAT format, UINT stride, UINT offset) {};
+	virtual void FrameAnalysisLog(const char *fmt [[maybe_unused]], ...) {};
+	virtual void FrameAnalysisTrigger(FrameAnalysisOptions new_options [[maybe_unused]]) {};
+	virtual void FrameAnalysisDump(ID3D11Resource *resource [[maybe_unused]], FrameAnalysisOptions options [[maybe_unused]],
+		const wchar_t *target [[maybe_unused]], DXGI_FORMAT format [[maybe_unused]], UINT stride [[maybe_unused]], UINT offset [[maybe_unused]]) {};
 
 	unsigned GetDrawNumber() const { return draw_number; };
 	unsigned GetDispatchNumber() const { return dispatch_number; };
@@ -262,12 +262,12 @@ public:
 
 	// These are the shaders the game has set, which may be different from
 	// the ones we have bound to the pipeline:
-	ID3D11VertexShader *mCurrentVertexShaderHandle;
-	ID3D11PixelShader *mCurrentPixelShaderHandle;
-	ID3D11ComputeShader *mCurrentComputeShaderHandle;
-	ID3D11GeometryShader *mCurrentGeometryShaderHandle;
-	ID3D11DomainShader *mCurrentDomainShaderHandle;
-	ID3D11HullShader *mCurrentHullShaderHandle;
+	ID3D11VertexShader *mCurrentVertexShaderHandle{};
+	ID3D11PixelShader *mCurrentPixelShaderHandle{};
+	ID3D11ComputeShader *mCurrentComputeShaderHandle{};
+	ID3D11GeometryShader *mCurrentGeometryShaderHandle{};
+	ID3D11DomainShader *mCurrentDomainShaderHandle{};
+	ID3D11HullShader *mCurrentHullShaderHandle{};
 
 	/*** IUnknown methods ***/
 

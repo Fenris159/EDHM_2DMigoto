@@ -81,7 +81,7 @@ static void EnsureConfiguredDirectory(const char *label, const wchar_t *path)
 // ParseCommandList will terminate the program if it is called on a section not
 // listed here to make sure we never forget to update this.
 struct Section {
-	wchar_t *section;
+	const wchar_t *section;
 	bool prefix;
 };
 static Section CommandListSections[] = {
@@ -133,10 +133,8 @@ static Section AllowLinesWithoutEquals[] = {
 static bool whitelisted_duplicate_key(const wchar_t *section, const wchar_t *key)
 {
 	// FIXME: Make this declarative
-	if (!_wcsnicmp(section, L"key", 3)) {
-		if (!_wcsicmp(key, L"key") || !_wcsicmp(key, L"back"))
-			return true;
-	}
+	if ((!_wcsnicmp(section, L"key", 3)) && (!_wcsicmp(key, L"key") || !_wcsicmp(key, L"back")))
+		return true;
 
 	if (!_wcsicmp(section, L"include"))
 		return true;
@@ -144,7 +142,7 @@ static bool whitelisted_duplicate_key(const wchar_t *section, const wchar_t *key
 	return false;
 }
 
-static bool SectionInList(const wchar_t *section, Section section_list[], int list_size)
+static bool SectionInList(const wchar_t *section, const Section section_list[], int list_size)
 {
 	size_t len;
 	int i;
@@ -179,7 +177,7 @@ static bool DoesSectionAllowLinesWithoutEquals(const wchar_t *section)
 		|| IsCommandListSection(section);
 }
 
-static const wchar_t* SectionPrefixFromList(const wchar_t *section, Section section_list[], int list_size)
+static const wchar_t* SectionPrefixFromList(const wchar_t *section, const Section section_list[], int list_size)
 {
 	size_t len;
 	int i;
@@ -192,7 +190,7 @@ static const wchar_t* SectionPrefixFromList(const wchar_t *section, Section sect
 		}
 	}
 
-	return false;
+	return nullptr;
 }
 
 static const wchar_t* SectionPrefix(const wchar_t *section)
@@ -271,7 +269,7 @@ IniSections ini_sections;
 // prefix in a case insensitive way. Combined with set::lower_bound, this can
 // be used to iterate over all elements in the sections set that begin with a
 // given prefix.
-static IniSections::iterator prefix_upper_bound(IniSections &sections, wstring &prefix)
+static IniSections::iterator prefix_upper_bound(IniSections &sections, const wstring &prefix)
 {
 	IniSections::iterator i;
 
@@ -793,7 +791,7 @@ static pcre2_code* glob_to_regex(wstring &pattern)
 	return regex;
 }
 
-static vector<pcre2_code*> globbing_vector_to_regex(vector<wstring> &globbing_patterns)
+static vector<pcre2_code*> globbing_vector_to_regex(const vector<wstring> &globbing_patterns)
 {
 	vector<pcre2_code*> ret;
 	pcre2_code *regex;
@@ -878,14 +876,16 @@ static void ParseIniFilesRecursive(wchar_t *migoto_path, const wstring &rel_path
 
 	FindClose(hFind);
 
-	for (wstring i: ini_files) {
+	for (const wstring &i : ini_files)
+	{
 		ini_namespace = rel_path + wstring(L"\\") + i;
 		ini_path = wstring(migoto_path) + ini_namespace;
 		LogInfo("    Processing \"%S\"\n", ini_path.c_str());
 		ParseNamespacedIniFile(ini_path.c_str(), &ini_namespace);
 	}
 
-	for (wstring i: directories) {
+	for (const wstring &i : directories)
+	{
 		ini_namespace = rel_path + wstring(L"\\") + i;
 		ParseIniFilesRecursive(migoto_path, ini_namespace, exclude);
 	}
@@ -1361,7 +1361,7 @@ static UINT64 GetIniHash(const wchar_t *section, const wchar_t *key, UINT64 def,
 		*found = false;
 
 	if (GetIniString(section, key, nullptr, &val)) {
-		if (sscanf_s(val.c_str(), "%16llx%n", &ret, &len) != 1 || len != val.length()) {
+		if (sscanf_s(val.c_str(), "%16llx%n", &ret, &len) != 1 || static_cast<size_t>(len) != val.length()) {
 			wstring ini_namespace = ini_sections[section].ini_namespace;
 			IniWarningW(L"Hash parse error: %ls=%S\n - [%ls] @ [%ls]\n", key, val.c_str(), section, ini_namespace.c_str());
 			ret = def;
@@ -1385,7 +1385,7 @@ static int GetIniHexString(const wchar_t *section, const wchar_t *key, int def, 
 		*found = false;
 
 	if (GetIniString(section, key, nullptr, &val)) {
-		if (sscanf_s(val.c_str(), "%x%n", &ret, &len) != 1 || len != val.length()) {
+		if (sscanf_s(val.c_str(), "%x%n", &ret, &len) != 1 || static_cast<size_t>(len) != val.length()) {
 			wstring ini_namespace = ini_sections[section].ini_namespace;
 			IniWarningW(L"Hex string parse error: %ls=%S\n - [%ls] @ [%ls]\n", key, val.c_str(), section, ini_namespace.c_str());
 			ret = def;
@@ -1402,7 +1402,7 @@ static int GetIniHexString(const wchar_t *section, const wchar_t *key, int def, 
 // VS2013 BUG WORKAROUND: Make sure this class has a unique type name!
 class EnumParseError: public exception {} enumParseError;
 
-static int ParseEnum(wchar_t *str, wchar_t *prefix, wchar_t *names[], int names_len, int first)
+static int ParseEnum(wchar_t *str, const wchar_t *prefix, const wchar_t * const names[], int names_len, int first)
 {
 	size_t prefix_len;
 	wchar_t *ptr = str;
@@ -1423,7 +1423,7 @@ static int ParseEnum(wchar_t *str, wchar_t *prefix, wchar_t *names[], int names_
 }
 
 static int GetIniEnum(const wchar_t *section, const wchar_t *key, int def, bool *found,
-		wchar_t *prefix, wchar_t *names[], int names_len, int first)
+		const wchar_t *prefix, const wchar_t * const names[], int names_len, int first)
 {
 	wchar_t val[MAX_PATH];
 	int ret = def;
@@ -1431,7 +1431,8 @@ static int GetIniEnum(const wchar_t *section, const wchar_t *key, int def, bool 
 	if (found)
 		*found = false;
 
-	if (GetIniString(section, key, 0, val, MAX_PATH)) {
+	if (GetIniString(section, key, nullptr, val, MAX_PATH))
+	{
 		try {
 			ret = ParseEnum(val, prefix, names, names_len, first);
 			if (found)
@@ -1459,7 +1460,8 @@ T GetIniEnumClass(const wchar_t *section, const wchar_t *key, T def, bool *found
 	if (found)
 		*found = false;
 
-	if (GetIniString(section, key, 0, val, MAX_PATH)) {
+	if (GetIniString(section, key, nullptr, val, MAX_PATH))
+	{
 		ret = lookup_enum_val<const wchar_t *, T>(enum_names, val, def, &tmp_found);
 		if (tmp_found) {
 			if (found)
@@ -1492,7 +1494,8 @@ T GetIniEnumClass(const wchar_t *section, const wchar_t *key, T def, bool *found
 	if (found)
 		*found = false;
 
-	if (GetIniString(section, key, 0, &val)) {
+	if (GetIniString(section, key, nullptr, &val))
+	{
 		ret = lookup_enum_val<const char *, T>(enum_names, val.c_str(), def, &tmp_found);
 		if (tmp_found) {
 			if (found)
@@ -1536,7 +1539,7 @@ static int GetIniBoolOrInt(const wchar_t *section, const wchar_t *key, int def, 
 // backwards compatibility, integers will return the integer value (provided it
 // is within the range of the enum), otherwise the enum will be used.
 static int GetIniBoolIntOrEnum(const wchar_t *section, const wchar_t *key, int def, bool *found,
-		wchar_t *prefix, wchar_t *names[], int names_len, int first)
+		const wchar_t *prefix, const wchar_t * const names[], int names_len, int first)
 {
 	int ret;
 	bool tmp_found;
@@ -1688,7 +1691,7 @@ static void RegisterPresetKeyBindings()
 			shared_ptr<KeyOverrideCycle> cycle_preset = make_shared<KeyOverrideCycle>();
 			shared_ptr<KeyOverrideCycleBack> cycle_back = make_shared<KeyOverrideCycleBack>(cycle_preset);
 			preset = cycle_preset;
-			for (wstring key : back)
+			for (const wstring &key : back)
 				RegisterKeyBinding(L"Back", key.c_str(), cycle_back, 0, delay, release_delay);
 		} else {
 			preset = make_shared<KeyOverride>(type);
@@ -1696,7 +1699,7 @@ static void RegisterPresetKeyBindings()
 
 		preset->ParseIniSection(id);
 
-		for (wstring key : keys)
+		for (const wstring &key : keys)
 			RegisterKeyBinding(L"Key", key.c_str(), preset, 0, delay, release_delay);
 	}
 }
@@ -1740,37 +1743,37 @@ static void ParsePresetOverrideSections()
 	}
 }
 
-static char* type_to_format(float type)
+static const char* type_to_format(float type [[maybe_unused]])
 {
 	return "%f%n";
 }
 
-static char* type_to_format(unsigned int type)
+static const char* type_to_format(unsigned int type [[maybe_unused]])
 {
 	return "%u%n";
 }
 
-static char* type_to_format(signed int type)
+static const char* type_to_format(signed int type [[maybe_unused]])
 {
 	return "%i%n";
 }
 
-static char* type_to_format(unsigned short type)
+static const char* type_to_format(unsigned short type [[maybe_unused]])
 {
 	return "%hu%n";
 }
 
-static char* type_to_format(signed short type)
+static const char* type_to_format(signed short type [[maybe_unused]])
 {
 	return "%hi%n";
 }
 
-static char* type_to_format(unsigned char type)
+static const char* type_to_format(unsigned char type [[maybe_unused]])
 {
 	return "%hhu%n";
 }
 
-static char* type_to_format(signed char type)
+static const char* type_to_format(signed char type [[maybe_unused]])
 {
 	return "%hhi%n";
 }
@@ -1789,7 +1792,7 @@ static std::vector<T> string_to_typed_array(std::istringstream *tokens)
 			continue;
 
 		ret = sscanf_s(token.c_str(), "0x%x%n", &uval, &len);
-		if (ret != 0 && ret != EOF && len == token.length()) {
+		if (ret != 0 && ret != EOF && static_cast<size_t>(len) == token.length()) {
 			// Reinterpret the 32bit unsigned integer as whatever
 			// type we are supposed to be returning.
 			// Classic endian bug: This conversion only works in
@@ -1799,7 +1802,7 @@ static std::vector<T> string_to_typed_array(std::istringstream *tokens)
 		}
 
 		ret = sscanf_s(token.c_str(), type_to_format(val), &val, &len);
-		if (ret != 0 && ret != EOF && len == token.length()) {
+		if (ret != 0 && ret != EOF && static_cast<size_t>(len) == token.length()) {
 			list.push_back(val);
 			continue;
 		}
@@ -1833,7 +1836,8 @@ static void ConstructInitialData(CustomResource *custom_resource, std::istringst
 static void ConstructInitialDataNorm(CustomResource *custom_resource, std::istringstream *tokens, int bytes, bool snorm)
 {
 	std::vector<float> vals;
-	union {
+	union
+	{
 		void *union_buf;
 		unsigned short *unorm16_buf;
 		signed short *snorm16_buf;
@@ -1924,8 +1928,8 @@ static void ConstructInitialDataString(CustomResource *custom_resource, std::str
 static void ParseResourceInitialData(CustomResource *custom_resource, const wchar_t *section)
 {
 	std::string setting, token;
-	int format_size = 0;
-	int format_type = 0;
+	int format_size [[maybe_unused]] = 0;
+	int format_type [[maybe_unused]] = 0;
 	DXGI_FORMAT format;
 
 	if (!GetIniStringAndLog(section, L"data", nullptr, &setting))
@@ -2087,7 +2091,8 @@ static CustomResource* ParseResourceSection(const wchar_t* section_name, const w
 
 	custom_resource->max_copies_per_frame = GetIniInt(section_name, L"max_copies_per_frame", 0, nullptr);
 
-	if (GetIniStringAndLog(section_name, L"filename", 0, setting, MAX_PATH)) {
+	if (GetIniStringAndLog(section_name, L"filename", nullptr, setting, MAX_PATH))
+	{
 		// If this section was not in the main d3dx.ini, look
 		// for a file relative to the config it came from
 		// first, then try relative to the 3DMigoto directory:
@@ -2113,7 +2118,8 @@ static CustomResource* ParseResourceSection(const wchar_t* section_name, const w
 
 	custom_resource->override_type = GetIniEnumClass(section_name, L"type", CustomResourceType::INVALID, nullptr, CustomResourceTypeNames);
 
-	if (GetIniString(section_name, L"format", 0, setting, MAX_PATH)) {
+	if (GetIniString(section_name, L"format", nullptr, setting, MAX_PATH))
+	{
 		custom_resource->override_format = ParseFormatString(setting, true);
 		if (custom_resource->override_format == (DXGI_FORMAT)-1) {
 			IniWarningW(L"Unknown format \"%ls\"\n - [%ls]\n", setting, section_name);
@@ -2135,12 +2141,14 @@ static CustomResource* ParseResourceSection(const wchar_t* section_name, const w
 	custom_resource->width_multiply = GetIniFloat(section_name, L"width_multiply", 1.0f, nullptr);
 	custom_resource->height_multiply = GetIniFloat(section_name, L"height_multiply", 1.0f, nullptr);
 
-	if (GetIniStringAndLog(section_name, L"bind_flags", 0, setting, MAX_PATH)) {
+	if (GetIniStringAndLog(section_name, L"bind_flags", nullptr, setting, MAX_PATH))
+	{
 		custom_resource->override_bind_flags = parse_enum_option_string<const wchar_t*, CustomResourceBindFlags, wchar_t*>
 			(CustomResourceBindFlagNames, setting, nullptr);
 	}
 
-	if (GetIniStringAndLog(section_name, L"misc_flags", 0, setting, MAX_PATH)) {
+	if (GetIniStringAndLog(section_name, L"misc_flags", nullptr, setting, MAX_PATH))
+	{
 		custom_resource->override_misc_flags = parse_enum_option_string<const wchar_t*, ResourceMiscFlags, wchar_t*>
 			(ResourceMiscFlagNames, setting, nullptr);
 	}
@@ -2187,18 +2195,16 @@ static CustomResourcePool* ParseResourcePoolSection(const wchar_t* section_name)
 	pool->resource_template->pool = pool;
 	pool->resource_template->pool_index = -1;
 
-	bool persist_variables = GetIniBool(section_name, L"pool_persist_variables", false, NULL);
+	bool persist_variables = GetIniBool(section_name, L"pool_persist_variables", false, nullptr);
 	if (persist_variables && pool->index_type != PoolIndexType::RING) {
 		persist_variables = false;
 		IniWarningW(L"Pool variables persistence is not supported for \"%ls\" index type (\"ring\" index only feature).\n - [%ls]\n",
 			lookup_enum_name(PoolIndexTypeNames, pool->index_type), pool->name.c_str());
 	}
 
-	pool->variable_template = std::make_unique<CommandListVariable> (
-		pool_id + L"_template",
-		GetIniFloat(section_name, L"pool_variable_default_value", 0, NULL),
-		persist_variables ? VariableFlags::PERSIST : VariableFlags::NONE
-	);
+	pool->variable_template = std::make_unique<CommandListVariable>(
+	    pool_id + L"_template", GetIniFloat(section_name, L"pool_variable_default_value", 0, nullptr),
+	    persist_variables ? VariableFlags::PERSIST : VariableFlags::NONE);
 
 	pool->Initialize(pool_size);
 
@@ -2276,7 +2282,7 @@ static bool ParseCommandListLine(const wchar_t *ini_section,
 // part of the command list.
 static void ParseCommandList(const wchar_t *id,
 		CommandList *pre_command_list, CommandList *post_command_list,
-		wchar_t *whitelist[], bool register_command_lists=true)
+		const wchar_t * const whitelist[], bool register_command_lists=true)
 {
 	IniSectionVector *section = nullptr;
 	IniSectionVector::iterator entry;
@@ -2334,7 +2340,8 @@ static void ParseCommandList(const wchar_t *id,
 				// allowed duplicate keys *except for these
 				// whitelisted entries*, so check for
 				// duplicates here:
-				if (whitelisted_keys.count(key->c_str())) {
+				if (whitelisted_keys.count(*key))
+				{
 					IniWarningW(L"Duplicate non-command list key found: %ls\n - [%ls]\n", key->c_str(), id);
 				}
 				whitelisted_keys.insert(key->c_str());
@@ -2492,11 +2499,9 @@ static void ParseConstantsSection()
 		// Initialisation is optional and deferred until the command list is run.
 		// If the initialiser is present and simple.
 		float fval = 0.0f;
-		if (!val->empty())
-		{
-			if (!ParseFloatValue(L"Constants", key->c_str(), *val, fval, true, ini_namespace))
-				continue;
-		}
+		if ((!val->empty()) && (!ParseFloatValue(L"Constants", key->c_str(), *val, fval, true, ini_namespace)))
+
+			continue;
 
 		if (!RegisterGlobalVariable(name, &fval, flags)) {
 			IniWarningW(L"Redeclaration of %ls\n - [Constants] @ [%ls]\n", name.c_str(), ini_namespace->c_str());
@@ -2509,7 +2514,7 @@ static void ParseConstantsSection()
 	}
 }
 
-static wchar_t *true_false_overrule[] = {
+static const wchar_t *true_false_overrule[] = {
 	L"false", // GetIniBoolIntOrEnum will also accept 0/false/no/off
 	L"true", // GetIniBoolIntOrEnum will also accept 1/true/yes/on
 	L"overrule", // GetIniBoolIntOrEnum will also accept 2
@@ -2593,7 +2598,7 @@ static void warn_deprecated_shaderoverride_options(const wchar_t *id, ShaderOver
 
 // List of keys in [ShaderOverride] sections that are processed in this
 // function. Used by ParseCommandList to find any unrecognised lines.
-wchar_t *ShaderOverrideIniKeys[] = {
+const wchar_t *ShaderOverrideIniKeys[] = {
 	L"hash",
 	L"allow_duplicate_hash",
 	L"depth_filter",
@@ -2646,7 +2651,8 @@ static void ParseShaderOverrideSections()
 		// Backup version not affected by ShaderRegex:
 		shader_override->backup_filter_index = shader_override->filter_index;
 
-		if (GetIniStringAndLog(id, L"model", 0, setting, MAX_PATH)) {
+		if (GetIniStringAndLog(id, L"model", nullptr, setting, MAX_PATH))
+		{
 			wcstombs(shader_override->model, setting, ARRAYSIZE(shader_override->model));
 			shader_override->model[ARRAYSIZE(shader_override->model) - 1] = '\0';
 		}
@@ -2696,7 +2702,7 @@ static std::vector<std::string> split_string(const std::string *str, char sep)
 }
 
 template <typename T>
-static std::set<T> vec_to_set(std::vector<T> &v)
+static std::set<T> vec_to_set(const std::vector<T> &v)
 {
 	return std::set<T>(v.begin(), v.end());
 }
@@ -2718,7 +2724,7 @@ static uint32_t hash_ini_section(uint32_t hash, const wstring *sname)
 
 // List of keys in [ShaderRegex] sections that are processed in this
 // function. Used by ParseCommandList to find any unrecognised lines.
-wchar_t *ShaderRegexIniKeys[] = {
+const wchar_t *ShaderRegexIniKeys[] = {
 	L"shader_model",
 	L"temps",
 	L"filter_index",
@@ -2794,7 +2800,7 @@ static bool parse_shader_regex_section_pattern(const std::wstring *section_id, c
 	return true;
 }
 
-static bool parse_shader_regex_section_declarations(const std::wstring *section_id, const std::wstring *pattern_id, ShaderRegexGroup *regex_group)
+static bool parse_shader_regex_section_declarations(const std::wstring *section_id, const std::wstring *pattern_id [[maybe_unused]], ShaderRegexGroup *regex_group)
 {
 	IniSectionVector *section = nullptr;
 	IniSectionVector::iterator entry;
@@ -2924,7 +2930,7 @@ static void ParseShaderRegexSections()
 		section_prefix = section_id->substr(0, namespace_endpos);
 		section_suffix = section_id->substr(namespace_endpos);
 		subsection_names = split_string(&section_suffix, L'.');
-		if (subsection_names.size())
+		if (!subsection_names.empty())
 			subsection_names[0] = section_prefix + subsection_names[0];
 		else
 			subsection_names.push_back(section_prefix);
@@ -2949,18 +2955,19 @@ static void ParseShaderRegexSections()
 					// and substitutions to match everything they need in one go.
 					if (parse_shader_regex_section_pattern(section_id, &subsection_names[1], regex_group))
 						continue;
-				} else if (!_wcsicmp(subsection_names[1].c_str(), L"InsertDeclarations")) {
-					if (parse_shader_regex_section_declarations(section_id, &subsection_names[1], regex_group))
-						continue;
 				}
-				break;
+			    else if ((!_wcsicmp(subsection_names[1].c_str(), L"InsertDeclarations")) &&
+				         (parse_shader_regex_section_declarations(section_id, &subsection_names[1], regex_group)))
+				    continue;
+
+			    break;
 			case 3:
-				if (!_wcsnicmp(subsection_names[1].c_str(), L"Pattern", 7)
-				 && !_wcsicmp(subsection_names[2].c_str(), L"Replace")) {
-					if (parse_shader_regex_section_replace(section_id, &subsection_names[1], regex_group))
-						continue;
-				}
-				break;
+			    if ((!_wcsnicmp(subsection_names[1].c_str(), L"Pattern", 7) &&
+				     !_wcsicmp(subsection_names[2].c_str(), L"Replace")) &&
+				    (parse_shader_regex_section_replace(section_id, &subsection_names[1], regex_group)))
+				    continue;
+
+			    break;
 		}
 
 
@@ -3018,7 +3025,7 @@ static void ParseShaderRegexSections()
 
 // List of keys in [TextureOverride] sections that are processed in this
 // function. Used by ParseCommandList to find any unrecognised lines.
-wchar_t *TextureOverrideIniKeys[] = {
+const wchar_t *TextureOverrideIniKeys[] = {
 	L"hash",
 	L"format",
 	L"width",
@@ -3038,7 +3045,7 @@ wchar_t *TextureOverrideIniKeys[] = {
 	nullptr
 };
 // List of keys for fuzzy matching that cannot be used together with hash:
-wchar_t *TextureOverrideFuzzyMatchesIniKeys[] = {
+const wchar_t *TextureOverrideFuzzyMatchesIniKeys[] = {
 	TEXTURE_OVERRIDE_FUZZY_MATCHES,
 	nullptr
 };
@@ -3131,7 +3138,7 @@ static void parse_fuzzy_numeric_match_expression(const wchar_t *setting, FuzzyMa
 
 	// Try parsing remaining string as integer. Has to reach end of string.
 	ret = swscanf_s(ptr, L"%u%n", &matcher->val, &len);
-	if (ret != 0 && ret != EOF && len == wcslen(ptr))
+	if (ret != 0 && ret != EOF && static_cast<size_t>(len) == wcslen(ptr))
 		return;
 
 	// field_name
@@ -3255,16 +3262,20 @@ static void parse_texture_override_common(const wchar_t *id, TextureOverride *te
 				// Use VertexCount override
 				texture_override->override_num_elements = override_vertex_count;
 			}
-		} else if (wcsstr(texture_override->ini_section.c_str(), L"VertexLimitRaise") != 0) {
+		}
+		else if (wcsstr(texture_override->ini_section.c_str(), L"VertexLimitRaise") != nullptr)
+		{
 			// Fall back to ~8MB buffer to mimic original GIMI behaviour if `VertexLimitRaise` keyword is found in the section header.
 			texture_override->override_byte_width = 8800000;
-		} else {
+		}
+		else
+		{
 			// Do not override original buffer size.
 			texture_override->override_byte_width = -1;
 		}
 	}
-	
-	if (GetIniString(id, L"Iteration", 0, setting, MAX_PATH))
+
+	if (GetIniString(id, L"Iteration", nullptr, setting, MAX_PATH))
 	{
 		// TODO: This supports more iterations than the
 		// ShaderOverride iteration parameter, and it's not
@@ -3290,27 +3301,33 @@ static void parse_texture_override_common(const wchar_t *id, TextureOverride *te
 	texture_override->deny_cpu_read = GetIniBool(id, L"deny_cpu_read", false, nullptr);
 
 	// Draw call context matching:
-	if (GetIniStringAndLog(id, L"match_first_vertex", 0, setting, MAX_PATH)) {
+	if (GetIniStringAndLog(id, L"match_first_vertex", nullptr, setting, MAX_PATH))
+	{
 		parse_fuzzy_numeric_match_expression(setting, &texture_override->match_first_vertex);
 		texture_override->has_draw_context_match = true;
 	}
-	if (GetIniStringAndLog(id, L"match_first_index", 0, setting, MAX_PATH)) {
+	if (GetIniStringAndLog(id, L"match_first_index", nullptr, setting, MAX_PATH))
+	{
 		parse_fuzzy_numeric_match_expression(setting, &texture_override->match_first_index);
 		texture_override->has_draw_context_match = true;
 	}
-	if (GetIniStringAndLog(id, L"match_first_instance", 0, setting, MAX_PATH)) {
+	if (GetIniStringAndLog(id, L"match_first_instance", nullptr, setting, MAX_PATH))
+	{
 		parse_fuzzy_numeric_match_expression(setting, &texture_override->match_first_instance);
 		texture_override->has_draw_context_match = true;
 	}
-	if (GetIniStringAndLog(id, L"match_vertex_count", 0, setting, MAX_PATH)) {
+	if (GetIniStringAndLog(id, L"match_vertex_count", nullptr, setting, MAX_PATH))
+	{
 		parse_fuzzy_numeric_match_expression(setting, &texture_override->match_vertex_count);
 		texture_override->has_draw_context_match = true;
 	}
-	if (GetIniStringAndLog(id, L"match_index_count", 0, setting, MAX_PATH)) {
+	if (GetIniStringAndLog(id, L"match_index_count", nullptr, setting, MAX_PATH))
+	{
 		parse_fuzzy_numeric_match_expression(setting, &texture_override->match_index_count);
 		texture_override->has_draw_context_match = true;
 	}
-	if (GetIniStringAndLog(id, L"match_instance_count", 0, setting, MAX_PATH)) {
+	if (GetIniStringAndLog(id, L"match_instance_count", nullptr, setting, MAX_PATH))
+	{
 		parse_fuzzy_numeric_match_expression(setting, &texture_override->match_instance_count);
 		texture_override->has_draw_context_match = true;
 	}
@@ -3343,7 +3360,8 @@ static bool parse_masked_flags_field(const wstring setting, unsigned *val, unsig
 	unsigned tmp;
 
 	// Allow empty strings and 0 to indicate it matches 0 / 0xffffffff:
-	if (!setting.size() || !setting.compare(L"0")) {
+	if (setting.empty() || !setting.compare(L"0"))
+	{
 		*val = 0;
 		*mask = 0xffffffff;
 		LogInfo("    Using: 0x%08x / 0x%08x\n", *val, *mask);
@@ -3352,7 +3370,7 @@ static bool parse_masked_flags_field(const wstring setting, unsigned *val, unsig
 
 	// Try parsing the field as a hex string with an optional mask:
 	ret = swscanf_s(setting.c_str(), L"0x%x%n / 0x%x%n", val, &len1, mask, &len2);
-	if (ret != 0 && ret != EOF && (len1 == setting.length() || len2 == setting.length())) {
+	if (ret != 0 && ret != EOF && (static_cast<size_t>(len1) == setting.length() || static_cast<size_t>(len2) == setting.length())) {
 		if (ret == 2)
 			*mask = 0xffffffff;
 		LogInfo("    Using: 0x%08x / 0x%08x\n", *val, *mask);
@@ -3433,24 +3451,31 @@ static void parse_texture_override_fuzzy_match(const wchar_t *section)
 	fuzzy->Usage.val = ival;
 
 	// Flags
-	if (GetIniStringAndLog(section, L"match_bind_flags", 0, setting, MAX_PATH)) {
-		if (parse_masked_flags_field(setting, &fuzzy->BindFlags.val, &fuzzy->BindFlags.mask, CustomResourceBindFlagNames)) {
-			fuzzy->BindFlags.op = FuzzyMatchOp::EQUAL;
-		}
+	if ((GetIniStringAndLog(section, L"match_bind_flags", nullptr, setting, MAX_PATH)) &&
+	    (parse_masked_flags_field(setting, &fuzzy->BindFlags.val, &fuzzy->BindFlags.mask, CustomResourceBindFlagNames)))
+
+	{
+		fuzzy->BindFlags.op = FuzzyMatchOp::EQUAL;
 	}
-	if (GetIniStringAndLog(section, L"match_cpu_access_flags", 0, setting, MAX_PATH)) {
-		if (parse_masked_flags_field(setting, &fuzzy->CPUAccessFlags.val, &fuzzy->CPUAccessFlags.mask, ResourceCPUAccessFlagNames)) {
-			fuzzy->CPUAccessFlags.op = FuzzyMatchOp::EQUAL;
-		}
+
+	if ((GetIniStringAndLog(section, L"match_cpu_access_flags", nullptr, setting, MAX_PATH)) &&
+	    (parse_masked_flags_field(setting, &fuzzy->CPUAccessFlags.val, &fuzzy->CPUAccessFlags.mask,
+	                              ResourceCPUAccessFlagNames)))
+
+	{
+		fuzzy->CPUAccessFlags.op = FuzzyMatchOp::EQUAL;
 	}
-	if (GetIniStringAndLog(section, L"match_misc_flags", 0, setting, MAX_PATH)) {
-		if (parse_masked_flags_field(setting, &fuzzy->MiscFlags.val, &fuzzy->MiscFlags.mask, ResourceMiscFlagNames)) {
-			fuzzy->MiscFlags.op = FuzzyMatchOp::EQUAL;
-		}
+
+	if ((GetIniStringAndLog(section, L"match_misc_flags", nullptr, setting, MAX_PATH)) &&
+	    (parse_masked_flags_field(setting, &fuzzy->MiscFlags.val, &fuzzy->MiscFlags.mask, ResourceMiscFlagNames)))
+
+	{
+		fuzzy->MiscFlags.op = FuzzyMatchOp::EQUAL;
 	}
 
 	// Format string
-	if (GetIniStringAndLog(section, L"match_format", 0, setting, MAX_PATH)) {
+	if (GetIniStringAndLog(section, L"match_format", nullptr, setting, MAX_PATH))
+	{
 		fuzzy->Format.val = ParseFormatString(setting, true);
 		if (fuzzy->Format.val == (DXGI_FORMAT)-1)
 			IniWarningW(L"Unknown format \"%ls\"\n", setting);
@@ -3459,23 +3484,23 @@ static void parse_texture_override_fuzzy_match(const wchar_t *section)
 	}
 
 	// Simple numeric expressions:
-	if (GetIniStringAndLog(section, L"match_byte_width", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(section, L"match_byte_width", nullptr, setting, MAX_PATH))
 		parse_fuzzy_numeric_match_expression(setting, &fuzzy->ByteWidth);
-	if (GetIniStringAndLog(section, L"match_stride", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(section, L"match_stride", nullptr, setting, MAX_PATH))
 		parse_fuzzy_numeric_match_expression(setting, &fuzzy->StructureByteStride);
-	if (GetIniStringAndLog(section, L"match_mips", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(section, L"match_mips", nullptr, setting, MAX_PATH))
 		parse_fuzzy_numeric_match_expression(setting, &fuzzy->MipLevels);
-	if (GetIniStringAndLog(section, L"match_width", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(section, L"match_width", nullptr, setting, MAX_PATH))
 		parse_fuzzy_numeric_match_expression(setting, &fuzzy->Width);
-	if (GetIniStringAndLog(section, L"match_height", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(section, L"match_height", nullptr, setting, MAX_PATH))
 		parse_fuzzy_numeric_match_expression(setting, &fuzzy->Height);
-	if (GetIniStringAndLog(section, L"match_depth", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(section, L"match_depth", nullptr, setting, MAX_PATH))
 		parse_fuzzy_numeric_match_expression(setting, &fuzzy->Depth);
-	if (GetIniStringAndLog(section, L"match_array", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(section, L"match_array", nullptr, setting, MAX_PATH))
 		parse_fuzzy_numeric_match_expression(setting, &fuzzy->ArraySize);
-	if (GetIniStringAndLog(section, L"match_msaa", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(section, L"match_msaa", nullptr, setting, MAX_PATH))
 		parse_fuzzy_numeric_match_expression(setting, &fuzzy->SampleDesc_Count);
-	if (GetIniStringAndLog(section, L"match_msaa_quality", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(section, L"match_msaa_quality", nullptr, setting, MAX_PATH))
 		parse_fuzzy_numeric_match_expression(setting, &fuzzy->SampleDesc_Quality);
 
 	if (!fuzzy->update_types_matched()) {
@@ -3652,7 +3677,7 @@ static void ParseTextureOverrideSections()
 }
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ff476088(v=vs.85).aspx
-static wchar_t *BlendOPs[] = {
+static const wchar_t *BlendOPs[] = {
 	L"",
 	L"ADD",
 	L"SUBTRACT",
@@ -3662,7 +3687,7 @@ static wchar_t *BlendOPs[] = {
 };
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ff476086(v=vs.85).aspx
-static wchar_t *BlendFactors[] = {
+static const wchar_t *BlendFactors[] = {
 	L"",
 	L"ZERO",
 	L"ONE",
@@ -3731,7 +3756,8 @@ static bool ParseBlendRenderTarget(
 	wcscpy(key, L"blend");
 	if (index >= 0)
 		swprintf_s(key, ARRAYSIZE(key), L"blend[%i]", index);
-	if (GetIniStringAndLog(section, key, 0, setting, MAX_PATH)) {
+	if (GetIniStringAndLog(section, key, nullptr, setting, MAX_PATH))
+	{
 		state_overridden = true;
 
 		// Special value to disable blending:
@@ -3753,7 +3779,8 @@ static bool ParseBlendRenderTarget(
 	wcscpy(key, L"alpha");
 	if (index >= 0)
 		swprintf_s(key, ARRAYSIZE(key), L"alpha[%i]", index);
-	if (GetIniStringAndLog(section, key, 0, setting, MAX_PATH)) {
+	if (GetIniStringAndLog(section, key, nullptr, setting, MAX_PATH))
+	{
 		state_overridden = true;
 		ParseBlendOp(key, setting,
 				&desc->BlendOpAlpha,
@@ -3767,7 +3794,7 @@ static bool ParseBlendRenderTarget(
 	wcscpy(key, L"mask");
 	if (index >= 0)
 		swprintf_s(key, ARRAYSIZE(key), L"mask[%i]", index);
-	desc->RenderTargetWriteMask = GetIniHexString(section, key, D3D11_COLOR_WRITE_ENABLE_ALL, &found);
+	desc->RenderTargetWriteMask = static_cast<UINT8>(GetIniHexString(section, key, D3D11_COLOR_WRITE_ENABLE_ALL, &found));
 	if (found) {
 		state_overridden = true;
 		mask->RenderTargetWriteMask = 0;
@@ -3849,14 +3876,14 @@ static void ParseBlendState(CustomShader *shader, const wchar_t *section)
 }
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ff476113(v=vs.85).aspx
-static wchar_t *DepthWriteMasks[] = {
+static const wchar_t *DepthWriteMasks[] = {
 	L"ZERO",
 	L"ALL",
 };
 
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ff476101(v=vs.85).aspx
-static wchar_t *ComparisonFuncs[] = {
+static const wchar_t *ComparisonFuncs[] = {
 	L"",
 	L"NEVER",
 	L"LESS",
@@ -3869,7 +3896,7 @@ static wchar_t *ComparisonFuncs[] = {
 };
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ff476219(v=vs.85).aspx
-static wchar_t *StencilOps[] = {
+static const wchar_t *StencilOps[] = {
 	L"",
 	L"KEEP",
 	L"ZERO",
@@ -3968,25 +3995,27 @@ static void ParseDepthStencilState(CustomShader *shader, const wchar_t *section)
 		mask->StencilEnable = 0;
 	}
 
-	desc->StencilReadMask = GetIniHexString(section, L"stencil_read_mask", D3D11_DEFAULT_STENCIL_READ_MASK, &found);
+	desc->StencilReadMask = static_cast<UINT8>(GetIniHexString(section, L"stencil_read_mask", D3D11_DEFAULT_STENCIL_READ_MASK, &found));
 	if (found) {
 		shader->depth_stencil_override = 1;
 		mask->StencilReadMask = 0;
 	}
 
-	desc->StencilWriteMask = GetIniHexString(section, L"stencil_write_mask", D3D11_DEFAULT_STENCIL_WRITE_MASK, &found);
+	desc->StencilWriteMask = static_cast<UINT8>(GetIniHexString(section, L"stencil_write_mask", D3D11_DEFAULT_STENCIL_WRITE_MASK, &found));
 	if (found) {
 		shader->depth_stencil_override = 1;
 		mask->StencilWriteMask = 0;
 	}
 
-	if (GetIniStringAndLog(section, L"stencil_front", 0, setting, MAX_PATH)) {
+	if (GetIniStringAndLog(section, L"stencil_front", nullptr, setting, MAX_PATH))
+	{
 		shader->depth_stencil_override = 1;
 		ParseStencilOp(key, setting, &desc->FrontFace);
 		memset(&mask->FrontFace, 0, sizeof(D3D11_DEPTH_STENCILOP_DESC));
 	}
 
-	if (GetIniStringAndLog(section, L"stencil_back", 0, setting, MAX_PATH)) {
+	if (GetIniStringAndLog(section, L"stencil_back", nullptr, setting, MAX_PATH))
+	{
 		shader->depth_stencil_override = 1;
 		ParseStencilOp(key, setting, &desc->BackFace);
 		memset(&mask->BackFace, 0, sizeof(D3D11_DEPTH_STENCILOP_DESC));
@@ -4003,7 +4032,7 @@ static void ParseDepthStencilState(CustomShader *shader, const wchar_t *section)
 }
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ff476131(v=vs.85).aspx
-static wchar_t *FillModes[] = {
+static const wchar_t *FillModes[] = {
 	L"",
 	L"",
 	L"WIREFRAME",
@@ -4011,7 +4040,7 @@ static wchar_t *FillModes[] = {
 };
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ff476108(v=vs.85).aspx
-static wchar_t *CullModes[] = {
+static const wchar_t *CullModes[] = {
 	L"",
 	L"NONE",
 	L"FRONT",
@@ -4019,7 +4048,7 @@ static wchar_t *CullModes[] = {
 };
 
 // Actually a bool
-static wchar_t *FrontDirection[] = {
+static const wchar_t *FrontDirection[] = {
 	L"Clockwise",
 	L"CounterClockwise",
 };
@@ -4100,7 +4129,7 @@ static void ParseRSState(CustomShader *shader, const wchar_t *section)
 }
 
 struct PrimitiveTopology {
-	wchar_t *name;
+	const wchar_t *name;
 	int val;
 };
 
@@ -4151,7 +4180,7 @@ static struct PrimitiveTopology PrimitiveTopologies[] = {
 
 static void ParseTopology(CustomShader *shader, const wchar_t *section)
 {
-	wchar_t *prefix = L"D3D11_PRIMITIVE_TOPOLOGY_";
+	const wchar_t *prefix = L"D3D11_PRIMITIVE_TOPOLOGY_";
 	size_t prefix_len;
 	wchar_t val[MAX_PATH];
 	wchar_t *ptr;
@@ -4159,7 +4188,7 @@ static void ParseTopology(CustomShader *shader, const wchar_t *section)
 
 	shader->topology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
 
-	if (!GetIniStringAndLog(section, L"topology", 0, val, MAX_PATH))
+	if (!GetIniStringAndLog(section, L"topology", nullptr, val, MAX_PATH))
 		return;
 
 	prefix_len = wcslen(prefix);
@@ -4203,7 +4232,7 @@ static void ParseSamplerState(CustomShader *shader, const wchar_t *section)
 	desc->MinLOD = 0;
 	desc->MaxLOD = 1;
 
-	if (GetIniStringAndLog(section, L"sampler", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(section, L"sampler", nullptr, setting, MAX_PATH))
 	{
 		if (!_wcsicmp(setting, L"null"))
 			return;
@@ -4237,7 +4266,7 @@ static void ParseSamplerState(CustomShader *shader, const wchar_t *section)
 
 // List of keys in [CustomShader] sections that are processed in this
 // function. Used by ParseCommandList to find any unrecognised lines.
-wchar_t *CustomShaderIniKeys[] = {
+const wchar_t *CustomShaderIniKeys[] = {
 	L"vs", L"hs", L"ds", L"gs", L"ps", L"cs",
 	L"max_executions_per_frame", L"flags",
 	// OM Blend State overrides:
@@ -4320,24 +4349,25 @@ static void ParseCustomShaderSections()
 		// Flags is currently just applied to every shader in the chain
 		// because it's so rarely needed and it doesn't really matter.
 		// We can add vs_flags and so on later if we really need to.
-		if (GetIniStringAndLog(shader_id->c_str(), L"flags", 0, setting, MAX_PATH)) {
+		if (GetIniStringAndLog(shader_id->c_str(), L"flags", nullptr, setting, MAX_PATH))
+		{
 			custom_shader->compile_flags = parse_enum_option_string<const wchar_t *, D3DCompileFlags, wchar_t*>
 				(D3DCompileFlagNames, setting, nullptr);
 		}
 
 		get_namespaced_section_path(i->first.c_str(), &namespace_path);
 
-		if (GetIniString(shader_id->c_str(), L"vs", 0, setting, MAX_PATH))
+		if (GetIniString(shader_id->c_str(), L"vs", nullptr, setting, MAX_PATH))
 			failed |= custom_shader->compile('v', setting, shader_id, &namespace_path);
-		if (GetIniString(shader_id->c_str(), L"hs", 0, setting, MAX_PATH))
+		if (GetIniString(shader_id->c_str(), L"hs", nullptr, setting, MAX_PATH))
 			failed |= custom_shader->compile('h', setting, shader_id, &namespace_path);
-		if (GetIniString(shader_id->c_str(), L"ds", 0, setting, MAX_PATH))
+		if (GetIniString(shader_id->c_str(), L"ds", nullptr, setting, MAX_PATH))
 			failed |= custom_shader->compile('d', setting, shader_id, &namespace_path);
-		if (GetIniString(shader_id->c_str(), L"gs", 0, setting, MAX_PATH))
+		if (GetIniString(shader_id->c_str(), L"gs", nullptr, setting, MAX_PATH))
 			failed |= custom_shader->compile('g', setting, shader_id, &namespace_path);
-		if (GetIniString(shader_id->c_str(), L"ps", 0, setting, MAX_PATH))
+		if (GetIniString(shader_id->c_str(), L"ps", nullptr, setting, MAX_PATH))
 			failed |= custom_shader->compile('p', setting, shader_id, &namespace_path);
-		if (GetIniString(shader_id->c_str(), L"cs", 0, setting, MAX_PATH))
+		if (GetIniString(shader_id->c_str(), L"cs", nullptr, setting, MAX_PATH))
 			failed |= custom_shader->compile('c', setting, shader_id, &namespace_path);
 
 		if (failed) {
@@ -4416,7 +4446,7 @@ static void ParseExplicitCommandListSections()
 	}
 }
 
-void FlagConfigReload(HackerDevice *device, void *private_data)
+void FlagConfigReload(HackerDevice *device [[maybe_unused]], void *private_data)
 {
 	// When we reload the configuration, we are going to clear the existing
 	// key bindings and reassign them. Naturally this is not a safe thing
@@ -4429,7 +4459,7 @@ void FlagConfigReload(HackerDevice *device, void *private_data)
 	G->gWipeUserConfig = !!private_data;
 }
 
-static void ToggleFullScreen(HackerDevice *device, void *private_data)
+static void ToggleFullScreen(HackerDevice *device [[maybe_unused]], void *private_data [[maybe_unused]])
 {
 	// SCREEN_FULLSCREEN has several options now, so to preserve the
 	// current setting when toggled off we negate it:
@@ -4437,7 +4467,7 @@ static void ToggleFullScreen(HackerDevice *device, void *private_data)
 	LogInfo("> full screen forcing toggled to %d (will not take effect until next mode switch)\n", G->SCREEN_FULLSCREEN);
 }
 
-static void ForceFullScreen(HackerDevice *device, void *private_data)
+static void ForceFullScreen(HackerDevice *device, void *private_data [[maybe_unused]])
 {
 	HackerSwapChain *mHackerSwapChain = device->GetHackerSwapChain();
 	IDXGISwapChain1 *swap_chain;
@@ -4491,11 +4521,13 @@ void BuildTextureOverrideDrawMaps()
 		for (TextureOverride& ov : list)
 		{
 			if (ov.match_index_count.op == FuzzyMatchOp::EQUAL && ov.match_index_count.rhs_type1 == FuzzyMatchOperandType::VALUE) {
-				G->mTextureOverrideDrawIndexMap[ov.match_index_count.val].emplace_back(TextureOverrideFuzzyMatch{ hash, const_cast<TextureOverride*>(&ov) });
+				G->mTextureOverrideDrawIndexMap[ov.match_index_count.val].emplace_back(
+				    TextureOverrideFuzzyMatch{hash, (&ov)});
 				continue;
 			}
 			if (ov.match_vertex_count.op == FuzzyMatchOp::EQUAL && ov.match_vertex_count.rhs_type1 == FuzzyMatchOperandType::VALUE) {
-				G->mTextureOverrideDrawVertexMap[ov.match_vertex_count.val].emplace_back(TextureOverrideFuzzyMatch{ hash, const_cast<TextureOverride*>(&ov) });
+				G->mTextureOverrideDrawVertexMap[ov.match_vertex_count.val].emplace_back(
+				    TextureOverrideFuzzyMatch{hash, (&ov)});
 				continue;
 			}
 		}
@@ -4638,12 +4670,12 @@ void LoadConfigFile()
 
 	// [System]
 	LogInfo("[System]\n");
-	GetIniStringAndLog(L"System", L"proxy_d3d11", 0, G->CHAIN_DLL_PATH, MAX_PATH);	
+	GetIniStringAndLog(L"System", L"proxy_d3d11", nullptr, G->CHAIN_DLL_PATH, MAX_PATH);
 	G->load_library_redirect = GetIniInt(L"System", L"load_library_redirect", 2, nullptr);
 
-	if (GetIniStringAndLog(L"System", L"hook", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"System", L"hook", nullptr, setting, MAX_PATH))
 	{
-		G->enable_hooks = parse_enum_option_string<wchar_t *, EnableHooks>
+		G->enable_hooks = parse_enum_option_string<const wchar_t *, EnableHooks, wchar_t *>
 			(EnableHooksNames, setting, nullptr);
 
 		if (G->enable_hooks & EnableHooks::DEPRECATED)
@@ -4671,7 +4703,7 @@ void LoadConfigFile()
 
 	// EDHM: auto_refresh_file_to_monitor=EDHM-ini/ThemeSettings.json
 	// When the file's mtime changes, schedule ReloadConfig (theme apply without F11).
-	if (GetIniStringAndLog(L"System", L"auto_refresh_file_to_monitor", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"System", L"auto_refresh_file_to_monitor", nullptr, setting, MAX_PATH))
 	{
 		bool absolute_path = (setting[0] && setting[1] == L':') || setting[0] == L'\\' || setting[0] == L'/';
 		G->auto_refresh_file_to_monitor[0] = 0;
@@ -4724,7 +4756,7 @@ void LoadConfigFile()
 	G->SCREEN_UPSCALING = GetIniInt(L"Device", L"upscaling", 0, nullptr);
 	G->UPSCALE_MODE = GetIniInt(L"Device", L"upscale_mode", 0, nullptr);
 
-	if (GetIniStringAndLog(L"Device", L"filter_refresh_rate", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Device", L"filter_refresh_rate", nullptr, setting, MAX_PATH))
 	{
 		swscanf_s(setting, L"%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
 			G->FILTER_REFRESH + 0, G->FILTER_REFRESH + 1, G->FILTER_REFRESH + 2, G->FILTER_REFRESH + 3, 
@@ -4748,7 +4780,7 @@ void LoadConfigFile()
 	G->shader_hash_type = GetIniEnumClass(L"Rendering", L"shader_hash", ShaderHashType::FNV, nullptr, ShaderHashNames);
 	G->texture_hash_version = GetIniInt(L"Rendering", L"texture_hash", 0, nullptr);
 
-	if (GetIniStringAndLog(L"Rendering", L"override_directory", 0, G->SHADER_PATH, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"override_directory", nullptr, G->SHADER_PATH, MAX_PATH))
 	{
 		while (G->SHADER_PATH[wcslen(G->SHADER_PATH) - 1] == L' ')
 			G->SHADER_PATH[wcslen(G->SHADER_PATH) - 1] = 0;
@@ -4764,7 +4796,7 @@ void LoadConfigFile()
 		}
 		EnsureConfiguredDirectory("Shader override", G->SHADER_PATH);
 	}
-	if (GetIniStringAndLog(L"Rendering", L"cache_directory", 0, G->SHADER_CACHE_PATH, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"cache_directory", nullptr, G->SHADER_CACHE_PATH, MAX_PATH))
 	{
 		while (G->SHADER_CACHE_PATH[wcslen(G->SHADER_CACHE_PATH) - 1] == L' ')
 			G->SHADER_CACHE_PATH[wcslen(G->SHADER_CACHE_PATH) - 1] = 0;
@@ -4816,7 +4848,7 @@ void LoadConfigFile()
 	// Automatic section
 	G->decompiler_settings.fixSvPosition = GetIniBool(L"Rendering", L"fix_sv_position", false, nullptr);
 	G->decompiler_settings.recompileVs = GetIniBool(L"Rendering", L"recompile_all_vs", false, nullptr);
-	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_DepthTexture1", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_DepthTexture1", nullptr, setting, MAX_PATH))
 	{
 		char buf[MAX_PATH];
 		wcstombs(buf, setting, MAX_PATH);
@@ -4825,7 +4857,7 @@ void LoadConfigFile()
 		char *start = buf; while (isspace(*start)) start++;
 		G->decompiler_settings.ZRepair_DepthTexture1 = start;
 	}
-	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_DepthTexture2", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_DepthTexture2", nullptr, setting, MAX_PATH))
 	{
 		char buf[MAX_PATH];
 		wcstombs(buf, setting, MAX_PATH);
@@ -4834,15 +4866,15 @@ void LoadConfigFile()
 		char *start = buf; while (isspace(*start)) start++;
 		G->decompiler_settings.ZRepair_DepthTexture2 = start;
 	}
-	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_ZPosCalc1", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_ZPosCalc1", nullptr, setting, MAX_PATH))
 		G->decompiler_settings.ZRepair_ZPosCalc1 = readStringParameter(setting);
-	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_ZPosCalc2", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_ZPosCalc2", nullptr, setting, MAX_PATH))
 		G->decompiler_settings.ZRepair_ZPosCalc2 = readStringParameter(setting);
-	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_PositionTexture", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_PositionTexture", nullptr, setting, MAX_PATH))
 		G->decompiler_settings.ZRepair_PositionTexture = readStringParameter(setting);
-	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_PositionCalc", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_PositionCalc", nullptr, setting, MAX_PATH))
 		G->decompiler_settings.ZRepair_WorldPosCalc = readStringParameter(setting);
-	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_Dependencies1", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_Dependencies1", nullptr, setting, MAX_PATH))
 	{
 		char buf[MAX_PATH];
 		wcstombs(buf, setting, MAX_PATH);
@@ -4854,7 +4886,7 @@ void LoadConfigFile()
 			start = end; if (*start == ',') ++start;
 		}
 	}
-	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_Dependencies2", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_Dependencies2", nullptr, setting, MAX_PATH))
 	{
 		char buf[MAX_PATH];
 		wcstombs(buf, setting, MAX_PATH);
@@ -4866,7 +4898,7 @@ void LoadConfigFile()
 			start = end; if (*start == ',') ++start;
 		}
 	}
-	if (GetIniStringAndLog(L"Rendering", L"fix_InvTransform", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_InvTransform", nullptr, setting, MAX_PATH))
 	{
 		char buf[MAX_PATH];
 		wcstombs(buf, setting, MAX_PATH);
@@ -4878,28 +4910,28 @@ void LoadConfigFile()
 			start = end; if (*start == ',') ++start;
 		}
 	}
-	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_DepthTextureHash", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_DepthTextureHash", nullptr, setting, MAX_PATH))
 	{
 		uint32_t hash;
 		swscanf_s(setting, L"%08lx", &hash);
 		G->ZBufferHashToInject = hash;
 		G->decompiler_settings.ZRepair_DepthBuffer = !!G->ZBufferHashToInject;
 	}
-	if (GetIniStringAndLog(L"Rendering", L"fix_BackProjectionTransform1", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_BackProjectionTransform1", nullptr, setting, MAX_PATH))
 		G->decompiler_settings.BackProject_Vector1 = readStringParameter(setting);
-	if (GetIniStringAndLog(L"Rendering", L"fix_BackProjectionTransform2", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_BackProjectionTransform2", nullptr, setting, MAX_PATH))
 		G->decompiler_settings.BackProject_Vector2 = readStringParameter(setting);
-	if (GetIniStringAndLog(L"Rendering", L"fix_ObjectPosition1", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_ObjectPosition1", nullptr, setting, MAX_PATH))
 		G->decompiler_settings.ObjectPos_ID1 = readStringParameter(setting);
-	if (GetIniStringAndLog(L"Rendering", L"fix_ObjectPosition2", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_ObjectPosition2", nullptr, setting, MAX_PATH))
 		G->decompiler_settings.ObjectPos_ID2 = readStringParameter(setting);
-	if (GetIniStringAndLog(L"Rendering", L"fix_ObjectPosition1Multiplier", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_ObjectPosition1Multiplier", nullptr, setting, MAX_PATH))
 		G->decompiler_settings.ObjectPos_MUL1 = readStringParameter(setting);
-	if (GetIniStringAndLog(L"Rendering", L"fix_ObjectPosition2Multiplier", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_ObjectPosition2Multiplier", nullptr, setting, MAX_PATH))
 		G->decompiler_settings.ObjectPos_MUL2 = readStringParameter(setting);
-	if (GetIniStringAndLog(L"Rendering", L"fix_MatrixOperand1", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_MatrixOperand1", nullptr, setting, MAX_PATH))
 		G->decompiler_settings.MatrixPos_ID1 = readStringParameter(setting);
-	if (GetIniStringAndLog(L"Rendering", L"fix_MatrixOperand1Multiplier", 0, setting, MAX_PATH))
+	if (GetIniStringAndLog(L"Rendering", L"fix_MatrixOperand1Multiplier", nullptr, setting, MAX_PATH))
 		G->decompiler_settings.MatrixPos_MUL1 = readStringParameter(setting);
 
 	if (GetIniString(L"System", L"additional_foreground_window", nullptr, setting, MAX_PATH))
@@ -5172,7 +5204,7 @@ void ReloadConfig(HackerDevice *device)
 	// initialise iniParams and perform any other custom initialisation the
 	// user may have defined:
 	if (mHackerContext) {
-		if (G->iniParams.size() != G->iniParamsReserved) {
+		if (G->iniParams.size() != static_cast<size_t>(G->iniParamsReserved)) {
 			LogInfo("  Resizing IniParams from %Ii to %d\n", G->iniParams.size(), G->iniParamsReserved);
 			device->CreateIniParamResources();
 			mHackerContext->Bind3DMigotoResources();

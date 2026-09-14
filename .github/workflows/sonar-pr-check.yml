@@ -68,8 +68,18 @@ jobs:
             -verbosity:minimal `
             -restore:false
 
+      - name: Add LLVM tools to PATH
+        run: '"C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8'
+
+      - name: Analyze changed native source with clang-tidy
+        shell: pwsh
+        run: >-
+          ./scripts/quality.ps1 -Mode ClangTidy -Scope Changed
+          -BaseRef "${{ github.event.pull_request.base.sha || github.event.before }}"
+          -CompileDatabase 'bw-output/compile_commands.json'
+
       - name: SonarQube Scan (branch)
-        if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'pull_request_target' }}
         uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -80,7 +90,7 @@ jobs:
             -Dsonar.branch.name=${{ github.ref_name }}
 
       - name: SonarQube Scan (PR)
-        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') }}
         uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
