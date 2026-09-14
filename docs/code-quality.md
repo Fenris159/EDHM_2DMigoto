@@ -124,3 +124,12 @@ Path-scoped exceptions are limited to reviewed compatibility boundaries:
 
 A new exception requires the same narrow resource scope and a rationale here.
 Do not broaden an exception when the underlying code can be corrected safely.
+
+The inherited main-branch baseline is recorded in
+`docs/sonar-baseline-exceptions.csv`. Maintainability-only rules in that
+manifest are owned by strict MSVC, clang-format, and clang-tidy instead of a
+second, conflicting Sonar style policy. Findings with reliability or security
+impact remain active globally and are exempted only for the reviewed file where
+the compatibility boundary applies. The manifest records the issue count that
+was reviewed when each criterion was added; it is not a general permission to
+accept future findings.

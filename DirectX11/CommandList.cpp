@@ -8011,10 +8011,13 @@ bool ResourceCopyTarget::ParseTarget(const wchar_t *target, bool is_source, cons
                                      CommandListScope *scope, bool allow_custom)
 {
 	IniParserResult ret;
-	size_t length = wcslen(target);
 	std::wstring temp_target;
 
-	if (!target || length < 2)
+	if (!target)
+		return false;
+
+	size_t length = wcslen(target);
+	if (length < 2)
 		return false;
 
 	//LogInfo("ParseTarget: `%ls` allow_custom=%d, is_source=%d\n", target, allow_custom, is_source);
