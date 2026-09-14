@@ -29,9 +29,12 @@ function Resolve-Executable {
         [string]$Name
     )
 
-    $command = Get-Command $Name -ErrorAction SilentlyContinue
-    if ($command) {
-        return $command.Source
+    if (Test-Path -LiteralPath (Join-Path $qualityRoot 'tools')) {
+        $local = Get-ChildItem -LiteralPath (Join-Path $qualityRoot 'tools') -Filter "$Name.exe" -File -Recurse |
+            Select-Object -First 1
+        if ($local) {
+            return $local.FullName
+        }
     }
 
     $candidates = @()
@@ -51,12 +54,9 @@ function Resolve-Executable {
         }
     }
 
-    if (Test-Path -LiteralPath (Join-Path $qualityRoot 'tools')) {
-        $local = Get-ChildItem -LiteralPath (Join-Path $qualityRoot 'tools') -Filter "$Name.exe" -File -Recurse |
-            Select-Object -First 1
-        if ($local) {
-            return $local.FullName
-        }
+    $command = Get-Command $Name -ErrorAction SilentlyContinue
+    if ($command) {
+        return $command.Source
     }
 
     throw "$Name was not found. Run scripts/bootstrap-quality-tools.ps1 first."
