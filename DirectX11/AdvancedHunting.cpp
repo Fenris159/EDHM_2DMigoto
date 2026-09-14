@@ -219,8 +219,8 @@ bool SubmitAdvancedHuntingContext(const AdvancedHuntingContext &context)
 			entry.observed_frames = 1;
 			entry.observations = 1;
 
-			std::vector<AdvancedHuntingContextEntry>::iterator insert_at = std::lower_bound(
-			    advanced_hunting.contexts.begin(), advanced_hunting.contexts.end(), entry, ContextLess);
+			auto insert_at = std::lower_bound(advanced_hunting.contexts.begin(), advanced_hunting.contexts.end(), entry,
+			                                  ContextLess);
 			advanced_hunting.contexts.insert(insert_at, entry);
 		}
 	}
