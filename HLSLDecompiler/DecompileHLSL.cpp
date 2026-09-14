@@ -1526,7 +1526,7 @@ class Decompiler
 				*/
 
 				// Uses projection matrix?
-				if (e.bt == DT_float4x4 && e.Name.find_first_of("Projection") >= 0)
+				if (e.bt == DT_float4x4 && e.Name.find("Projection") != std::string::npos)
 				{
 					eolPos = strchr(c + pos, '\n');
 					// Used?
@@ -1535,7 +1535,7 @@ class Decompiler
 				}
 
 				// SR3 variant of projection matrix.
-				if (e.bt == DT_float4x4 && e.Name.find_first_of("projTM") >= 0)
+				if (e.bt == DT_float4x4 && e.Name.find("projTM") != std::string::npos)
 				{
 					eolPos = strchr(c + pos, '\n');
 					// Used?
@@ -4706,7 +4706,12 @@ class Decompiler
 		// to check which it is.
 		char *dst = op1, *idx = op2, *off = op3, *reg = op4;
 		if (!strncmp(op1, "stride", 6))
-			dst = op2, idx = op3, off = op4, reg = op5; // Note comma operator
+		{
+			dst = op2;
+			idx = op3;
+			off = op4;
+			reg = op5;
+		}
 		Operand dst0 = instr->asOperands[0];
 		Operand texture = instr->asOperands[3];
 
