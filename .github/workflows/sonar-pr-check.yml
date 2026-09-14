@@ -22,6 +22,10 @@ on:
       - synchronize
   workflow_dispatch:
 
+concurrency:
+  group: sonar-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   # Needed so the scanner can read PR metadata for SonarCloud PR decoration.
@@ -95,9 +99,10 @@ jobs:
             -Dsonar.pullrequest.base=${{ github.base_ref }}
             -Dsonar.qualitygate.wait=true
 
-      - name: Add LLVM tools to PATH
+      - name: Bootstrap pinned quality tools
         if: ${{ !cancelled() }}
-        run: '"C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8'
+        shell: pwsh
+        run: ./scripts/bootstrap-quality-tools.ps1
 
       - name: Analyze changed native source with clang-tidy
         if: ${{ !cancelled() }}
