@@ -2640,7 +2640,7 @@ static uint32_t hash_shader_bytecode(const struct dxbc_header *header, SIZE_T By
 		for (j = 0; j < hash_whitelisted_sections.size(); j++)
 		{
 			if (!strncmp(section->signature, hash_whitelisted_sections[j], 4))
-				hash = crc32c_hw(hash, (char *)section + sizeof(struct section_header), section->size);
+				hash = crc32c_hw(hash, reinterpret_cast<const char *>(section) + sizeof(section_header), section->size);
 		}
 	}
 
