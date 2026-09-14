@@ -133,3 +133,10 @@ impact remain active globally and are exempted only for the reviewed file where
 the compatibility boundary applies. The manifest records the issue count that
 was reviewed when each criterion was added; it is not a general permission to
 accept future findings.
+
+SonarCloud may reopen manually resolved historical records on `main` even when
+the same source-controlled criteria produce zero issues on a new branch. The
+manual `Reconcile Sonar issue history` workflow can mark an exact, expected
+count of those manifest-backed records as false positive. This records the
+reviewed historical decision durably without accepting debt or weakening the
+analysis of future findings outside the listed rule and path criteria.
