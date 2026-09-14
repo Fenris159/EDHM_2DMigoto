@@ -4,9 +4,17 @@ on:
   push:
     branches:
       - main
-      - xxmi-base
   pull_request:
-    branches: [main, xxmi-base]
+    branches: [main]
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - synchronize
+  # xxmi-base is an exact upstream mirror and cannot carry this workflow.
+  # Run its same-repository PR checks from the workflow on the default branch.
+  pull_request_target:
+    branches: [xxmi-base]
     types:
       - opened
       - reopened
@@ -20,15 +28,15 @@ permissions:
   pull-requests: read
 
 env:
-  SONAR_ORGANIZATION: "Fenris159"
+  SONAR_ORGANIZATION: "fenris159"
   SONAR_PROJECT_KEY: "Fenris159_EDHM_2DMigoto"
 
 jobs:
   analyze:
     name: Sonar scan
-    # Skip fork PRs (no access to SONAR_TOKEN secrets on pull_request from forks).
+    # Never expose SONAR_TOKEN while analyzing code from a fork.
     if: >-
-      github.event_name != 'pull_request' ||
+      (github.event_name != 'pull_request' && github.event_name != 'pull_request_target') ||
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
@@ -36,9 +44,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: SonarQube Scan (branch)
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
         uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -50,7 +59,7 @@ jobs:
             -Dsonar.branch.name=${{ github.ref_name }}
 
       - name: SonarQube Scan (PR)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
         uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
