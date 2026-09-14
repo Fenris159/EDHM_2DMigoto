@@ -195,7 +195,7 @@ bool SubmitAdvancedHuntingContext(const AdvancedHuntingContext &context)
 		PruneStaleContexts(frame_no);
 	}
 
-	std::vector<AdvancedHuntingContextEntry>::iterator it = FindContext(context);
+	auto it = FindContext(context);
 	if (it != advanced_hunting.contexts.end())
 	{
 		it->observations++;
