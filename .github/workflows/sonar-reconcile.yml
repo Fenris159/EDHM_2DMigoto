@@ -38,4 +38,4 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run sonar-pr-check.yml --ref main
+        run: gh workflow run sonar-pr-check.yml --ref main -f full_analysis=true
