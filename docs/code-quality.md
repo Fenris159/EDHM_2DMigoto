@@ -110,6 +110,10 @@ Path-scoped exceptions are limited to reviewed compatibility boundaries:
 - `cpp:S5276`: listed conversions are explicit rendering and timing projections.
 - `cpp:S1181` and `cpp:S2738`: listed catch-all handlers are process/driver
   boundaries that must prevent exceptions from crossing a C or COM ABI.
+- `cpp:S5813`: listed `strlen`/`wcslen` calls consume fixed arrays, literals, or
+  buffers whose producing Windows/parser API guarantees null termination.
+- `cpp:S923`: listed variadic functions implement established C-compatible
+  callback and formatted-logging boundaries.
 - `cpp:S108`, `cpp:S1186`, and `cpp:S1144`: listed no-op and conditionally used
   functions implement callback, template, platform, or interface contracts.
 

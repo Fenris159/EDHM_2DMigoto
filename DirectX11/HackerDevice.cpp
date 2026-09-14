@@ -2605,8 +2605,8 @@ static constexpr auto hash_whitelisted_sections = std::array{
 
 static uint32_t hash_shader_bytecode(const struct dxbc_header *header, SIZE_T BytecodeLength)
 {
-	uint32_t *offsets;
-	struct section_header *section;
+	const uint32_t *offsets;
+	const struct section_header *section;
 	unsigned i;
 	unsigned j;
 	uint32_t hash = 0;
@@ -2623,7 +2623,7 @@ static uint32_t hash_shader_bytecode(const struct dxbc_header *header, SIZE_T By
 	if (header->num_sections > (header->size - sizeof(struct dxbc_header)) / sizeof(uint32_t))
 		return 0;
 	offsets_size = header->num_sections * sizeof(uint32_t);
-	offsets = (uint32_t *)((char *)header + sizeof(struct dxbc_header));
+	offsets = reinterpret_cast<const uint32_t *>(reinterpret_cast<const char *>(header) + sizeof(dxbc_header));
 
 	for (i = 0; i < header->num_sections; i++)
 	{
@@ -2632,7 +2632,7 @@ static uint32_t hash_shader_bytecode(const struct dxbc_header *header, SIZE_T By
 		    header->size - section_offset < sizeof(struct section_header))
 			return 0;
 
-		section = (struct section_header *)((char *)header + section_offset);
+		section = reinterpret_cast<const section_header *>(reinterpret_cast<const char *>(header) + section_offset);
 		section_data_size = header->size - section_offset - sizeof(struct section_header);
 		if (section->size > section_data_size)
 			return 0;
