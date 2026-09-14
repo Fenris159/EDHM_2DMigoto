@@ -98,6 +98,11 @@ jobs:
         shell: pwsh
         run: ./scripts/quality.ps1 -Mode Build -Scope All
 
+      - name: Validate DirectXTK shaders
+        if: steps.sol.outputs.exists == 'true'
+        shell: pwsh
+        run: ./scripts/quality.ps1 -Mode Shader -Scope All
+
       - name: Verify d3d11.dll
         if: steps.sol.outputs.exists == 'true'
         shell: pwsh

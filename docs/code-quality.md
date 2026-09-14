@@ -39,6 +39,13 @@ Run clean, strict Release builds for both architectures:
 .\scripts\quality.ps1 -Mode Build -Scope All
 ```
 
+Compile every DirectXTK shader entry point with warnings as errors in an
+ignored temporary tree:
+
+```powershell
+.\scripts\quality.ps1 -Mode Shader -Scope All
+```
+
 Run the complete local gate with a captured compilation database:
 
 ```powershell

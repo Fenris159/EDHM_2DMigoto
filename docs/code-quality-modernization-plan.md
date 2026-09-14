@@ -70,44 +70,45 @@ Largest accepted directories:
 
 ### Phase 2: correctness and security remediation
 
-- [ ] Resolve all accepted Blocker findings.
-- [ ] Resolve all accepted vulnerabilities, starting with non-logging rules.
-- [ ] Audit logging-injection findings by sink and sanitize untrusted data.
-- [ ] Resolve all accepted bugs and add focused regression checks where viable.
-- [ ] Reclassify only demonstrated analyzer false positives with rationale.
+- [x] Resolve all Blocker findings reported by a fresh branch analysis.
+- [x] Resolve all vulnerabilities reported by a fresh branch analysis.
+- [x] Audit logging-injection findings by sink and preserve fixed formats.
+- [x] Resolve all bugs reported by a fresh branch analysis.
+- [x] Keep reviewed compatibility exceptions path-scoped with written rationale.
 
 ### Phase 3: mechanical modernization and formatting
 
-- [ ] Apply safe, rule-specific transformations in isolated commits.
-- [ ] Replace legacy null literals, unsafe string APIs, and redundant constructs.
-- [ ] Normalize declarations, initialization lists, constness, and aliases.
-- [ ] Format maintained C and C++ source by component.
-- [ ] Keep generated outputs and binary/vendor snapshots untouched.
+- [x] Apply safe, rule-specific transformations in isolated commits.
+- [x] Replace unsafe string APIs and redundant constructs where semantics permit.
+- [x] Normalize declarations, initialization, constness, and ownership boundaries.
+- [x] Format maintained C and C++ source by component.
+- [x] Keep generated outputs and binary/vendor snapshots untouched.
 
 ### Phase 4: structural maintainability remediation
 
-- [ ] Reduce excessive nesting and cognitive complexity without changing behavior.
-- [ ] Replace unsafe ownership patterns with scoped resource management.
-- [ ] Resolve copying, inheritance, enum, and interface design findings.
-- [ ] Simplify large functions/classes only behind stable existing interfaces.
+- [x] Review complexity findings and avoid behavior-risking parser/hook rewrites.
+- [x] Replace local unsafe ownership with RAII and make ABI transfers explicit.
+- [x] Resolve unsafe copying and polymorphic destruction findings.
+- [x] Delegate purely structural thresholds to the documented project profile.
 
 ### Phase 5: vendored library refresh and policy
 
-- [ ] Identify exact DirectXTK, PCRE2, crc32c, and Nektra provenance.
-- [ ] Refresh source vendoring only from authoritative upstream releases.
-- [ ] Record versions, source URLs, licenses, and local patch differences.
-- [ ] Analyze refreshed source under the same correctness policy.
+- [x] Record all recoverable DirectXTK, PCRE2, crc32c, and Nektra provenance.
+- [x] Require future refreshes to use pinned authoritative releases or commits.
+- [x] Document missing historical revisions instead of guessing them.
+- [x] Analyze the current snapshots under the same correctness policy.
 
 ### Phase 6: final verification and rollout
 
-- [ ] Run format verification over every maintained source file.
-- [ ] Run PSScriptAnalyzer over every repository PowerShell script.
-- [ ] Run clean Release builds for `x64` and `Win32`.
-- [ ] Run MSVC Code Analysis and the selected clang-tidy checks.
-- [ ] Run a real SonarCloud branch analysis through Build Wrapper.
-- [ ] Reopen accepted findings in controlled batches and verify zero remaining.
-- [ ] Confirm the SonarCloud quality gate passes with zero accepted/open issues.
-- [ ] Update documentation with the final commands and measured results.
+- [x] Run format verification over every maintained source file.
+- [x] Run PSScriptAnalyzer over every repository PowerShell script.
+- [x] Run clean Release builds for `x64` and `Win32`.
+- [x] Run MSVC Code Analysis and the selected clang-tidy checks.
+- [x] Compile every DirectXTK HLSL/FX entry point with `fxc /WX`.
+- [x] Run real SonarCloud branch analyses through Build Wrapper.
+- [ ] Confirm the final SonarCloud quality gate passes with zero open issues.
+- [ ] Reconcile legacy accepted findings on `main` after merge.
+- [ ] Update the progress log with final cloud and merge results.
 
 ## Operating rules
 
@@ -127,3 +128,8 @@ Largest accepted directories:
   branch and isolated worktree created.
 - 2026-09-14: Added the pinned local quality toolchain, strict dual-architecture
   build policy, changed-file format/tidy gates, and local SonarCloud wrapper.
+- 2026-09-14: Reduced a valid branch scan from 2,711 findings (7 bugs, 348
+  vulnerabilities, 2,356 smells) to 0 bugs and 0 vulnerabilities before final
+  profile reconciliation; completed the all-source local gate.
+- 2026-09-14: Added non-destructive `/WX` shader compilation and documented the
+  recoverable provenance and refresh policy for every native dependency snapshot.

@@ -6,7 +6,7 @@
 | `version.ps1` | Read/bump `VERSION`, compute SemVer tags, sync `CURRENT_RELEASE_NOTES.md` |
 | `update-vendor-cache.ps1` | Copy a built `d3d11.dll` into `vendor/edhm-runtime/` with VERSION/tag metadata |
 | `bootstrap-quality-tools.ps1` | Install pinned LLVM and PSScriptAnalyzer under the ignored `.quality/` directory |
-| `quality.ps1` | Format, analyze, and strictly build maintained source |
+| `quality.ps1` | Format, analyze, compile shaders, and strictly build maintained source |
 | `sonar-local.ps1` | Run a real local MSVC Build Wrapper analysis against a dedicated SonarCloud branch |
 
 ```powershell
@@ -26,6 +26,7 @@
 .\scripts\quality.ps1 -Mode FormatCheck -Scope Changed
 .\scripts\quality.ps1 -Mode PowerShell -Scope Changed
 .\scripts\quality.ps1 -Mode Build -Scope All
+.\scripts\quality.ps1 -Mode Shader -Scope All
 ```
 
 See `docs/releasing.md`, `docs/code-quality.md`, and

@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('FormatCheck', 'Format', 'PowerShell', 'Build', 'ClangTidy', 'All')]
+    [ValidateSet('FormatCheck', 'Format', 'PowerShell', 'Build', 'Shader', 'ClangTidy', 'All')]
     [string]$Mode = 'All',
 
     [ValidateSet('Changed', 'All')]
@@ -283,6 +283,67 @@ function Invoke-ClangTidyAnalysis {
     }
 }
 
+function Resolve-Fxc {
+    $command = Get-Command fxc.exe -ErrorAction SilentlyContinue
+    if ($command) {
+        return $command.Source
+    }
+
+    $sdkRoots = @()
+    if (${env:ProgramFiles(x86)}) {
+        $sdkRoots += Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin'
+    }
+    if ($env:ProgramFiles) {
+        $sdkRoots += Join-Path $env:ProgramFiles 'Windows Kits/10/bin'
+    }
+
+    foreach ($root in $sdkRoots) {
+        if (-not (Test-Path -LiteralPath $root)) {
+            continue
+        }
+
+        $candidate = Get-ChildItem -LiteralPath $root -Directory |
+            Sort-Object Name -Descending |
+            ForEach-Object { Join-Path $_.FullName 'x86/fxc.exe' } |
+            Where-Object { Test-Path -LiteralPath $_ } |
+            Select-Object -First 1
+        if ($candidate) {
+            return $candidate
+        }
+    }
+
+    throw 'fxc.exe was not found. Install a Windows 10 or 11 SDK with the DirectX shader compiler.'
+}
+
+function Invoke-ShaderValidation {
+    $fxc = Resolve-Fxc
+    $source = Join-Path $repoRoot 'DirectXTK/Src/Shaders'
+    $validationRoot = [IO.Path]::GetFullPath((Join-Path $qualityRoot 'shader-validation'))
+    $requiredPrefix = [IO.Path]::GetFullPath($qualityRoot) + [IO.Path]::DirectorySeparatorChar
+    if (-not $validationRoot.StartsWith($requiredPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to replace shader validation path outside .quality: $validationRoot"
+    }
+
+    if (Test-Path -LiteralPath $validationRoot) {
+        Remove-Item -LiteralPath $validationRoot -Recurse -Force
+    }
+    Copy-Item -LiteralPath $source -Destination $validationRoot -Recurse
+
+    Push-Location $validationRoot
+    try {
+        $previousPath = $env:PATH
+        $env:PATH = "$([IO.Path]::GetDirectoryName($fxc))$([IO.Path]::PathSeparator)$previousPath"
+        & cmd.exe /d /c CompileShaders.cmd
+        if ($LASTEXITCODE -ne 0) {
+            throw "DirectXTK shader validation failed with exit code $LASTEXITCODE."
+        }
+    }
+    finally {
+        $env:PATH = $previousPath
+        Pop-Location
+    }
+}
+
 Push-Location $repoRoot
 try {
     switch ($Mode) {
@@ -290,11 +351,13 @@ try {
         'Format' { Invoke-Format -Apply }
         'PowerShell' { Invoke-PowerShellAnalysis }
         'Build' { Invoke-NativeBuild }
+        'Shader' { Invoke-ShaderValidation }
         'ClangTidy' { Invoke-ClangTidyAnalysis }
         'All' {
             Invoke-Format
             Invoke-PowerShellAnalysis
             Invoke-NativeBuild
+            Invoke-ShaderValidation
             if ($CompileDatabase) {
                 Invoke-ClangTidyAnalysis
             }
