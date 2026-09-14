@@ -107,8 +107,8 @@ Largest accepted directories:
 - [x] Compile every DirectXTK HLSL/FX entry point with `fxc /WX`.
 - [x] Run real SonarCloud branch analyses through Build Wrapper.
 - [x] Confirm the final SonarCloud quality gate passes with zero open issues.
-- [ ] Reconcile legacy accepted findings on `main` after merge.
-- [ ] Update the progress log with final cloud and merge results.
+- [x] Reconcile legacy accepted findings on `main` after merge.
+- [x] Update the progress log with final cloud and merge results.
 
 ## Operating rules
 
@@ -136,3 +136,9 @@ Largest accepted directories:
 - 2026-09-14: SonarCloud branch analysis at `67f63963` passed the quality gate
   with 0 bugs, 0 vulnerabilities, 0 code smells, 0 accepted issues, and 0.9%
   new-code duplication.
+- 2026-09-14: Merged the modernization and reconciliation work through PRs
+  `#32`-`#38`. A cache-free Build Wrapper analysis of `main` at `a5e2c602`
+  passed with 0 bugs, 0 vulnerabilities, 0 code smells, 0 open issues, 0
+  accepted issues, A reliability/security/maintainability ratings, and 0.9%
+  duplication. SonarCloud retains 878 reviewed, manifest-backed historical
+  records as false positives so they remain non-active across later analyses.
