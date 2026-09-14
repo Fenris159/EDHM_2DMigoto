@@ -243,7 +243,10 @@ bool AdvancedHuntingState::Select(bool next)
 		if (it != contexts_.end())
 		{
 			pos = static_cast<size_t>(std::distance(contexts_.begin(), it));
-			pos = next ? (pos + 1) % contexts_.size() : (pos ? pos - 1 : contexts_.size() - 1);
+			if (next)
+				pos = (pos + 1) % contexts_.size();
+			else
+				pos = pos ? pos - 1 : contexts_.size() - 1;
 		}
 	}
 	selected_context_ = contexts_[pos].context;

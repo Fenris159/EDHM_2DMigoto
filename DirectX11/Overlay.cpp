@@ -790,9 +790,9 @@ void Overlay::DrawAdvancedHuntingInfo(float *y)
 			DrawOutlinedString(mFont.get(), resources.c_str(), textPosition, DirectX::Colors::LimeGreen);
 			resources.clear();
 		};
-		auto append_resource = [&](const wchar_t *resource)
+		auto append_resource = [&](const wchar_t *resource, size_t capacity)
 		{
-			if (resources.size() + wcslen(resource) > 100)
+			if (resources.size() + wcsnlen_s(resource, capacity) > 100)
 				draw_resources();
 			resources += resource;
 		};
@@ -800,13 +800,13 @@ void Overlay::DrawAdvancedHuntingInfo(float *y)
 		if (info.context.index_buffer)
 		{
 			swprintf_s(resource, ARRAYSIZE(resource), L"IB:%08x ", info.context.index_buffer);
-			append_resource(resource);
+			append_resource(resource, ARRAYSIZE(resource));
 		}
 		if (info.context.indirect_buffer)
 		{
 			swprintf_s(resource, ARRAYSIZE(resource), L"Args:%08x@%u ", info.context.indirect_buffer,
 			           info.context.indirect_args_offset);
-			append_resource(resource);
+			append_resource(resource, ARRAYSIZE(resource));
 		}
 		for (UINT slot = 0; slot < D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT; ++slot)
 		{
@@ -814,7 +814,7 @@ void Overlay::DrawAdvancedHuntingInfo(float *y)
 			{
 				swprintf_s(resource, ARRAYSIZE(resource), L"PS-t%u:%08x ", slot,
 				           info.context.pixel_shader_resources[slot]);
-				append_resource(resource);
+				append_resource(resource, ARRAYSIZE(resource));
 			}
 		}
 		for (UINT slot = 0; slot < D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT; ++slot)
@@ -822,7 +822,7 @@ void Overlay::DrawAdvancedHuntingInfo(float *y)
 			if (info.context.vertex_buffers[slot])
 			{
 				swprintf_s(resource, ARRAYSIZE(resource), L"VB%u:%08x ", slot, info.context.vertex_buffers[slot]);
-				append_resource(resource);
+				append_resource(resource, ARRAYSIZE(resource));
 			}
 		}
 		for (UINT slot = 0; slot < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; ++slot)
@@ -830,13 +830,13 @@ void Overlay::DrawAdvancedHuntingInfo(float *y)
 			if (info.context.render_targets[slot])
 			{
 				swprintf_s(resource, ARRAYSIZE(resource), L"RT%u:%08x ", slot, info.context.render_targets[slot]);
-				append_resource(resource);
+				append_resource(resource, ARRAYSIZE(resource));
 			}
 		}
 		if (info.context.depth_target)
 		{
 			swprintf_s(resource, ARRAYSIZE(resource), L"Depth:%08x ", info.context.depth_target);
-			append_resource(resource);
+			append_resource(resource, ARRAYSIZE(resource));
 		}
 		draw_resources();
 	}
