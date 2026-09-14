@@ -10,7 +10,7 @@ param(
     [ValidateNotNullOrEmpty()]
     [string] $SonarHostUrl = "https://sonarcloud.io",
 
-    [ValidateSet("reopen", "resolve")]
+    [ValidateSet("reopen", "resolve", "falsepositive")]
     [string] $Transition = "reopen",
 
     [ValidateRange(0, [int]::MaxValue)]
@@ -70,11 +70,16 @@ for ($offset = 0; $offset -lt $issuesToChange.Count; $offset += $batchSize) {
     $batch = $issuesToChange.GetRange($offset, $lastIndex - $offset + 1)
 
     if ($PSCmdlet.ShouldProcess("$($batch.Count) Sonar issues", $Transition)) {
-        $comment = if ($Transition -eq "reopen") {
-            "Reopened by the repository reconciliation workflow so a current clean analysis can evaluate historical accepted debt."
-        }
-        else {
-            "Resolved by the repository reconciliation workflow after a cache-free branch analysis confirmed zero current issues."
+        $comment = switch ($Transition) {
+            "reopen" {
+                "Reopened by the repository reconciliation workflow so a current clean analysis can evaluate historical accepted debt."
+            }
+            "resolve" {
+                "Resolved by the repository reconciliation workflow after a cache-free branch analysis confirmed zero current issues."
+            }
+            "falsepositive" {
+                "Marked false positive by the repository reconciliation workflow because the reviewed finding is covered by the source-controlled baseline policy and a cache-free analysis confirmed the policy."
+            }
         }
         $requestBody = @{
             issues            = $batch -join ","
