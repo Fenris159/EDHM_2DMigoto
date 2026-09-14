@@ -21,6 +21,12 @@ on:
       - ready_for_review
       - synchronize
   workflow_dispatch:
+    inputs:
+      full_analysis:
+        description: Disable the Sonar analysis cache for a complete main-branch rescan
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: sonar-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -78,12 +84,14 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_CACHE_ARGUMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.full_analysis && '-Dsonar.analysisCache.enabled=false' || '' }}
         with:
           args: >
             -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
             -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
             -Dsonar.branch.name=${{ github.ref_name }}
             -Dsonar.qualitygate.wait=true
+            ${{ env.SONAR_CACHE_ARGUMENT }}
 
       - name: SonarQube Scan (PR)
         if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') }}
