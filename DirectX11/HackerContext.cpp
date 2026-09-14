@@ -2722,18 +2722,15 @@ HackerContext::SetShader(THIS_
 			repl_shader = (ID3D11Shader *)it->second.replacement;
 		}
 
-		if (G->hunting == HUNTING_MODE_ENABLED)
+		if (G->hunting == HUNTING_MODE_ENABLED && (G->marking_mode == MarkingMode::ORIGINAL || !G->fix_enabled))
 		{
 			// Replacement map.
-			if (G->marking_mode == MarkingMode::ORIGINAL || !G->fix_enabled)
+			const ShaderReplacementMap::iterator original = lookup_original_shader(pShader);
+			const bool selected_legacy_shader =
+			    (!AdvancedHuntingConfigured() || !AdvancedHuntingActive()) && selectedShader == *currentShaderHash;
+			if ((selected_legacy_shader || !G->fix_enabled) && original != G->mOriginalShaders.end())
 			{
-				const ShaderReplacementMap::iterator original = lookup_original_shader(pShader);
-				const bool selected_legacy_shader =
-				    (!AdvancedHuntingConfigured() || !AdvancedHuntingActive()) && selectedShader == *currentShaderHash;
-				if ((selected_legacy_shader || !G->fix_enabled) && original != G->mOriginalShaders.end())
-				{
-					repl_shader = static_cast<ID3D11Shader *>(original->second);
-				}
+				repl_shader = static_cast<ID3D11Shader *>(original->second);
 			}
 		}
 	}
@@ -3469,7 +3466,7 @@ void HackerContext::UpdateAdvancedHuntingPixelShaderResources(UINT StartSlot, UI
 
 		if (ppShaderResourceViews && ppShaderResourceViews[source])
 		{
-			ID3D11Resource *resource = NULL;
+			ID3D11Resource *resource = nullptr;
 			ppShaderResourceViews[source]->GetResource(&resource);
 			if (resource)
 			{
@@ -3496,7 +3493,7 @@ void HackerContext::UpdateAdvancedHuntingRenderTargets(UINT NumViews,
 		if (!ppRenderTargetViews || !ppRenderTargetViews[slot])
 			continue;
 
-		ID3D11Resource *resource = NULL;
+		ID3D11Resource *resource = nullptr;
 		ppRenderTargetViews[slot]->GetResource(&resource);
 		if (resource)
 		{
@@ -3508,7 +3505,7 @@ void HackerContext::UpdateAdvancedHuntingRenderTargets(UINT NumViews,
 	mCurrentDepthTargetHash = 0;
 	if (pDepthStencilView)
 	{
-		ID3D11Resource *resource = NULL;
+		ID3D11Resource *resource = nullptr;
 		pDepthStencilView->GetResource(&resource);
 		if (resource)
 		{

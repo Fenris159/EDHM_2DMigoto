@@ -14,9 +14,9 @@
 struct AdvancedHuntingContextEntry
 {
 	AdvancedHuntingContext context;
-	unsigned last_seen_frame;
-	unsigned observed_frames;
-	unsigned observations;
+	unsigned last_seen_frame{};
+	unsigned observed_frames{};
+	unsigned observations{};
 };
 
 static struct AdvancedHuntingState
@@ -468,7 +468,7 @@ static bool CopyContextTextToClipboard(const std::string &text)
 	memcpy(data, text.c_str(), text.size() + 1);
 	GlobalUnlock(memory);
 
-	if (!OpenClipboard(NULL))
+	if (!OpenClipboard(nullptr))
 	{
 		GlobalFree(memory);
 		return false;
@@ -519,11 +519,11 @@ static AdvancedHuntingScope ParseDefaultScope()
 	wchar_t value[MAX_PATH];
 	if (!GetIniStringAndLog(L"Hunting", L"context_scope", L"auto", value, MAX_PATH))
 		return AdvancedHuntingScope::AUTO;
-	if (!_wcsicmp(value, L"resource"))
+	if (_wcsicmp(value, L"resource") == 0)
 		return AdvancedHuntingScope::RESOURCE;
-	if (!_wcsicmp(value, L"draw"))
+	if (_wcsicmp(value, L"draw") == 0)
 		return AdvancedHuntingScope::DRAW;
-	if (_wcsicmp(value, L"auto"))
+	if (_wcsicmp(value, L"auto") != 0)
 		LogOverlayW(LOG_WARNING, L"Unknown context_scope '%ls'; using auto\n", value);
 	return AdvancedHuntingScope::AUTO;
 }
@@ -531,16 +531,16 @@ static AdvancedHuntingScope ParseDefaultScope()
 void ParseAdvancedHuntingSection(int repeat)
 {
 	ResetAdvancedHunting();
-	G->advanced_hunting_enabled = GetIniInt(L"Hunting", L"advanced_hunting", 0, NULL) != 0;
+	G->advanced_hunting_enabled = GetIniInt(L"Hunting", L"advanced_hunting", 0, nullptr) != 0;
 	if (!G->advanced_hunting_enabled)
 		return;
 
 	AdvancedHuntingScope default_scope = ParseDefaultScope();
-	bool verbose = GetIniInt(L"Hunting", L"context_overlay_verbose", 0, NULL) != 0;
+	bool verbose = GetIniInt(L"Hunting", L"context_overlay_verbose", 0, nullptr) != 0;
 	size_t max_contexts =
-	    static_cast<size_t>(max(1, min(4096, GetIniInt(L"Hunting", L"context_max_entries", 512, NULL))));
+	    static_cast<size_t>(max(1, min(4096, GetIniInt(L"Hunting", L"context_max_entries", 512, nullptr))));
 	unsigned lifetime_frames =
-	    static_cast<unsigned>(max(0, GetIniInt(L"Hunting", L"context_lifetime_frames", 120, NULL)));
+	    static_cast<unsigned>(max(0, GetIniInt(L"Hunting", L"context_lifetime_frames", 120, nullptr)));
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
 	advanced_hunting.default_scope = default_scope;
@@ -550,12 +550,12 @@ void ParseAdvancedHuntingSection(int repeat)
 	advanced_hunting.lifetime_frames = lifetime_frames;
 	LeaveCriticalSection(&G->mCriticalSection);
 
-	RegisterIniKeyBinding(L"Hunting", L"toggle_context_hunting", ToggleAdvancedHunting, NULL, 0, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"previous_context", PrevAdvancedContext, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"next_context", NextAdvancedContext, NULL, repeat, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"mark_context", MarkAdvancedContext, NULL, 0, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"previous_context_scope", PrevAdvancedScope, NULL, 0, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"next_context_scope", NextAdvancedScope, NULL, 0, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"toggle_context_capture", ToggleAdvancedCapture, NULL, 0, NULL);
-	RegisterIniKeyBinding(L"Hunting", L"clear_context_hunting", ClearAdvancedHunting, NULL, 0, NULL);
+	RegisterIniKeyBinding(L"Hunting", L"toggle_context_hunting", ToggleAdvancedHunting, nullptr, 0, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"previous_context", PrevAdvancedContext, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"next_context", NextAdvancedContext, nullptr, repeat, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"mark_context", MarkAdvancedContext, nullptr, 0, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"previous_context_scope", PrevAdvancedScope, nullptr, 0, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"next_context_scope", NextAdvancedScope, nullptr, 0, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"toggle_context_capture", ToggleAdvancedCapture, nullptr, 0, nullptr);
+	RegisterIniKeyBinding(L"Hunting", L"clear_context_hunting", ClearAdvancedHunting, nullptr, 0, nullptr);
 }

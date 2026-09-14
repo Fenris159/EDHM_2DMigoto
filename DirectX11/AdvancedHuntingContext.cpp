@@ -67,11 +67,9 @@ void AppendResource(std::ostringstream &report, const char *slot, uint32_t hash)
 AdvancedHuntingContext::AdvancedHuntingContext()
     : shader_stage(AdvancedHuntingShaderStage::NONE), shader_hash(0), draw_type(DrawCall::Invalid),
       topology(D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED), vertex_count(0), index_count(0), instance_count(0), first_vertex(0),
-      first_index(0), first_instance(0), index_buffer(0), depth_target(0), indirect_buffer(0), indirect_args_offset(0)
+      first_index(0), first_instance(0), index_buffer(0), vertex_buffers{}, pixel_shader_resources{}, render_targets{},
+      depth_target(0), indirect_buffer(0), indirect_args_offset(0)
 {
-	std::memset(vertex_buffers, 0, sizeof(vertex_buffers));
-	std::memset(pixel_shader_resources, 0, sizeof(pixel_shader_resources));
-	std::memset(render_targets, 0, sizeof(render_targets));
 }
 
 AdvancedHuntingOverlayInfo::AdvancedHuntingOverlayInfo()
