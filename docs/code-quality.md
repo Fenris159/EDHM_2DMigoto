@@ -95,6 +95,11 @@ mechanical modernization are owned by the local tools instead. This avoids
 unsafe rewrites of hook macros, COM wrappers, binary parsers, and imported
 DirectX interfaces while keeping real defects visible.
 
+Copy-paste detection excludes `HLSLDecompiler/DecompileHLSL.cpp`, whose emitter
+necessarily repeats target-language syntax templates, and `DirectXTK/**`, whose
+snapshot intentionally preserves upstream repetition. These files remain fully
+included in compilation and Sonar bug, vulnerability, and issue analysis.
+
 Path-scoped exceptions are limited to reviewed compatibility boundaries:
 
 - `cppsecurity:S2083`: shader byte buffers are file contents, not path inputs.
