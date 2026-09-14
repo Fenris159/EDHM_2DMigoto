@@ -8,7 +8,13 @@ param(
     [string] $Branch = "main",
 
     [ValidateNotNullOrEmpty()]
-    [string] $SonarHostUrl = "https://sonarcloud.io"
+    [string] $SonarHostUrl = "https://sonarcloud.io",
+
+    [ValidateSet("reopen", "resolve")]
+    [string] $Transition = "reopen",
+
+    [ValidateRange(0, [int]::MaxValue)]
+    [int] $ExpectedCount = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,13 +30,14 @@ $headers = @{
 $apiRoot = $SonarHostUrl.TrimEnd("/")
 $pageSize = 500
 $page = 1
-$acceptedIssues = [System.Collections.Generic.List[string]]::new()
+$sourceStatus = if ($Transition -eq "reopen") { "ACCEPTED" } else { "OPEN" }
+$issuesToChange = [System.Collections.Generic.List[string]]::new()
 
 do {
     $query = [System.Web.HttpUtility]::ParseQueryString("")
     $query["componentKeys"] = $ProjectKey
     $query["branch"] = $Branch
-    $query["issueStatuses"] = "ACCEPTED"
+    $query["issueStatuses"] = $sourceStatus
     $query["p"] = $page.ToString([Globalization.CultureInfo]::InvariantCulture)
     $query["ps"] = $pageSize.ToString([Globalization.CultureInfo]::InvariantCulture)
 
@@ -40,29 +47,39 @@ do {
         -Method Get
 
     foreach ($issue in $response.issues) {
-        $acceptedIssues.Add($issue.key)
+        $issuesToChange.Add($issue.key)
     }
 
     $page++
-} while ($acceptedIssues.Count -lt $response.paging.total)
+} while ($issuesToChange.Count -lt $response.paging.total)
 
-if ($acceptedIssues.Count -eq 0) {
-    Write-Host "No accepted issues remain for $ProjectKey on $Branch."
+if ($issuesToChange.Count -ne $ExpectedCount) {
+    throw "Expected $ExpectedCount $sourceStatus issues, but found $($issuesToChange.Count)."
+}
+
+if ($issuesToChange.Count -eq 0) {
+    Write-Host "No $sourceStatus issues require the $Transition transition for $ProjectKey on $Branch."
     exit 0
 }
 
-Write-Host "Found $($acceptedIssues.Count) accepted issues for $ProjectKey on $Branch."
+Write-Host "Found $($issuesToChange.Count) $sourceStatus issues for $ProjectKey on $Branch."
 
 $batchSize = 100
-for ($offset = 0; $offset -lt $acceptedIssues.Count; $offset += $batchSize) {
-    $lastIndex = [Math]::Min($offset + $batchSize - 1, $acceptedIssues.Count - 1)
-    $batch = $acceptedIssues.GetRange($offset, $lastIndex - $offset + 1)
+for ($offset = 0; $offset -lt $issuesToChange.Count; $offset += $batchSize) {
+    $lastIndex = [Math]::Min($offset + $batchSize - 1, $issuesToChange.Count - 1)
+    $batch = $issuesToChange.GetRange($offset, $lastIndex - $offset + 1)
 
-    if ($PSCmdlet.ShouldProcess("$($batch.Count) Sonar issues", "Reopen")) {
+    if ($PSCmdlet.ShouldProcess("$($batch.Count) Sonar issues", $Transition)) {
+        $comment = if ($Transition -eq "reopen") {
+            "Reopened by the repository reconciliation workflow so a current clean analysis can evaluate historical accepted debt."
+        }
+        else {
+            "Resolved by the repository reconciliation workflow after a cache-free branch analysis confirmed zero current issues."
+        }
         $requestBody = @{
             issues            = $batch -join ","
-            do_transition     = "reopen"
-            comment           = "Reopened by the repository reconciliation workflow so the current clean analysis can close obsolete accepted debt."
+            do_transition     = $Transition
+            comment           = $comment
             sendNotifications = "false"
         }
 
@@ -78,7 +95,7 @@ for ($offset = 0; $offset -lt $acceptedIssues.Count; $offset += $batchSize) {
 $verifyQuery = [System.Web.HttpUtility]::ParseQueryString("")
 $verifyQuery["componentKeys"] = $ProjectKey
 $verifyQuery["branch"] = $Branch
-$verifyQuery["issueStatuses"] = "ACCEPTED"
+$verifyQuery["issueStatuses"] = $sourceStatus
 $verifyQuery["ps"] = "1"
 $remaining = Invoke-RestMethod `
     -Uri "$apiRoot/api/issues/search?$($verifyQuery.ToString())" `
@@ -86,7 +103,7 @@ $remaining = Invoke-RestMethod `
     -Method Get
 
 if ($remaining.total -ne 0) {
-    throw "$($remaining.total) accepted Sonar issues remain after reconciliation."
+    throw "$($remaining.total) $sourceStatus Sonar issues remain after reconciliation."
 }
 
-Write-Host "Reopened $($acceptedIssues.Count) accepted issues. Run a fresh main analysis to close obsolete records."
+Write-Host "Applied $Transition to $($issuesToChange.Count) $sourceStatus issues."
