@@ -106,7 +106,7 @@ Largest accepted directories:
 - [x] Run MSVC Code Analysis and the selected clang-tidy checks.
 - [x] Compile every DirectXTK HLSL/FX entry point with `fxc /WX`.
 - [x] Run real SonarCloud branch analyses through Build Wrapper.
-- [ ] Confirm the final SonarCloud quality gate passes with zero open issues.
+- [x] Confirm the final SonarCloud quality gate passes with zero open issues.
 - [ ] Reconcile legacy accepted findings on `main` after merge.
 - [ ] Update the progress log with final cloud and merge results.
 
@@ -133,3 +133,6 @@ Largest accepted directories:
   profile reconciliation; completed the all-source local gate.
 - 2026-09-14: Added non-destructive `/WX` shader compilation and documented the
   recoverable provenance and refresh policy for every native dependency snapshot.
+- 2026-09-14: SonarCloud branch analysis at `67f63963` passed the quality gate
+  with 0 bugs, 0 vulnerabilities, 0 code smells, 0 accepted issues, and 0.9%
+  new-code duplication.
