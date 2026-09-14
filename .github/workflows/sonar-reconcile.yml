@@ -4,12 +4,25 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: Reopen accepted main-branch issues and run a fresh analysis
+        description: Apply the selected transition to main-branch issues and run a fresh analysis
         required: true
         type: choice
         options:
           - "no"
           - "yes"
+      transition:
+        description: Sonar workflow transition to apply
+        required: true
+        default: reopen
+        type: choice
+        options:
+          - reopen
+          - resolve
+      expected_count:
+        description: Exact number of matching issues required before any transition
+        required: true
+        default: "0"
+        type: string
 
 permissions:
   actions: write
@@ -29,10 +42,14 @@ jobs:
         shell: pwsh
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_TRANSITION: ${{ inputs.transition }}
+          SONAR_EXPECTED_COUNT: ${{ inputs.expected_count }}
         run: >-
           ./scripts/sonar-reconcile.ps1
           -ProjectKey Fenris159_EDHM_2DMigoto
           -Branch main
+          -Transition "$env:SONAR_TRANSITION"
+          -ExpectedCount $env:SONAR_EXPECTED_COUNT
 
       - name: Dispatch fresh main analysis
         shell: pwsh
