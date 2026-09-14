@@ -58,6 +58,7 @@
 #include "lock.h"
 
 #include "HackerDXGI.h"
+#include "AdvancedHunting.h"
 #include "HookedDevice.h"
 #include "HookedDXGI.h"
 
@@ -322,7 +323,7 @@ void HackerSwapChain::RunFrameActions()
 	// reload. It doesn't really matter which side we do it on at the
 	// moment, but let's do it last, because logically it makes sense to be
 	// incremented when we call the original present call:
-	G->frame_no++;
+	AdvanceAdvancedHuntingFrame();
 	mHackerContext->ResetCallCounters();
 
 	// When not hunting most keybindings won't have been registered, but
