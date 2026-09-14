@@ -69,17 +69,6 @@ jobs:
             -verbosity:minimal `
             -restore:false
 
-      - name: Add LLVM tools to PATH
-        run: '"C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8'
-
-      - name: Analyze changed native source with clang-tidy
-        shell: pwsh
-        run: >-
-          ./scripts/quality.ps1 -Mode ClangTidy
-          -Scope "${{ github.event_name == 'workflow_dispatch' && 'All' || 'Changed' }}"
-          -BaseRef "${{ github.event.pull_request.base.sha || github.event.before }}"
-          -CompileDatabase 'bw-output/compile_commands.json'
-
       - name: SonarQube Scan (branch)
         if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'pull_request_target' }}
         uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
@@ -90,6 +79,7 @@ jobs:
             -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
             -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
             -Dsonar.branch.name=${{ github.ref_name }}
+            -Dsonar.qualitygate.wait=true
 
       - name: SonarQube Scan (PR)
         if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') }}
@@ -103,3 +93,17 @@ jobs:
             -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
             -Dsonar.pullrequest.branch=${{ github.head_ref }}
             -Dsonar.pullrequest.base=${{ github.base_ref }}
+            -Dsonar.qualitygate.wait=true
+
+      - name: Add LLVM tools to PATH
+        if: ${{ !cancelled() }}
+        run: '"C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8'
+
+      - name: Analyze changed native source with clang-tidy
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: >-
+          ./scripts/quality.ps1 -Mode ClangTidy
+          -Scope "${{ github.event_name == 'workflow_dispatch' && 'All' || 'Changed' }}"
+          -BaseRef "${{ github.event.pull_request.base.sha || github.event.before }}"
+          -CompileDatabase 'bw-output/compile_commands.json'
