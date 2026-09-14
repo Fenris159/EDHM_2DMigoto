@@ -60,8 +60,8 @@ namespace DirectX
         };
 
         explicit BasicPostProcess(_In_ ID3D11Device* device);
-        BasicPostProcess(BasicPostProcess&& moveFrom);
-        BasicPostProcess& operator= (BasicPostProcess&& moveFrom);
+        BasicPostProcess(BasicPostProcess&& moveFrom) noexcept;
+        BasicPostProcess& operator= (BasicPostProcess&& moveFrom) noexcept;
 
         BasicPostProcess(BasicPostProcess const&) = delete;
         BasicPostProcess& operator= (BasicPostProcess const&) = delete;
@@ -107,8 +107,8 @@ namespace DirectX
         };
 
         explicit DualPostProcess(_In_ ID3D11Device* device);
-        DualPostProcess(DualPostProcess&& moveFrom);
-        DualPostProcess& operator= (DualPostProcess&& moveFrom);
+        DualPostProcess(DualPostProcess&& moveFrom) noexcept;
+        DualPostProcess& operator= (DualPostProcess&& moveFrom) noexcept;
 
         DualPostProcess(DualPostProcess const&) = delete;
         DualPostProcess& operator= (DualPostProcess const&) = delete;
@@ -162,8 +162,8 @@ namespace DirectX
         };
 
         explicit ToneMapPostProcess(_In_ ID3D11Device* device);
-        ToneMapPostProcess(ToneMapPostProcess&& moveFrom);
-        ToneMapPostProcess& operator= (ToneMapPostProcess&& moveFrom);
+        ToneMapPostProcess(ToneMapPostProcess&& moveFrom) noexcept;
+        ToneMapPostProcess& operator= (ToneMapPostProcess&& moveFrom) noexcept;
 
         ToneMapPostProcess(ToneMapPostProcess const&) = delete;
         ToneMapPostProcess& operator= (ToneMapPostProcess const&) = delete;

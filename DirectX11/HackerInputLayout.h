@@ -14,7 +14,8 @@ static const GUID GUID_HackerInputLayout =
 class HackerInputLayout final : public ID3D11InputLayout
 {
 public:
-	HackerInputLayout(ID3D11InputLayout* orig, const D3D11_INPUT_ELEMENT_DESC* pElements, UINT numElements);
+	HackerInputLayout(ID3D11InputLayout* orig, const D3D11_INPUT_ELEMENT_DESC* pElements, UINT numElements,
+		const void* shaderSignature = nullptr, SIZE_T signatureSize = 0);
 	~HackerInputLayout();
 
 	// Resolve a game-supplied layout pointer to our side-car (or nullptr if foreign).
@@ -23,6 +24,9 @@ public:
 
 	ID3D11InputLayout* GetOrigInputLayout() const;
 	HRESULT GetAttachResult() const;
+
+	const void* GetShaderSignature() const;
+	SIZE_T GetShaderSignatureSize() const;
 
 	UINT GetElementCount() const;
 	const D3D11_INPUT_ELEMENT_DESC* GetElements() const;
@@ -49,6 +53,7 @@ private:
 	ID3D11InputLayout* mOrigLayout = nullptr;
 	HRESULT mAttachResult = E_FAIL;
 	uint32_t mLayoutHash = 0;
+	std::vector<uint8_t> mShaderSignature;
 
 	std::vector<D3D11_INPUT_ELEMENT_DESC> mElements;
 	std::vector<std::string> mSemanticNames;

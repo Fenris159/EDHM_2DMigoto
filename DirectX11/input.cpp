@@ -350,7 +350,7 @@ bool XInputButton::CheckState()
 
 InputButtonList::InputButtonList(const wchar_t *keyName)
 {
-	const wchar_t *ptr = keyName, *cur = NULL;
+	const wchar_t *ptr = keyName, *cur = nullptr;
 	wstring cur_key;
 
 	while (*ptr) {
@@ -565,7 +565,7 @@ bool DispatchInputEvents(HackerDevice *device)
 	class InputAction *action;
 	bool input_processed = false;
 	static time_t last_time = 0;
-	time_t now = time(NULL);
+	time_t now = time(nullptr);
 	int j;
 
 	if (!CheckForegroundWindow())

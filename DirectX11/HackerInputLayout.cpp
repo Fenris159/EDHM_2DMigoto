@@ -2,7 +2,8 @@
 
 #include "HackerInputLayout.h"
 
-HackerInputLayout::HackerInputLayout(ID3D11InputLayout* orig, const D3D11_INPUT_ELEMENT_DESC* pElements, UINT numElements) : mOrigLayout(orig)
+HackerInputLayout::HackerInputLayout(ID3D11InputLayout* orig, const D3D11_INPUT_ELEMENT_DESC* pElements, UINT numElements,
+	const void* shaderSignature, SIZE_T signatureSize) : mOrigLayout(orig)
 {
 	mElements.resize(numElements);
 	mSemanticNames.resize(numElements);
@@ -23,6 +24,10 @@ HackerInputLayout::HackerInputLayout(ID3D11InputLayout* orig, const D3D11_INPUT_
 	}
 
 	mLayoutHash = CalculateLayoutHash();
+
+	if (shaderSignature && signatureSize)
+		mShaderSignature.assign(static_cast<const uint8_t*>(shaderSignature),
+			static_cast<const uint8_t*>(shaderSignature) + signatureSize);
 
 	// Side-car only: game keeps the real ID3D11InputLayout. Mark the original
 	// so FromLayout() can recover this cache for hunting / frame analysis.
@@ -58,6 +63,16 @@ HackerInputLayout::~HackerInputLayout()
 ID3D11InputLayout* HackerInputLayout::GetOrigInputLayout() const
 {
 	return mOrigLayout;
+}
+
+const void* HackerInputLayout::GetShaderSignature() const
+{
+	return mShaderSignature.empty() ? nullptr : mShaderSignature.data();
+}
+
+SIZE_T HackerInputLayout::GetShaderSignatureSize() const
+{
+	return mShaderSignature.size();
 }
 
 HRESULT HackerInputLayout::GetAttachResult() const

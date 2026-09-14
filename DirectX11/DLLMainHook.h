@@ -44,5 +44,5 @@ static EnumName_t<wchar_t *, EnableHooks> EnableHooksNames[] = {
 	{ L"skip_dxgi_factory", EnableHooks::DEPRECATED },
 	{ L"skip_dxgi_device", EnableHooks::DEPRECATED },
 
-	{ NULL, EnableHooks::INVALID } // End of list marker
+	{ nullptr, EnableHooks::INVALID } // End of list marker
 };

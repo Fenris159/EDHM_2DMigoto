@@ -255,7 +255,7 @@ static IUnknown* _check_interface(IUnknown *unknown, REFIID riid)
 		return test;
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 bool check_interface_supported(IUnknown *unknown, REFIID riid)

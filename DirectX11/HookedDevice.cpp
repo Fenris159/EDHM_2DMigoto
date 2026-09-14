@@ -70,13 +70,13 @@ ID3D11Device1* lookup_hooked_device(ID3D11Device1 *orig_device)
 	DeviceMap::iterator i;
 
 	if (!hooks_installed)
-		return NULL;
+		return nullptr;
 
 	EnterCriticalSectionPretty(&device_map_lock);
 	i = device_map.find(orig_device);
 	if (i == device_map.end()) {
 		LeaveCriticalSection(&device_map_lock);
-		return NULL;
+		return nullptr;
 	}
 	LeaveCriticalSection(&device_map_lock);
 

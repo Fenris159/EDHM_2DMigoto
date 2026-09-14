@@ -1,8 +1,8 @@
 # Upstream Delta Map
 
-**Date:** 2026-07-16
+**Date:** 2026-07-16 (updated 2026-07-21)
 
-**Local branch:** `linux-compatibility` (target: `develop`)
+**Local branch:** `linux-compatibility` (target: `develop`) — *integrated*: the review stack has been merged into `develop`/`main`; this document is retained for provenance.
 
 **Comparison base:** `xxmi-base` at `af232a90fda4e5fc8799f854f07787a3bc33bcbe`
 

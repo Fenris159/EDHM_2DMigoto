@@ -46,7 +46,7 @@ static EnumName_t<const wchar_t *, MarkingMode> MarkingModeNames[] = {
 	{L"mono", MarkingMode::MONO},
 	{L"original", MarkingMode::ORIGINAL},
 	{L"pink", MarkingMode::PINK},
-	{NULL, MarkingMode::INVALID} // End of list marker
+	{nullptr, MarkingMode::INVALID} // End of list marker
 };
 
 enum class MarkingAction {
@@ -71,7 +71,7 @@ static EnumName_t<const wchar_t *, MarkingAction> MarkingActionNames[] = {
 	{L"clipboard", MarkingAction::CLIPBOARD},
 	{L"mono_snapshot", MarkingAction::MONO_SS},
 	{L"snapshot_if_pink", MarkingAction::SS_IF_PINK},
-	{NULL, MarkingAction::INVALID} // End of list marker
+	{nullptr, MarkingAction::INVALID} // End of list marker
 };
 
 enum class ShaderHashType {
@@ -84,7 +84,7 @@ static EnumName_t<const wchar_t *, ShaderHashType> ShaderHashNames[] = {
 	{L"3dmigoto", ShaderHashType::FNV},
 	{L"embedded", ShaderHashType::EMBEDDED},
 	{L"bytecode", ShaderHashType::BYTECODE},
-	{NULL, ShaderHashType::INVALID} // End of list marker
+	{nullptr, ShaderHashType::INVALID} // End of list marker
 };
 
 // Strategy: This OriginalShaderInfo record and associated map is to allow us to keep track of every
@@ -235,7 +235,7 @@ static EnumName_t<wchar_t *, FrameAnalysisOptions> FrameAnalysisOptionNames[] = 
 	{L"dump_vb_txt", FrameAnalysisOptions::DUMP_VB_TXT},
 	{L"dump_ib_txt", FrameAnalysisOptions::DUMP_IB_TXT},
 
-	{NULL, FrameAnalysisOptions::INVALID} // End of list marker
+	{nullptr, FrameAnalysisOptions::INVALID} // End of list marker
 };
 
 enum class DepthBufferFilter {
@@ -248,7 +248,7 @@ static EnumName_t<const wchar_t *, DepthBufferFilter> DepthBufferFilterNames[] =
 	{L"none", DepthBufferFilter::NONE},
 	{L"depth_active", DepthBufferFilter::DEPTH_ACTIVE},
 	{L"depth_inactive", DepthBufferFilter::DEPTH_INACTIVE},
-	{NULL, DepthBufferFilter::INVALID} // End of list marker
+	{nullptr, DepthBufferFilter::INVALID} // End of list marker
 };
 
 struct ShaderOverride {
@@ -369,7 +369,7 @@ enum class GetResolutionFrom {
 static EnumName_t<const wchar_t *, GetResolutionFrom> GetResolutionFromNames[] = {
 	{L"swap_chain", GetResolutionFrom::SWAP_CHAIN},
 	{L"depth_stencil", GetResolutionFrom::DEPTH_STENCIL},
-	{NULL, GetResolutionFrom::INVALID} // End of list marker
+	{nullptr, GetResolutionFrom::INVALID} // End of list marker
 };
 
 struct ResolutionInfo
@@ -406,10 +406,13 @@ struct Globals
 	bool gLogInput;
 	bool gShowWarnings;
 	bool dump_all_profiles;
+	unsigned gSystemTickCount;
 	float gTime;
 	float gSettingsSaveTime;
-	DWORD ticks_at_launch;
+	// 64-bit so elapsed-time arithmetic does not wrap after ~49.7 days:
+	ULONGLONG ticks_at_launch;
 	std::wstring additionalForegroundWindowTitle;
+	static const std::wstring gDefaultNamespace;
 
 	wchar_t SHADER_PATH[MAX_PATH];
 	wchar_t SHADER_CACHE_PATH[MAX_PATH];
@@ -701,7 +704,7 @@ struct Globals
 
 		constants_run(false),
 		frame_no(0),
-		hWnd(NULL),
+		hWnd(nullptr),
 		hide_cursor(false),
 		cursor_upscaling_bypass(true),
 		check_foreground_window(false),
@@ -752,6 +755,7 @@ struct Globals
 		gFallbackScreenWidth(0),
 		gFallbackScreenHeight(0),
 		dump_all_profiles(false),
+		gSystemTickCount(0),
 		gTime(0)
 	{
 		int i;
@@ -770,7 +774,7 @@ struct Globals
 		for (i = 0; i < 11; i++)
 			FILTER_REFRESH[i] = 0;
 
-		ticks_at_launch = GetTickCount();
+		ticks_at_launch = GetTickCount64();
 	}
 };
 

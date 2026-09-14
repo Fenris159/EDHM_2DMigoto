@@ -1,6 +1,7 @@
 #include "IniHandler.h"
 
 #include <algorithm>
+#include <cmath>
 #include <iterator>
 #include <string>
 #include <strsafe.h>
@@ -22,6 +23,7 @@
 
 #include "vector"
 #include <locale>
+#include <cmath>
 
 #define INI_FILENAME L"d3dx.ini"
 
@@ -252,6 +254,12 @@ struct IniSection {
 	// sections where the namespacing can be per-line:
 	wstring ini_namespace;
 	wstring ini_path;
+
+	IniSection() = default;
+	IniSection(const IniSection&) = default;
+	IniSection& operator=(const IniSection&) = default;
+	IniSection(IniSection&&) noexcept = default;
+	IniSection& operator=(IniSection&&) noexcept = default;
 };
 
 // std::map is used so this is sorted for iterating over a prefix:
@@ -458,7 +466,7 @@ static void ParseIniSectionLine(wstring *wline, wstring *section,
 	if (!inserted && !allow_duplicate_sections) {
 		IniWarningW(L"Duplicate section found\n - [%ls]\n", section->c_str());
 		section->clear();
-		*section_vector = NULL;
+		*section_vector = nullptr;
 		return;
 	}
 
@@ -497,12 +505,12 @@ bool check_include_condition(wstring *val, const wstring *ini_namespace)
 	// Expressions are case insensitive:
 	std::transform(sbuf.begin(), sbuf.end(), sbuf.begin(), ::towlower);
 
-	if (!condition.parse(&sbuf, ini_namespace, NULL)) {
+	if (!condition.parse(&sbuf, ini_namespace, nullptr)) {
 		IniWarningW(L"Unable to parse include condition: %ls\n - [%ls]\n", val->c_str(), ini_namespace->c_str());
 		return false;
 	}
 
-	if (!condition.static_evaluate(&ret, NULL)) {
+	if (!condition.static_evaluate(&ret, nullptr)) {
 		IniWarningW(L"Include condition could not be statically evaluated: %ls\n - [%ls]\n", val->c_str(), ini_namespace->c_str());
 		return false;
 	}
@@ -553,7 +561,7 @@ static void ParseIniKeyValLine(wstring *wline, wstring *section,
 	wstring key, val;
 	bool inserted;
 
-	if (section->empty() || section_vector == NULL) {
+	if (section->empty() || section_vector == nullptr) {
 		IniWarningW(L"Entry outside of section: %ls\n - [%ls]\n", wline->c_str(), ini_namespace->c_str());
 		return;
 	}
@@ -608,13 +616,13 @@ static void ParseIniStream(wistream *stream, const wstring *_ini_namespace)
 	string aline;
 	wstring wline, section, ini_path;
 	size_t first, last;
-	IniSectionVector *section_vector = NULL;
+	IniSectionVector *section_vector = nullptr;
 	int warn_duplicates = 1;
 	bool warn_lines_without_equals = true;
 	wstring ini_namespace;
 	bool preamble = true;
 
-	// Simplify code further on by translating NULL to "" here:
+	// Simplify code further on by translating nullptr to "" here:
 	if (_ini_namespace)
 		ini_namespace = *_ini_namespace;
 	else
@@ -670,7 +678,7 @@ static void ParseIniExcerpt(const wchar_t *excerpt)
 {
 	std::wistringstream stream(excerpt);
 
-	ParseIniStream(&stream, NULL);
+	ParseIniStream(&stream, nullptr);
 }
 
 // Parse the ini file into data structures. We used to use the
@@ -700,7 +708,10 @@ static void ParseNamespacedIniFile(const wchar_t *ini, const wstring *ini_namesp
 		LogOverlay(LOG_WARNING, "  Error opening %S (Win32 error %lu)\n", ini, error);
 		return;
 	}
-	f.imbue(std::locale(f.getloc(), new std::codecvt_utf8<wchar_t, 0x10ffff, std::consume_header>));
+	std::unique_ptr<std::codecvt_utf8<wchar_t, 0x10ffff, std::consume_header>> utf8_facet(
+		new std::codecvt_utf8<wchar_t, 0x10ffff, std::consume_header>());
+	f.imbue(std::locale(f.getloc(), utf8_facet.get()));
+	utf8_facet.release();
 	ParseIniStream(&f, ini_namespace);
 }
 
@@ -708,7 +719,7 @@ static void ParseIniFile(const wchar_t *ini)
 {
 	ini_sections.clear();
 
-	return ParseNamespacedIniFile(ini, NULL);
+	return ParseNamespacedIniFile(ini, nullptr);
 }
 
 static void InsertBuiltInIniSections()
@@ -747,12 +758,12 @@ static string to_utf8(const wstring& wstr)
 		return string();
 
 	int wchar_count = static_cast<int>(wstr.length());
-	int len = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), wchar_count, NULL, 0, NULL, NULL);
+	int len = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), wchar_count, nullptr, 0, nullptr, nullptr);
 	if (!len)
 		return string();
 
 	string utf8_str(len, 0);
-	if (!WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), wchar_count, &utf8_str[0], len, NULL, NULL))
+	if (!WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), wchar_count, &utf8_str[0], len, nullptr, nullptr))
 		return string();
 
 	return utf8_str;
@@ -760,21 +771,21 @@ static string to_utf8(const wstring& wstr)
 
 static pcre2_code* glob_to_regex(wstring &pattern)
 {
-	PCRE2_UCHAR *converted = NULL;
+	PCRE2_UCHAR *converted = nullptr;
 	PCRE2_SIZE blength = 0;
-	pcre2_code *regex = NULL;
+	pcre2_code *regex = nullptr;
 	string apattern = to_utf8(pattern);
 	PCRE2_SIZE err_off;
 	int err;
 
 	if (pcre2_pattern_convert((PCRE2_SPTR)apattern.c_str(),
 				apattern.length(), PCRE2_CONVERT_GLOB,
-				&converted, &blength, NULL)) {
+				&converted, &blength, nullptr)) {
 		LogInfo("Bad pattern: exclude_recursive=%S\n", pattern.c_str());
-		return NULL;
+		return nullptr;
 	}
 
-	regex = pcre2_compile(converted, blength, PCRE2_CASELESS, &err, &err_off, NULL);
+	regex = pcre2_compile(converted, blength, PCRE2_CASELESS, &err, &err_off, nullptr);
 	if (!regex)
 		LogInfo("WARNING: exclude_recursive PCRE2 regex compilation failed");
 
@@ -814,8 +825,8 @@ static bool matches_globbing_vector(wchar_t *filename, vector<pcre2_code*> &patt
 	afilename = to_utf8(filename); // Replaced deprecated wstring_convert with custom optimized function
 
 	for (pcre2_code *regex : patterns) {
-		md = pcre2_match_data_create_from_pattern(regex, NULL);
-		rc = pcre2_match(regex, (PCRE2_SPTR)afilename.c_str(), PCRE2_ZERO_TERMINATED, 0, 0, md, NULL);
+		md = pcre2_match_data_create_from_pattern(regex, nullptr);
+		rc = pcre2_match(regex, (PCRE2_SPTR)afilename.c_str(), PCRE2_ZERO_TERMINATED, 0, 0, md, nullptr);
 		pcre2_match_data_free(md);
 		if (rc > 0)
 			return true;
@@ -906,6 +917,21 @@ void GetIniSection(IniSectionVector **key_vals, const wchar_t *section)
 	return _GetIniSection(&ini_sections, key_vals, section);
 }
 
+const std::wstring& GetIniSectionNamespace(const wchar_t* section)
+{
+	auto it = ini_sections.find(section);
+
+	if (it != ini_sections.end() && !it->second.ini_namespace.empty())
+		return it->second.ini_namespace;
+
+	return G->gDefaultNamespace;
+}
+
+const std::wstring& GetIniNamespace(const wchar_t* section, const wstring* override)
+{
+	return override ? *override : GetIniSectionNamespace(section);
+}
+
 // This emulates the behaviour of the old GetPrivateProfileString API to
 // facilitate switching to our own ini parser. Later we might consider changing
 // the return values (e.g. return found/not found instead of string length),
@@ -915,7 +941,7 @@ void GetIniSection(IniSectionVector **key_vals, const wchar_t *section)
 int GetIniString(const wchar_t *section, const wchar_t *key, const wchar_t *def,
 	wchar_t *ret, unsigned size)
 {
-	int rc;
+	int rc = 0;
 	bool found = false;
 
 	auto ini_section = ini_sections.find(section);
@@ -1007,7 +1033,7 @@ bool GetIniString(const wchar_t *section, const wchar_t *key, const wchar_t *def
 static std::vector<std::wstring> GetIniStringMultipleKeys(const wchar_t *section, const wchar_t *key)
 {
 	std::vector<std::wstring> ret;
-	IniSectionVector *sv = NULL;
+	IniSectionVector *sv = nullptr;
 	IniSectionVector::iterator entry;
 
 	GetIniSection(&sv, section);
@@ -1031,6 +1057,7 @@ int GetIniStringAndLog(const wchar_t *section, const wchar_t *key,
 
 	return rc;
 }
+
 static bool GetIniStringAndLog(const wchar_t *section, const wchar_t *key,
 		const wchar_t *def, std::string *ret)
 {
@@ -1042,144 +1069,286 @@ static bool GetIniStringAndLog(const wchar_t *section, const wchar_t *key,
 	return rc;
 }
 
-static float GetIniConstant(const wchar_t* section, const wchar_t* val, bool* found)
+const wstring* GetIniWstring(const wchar_t* section, const wchar_t* key)
 {
-	if (!val || val[0] != L'$') {
-		if (found)
-			*found = false;
-		return 0;
-	}
+	auto section_it = ini_sections.find(section);
+	if (section_it == ini_sections.end())
+		return nullptr;
 
-	wstring var_name(val);
-	wstring ini_namespace = ini_sections[section].ini_namespace;
+	auto value_it = section_it->second.kv_map.find(key);
+	if (value_it == section_it->second.kv_map.end())
+		return nullptr;
 
-	CommandListVariables::iterator var = command_list_globals.find(get_namespaced_var_name_lower(var_name, &ini_namespace));
-
-	if (var == command_list_globals.end()) {
-		IniWarningW(L"Constant variable %ls is not defined!\n - [%ls] @ [%ls]\n", val, section, ini_namespace.c_str());
-		if (found)
-			*found = false;
-		return 0;
-	}
-
-	if (found)
-		*found = true;
-
-	return var->second.fval;
+	return &value_it->second;
 }
 
-float GetIniFloat(const wchar_t *section, const wchar_t *key, float def, bool *found)
+inline std::wstring NormalizeString(const std::wstring& value)
 {
-	wchar_t val[32];
-	float ret = def;
-
-	if (found)
-		*found = false;
-
-	if (GetIniString(section, key, 0, val, 32)) {
-		bool constant_found = false;
-
-		ret = GetIniConstant(section, val, &constant_found);
-
-		if (constant_found) {
-			if (found)
-				*found = true;
-			LogInfo("  %S=%f\n", key, ret);
-			return ret;
-		}
-
-		int len;
-		if (swscanf_s(val, L"%f%n", &ret, &len) != 1 || len != wcslen(val)) {
-			wstring ini_namespace = ini_sections[section].ini_namespace;
-			if (ini_namespace.empty()) {
-				ini_namespace = L"d3dx.ini";
-			}
-			IniWarningW(L"Floating point parse error: %ls=%ls\n - [%ls] @ [%ls]\n", key, val, section, ini_namespace.c_str());
-			ret = def;
-		} else {
-			if (found)
-				*found = true;
-			LogInfo("  %S=%f\n", key, ret);
-		}
-	}
-
-	return ret;
+	std::wstring normalized = value;
+	std::transform(normalized.begin(), normalized.end(), normalized.begin(), towlower);
+	return normalized;
 }
 
-int GetIniInt(const wchar_t *section, const wchar_t *key, int def, bool *found, bool warn)
+bool ParseBinaryLiterals(const wstring& input, size_t start, uint64_t& out, size_t& length)
 {
-	wchar_t val[32];
-	int ret = def;
+	uint64_t value = 0;
+	length = 0;
 
-	if (found)
-		*found = false;
+	for (; start < input.size(); ++start, ++length)
+	{
+		const wchar_t c = input[start];
 
-	// Not using GetPrivateProfileInt as it doesn't tell us if the key existed
-	if (GetIniString(section, key, 0, val, 32)) {
-		bool constant_found = false;
+		if (c != L'0' && c != L'1')
+			break;
 
-		ret = (int)GetIniConstant(section, val, &constant_found);
-
-		if (constant_found) {
-			if (found)
-				*found = true;
-			LogInfo("  %S=%d\n", key, ret);
-			return ret;
-		}
-
-		int len;
-		if (swscanf_s(val, L"%d%n", &ret, &len) != 1 || len != wcslen(val)) {
-			if (warn) {
-				wstring ini_namespace = ini_sections[section].ini_namespace;
-				if (ini_namespace.empty()) {
-					ini_namespace = L"d3dx.ini";
-				}
-				IniWarningW(L"Integer parse error: %ls=%ls\n - [%ls] @ [%ls]\n", key, val, section, ini_namespace.c_str());
-			}
-			ret = def;
-		} else {
-			if (found)
-				*found = true;
-			LogInfo("  %S=%d\n", key, ret);
-		}
-	}
-
-	return ret;
-}
-
-bool GetIniBool(const wchar_t *section, const wchar_t *key, bool def, bool *found, bool warn)
-{
-	wchar_t val[32];
-	bool ret = def;
-
-	if (found)
-		*found = false;
-
-	if (GetIniString(section, key, 0, val, 32)) {
-		if (!_wcsicmp(val, L"1") || !_wcsicmp(val, L"true") || !_wcsicmp(val, L"yes") || !_wcsicmp(val, L"on")) {
-			LogInfo("  %S=1\n", key);
-			if (found)
-				*found = true;
-			return true;
-		}
-		if (!_wcsicmp(val, L"0") || !_wcsicmp(val, L"false") || !_wcsicmp(val, L"no") || !_wcsicmp(val, L"off")) {
-			LogInfo("  %S=0\n", key);
-			if (found)
-				*found = true;
+		// uint64_t can hold at most 64 binary digits.
+		if (length >= 64)
 			return false;
-		}
 
-		if (warn) {
-			wstring ini_namespace = ini_sections[section].ini_namespace;
-			if (ini_namespace.empty()) {
-				ini_namespace = L"d3dx.ini";
-			}
-			IniWarningW(L"Boolean parse error: %ls=%ls\n - [%ls] @ [%ls]\n", key, val, section, ini_namespace.c_str());
-			ret = def;
-		}
+		value <<= 1;
+
+		if (c == L'1')
+			value |= 1;
 	}
 
-	return ret;
+	if (length == 0)
+		return false;
+
+	out = value;
+	return true;
+}
+
+template<typename T, typename Converter>
+bool ParseIniExpression(
+	const wstring* ini_namespace_override,
+	const wchar_t* section,
+	const wchar_t* key,
+	const wstring& value,
+	T& out,
+	bool warn,
+	Converter&& convert,
+	bool normalize = true)
+{
+	const wstring& ini_namespace = GetIniNamespace(section, ini_namespace_override);
+
+	// Expression parsing is case-insensitive.
+	const wstring& expression_text = normalize ? NormalizeString(value) : value;
+
+	CommandListExpression expression;
+
+	if (!expression.parse(&expression_text, &ini_namespace, nullptr))
+	{
+		if (warn)
+		{
+			IniWarningW(
+				L"Unable to parse %ls expression for \"%ls\": \"%ls\"\n"
+				L" - [%ls] @ [%ls]\n",
+				IniValueTypeName<T>::value, key, value.c_str(),
+				section, ini_namespace.c_str());
+		}
+		return false;
+	}
+
+	float expression_value;
+
+	if (!expression.static_evaluate(&expression_value, nullptr, true))
+	{
+		if (warn)
+		{
+			IniWarningW(
+				L"%ls expression for \"%ls\" cannot be statically evaluated: \"%ls\"\n"
+				L" - [%ls] @ [%ls]\n",
+				IniValueTypeName<T>::value, key, value.c_str(),
+				section, ini_namespace.c_str());
+		}
+		return false;
+	}
+
+	if (!convert(expression_value, out))
+	{
+		if (warn)
+		{
+			IniWarningW(
+				L"Expression result \"%f\" for \"%ls\" %ls conversion is invalid: \"%ls\"\n"
+				L" - [%ls] @ [%ls]\n",
+				expression_value, key, IniValueTypeName<T>::value, value.c_str(),
+				section, ini_namespace.c_str());
+		}
+		return false;
+	}
+
+	return true;
+}
+
+inline void SetFound(bool* found, bool value) noexcept
+{
+	if (found)
+		*found = value;
+}
+
+template<typename T, typename Parser, typename Logger>
+T GetIniValue(
+	const wchar_t* section,
+	const wchar_t* key,
+	T def,
+	bool* found,
+	bool warn,
+	Parser&& parser,
+	Logger&& logger)
+{
+	SetFound(found, false);
+
+	const wstring* val = GetIniWstring(section, key);
+	if (!val)
+		return def;
+
+	if (val->empty())
+	{
+		if (warn)
+		{
+			IniWarningW(
+				L"Unable to parse %ls value for \"%ls\" from empty string\n"
+				L" - [%ls] @ [%ls]\n",
+				IniValueTypeName<T>::value, key,
+				section, GetIniSectionNamespace(section).c_str());
+		}
+		return def;
+	}
+
+	T result{};
+	if (!parser(section, key, *val, result, warn, nullptr))
+		return def;
+
+	SetFound(found, true);
+
+	logger(key, result);
+
+	return result;
+}
+
+inline bool ConvertExpressionToFloat(float expr, float& out) noexcept
+{
+	// Preserve the evaluated IEEE-754 value, including NaN and ▒infinity.
+	out = expr;
+	return true;
+}
+
+bool ParseFloatValue(const wchar_t* section, const wchar_t* key, const wstring& val, float& out, bool warn = true, const wstring* ini_namespace_override = nullptr)
+{
+	wchar_t* end = nullptr;
+	errno = 0;
+	out = std::wcstof(val.c_str(), &end); // TODO: C++17: use std::from_chars.
+	
+	if (*end == L'\0')
+	{
+		if (errno == ERANGE && std::isinf(out))
+		{
+			// Overflow only: keep signed infinity. Underflow (e.g. 1e-50)
+			// stays a finite near-zero result from wcstof.
+			out = std::signbit(out) ? -std::numeric_limits<float>::infinity() : std::numeric_limits<float>::infinity();
+		}
+		return true;
+	}
+
+	return ParseIniExpression(ini_namespace_override, section, key, val, out, warn, ConvertExpressionToFloat);
+}
+
+inline void LogIniFloat(const wchar_t* key, float value)
+{
+	LogInfoW(L"  %ls=%f\n", key, value);
+}
+
+float GetIniFloat(const wchar_t* section, const wchar_t* key, float def, bool* found)
+{
+	return GetIniValue(section, key, def, found, true, ParseFloatValue, LogIniFloat);
+}
+
+inline bool ConvertExpressionToInt(float expr, int& out) noexcept
+{
+	// Saturate infinities and out-of-range values. Map NaN to zero.
+	if (std::isnan(expr))
+		out = 0;
+	else if (expr <= static_cast<float>(INT_MIN))
+		out = INT_MIN;
+	else if (expr >= static_cast<float>(INT_MAX))
+		out = INT_MAX;
+	else
+		out = static_cast<int>(expr);
+
+	return true;
+}
+
+bool ParseIntValue(const wchar_t* section, const wchar_t* key, const wstring& val, int& out, bool warn = false, const wstring* ini_namespace_override = nullptr)
+{
+	wchar_t* end = nullptr;
+	errno = 0;
+	long long n = std::wcstoll(val.c_str(), &end, 10); // TODO: C++17: use std::from_chars
+	
+	if (*end == L'\0') {
+		if (errno == ERANGE)
+		{
+			// Saturate integer literal overflow.
+			out = (n < 0) ? INT_MIN : INT_MAX;
+		}
+		else
+		{
+			if (n < INT_MIN)
+				out = INT_MIN;
+			else if (n > INT_MAX)
+				out = INT_MAX;
+			else
+				out = static_cast<int>(n);
+		}
+		return true;
+	}
+
+	return ParseIniExpression(ini_namespace_override, section, key, val, out, warn, ConvertExpressionToInt);
+}
+
+inline void LogIniInt(const wchar_t* key, int value)
+{
+	LogInfoW(L"  %ls=%d\n", key, value);
+}
+
+int GetIniInt(const wchar_t* section, const wchar_t* key, int def, bool* found, bool warn)
+{
+	return GetIniValue<int>(section, key, def, found, warn, ParseIntValue, LogIniInt);
+}
+
+inline bool ConvertExpressionToBool(float expr, bool& out) noexcept
+{
+	// NaN is false; all other non-zero values (including ▒infinity) are true.
+	out = !std::isnan(expr) && expr != 0.0f;
+	return true;
+}
+
+bool ParseBoolValue(const wchar_t* section, const wchar_t* key, const wstring& val, bool& out, bool warn = false, const wstring* ini_namespace_override = nullptr)
+{
+	wstring normalized = NormalizeString(val);
+
+	if (normalized == L"1" || normalized == L"true" || normalized == L"yes" || normalized == L"on")
+	{
+		out = true;
+		return true;
+	}
+
+	if (normalized == L"0" || normalized == L"false" || normalized == L"no" || normalized == L"off")
+	{
+		out = false;
+		return true;
+	}
+
+	return ParseIniExpression(ini_namespace_override, section, key, normalized, out, warn, ConvertExpressionToBool, false);
+}
+
+inline void LogIniBool(const wchar_t* key, bool value)
+{
+	LogInfoW(L"  %ls=%d\n", key, value ? 1 : 0);
+}
+
+bool GetIniBool(const wchar_t* section, const wchar_t* key, bool def, bool* found, bool warn)
+{
+	return GetIniValue<bool>(section, key, def, found, warn, ParseBoolValue, LogIniBool);
 }
 
 static UINT64 GetIniHash(const wchar_t *section, const wchar_t *key, UINT64 def, bool *found)
@@ -1191,7 +1360,7 @@ static UINT64 GetIniHash(const wchar_t *section, const wchar_t *key, UINT64 def,
 	if (found)
 		*found = false;
 
-	if (GetIniString(section, key, NULL, &val)) {
+	if (GetIniString(section, key, nullptr, &val)) {
 		if (sscanf_s(val.c_str(), "%16llx%n", &ret, &len) != 1 || len != val.length()) {
 			wstring ini_namespace = ini_sections[section].ini_namespace;
 			IniWarningW(L"Hash parse error: %ls=%S\n - [%ls] @ [%ls]\n", key, val.c_str(), section, ini_namespace.c_str());
@@ -1215,7 +1384,7 @@ static int GetIniHexString(const wchar_t *section, const wchar_t *key, int def, 
 	if (found)
 		*found = false;
 
-	if (GetIniString(section, key, NULL, &val)) {
+	if (GetIniString(section, key, nullptr, &val)) {
 		if (sscanf_s(val.c_str(), "%x%n", &ret, &len) != 1 || len != val.length()) {
 			wstring ini_namespace = ini_sections[section].ini_namespace;
 			IniWarningW(L"Hex string parse error: %ls=%S\n - [%ls] @ [%ls]\n", key, val.c_str(), section, ini_namespace.c_str());
@@ -1372,14 +1541,15 @@ static int GetIniBoolIntOrEnum(const wchar_t *section, const wchar_t *key, int d
 	int ret;
 	bool tmp_found;
 
-	ret = GetIniBoolOrInt(section, key, def, &tmp_found);
+	ret = GetIniEnum(section, key, def, &tmp_found, prefix, names, names_len, first);
+
 	if (tmp_found && ret >= 0 && ret < names_len) {
 		if (found)
 			*found = tmp_found;
 		return ret;
 	}
 
-	return GetIniEnum(section, key, def, found, prefix, names, names_len, first);
+	return GetIniBoolOrInt(section, key, def, found);
 }
 
 static void GetUserConfigPath(const wchar_t *migoto_path)
@@ -1402,7 +1572,7 @@ static void ParseIncludedIniFiles()
 	IniSections include_sections;
 	IniSections::iterator lower, upper, i;
 	const wchar_t *section_id;
-	IniSectionVector *section = NULL;
+	IniSectionVector *section = nullptr;
 	IniSectionVector::iterator entry;
 	wstring *key, *val;
 	std::unordered_set<wstring> seen;
@@ -1509,10 +1679,10 @@ static void RegisterPresetKeyBindings()
 			continue;
 		}
 
-		type = GetIniEnumClass(id, L"type", KeyOverrideType::ACTIVATE, NULL, KeyOverrideTypeNames);
+		type = GetIniEnumClass(id, L"type", KeyOverrideType::ACTIVATE, nullptr, KeyOverrideTypeNames);
 
-		delay = GetIniInt(id, L"delay", 0, NULL);
-		release_delay = GetIniInt(id, L"release_delay", 0, NULL);
+		delay = GetIniInt(id, L"delay", 0, nullptr);
+		release_delay = GetIniInt(id, L"release_delay", 0, nullptr);
 
 		if (type == KeyOverrideType::CYCLE) {
 			shared_ptr<KeyOverrideCycle> cycle_preset = make_shared<KeyOverrideCycle>();
@@ -1566,7 +1736,7 @@ static void ParsePresetOverrideSections()
 
 		// Read parameters from ini
 		preset->ParseIniSection(id);
-		preset->unique_triggers_required = GetIniInt(id, L"unique_triggers_required", 0, NULL);
+		preset->unique_triggers_required = GetIniInt(id, L"unique_triggers_required", 0, nullptr);
 	}
 }
 
@@ -1758,7 +1928,7 @@ static void ParseResourceInitialData(CustomResource *custom_resource, const wcha
 	int format_type = 0;
 	DXGI_FORMAT format;
 
-	if (!GetIniStringAndLog(section, L"data", NULL, &setting))
+	if (!GetIniStringAndLog(section, L"data", nullptr, &setting))
 		return;
 
 	std::istringstream tokens(setting);
@@ -1915,7 +2085,7 @@ static CustomResource* ParseResourceSection(const wchar_t* section_name, const w
 	custom_resource->name = resource_id;
 	custom_resource->pool_index = -2;
 
-	custom_resource->max_copies_per_frame = GetIniInt(section_name, L"max_copies_per_frame", 0, NULL);
+	custom_resource->max_copies_per_frame = GetIniInt(section_name, L"max_copies_per_frame", 0, nullptr);
 
 	if (GetIniStringAndLog(section_name, L"filename", 0, setting, MAX_PATH)) {
 		// If this section was not in the main d3dx.ini, look
@@ -1941,7 +2111,7 @@ static CustomResource* ParseResourceSection(const wchar_t* section_name, const w
 		custom_resource->filename = path;
 	}
 
-	custom_resource->override_type = GetIniEnumClass(section_name, L"type", CustomResourceType::INVALID, NULL, CustomResourceTypeNames);
+	custom_resource->override_type = GetIniEnumClass(section_name, L"type", CustomResourceType::INVALID, nullptr, CustomResourceTypeNames);
 
 	if (GetIniString(section_name, L"format", 0, setting, MAX_PATH)) {
 		custom_resource->override_format = ParseFormatString(setting, true);
@@ -1952,27 +2122,27 @@ static CustomResource* ParseResourceSection(const wchar_t* section_name, const w
 		}
 	}
 
-	custom_resource->override_width = GetIniInt(section_name, L"width", -1, NULL);
-	custom_resource->override_height = GetIniInt(section_name, L"height", -1, NULL);
-	custom_resource->override_depth = GetIniInt(section_name, L"depth", -1, NULL);
-	custom_resource->override_mips = GetIniInt(section_name, L"mips", -1, NULL);
-	custom_resource->override_array = GetIniInt(section_name, L"array", -1, NULL);
-	custom_resource->override_msaa = GetIniInt(section_name, L"msaa", -1, NULL);
-	custom_resource->override_msaa_quality = GetIniInt(section_name, L"msaa_quality", -1, NULL);
-	custom_resource->override_byte_width = GetIniInt(section_name, L"byte_width", -1, NULL);
-	custom_resource->override_stride = GetIniInt(section_name, L"stride", -1, NULL);
+	custom_resource->override_width = GetIniInt(section_name, L"width", -1, nullptr);
+	custom_resource->override_height = GetIniInt(section_name, L"height", -1, nullptr);
+	custom_resource->override_depth = GetIniInt(section_name, L"depth", -1, nullptr);
+	custom_resource->override_mips = GetIniInt(section_name, L"mips", -1, nullptr);
+	custom_resource->override_array = GetIniInt(section_name, L"array", -1, nullptr);
+	custom_resource->override_msaa = GetIniInt(section_name, L"msaa", -1, nullptr);
+	custom_resource->override_msaa_quality = GetIniInt(section_name, L"msaa_quality", -1, nullptr);
+	custom_resource->override_byte_width = GetIniInt(section_name, L"byte_width", -1, nullptr);
+	custom_resource->override_stride = GetIniInt(section_name, L"stride", -1, nullptr);
 
-	custom_resource->width_multiply = GetIniFloat(section_name, L"width_multiply", 1.0f, NULL);
-	custom_resource->height_multiply = GetIniFloat(section_name, L"height_multiply", 1.0f, NULL);
+	custom_resource->width_multiply = GetIniFloat(section_name, L"width_multiply", 1.0f, nullptr);
+	custom_resource->height_multiply = GetIniFloat(section_name, L"height_multiply", 1.0f, nullptr);
 
 	if (GetIniStringAndLog(section_name, L"bind_flags", 0, setting, MAX_PATH)) {
 		custom_resource->override_bind_flags = parse_enum_option_string<const wchar_t*, CustomResourceBindFlags, wchar_t*>
-			(CustomResourceBindFlagNames, setting, NULL);
+			(CustomResourceBindFlagNames, setting, nullptr);
 	}
 
 	if (GetIniStringAndLog(section_name, L"misc_flags", 0, setting, MAX_PATH)) {
 		custom_resource->override_misc_flags = parse_enum_option_string<const wchar_t*, ResourceMiscFlags, wchar_t*>
-			(ResourceMiscFlagNames, setting, NULL);
+			(ResourceMiscFlagNames, setting, nullptr);
 	}
 
 	ParseResourceInitialData(custom_resource, section_name);
@@ -1982,30 +2152,53 @@ static CustomResource* ParseResourceSection(const wchar_t* section_name, const w
 
 static CustomResourcePool* ParseResourcePoolSection(const wchar_t* section_name)
 {
-	int pool_size = GetIniInt(section_name, L"pool_size", 0, NULL);
+	int pool_size = GetIniInt(section_name, L"pool_size", 1, nullptr);
 
-	if (pool_size <= 0) {
+	if (pool_size < 1)
 		return nullptr;
-	}
 
 	wstring pool_id = section_name;
 	std::transform(pool_id.begin(), pool_id.end(), pool_id.begin(), ::towlower);
 
 	CustomResourcePool* pool = &customResourcePools[pool_id];
-	
+
 	pool->name = pool_id;
 
-	pool->index_type = GetIniEnumClass(section_name, L"pool_index_type", PoolIndexType::RING, NULL, PoolIndexTypeNames);
-	pool->lazy_initialization = GetIniBool(section_name, L"pool_lazy_init", 1, NULL);
-	int keep_alive_frames = GetIniInt(section_name, L"pool_keep_alive_frames", -1, NULL);
-	if (keep_alive_frames >= 0)
-		pool->keep_alive_frames = (unsigned)keep_alive_frames;
-	pool->null_expired_resources = GetIniBool(section_name, L"pool_null_expired_resources", 1, NULL);
+	pool->index_type = GetIniEnumClass(section_name, L"pool_index_type", PoolIndexType::RING, nullptr, PoolIndexTypeNames);
+	pool->lazy_initialization = GetIniBool(section_name, L"pool_lazy_initialization", true, nullptr);
+	pool->element_type_switch_reset = GetIniBool(section_name, L"pool_element_type_switch_reset", true, nullptr);
+	pool->allocate_slot_on_missing = GetIniBool(section_name, L"pool_allocate_slot_on_missing", false, nullptr);
+
+	int expiration_timeout_frames = GetIniInt(section_name, L"pool_expiration_timeout_frames", -1, nullptr);
+	if (expiration_timeout_frames >= 0)
+		pool->expiration_timeout_frames = (unsigned)expiration_timeout_frames;
+	pool->reset_expired_elements = GetIniBool(section_name, L"pool_expiration_reset_elements", true, nullptr);
+	pool->read_refreshes_expiration = GetIniBool(section_name, L"pool_expiration_refresh_on_read", false, nullptr);
+
+	int spatial_radius = GetIniInt(section_name, L"pool_spatial_radius", 1, nullptr);
+	if (spatial_radius < 1) {
+		IniWarningW(L"Specified spatial radius \"%d\" is below minimum \"1\".\n - [%ls]\n", spatial_radius, pool->name.c_str());
+		spatial_radius = 1;
+	}
+	pool->spatial_radius = spatial_radius;
 
 	pool->resource_template = ParseResourceSection(section_name, L"template");
 
 	pool->resource_template->pool = pool;
 	pool->resource_template->pool_index = -1;
+
+	bool persist_variables = GetIniBool(section_name, L"pool_persist_variables", false, NULL);
+	if (persist_variables && pool->index_type != PoolIndexType::RING) {
+		persist_variables = false;
+		IniWarningW(L"Pool variables persistence is not supported for \"%ls\" index type (\"ring\" index only feature).\n - [%ls]\n",
+			lookup_enum_name(PoolIndexTypeNames, pool->index_type), pool->name.c_str());
+	}
+
+	pool->variable_template = std::make_unique<CommandListVariable> (
+		pool_id + L"_template",
+		GetIniFloat(section_name, L"pool_variable_default_value", 0, NULL),
+		persist_variables ? VariableFlags::PERSIST : VariableFlags::NONE
+	);
 
 	pool->Initialize(pool_size);
 
@@ -2057,7 +2250,7 @@ static bool ParseCommandListLine(const wchar_t *ini_section,
 	if (ParseCommandListVariableAssignment(ini_section, lhs, rhs, raw_line, command_list, pre_command_list, post_command_list, ini_namespace))
 		return true;
 
-	if (ParseCommandListResourceCopyDirective(ini_section, lhs, rhs, command_list, ini_namespace))
+	if (ParseCommandListResourceCopyTargetDirective(ini_section, lhs, rhs, command_list, ini_namespace))
 		return true;
 
 	if (raw_line && !explicit_command_list &&
@@ -2074,7 +2267,7 @@ static bool ParseCommandListLine(const wchar_t *ini_section,
 {
 	wstring srhs = wstring(rhs);
 
-	return ParseCommandListLine(ini_section, lhs, &srhs, raw_line, command_list, command_list, NULL, NULL, ini_namespace);
+	return ParseCommandListLine(ini_section, lhs, &srhs, raw_line, command_list, command_list, nullptr, nullptr, ini_namespace);
 }
 
 // This tries to parse each line in a section in order as part of a command
@@ -2085,7 +2278,7 @@ static void ParseCommandList(const wchar_t *id,
 		CommandList *pre_command_list, CommandList *post_command_list,
 		wchar_t *whitelist[], bool register_command_lists=true)
 {
-	IniSectionVector *section = NULL;
+	IniSectionVector *section = nullptr;
 	IniSectionVector::iterator entry;
 	wstring *key, *val, *raw_line;
 	const wchar_t *key_ptr;
@@ -2151,7 +2344,7 @@ static void ParseCommandList(const wchar_t *id,
 		}
 
 		command_list = pre_command_list;
-		explicit_command_list = NULL;
+		explicit_command_list = nullptr;
 		key_ptr = key->c_str();
 		if (post_command_list) {
 			if (!key->compare(0, 5, L"post ")) {
@@ -2208,22 +2401,37 @@ static void ParseCommandList(const wchar_t *id,
 		IniWarningW(L"Scope unbalanced\n - [%ls]\n", id);
 	}
 
-	pre_command_list->scope = NULL;
+	pre_command_list->scope = nullptr;
 	if (post_command_list)
-		post_command_list->scope = NULL;
+		post_command_list->scope = nullptr;
+}
+
+CommandListVariable* RegisterGlobalVariable(wstring& name, float* fval, VariableFlags flags)
+{
+	std::pair<CommandListVariables::iterator, bool> inserted = command_list_globals.emplace(name, CommandListVariable{ name, fval ? *fval : 0.0f, flags });
+	if (!inserted.second) {
+		return nullptr;
+	}
+
+	if (flags & VariableFlags::PERSIST)
+		persistent_variables.emplace_back(&inserted.first->second);
+
+	if (!fval)
+		LogInfo("  global %S\n", name.c_str());
+	else
+		LogInfo("  global %S=%f\n", name.c_str(), *fval);
+
+	return &inserted.first->second;
 }
 
 static void ParseConstantsSection()
 {
 	VariableFlags flags;
-	IniSectionVector *section = NULL;
+	IniSectionVector *section = nullptr;
 	IniSectionVector::iterator entry, next;
 	wstring *key, *val, name;
 	const wchar_t *name_pos;
 	const wstring *ini_namespace;
-	std::pair<CommandListVariables::iterator, bool> inserted;
-	float fval;
-	int len;
 
 	// The naming on this one is historical - [Constants] used to define
 	// iniParams that couldn't change, then later we allowed them to be
@@ -2274,37 +2482,26 @@ static void ParseConstantsSection()
 		name = name_pos;
 
 		if (!valid_variable_name(name)) {
-			IniWarningW(L"Illegal global variable name: \"%ls\"\n - [Constants] @ [%ls]\n", name.c_str(), entry->ini_namespace.c_str());
+			IniWarningW(L"Illegal global variable name: \"%ls\"\n - [Constants] @ [%ls]\n", name.c_str(), ini_namespace->c_str());
 			continue;
 		}
 
 		if (!ini_namespace->empty())
 			name = get_namespaced_var_name_lower(name, ini_namespace);
 
-		// Initialisation is optional and deferred until the command
-		// list is run
-		// If the initialiser is present and simple
-		fval = 0.0f;
-		if (!val->empty()) {
-			if (swscanf_s(val->c_str(), L"%f%n", &fval, &len) != 1 || len != val->length()) {
-				IniWarningW(L"Floating point parse error: %ls=%ls\n - [Constants] @ [%ls]\n", key->c_str(), val->c_str(), entry->ini_namespace.c_str());
+		// Initialisation is optional and deferred until the command list is run.
+		// If the initialiser is present and simple.
+		float fval = 0.0f;
+		if (!val->empty())
+		{
+			if (!ParseFloatValue(L"Constants", key->c_str(), *val, fval, true, ini_namespace))
 				continue;
-			}
 		}
 
-		inserted = command_list_globals.emplace(name, CommandListVariable{name, fval, flags});
-		if (!inserted.second) {
-			IniWarningW(L"Redeclaration of %ls\n - [Constants] @ [%ls]\n", name.c_str(), entry->ini_namespace.c_str());
+		if (!RegisterGlobalVariable(name, &fval, flags)) {
+			IniWarningW(L"Redeclaration of %ls\n - [Constants] @ [%ls]\n", name.c_str(), ini_namespace->c_str());
 			continue;
 		}
-
-		if (flags & VariableFlags::PERSIST)
-			persistent_variables.emplace_back(&inserted.first->second);
-
-		if (val->empty())
-			LogInfo("  global %S\n", name.c_str());
-		else
-			LogInfo("  global %S=%f\n", name.c_str(), fval);
 
 		// Remove this line from the ini section data structures so the
 		// command list won't consider it in the 2nd pass:
@@ -2318,7 +2515,7 @@ static wchar_t *true_false_overrule[] = {
 	L"overrule", // GetIniBoolIntOrEnum will also accept 2
 };
 
-static void check_shaderoverride_duplicates(bool duplicate, const wchar_t *id, ShaderOverride *override, UINT64 hash)
+static void check_shaderoverride_duplicates(bool duplicate, const wchar_t *id, ShaderOverride *shader_override, UINT64 hash)
 {
 	int allow_duplicates;
 
@@ -2328,10 +2525,10 @@ static void check_shaderoverride_duplicates(bool duplicate, const wchar_t *id, S
 	// warnings of duplicate settings between the sections, but at least we
 	// try not to clobber their values from earlier sections with the
 	// defaults.
-	allow_duplicates = GetIniBoolIntOrEnum(id, L"allow_duplicate_hash", 0, NULL,
-			NULL, true_false_overrule, ARRAYSIZE(true_false_overrule), 0);
+	allow_duplicates = GetIniBoolIntOrEnum(id, L"allow_duplicate_hash", 0, nullptr,
+			nullptr, true_false_overrule, ARRAYSIZE(true_false_overrule), 0);
 
-	if (allow_duplicates == 2 || override->allow_duplicate_hashes == 2) {
+	if (allow_duplicates == 2 || shader_override->allow_duplicate_hashes == 2) {
 		// Overrule - one section said it doesn't care if any other
 		// sections have the same hash. Mostly for use with third party
 		// mods where a mod author may not be able to change another
@@ -2352,7 +2549,7 @@ static void check_shaderoverride_duplicates(bool duplicate, const wchar_t *id, S
 		// together. The section names still have to be distinct, which
 		// offers protection against scripts adding multiple identical
 		// sections if run multiple times.
-		allow_duplicates = allow_duplicates && override->allow_duplicate_hashes;
+		allow_duplicates = allow_duplicates && shader_override->allow_duplicate_hashes;
 	}
 
 	if (duplicate && !allow_duplicates) {
@@ -2360,15 +2557,15 @@ static void check_shaderoverride_duplicates(bool duplicate, const wchar_t *id, S
 			   "[%ls]\n"
 			   "[%ls]\n"
 			   "If this is intentional, add allow_duplicate_hash=true or allow_duplicate_hash=overrule to suppress warning\n",
-			   hash, override->first_ini_section.c_str(), id);
+			   hash, shader_override->first_ini_section.c_str(), id);
 	}
 
-	override->allow_duplicate_hashes = allow_duplicates;
+	shader_override->allow_duplicate_hashes = allow_duplicates;
 }
 
-static void warn_deprecated_shaderoverride_options(const wchar_t *id, ShaderOverride *override)
+static void warn_deprecated_shaderoverride_options(const wchar_t *id, ShaderOverride *shader_override)
 {
-	if (override->depth_filter != DepthBufferFilter::NONE) {
+	if (shader_override->depth_filter != DepthBufferFilter::NONE) {
 	        LogOverlay(LOG_NOTICE, "NOTICE: [%S] used deprecated depth_filter option. Consider texture filtering for more flexibility:\n"
 	                               "\n"
 	                               "[%S]\n"
@@ -2403,14 +2600,14 @@ wchar_t *ShaderOverrideIniKeys[] = {
 	L"model",
 	L"disable_scissor",
 	L"filter_index",
-	NULL
+	nullptr
 };
 static void ParseShaderOverrideSections()
 {
 	IniSections::iterator lower, upper, i;
 	wchar_t setting[MAX_PATH];
 	const wchar_t *id;
-	ShaderOverride *override;
+	ShaderOverride *shader_override;
 	UINT64 hash;
 	bool duplicate, found;
 	bool disable_scissor;
@@ -2436,25 +2633,25 @@ static void ParseShaderOverrideSections()
 		}
 
 		duplicate = !!G->mShaderOverrideMap.count(hash);
-		override = &G->mShaderOverrideMap[hash];
+		shader_override = &G->mShaderOverrideMap[hash];
 		if (!duplicate)
-			override->first_ini_section = id;
+			shader_override->first_ini_section = id;
 
-		check_shaderoverride_duplicates(duplicate, id, override, hash);
+		check_shaderoverride_duplicates(duplicate, id, shader_override, hash);
 
-		override->depth_filter = GetIniEnumClass(id, L"depth_filter", DepthBufferFilter::NONE, NULL, DepthBufferFilterNames);
+		shader_override->depth_filter = GetIniEnumClass(id, L"depth_filter", DepthBufferFilter::NONE, nullptr, DepthBufferFilterNames);
 
 		// Superior partner shader filtering that also supports a bound/unbound case
-		override->filter_index = GetIniFloat(id, L"filter_index", FLT_MAX, NULL);
+		shader_override->filter_index = GetIniFloat(id, L"filter_index", FLT_MAX, nullptr);
 		// Backup version not affected by ShaderRegex:
-		override->backup_filter_index = override->filter_index;
+		shader_override->backup_filter_index = shader_override->filter_index;
 
 		if (GetIniStringAndLog(id, L"model", 0, setting, MAX_PATH)) {
-			wcstombs(override->model, setting, ARRAYSIZE(override->model));
-			override->model[ARRAYSIZE(override->model) - 1] = '\0';
+			wcstombs(shader_override->model, setting, ARRAYSIZE(shader_override->model));
+			shader_override->model[ARRAYSIZE(shader_override->model) - 1] = '\0';
 		}
 
-		ParseCommandList(id, &override->command_list, &override->post_command_list, ShaderOverrideIniKeys);
+		ParseCommandList(id, &shader_override->command_list, &shader_override->post_command_list, ShaderOverrideIniKeys);
 
 		// For backwards compatibility with Nier Automata fix,
 		// translate disable_scissor into an equivalent command list:
@@ -2464,12 +2661,12 @@ static void ParseShaderOverrideSections()
 			get_section_namespace(id, &ini_namespace);
 
 			if (disable_scissor)
-				ParseCommandListLine(id, L"run", L"builtincustomshaderdisablescissorclipping", NULL, &override->command_list, &ini_namespace);
+				ParseCommandListLine(id, L"run", L"builtincustomshaderdisablescissorclipping", nullptr, &shader_override->command_list, &ini_namespace);
 			else
-				ParseCommandListLine(id, L"run", L"builtincustomshaderenablescissorclipping", NULL, &override->command_list, &ini_namespace);
+				ParseCommandListLine(id, L"run", L"builtincustomshaderenablescissorclipping", nullptr, &shader_override->command_list, &ini_namespace);
 		}
 
-		warn_deprecated_shaderoverride_options(id, override);
+		warn_deprecated_shaderoverride_options(id, shader_override);
 	}
 	LeaveCriticalSection(&G->mCriticalSection);
 }
@@ -2506,7 +2703,7 @@ static std::set<T> vec_to_set(std::vector<T> &v)
 
 static uint32_t hash_ini_section(uint32_t hash, const wstring *sname)
 {
-	IniSectionVector *svec = NULL;
+	IniSectionVector *svec = nullptr;
 	IniSectionVector::iterator entry;
 
 	hash = crc32c_hw(hash, sname->c_str(), sname->size());
@@ -2527,25 +2724,25 @@ wchar_t *ShaderRegexIniKeys[] = {
 	L"filter_index",
 	// L"type" =asm/hlsl? I'd rather not encourage autofixes on HLSL
 	//         shaders, because there is too much potential for trouble
-	NULL
+	nullptr
 };
 static bool parse_shader_regex_section_main(const std::wstring *section_id, ShaderRegexGroup *regex_group)
 {
 	std::string setting;
 	std::vector<std::string> items;
 
-	if (!GetIniStringAndLog(section_id->c_str(), L"shader_model", NULL, &setting)) {
+	if (!GetIniStringAndLog(section_id->c_str(), L"shader_model", nullptr, &setting)) {
 		IniWarningW(L"RegEx section missing shader_model\n - [%ls]\n", section_id->c_str());
 		return false;
 	}
 	regex_group->shader_models = vec_to_set(split_string(&setting, ' '));
 
-	if (GetIniStringAndLog(section_id->c_str(), L"temps", NULL, &setting))
+	if (GetIniStringAndLog(section_id->c_str(), L"temps", nullptr, &setting))
 		regex_group->temp_regs = vec_to_set(split_string(&setting, ' '));
 
 	regex_group->ini_section = *section_id;
 
-	regex_group->filter_index = GetIniFloat(section_id->c_str(), L"filter_index", FLT_MAX, NULL);
+	regex_group->filter_index = GetIniFloat(section_id->c_str(), L"filter_index", FLT_MAX, nullptr);
 
 	ParseCommandList(section_id->c_str(), &regex_group->command_list, &regex_group->post_command_list, ShaderRegexIniKeys);
 	return true;
@@ -2553,7 +2750,7 @@ static bool parse_shader_regex_section_main(const std::wstring *section_id, Shad
 
 static bool parse_shader_regex_section_pattern(const std::wstring *section_id, const std::wstring *pattern_id, ShaderRegexGroup *regex_group)
 {
-	IniSectionVector *section = NULL;
+	IniSectionVector *section = nullptr;
 	IniSectionVector::iterator entry;
 	ShaderRegexPattern *regex_pattern;
 	std::wstring *wline;
@@ -2599,7 +2796,7 @@ static bool parse_shader_regex_section_pattern(const std::wstring *section_id, c
 
 static bool parse_shader_regex_section_declarations(const std::wstring *section_id, const std::wstring *pattern_id, ShaderRegexGroup *regex_group)
 {
-	IniSectionVector *section = NULL;
+	IniSectionVector *section = nullptr;
 	IniSectionVector::iterator entry;
 	std::wstring *wline;
 	std::string aline;
@@ -2621,7 +2818,7 @@ static bool parse_shader_regex_section_declarations(const std::wstring *section_
 
 static bool parse_shader_regex_section_replace(const std::wstring *section_id, const std::wstring *pattern_id, ShaderRegexGroup *regex_group)
 {
-	IniSectionVector *section = NULL;
+	IniSectionVector *section = nullptr;
 	IniSectionVector::iterator entry;
 	ShaderRegexPattern *regex_pattern;
 	std::wstring *wline;
@@ -2666,7 +2863,7 @@ static ShaderRegexGroup* get_regex_group(std::wstring *regex_id, bool allow_crea
 		return &shader_regex_groups.at(*regex_id);
 	} catch (std::out_of_range) {
 		IniWarningW(L"Missing section\n - [%ls]\n", regex_id->c_str());
-		return NULL;
+		return nullptr;
 	}
 }
 
@@ -2838,12 +3035,12 @@ wchar_t *TextureOverrideIniKeys[] = {
 	L"match_priority",
 	TEXTURE_OVERRIDE_FUZZY_MATCHES,
 	TEXTURE_OVERRIDE_DRAW_CALL_MATCHES,
-	NULL
+	nullptr
 };
 // List of keys for fuzzy matching that cannot be used together with hash:
 wchar_t *TextureOverrideFuzzyMatchesIniKeys[] = {
 	TEXTURE_OVERRIDE_FUZZY_MATCHES,
-	NULL
+	nullptr
 };
 
 static void parse_fuzzy_numeric_match_expression_error(const wchar_t *text)
@@ -2982,7 +3179,7 @@ static void parse_fuzzy_numeric_match_expression(const wchar_t *setting, FuzzyMa
 		return parse_fuzzy_numeric_match_expression_error(ptr);
 }
 
-static void parse_texture_override_common(const wchar_t *id, TextureOverride *override, bool register_command_lists)
+static void parse_texture_override_common(const wchar_t *id, TextureOverride *texture_override, bool register_command_lists)
 {
 	wchar_t setting[MAX_PATH];
 	bool found;
@@ -2990,45 +3187,80 @@ static void parse_texture_override_common(const wchar_t *id, TextureOverride *ov
 	// Priority can be used for both fuzzy resource description matching
 	// and draw context matching. It can also indicate that a duplicate
 	// hash is intentional, since it defines an order between the sections.
-	override->priority = GetIniInt(id, L"match_priority", 0, &found);
+	texture_override->priority = GetIniInt(id, L"match_priority", 0, &found);
 	if (found)
-		override->has_match_priority = true;
+		texture_override->has_match_priority = true;
 
-	override->format = GetIniInt(id, L"Format", -1, NULL);
-	override->width = GetIniInt(id, L"Width", -1, NULL);
-	override->height = GetIniInt(id, L"Height", -1, NULL);
-	override->width_multiply = GetIniFloat(id, L"width_multiply", 1.0f, NULL);
-	override->height_multiply = GetIniFloat(id, L"height_multiply", 1.0f, NULL);
+	texture_override->format = GetIniInt(id, L"Format", -1, nullptr);
+	texture_override->width = GetIniInt(id, L"Width", -1, nullptr);
+	texture_override->height = GetIniInt(id, L"Height", -1, nullptr);
+	texture_override->width_multiply = GetIniFloat(id, L"width_multiply", 1.0f, nullptr);
+	texture_override->height_multiply = GetIniFloat(id, L"height_multiply", 1.0f, nullptr);
+
+	// Validate configuration numerics at parse time so a mistyped, negative,
+	// NaN or infinite value warns once here instead of feeding undefined
+	// float->UINT conversions or wrapped multiplications at resource
+	// creation time:
+	if (!std::isfinite(texture_override->width_multiply) || texture_override->width_multiply <= 0.0f) {
+		IniWarningW(L"Ignoring invalid width_multiply=%f\n - [%ls]\n", texture_override->width_multiply, texture_override->ini_section.c_str());
+		texture_override->width_multiply = 1.0f;
+	}
+	if (!std::isfinite(texture_override->height_multiply) || texture_override->height_multiply <= 0.0f) {
+		IniWarningW(L"Ignoring invalid height_multiply=%f\n - [%ls]\n", texture_override->height_multiply, texture_override->ini_section.c_str());
+		texture_override->height_multiply = 1.0f;
+	}
+	if (texture_override->width != -1 && texture_override->width <= 0) {
+		IniWarningW(L"Ignoring invalid Width=%d\n - [%ls]\n", texture_override->width, texture_override->ini_section.c_str());
+		texture_override->width = -1;
+	}
+	if (texture_override->height != -1 && texture_override->height <= 0) {
+		IniWarningW(L"Ignoring invalid Height=%d\n - [%ls]\n", texture_override->height, texture_override->ini_section.c_str());
+		texture_override->height = -1;
+	}
 
 	if (G->allow_buffer_resize) 
 	{
+		// Practical ceiling for the buffer resize feature. Well above any
+		// real vertex buffer, well below anything that could wrap 32-bit
+		// arithmetic or destabilize the game with a single allocation:
+		const INT64 max_override_byte_width = 1LL << 30; // 1 GiB
+
 		// Handle buffer resize aka vertex limit raise feature.
 		int override_vertex_count = GetIniInt(id, L"override_vertex_count", -1, &found);
 		if (override_vertex_count > 0) {
 			// Ensure that stride is specified.
-			int override_byte_stride = GetIniInt(id, L"override_byte_stride", -1, NULL);
+			int override_byte_stride = GetIniInt(id, L"override_byte_stride", -1, nullptr);
 			if (override_byte_stride <= 0) {
-				LogOverlayW(LOG_DIRE, L"Failed to detect stride for override_vertex_count=%d, please set override_byte_stride!\n - [%ls]\n", override_vertex_count, override->ini_section.c_str());
+				LogOverlayW(LOG_DIRE, L"Failed to detect stride for override_vertex_count=%d, please set override_byte_stride!\n - [%ls]\n", override_vertex_count, texture_override->ini_section.c_str());
 				return;
 			}
-			// Override buffer size according to section params.
-			override->override_byte_width = override_byte_stride * override_vertex_count;
+			// Override buffer size according to section params, using 64-bit
+			// intermediates so extreme values cannot wrap the signed 32-bit
+			// multiplication (that would be undefined behaviour):
+			INT64 byte_width = (INT64)override_byte_stride * override_vertex_count;
+			if (byte_width > max_override_byte_width) {
+				IniWarningW(L"Ignoring oversized override_vertex_count=%d * override_byte_stride=%d\n - [%ls]\n",
+						override_vertex_count, override_byte_stride, texture_override->ini_section.c_str());
+				texture_override->override_byte_width = -1;
+				return;
+			}
+			texture_override->override_byte_width = (int)byte_width;
 
 			// Handle UAV resize
 			int uav_byte_stride = GetIniInt(id, L"uav_byte_stride", -1, &found);
 			if (uav_byte_stride > 0) {
 				// Use StructureByteStride override (useful when actual buffer stride is different from the one declared by a game)
-				override->override_num_elements = override_vertex_count * override_byte_stride / uav_byte_stride;
+				texture_override->override_num_elements = (int)(byte_width / uav_byte_stride);
 			} else {
 				// Use VertexCount override
-				override->override_num_elements = override_vertex_count;
+				texture_override->override_num_elements = override_vertex_count;
 			}
-		} else if (wcsstr(override->ini_section.c_str(), L"VertexLimitRaise") != 0) {
+		} else if (wcsstr(texture_override->ini_section.c_str(), L"VertexLimitRaise") != 0) {
 			// Fall back to ~8MB buffer to mimic original GIMI behaviour if `VertexLimitRaise` keyword is found in the section header.
-			override->override_byte_width = 8800000;
+			texture_override->override_byte_width = 8800000;
 		} else {
 			// Do not override original buffer size.
-			override->override_byte_width = -1;
+			texture_override->override_byte_width = -1;
 		}
 	}
 	
@@ -3040,50 +3272,50 @@ static void parse_texture_override_common(const wchar_t *id, TextureOverride *ov
 		// better way, but should change it to use my list
 		// parsing code rather than hard coding a maximum of 10
 		// supported iterations.
-		override->iterations.clear();
-		override->iterations.push_back(0);
+		texture_override->iterations.clear();
+		texture_override->iterations.push_back(0);
 		int id[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 		swscanf_s(setting, L"%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", id + 0, id + 1, id + 2, id + 3, id + 4, id + 5, id + 6, id + 7, id + 8, id + 9);
 		for (int j = 0; j < 10; ++j)
 		{
 			if (id[j] <= 0) break;
-			override->iterations.push_back(id[j]);
+			texture_override->iterations.push_back(id[j]);
 			LogInfo("  Iteration=%d\n", id[j]);
 		}
 	}
 
-	override->filter_index = GetIniFloat(id, L"filter_index", FLT_MAX, NULL);
+	texture_override->filter_index = GetIniFloat(id, L"filter_index", FLT_MAX, nullptr);
 
-	override->expand_region_copy = GetIniBool(id, L"expand_region_copy", false, NULL);
-	override->deny_cpu_read = GetIniBool(id, L"deny_cpu_read", false, NULL);
+	texture_override->expand_region_copy = GetIniBool(id, L"expand_region_copy", false, nullptr);
+	texture_override->deny_cpu_read = GetIniBool(id, L"deny_cpu_read", false, nullptr);
 
 	// Draw call context matching:
 	if (GetIniStringAndLog(id, L"match_first_vertex", 0, setting, MAX_PATH)) {
-		parse_fuzzy_numeric_match_expression(setting, &override->match_first_vertex);
-		override->has_draw_context_match = true;
+		parse_fuzzy_numeric_match_expression(setting, &texture_override->match_first_vertex);
+		texture_override->has_draw_context_match = true;
 	}
 	if (GetIniStringAndLog(id, L"match_first_index", 0, setting, MAX_PATH)) {
-		parse_fuzzy_numeric_match_expression(setting, &override->match_first_index);
-		override->has_draw_context_match = true;
+		parse_fuzzy_numeric_match_expression(setting, &texture_override->match_first_index);
+		texture_override->has_draw_context_match = true;
 	}
 	if (GetIniStringAndLog(id, L"match_first_instance", 0, setting, MAX_PATH)) {
-		parse_fuzzy_numeric_match_expression(setting, &override->match_first_instance);
-		override->has_draw_context_match = true;
+		parse_fuzzy_numeric_match_expression(setting, &texture_override->match_first_instance);
+		texture_override->has_draw_context_match = true;
 	}
 	if (GetIniStringAndLog(id, L"match_vertex_count", 0, setting, MAX_PATH)) {
-		parse_fuzzy_numeric_match_expression(setting, &override->match_vertex_count);
-		override->has_draw_context_match = true;
+		parse_fuzzy_numeric_match_expression(setting, &texture_override->match_vertex_count);
+		texture_override->has_draw_context_match = true;
 	}
 	if (GetIniStringAndLog(id, L"match_index_count", 0, setting, MAX_PATH)) {
-		parse_fuzzy_numeric_match_expression(setting, &override->match_index_count);
-		override->has_draw_context_match = true;
+		parse_fuzzy_numeric_match_expression(setting, &texture_override->match_index_count);
+		texture_override->has_draw_context_match = true;
 	}
 	if (GetIniStringAndLog(id, L"match_instance_count", 0, setting, MAX_PATH)) {
-		parse_fuzzy_numeric_match_expression(setting, &override->match_instance_count);
-		override->has_draw_context_match = true;
+		parse_fuzzy_numeric_match_expression(setting, &texture_override->match_instance_count);
+		texture_override->has_draw_context_match = true;
 	}
 
-	ParseCommandList(id, &override->command_list, &override->post_command_list, TextureOverrideIniKeys, register_command_lists);
+	ParseCommandList(id, &texture_override->command_list, &texture_override->post_command_list, TextureOverrideIniKeys, register_command_lists);
 }
 
 static bool texture_override_section_has_fuzzy_match_keys(const wchar_t *section)
@@ -3260,12 +3492,12 @@ static void parse_texture_override_fuzzy_match(const wchar_t *section)
 	}
 }
 
-static void warn_if_duplicate_texture_hash(TextureOverride *override, uint32_t hash)
+static void warn_if_duplicate_texture_hash(TextureOverride *texture_override, uint32_t hash)
 {
 	TextureOverrideMap::iterator i;
 	TextureOverrideList::iterator j;
 
-	if (override->has_draw_context_match || override->has_match_priority)
+	if (texture_override->has_draw_context_match || texture_override->has_match_priority)
 		return;
 
 	i = lookup_textureoverride(hash);
@@ -3273,7 +3505,7 @@ static void warn_if_duplicate_texture_hash(TextureOverride *override, uint32_t h
 		return;
 
 	for (j = i->second.begin(); j != i->second.end(); j++) {
-		if (&(*j) == override)
+		if (&(*j) == texture_override)
 			continue;
 
 		// Duplicate hashes are permitted (or at least not warned about) for:
@@ -3287,17 +3519,17 @@ static void warn_if_duplicate_texture_hash(TextureOverride *override, uint32_t h
 			   "[%ls]\n"
 			   "[%ls]\n"
 			   "If this is intentional, add a match_priority=n to suppress warning and disambiguate order\n",
-			   hash, j->ini_section.c_str(), override->ini_section.c_str());
+			   hash, j->ini_section.c_str(), texture_override->ini_section.c_str());
 	}
 }
 
-static void index_byte_width_override(TextureOverride* override, uint32_t hash, map<uint32_t, int>& max_byte_width_map)
+static void index_byte_width_override(TextureOverride* texture_override, uint32_t hash, map<uint32_t, int>& max_byte_width_map)
 {
 	map<uint32_t, int>::iterator max_byte_width;
 
 	max_byte_width = max_byte_width_map.find(hash);
-	if (max_byte_width == max_byte_width_map.end() || max_byte_width->second < override->override_byte_width) {
-		max_byte_width_map[hash] = override->override_byte_width;
+	if (max_byte_width == max_byte_width_map.end() || max_byte_width->second < texture_override->override_byte_width) {
+		max_byte_width_map[hash] = texture_override->override_byte_width;
 	}
 }
 
@@ -3334,7 +3566,7 @@ static void ParseTextureOverrideSections()
 {
 	IniSections::iterator lower, upper, i;
 	const wchar_t *id;
-	TextureOverride *override;
+	TextureOverride *texture_override;
 	uint32_t hash;
 	bool found;
 	map<uint32_t, int> max_byte_width_map;
@@ -3370,19 +3602,19 @@ static void ParseTextureOverrideSections()
 			IniWarningW(L"Cannot use hash= and match options together!\n - [%ls]\n", id);
 
 		G->mTextureOverrideMap[hash].emplace_back(); // C++ gotcha: invalidates pointers into the vector
-		override = &G->mTextureOverrideMap[hash].back();
-		override->ini_section = id;
+		texture_override = &G->mTextureOverrideMap[hash].back();
+		texture_override->ini_section = id;
 
 		// Important that we do *not* register the command lists yet:
-		parse_texture_override_common(id, override, false);
+		parse_texture_override_common(id, texture_override, false);
 
 		// Warn if same hash is used two or more times in sections that
 		// do not have a draw context match or match_priority:
-		warn_if_duplicate_texture_hash(override, hash);
+		warn_if_duplicate_texture_hash(texture_override, hash);
 
 		// Record the largest `override_byte_width` value for the hash.
-		if (override->override_byte_width != -1) {
-			index_byte_width_override(override, hash, max_byte_width_map);
+		if (texture_override->override_byte_width != -1) {
+			index_byte_width_override(texture_override, hash, max_byte_width_map);
 		}
 	}
 
@@ -3492,7 +3724,7 @@ static bool ParseBlendRenderTarget(
 		const wchar_t *section, int index)
 {
 	wchar_t setting[MAX_PATH];
-	bool override = false;
+	bool state_overridden = false;
 	wchar_t key[32];
 	bool found;
 
@@ -3500,7 +3732,7 @@ static bool ParseBlendRenderTarget(
 	if (index >= 0)
 		swprintf_s(key, ARRAYSIZE(key), L"blend[%i]", index);
 	if (GetIniStringAndLog(section, key, 0, setting, MAX_PATH)) {
-		override = true;
+		state_overridden = true;
 
 		// Special value to disable blending:
 		if (!_wcsicmp(setting, L"disable")) {
@@ -3522,7 +3754,7 @@ static bool ParseBlendRenderTarget(
 	if (index >= 0)
 		swprintf_s(key, ARRAYSIZE(key), L"alpha[%i]", index);
 	if (GetIniStringAndLog(section, key, 0, setting, MAX_PATH)) {
-		override = true;
+		state_overridden = true;
 		ParseBlendOp(key, setting,
 				&desc->BlendOpAlpha,
 				&desc->SrcBlendAlpha,
@@ -3537,16 +3769,16 @@ static bool ParseBlendRenderTarget(
 		swprintf_s(key, ARRAYSIZE(key), L"mask[%i]", index);
 	desc->RenderTargetWriteMask = GetIniHexString(section, key, D3D11_COLOR_WRITE_ENABLE_ALL, &found);
 	if (found) {
-		override = true;
+		state_overridden = true;
 		mask->RenderTargetWriteMask = 0;
 	}
 
-	if (override) {
+	if (state_overridden) {
 		desc->BlendEnable = true;
 		mask->BlendEnable = 0;
 	}
 
-	return override;
+	return state_overridden;
 }
 
 static void ParseBlendState(CustomShader *shader, const wchar_t *section)
@@ -3612,7 +3844,7 @@ static void ParseBlendState(CustomShader *shader, const wchar_t *section)
 		shader->blend_sample_mask_merge_mask = 0;
 	}
 
-	if (GetIniBool(section, L"blend_state_merge", false, NULL))
+	if (GetIniBool(section, L"blend_state_merge", false, nullptr))
 		shader->blend_override = 2;
 }
 
@@ -3766,7 +3998,7 @@ static void ParseDepthStencilState(CustomShader *shader, const wchar_t *section)
 		shader->stencil_ref_mask = 0;
 	}
 
-	if (GetIniBool(section, L"depth_stencil_state_merge", false, NULL))
+	if (GetIniBool(section, L"depth_stencil_state_merge", false, nullptr))
 		shader->depth_stencil_override = 2;
 }
 
@@ -3815,7 +4047,7 @@ static void ParseRSState(CustomShader *shader, const wchar_t *section)
 	}
 
 	desc->FrontCounterClockwise = (BOOL)GetIniEnum(section, L"front", 0, &found,
-			NULL, FrontDirection, ARRAYSIZE(FrontDirection), 0);
+			nullptr, FrontDirection, ARRAYSIZE(FrontDirection), 0);
 	if (found) {
 		shader->rs_override = 1;
 		mask->FrontCounterClockwise = 0;
@@ -3863,7 +4095,7 @@ static void ParseRSState(CustomShader *shader, const wchar_t *section)
 		mask->AntialiasedLineEnable = 0;
 	}
 
-	if (GetIniBool(section, L"rasterizer_state_merge", false, NULL))
+	if (GetIniBool(section, L"rasterizer_state_merge", false, nullptr))
 		shader->rs_override = 2;
 }
 
@@ -4035,7 +4267,7 @@ wchar_t *CustomShaderIniKeys[] = {
 	// Sampler State overrides
 	L"sampler", // TODO: add additional sampler parameter 
 				// For now due to the lack of sampler as a custom resource only filtering is added no further parameter are implemented
-	NULL
+	nullptr
 };
 static void _EnumerateCustomShaderSections(IniSections::iterator lower, IniSections::iterator upper)
 {
@@ -4090,7 +4322,7 @@ static void ParseCustomShaderSections()
 		// We can add vs_flags and so on later if we really need to.
 		if (GetIniStringAndLog(shader_id->c_str(), L"flags", 0, setting, MAX_PATH)) {
 			custom_shader->compile_flags = parse_enum_option_string<const wchar_t *, D3DCompileFlags, wchar_t*>
-				(D3DCompileFlagNames, setting, NULL);
+				(D3DCompileFlagNames, setting, nullptr);
 		}
 
 		get_namespaced_section_path(i->first.c_str(), &namespace_path);
@@ -4128,7 +4360,7 @@ static void ParseCustomShaderSections()
 		ParseSamplerState(custom_shader, shader_id->c_str());
 
 		custom_shader->max_executions_per_frame =
-			GetIniInt(shader_id->c_str(), L"max_executions_per_frame", 0, NULL);
+			GetIniInt(shader_id->c_str(), L"max_executions_per_frame", 0, nullptr);
 
 		ParseCommandList(shader_id->c_str(), &custom_shader->command_list, &custom_shader->post_command_list, CustomShaderIniKeys);
 	}
@@ -4180,7 +4412,7 @@ static void ParseExplicitCommandListSections()
 		// FIXME: This will be logged in lower case. It would be better
 		// to use the original case, but not a big deal:
 		LogInfoW(L"[%s]\n", section_id->c_str());
-		ParseCommandList(section_id->c_str(), &command_list_section->command_list, &command_list_section->post_command_list, NULL);
+		ParseCommandList(section_id->c_str(), &command_list_section->command_list, &command_list_section->post_command_list, nullptr);
 	}
 }
 
@@ -4219,7 +4451,7 @@ static void ForceFullScreen(HackerDevice *device, void *private_data)
 
 	swap_chain = mHackerSwapChain->GetOrigSwapChain1();
 
-	swap_chain->SetFullscreenState(TRUE, NULL);
+	swap_chain->SetFullscreenState(TRUE, nullptr);
 	swap_chain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
 }
 
@@ -4228,7 +4460,7 @@ static void warn_of_conflicting_d3dx(wchar_t *dll_ini_path)
 	wchar_t exe_ini_path[MAX_PATH];
 	DWORD attrib;
 
-	if (!GetModuleFileName(NULL, exe_ini_path, MAX_PATH))
+	if (!GetModuleFileName(nullptr, exe_ini_path, MAX_PATH))
 		return;
 	wcsrchr(exe_ini_path, L'\\')[1] = 0;
 	wcscat(exe_ini_path, L"d3dx.ini");
@@ -4323,7 +4555,7 @@ void LoadConfigFile()
 
 		wchar_t our_path[MAX_PATH], exe_path[MAX_PATH];
 		GetModuleFileName(migoto_handle, our_path, MAX_PATH);
-		GetModuleFileName(NULL, exe_path, MAX_PATH);
+		GetModuleFileName(nullptr, exe_path, MAX_PATH);
 		LogInfo("Game path: %S\n"
 			"3DMigoto path: %S\n\n",
 			exe_path, our_path);
@@ -4338,8 +4570,8 @@ void LoadConfigFile()
 	ParseIniFile(iniFile);
 	InsertBuiltInIniSections();
 
-	G->gLogInput = GetIniBool(L"Logging", L"input", false, NULL);
-	gLogDebug = GetIniBool(L"Logging", L"debug", false, NULL);
+	G->gLogInput = GetIniBool(L"Logging", L"input", false, nullptr);
+	gLogDebug = GetIniBool(L"Logging", L"debug", false, nullptr);
 	if (gLogDebug)
 		LogInfo("  debug=1 (VERBOSE: FrameAnalysis/context spam - do not leave on for long sessions)\n");
 	if (log_calls)
@@ -4347,15 +4579,15 @@ void LoadConfigFile()
 
 	// Unbuffered logging to remove need for fflush calls, and r/w access to make it easy
 	// to open active files. Default on when crash handler is enabled so last lines survive.
-	bool want_unbuffered = GetIniBool(L"Logging", L"unbuffered", log_crash != 0, NULL);
+	bool want_unbuffered = GetIniBool(L"Logging", L"unbuffered", log_crash != 0, nullptr);
 	if (LogFile && want_unbuffered)
 	{
-		int unbuffered = setvbuf(LogFile, NULL, _IONBF, 0);
+		int unbuffered = setvbuf(LogFile, nullptr, _IONBF, 0);
 		LogInfo("    unbuffered return: %d\n", unbuffered);
 	}
 
 	// Set the CPU affinity based upon d3dx.ini setting.  Useful for debugging and shader hunting in AC3.
-	if (GetIniBool(L"Logging", L"force_cpu_affinity", false, NULL))
+	if (GetIniBool(L"Logging", L"force_cpu_affinity", false, nullptr))
 	{
 		DWORD one = 0x01;
 		BOOL affinity = SetProcessAffinityMask(GetCurrentProcess(), one);
@@ -4363,7 +4595,7 @@ void LoadConfigFile()
 	}
 
 	// If specified in Logging section, wait for Attach to Debugger.
-	int debugger = GetIniInt(L"Logging", L"waitfordebugger", 0, NULL);
+	int debugger = GetIniInt(L"Logging", L"waitfordebugger", 0, nullptr);
 	if (debugger > 0)
 	{
 		do
@@ -4374,28 +4606,28 @@ void LoadConfigFile()
 			__debugbreak();
 	}
 
-	debugger = GetIniInt(L"Logging", L"crash", false, NULL);
+	debugger = GetIniInt(L"Logging", L"crash", false, nullptr);
 	if (debugger)
 		install_crash_handler(debugger);
 
-	G->dump_all_profiles = GetIniBool(L"Logging", L"dump_all_profiles", false, NULL);
+	G->dump_all_profiles = GetIniBool(L"Logging", L"dump_all_profiles", false, nullptr);
 
-	if (GetIniBool(L"Logging", L"debug_locks", false, NULL))
+	if (GetIniBool(L"Logging", L"debug_locks", false, nullptr))
 		enable_lock_dependency_checks();
 
-	G->gShowWarnings = GetIniBool(L"Logging", L"show_warnings", true, NULL);
+	G->gShowWarnings = GetIniBool(L"Logging", L"show_warnings", true, nullptr);
 
 	// Allows to delay DLL initialization by given ms count
-	G->gDllInitializationDelay = GetIniInt(L"System", L"dll_initialization_delay", 0, NULL);
+	G->gDllInitializationDelay = GetIniInt(L"System", L"dll_initialization_delay", 0, nullptr);
 
 	// [Include]
 	// If enabled, prevents loading of includes during initialization.
 	// Default false = classic 3Dmigoto / EDHM (load includes immediately).
 	// XXMI launcher may set skip_early_includes_load=true for deferred boot.
-	G->gSkipEarlyIncludesLoad = GetIniBool(L"System", L"skip_early_includes_load", false, NULL);
+	G->gSkipEarlyIncludesLoad = GetIniBool(L"System", L"skip_early_includes_load", false, nullptr);
 
 	// Allows to delay initial config reload (any negative number disables it)
-	G->gConfigInitializationDelay = GetIniInt(L"System", L"config_initialization_delay", 0, NULL);
+	G->gConfigInitializationDelay = GetIniInt(L"System", L"config_initialization_delay", 0, nullptr);
 	if (G->gConfigInitializationDelay < 0) {
 		G->gConfigInitialized = true;
 	}
@@ -4407,27 +4639,27 @@ void LoadConfigFile()
 	// [System]
 	LogInfo("[System]\n");
 	GetIniStringAndLog(L"System", L"proxy_d3d11", 0, G->CHAIN_DLL_PATH, MAX_PATH);	
-	G->load_library_redirect = GetIniInt(L"System", L"load_library_redirect", 2, NULL);
+	G->load_library_redirect = GetIniInt(L"System", L"load_library_redirect", 2, nullptr);
 
 	if (GetIniStringAndLog(L"System", L"hook", 0, setting, MAX_PATH))
 	{
 		G->enable_hooks = parse_enum_option_string<wchar_t *, EnableHooks>
-			(EnableHooksNames, setting, NULL);
+			(EnableHooksNames, setting, nullptr);
 
 		if (G->enable_hooks & EnableHooks::DEPRECATED)
 			LogOverlay(LOG_NOTICE, "Deprecated hook options: Please remove \"except\" and \"skip\" options\n");
 	}
-	G->enable_check_interface = GetIniBool(L"System", L"allow_check_interface", false, NULL);
-	G->enable_create_device = GetIniInt(L"System", L"allow_create_device", 0, NULL);
-	G->enable_platform_update = GetIniBool(L"System", L"allow_platform_update", false, NULL);
+	G->enable_check_interface = GetIniBool(L"System", L"allow_check_interface", false, nullptr);
+	G->enable_create_device = GetIniInt(L"System", L"allow_create_device", 0, nullptr);
+	G->enable_platform_update = GetIniBool(L"System", L"allow_platform_update", false, nullptr);
 	// TODO: Enable this by default if wider testing goes well:
-	G->check_foreground_window = GetIniBool(L"System", L"check_foreground_window", false, NULL);
+	G->check_foreground_window = GetIniBool(L"System", L"check_foreground_window", false, nullptr);
 
 	// wine_compat: -1 auto (default), 0 off, 1 force on. Under Wine/Proton the
 	// auto profile disables load_library_redirect and foreground checks that
 	// commonly break EDHM -> DXVK chaining and key/reload handling.
 	G->running_under_wine = DetectWineEnvironment();
-	G->wine_compat = GetIniInt(L"System", L"wine_compat", -1, NULL);
+	G->wine_compat = GetIniInt(L"System", L"wine_compat", -1, nullptr);
 	if (G->wine_compat < -1)
 		G->wine_compat = -1;
 	if (G->wine_compat > 1)
@@ -4469,28 +4701,28 @@ void LoadConfigFile()
 	}
 
 	// Allows to change interval between persistent vars autosaving to d3dx_user.ini (any negative number to disables it)
-	G->gSettingsAutoSaveInterval = GetIniInt(L"System", L"settings_auto_save_interval", 60, NULL);
+	G->gSettingsAutoSaveInterval = GetIniInt(L"System", L"settings_auto_save_interval", 60, nullptr);
 	if (G->gSettingsAutoSaveInterval < 0) {
 		G->gSettingsAutoSaveInterval = 2147483647;
 	}
 
 	// Allows to configure fallback screen resolution to be used as return for `window_width` and `window_height`
-	G->gFallbackScreenWidth = GetIniInt(L"System", L"screen_width", 1920, NULL);
+	G->gFallbackScreenWidth = GetIniInt(L"System", L"screen_width", 1920, nullptr);
 	if (G->gFallbackScreenWidth < 640 || G->gFallbackScreenWidth > 15360) {
 		G->gFallbackScreenWidth = 1920;
 	}
-	G->gFallbackScreenHeight = GetIniInt(L"System", L"screen_height", 1080, NULL);
+	G->gFallbackScreenHeight = GetIniInt(L"System", L"screen_height", 1080, nullptr);
 	if (G->gFallbackScreenHeight < 480 || G->gFallbackScreenHeight > 8640) {
 		G->gFallbackScreenHeight = 1080;
 	}
 
 	// [Device] (DXGI parameters)
 	LogInfo("[Device]\n");
-	G->SCREEN_WIDTH = GetIniInt(L"Device", L"width", -1, NULL);
-	G->SCREEN_HEIGHT = GetIniInt(L"Device", L"height", -1, NULL);
-	G->SCREEN_REFRESH = GetIniInt(L"Device", L"refresh_rate", -1, NULL);
-	G->SCREEN_UPSCALING = GetIniInt(L"Device", L"upscaling", 0, NULL);
-	G->UPSCALE_MODE = GetIniInt(L"Device", L"upscale_mode", 0, NULL);
+	G->SCREEN_WIDTH = GetIniInt(L"Device", L"width", -1, nullptr);
+	G->SCREEN_HEIGHT = GetIniInt(L"Device", L"height", -1, nullptr);
+	G->SCREEN_REFRESH = GetIniInt(L"Device", L"refresh_rate", -1, nullptr);
+	G->SCREEN_UPSCALING = GetIniInt(L"Device", L"upscaling", 0, nullptr);
+	G->UPSCALE_MODE = GetIniInt(L"Device", L"upscale_mode", 0, nullptr);
 
 	if (GetIniStringAndLog(L"Device", L"filter_refresh_rate", 0, setting, MAX_PATH))
 	{
@@ -4500,21 +4732,21 @@ void LoadConfigFile()
 			G->FILTER_REFRESH + 8, G->FILTER_REFRESH + 9);
 	}
 
-	G->SCREEN_FULLSCREEN = GetIniInt(L"Device", L"full_screen", -1, NULL);
-	RegisterIniKeyBinding(L"Device", L"toggle_full_screen", ToggleFullScreen, NULL, 0, NULL);
-	RegisterIniKeyBinding(L"Device", L"force_full_screen_on_key", ForceFullScreen, NULL, 0, NULL);
-	G->SCREEN_ALLOW_COMMANDS = GetIniBool(L"Device", L"allow_windowcommands", false, NULL);
+	G->SCREEN_FULLSCREEN = GetIniInt(L"Device", L"full_screen", -1, nullptr);
+	RegisterIniKeyBinding(L"Device", L"toggle_full_screen", ToggleFullScreen, nullptr, 0, nullptr);
+	RegisterIniKeyBinding(L"Device", L"force_full_screen_on_key", ForceFullScreen, nullptr, 0, nullptr);
+	G->SCREEN_ALLOW_COMMANDS = GetIniBool(L"Device", L"allow_windowcommands", false, nullptr);
 
-	G->mResolutionInfo.from = GetIniEnumClass(L"Device", L"get_resolution_from", GetResolutionFrom::INVALID, NULL, GetResolutionFromNames);
+	G->mResolutionInfo.from = GetIniEnumClass(L"Device", L"get_resolution_from", GetResolutionFrom::INVALID, nullptr, GetResolutionFromNames);
 
-	G->hide_cursor = GetIniBool(L"Device", L"hide_cursor", false, NULL);
-	G->cursor_upscaling_bypass = GetIniBool(L"Device", L"cursor_upscaling_bypass", true, NULL);
+	G->hide_cursor = GetIniBool(L"Device", L"hide_cursor", false, nullptr);
+	G->cursor_upscaling_bypass = GetIniBool(L"Device", L"cursor_upscaling_bypass", true, nullptr);
 
 	// [Rendering]
 	LogInfo("[Rendering]\n");
 
-	G->shader_hash_type = GetIniEnumClass(L"Rendering", L"shader_hash", ShaderHashType::FNV, NULL, ShaderHashNames);
-	G->texture_hash_version = GetIniInt(L"Rendering", L"texture_hash", 0, NULL);
+	G->shader_hash_type = GetIniEnumClass(L"Rendering", L"shader_hash", ShaderHashType::FNV, nullptr, ShaderHashNames);
+	G->texture_hash_version = GetIniInt(L"Rendering", L"texture_hash", 0, nullptr);
 
 	if (GetIniStringAndLog(L"Rendering", L"override_directory", 0, G->SHADER_PATH, MAX_PATH))
 	{
@@ -4549,41 +4781,41 @@ void LoadConfigFile()
 		EnsureConfiguredDirectory("Shader cache", G->SHADER_CACHE_PATH);
 	}
 
-	G->CACHE_SHADERS = GetIniBool(L"Rendering", L"cache_shaders", false, NULL);
-	G->SCISSOR_DISABLE = GetIniBool(L"Rendering", L"rasterizer_disable_scissor", false, NULL);
-	G->track_texture_updates = GetIniBoolOrInt(L"Rendering", L"track_texture_updates", 0, NULL);
-	G->track_region_hashes = GetIniBool(L"Rendering", L"track_region_hashes", false, NULL);
-	G->track_implicit_index_buffers = GetIniBool(L"Rendering", L"track_implicit_index_buffers", false, NULL);
+	G->CACHE_SHADERS = GetIniBool(L"Rendering", L"cache_shaders", false, nullptr);
+	G->SCISSOR_DISABLE = GetIniBool(L"Rendering", L"rasterizer_disable_scissor", false, nullptr);
+	G->track_texture_updates = GetIniBoolOrInt(L"Rendering", L"track_texture_updates", 0, nullptr);
+	G->track_region_hashes = GetIniBool(L"Rendering", L"track_region_hashes", false, nullptr);
+	G->track_implicit_index_buffers = GetIniBool(L"Rendering", L"track_implicit_index_buffers", false, nullptr);
 	// Default false = classic 3Dmigoto / EDHM: hash TextureOverride wins alone.
 	// Set true to restore XXMI dual hash+fuzzy matching for AGMG-style mods.
-	G->fuzzy_match_alongside_hash = GetIniBool(L"Rendering", L"fuzzy_match_alongside_hash", false, NULL);
-	G->allow_buffer_resize = GetIniBool(L"Rendering", L"allow_buffer_resize", true, NULL);
-	G->assemble_signature_comments = GetIniBool(L"Rendering", L"assemble_signature_comments", false, NULL);
-	G->disassemble_undecipherable_custom_data = GetIniBool(L"Rendering", L"disassemble_undecipherable_custom_data", false, NULL);
-	G->patch_cb_offsets = GetIniBool(L"Rendering", L"patch_assembly_cb_offsets", false, NULL);
-	G->recursive_include = GetIniBoolOrInt(L"Rendering", L"recursive_include", false, NULL);
+	G->fuzzy_match_alongside_hash = GetIniBool(L"Rendering", L"fuzzy_match_alongside_hash", false, nullptr);
+	G->allow_buffer_resize = GetIniBool(L"Rendering", L"allow_buffer_resize", true, nullptr);
+	G->assemble_signature_comments = GetIniBool(L"Rendering", L"assemble_signature_comments", false, nullptr);
+	G->disassemble_undecipherable_custom_data = GetIniBool(L"Rendering", L"disassemble_undecipherable_custom_data", false, nullptr);
+	G->patch_cb_offsets = GetIniBool(L"Rendering", L"patch_assembly_cb_offsets", false, nullptr);
+	G->recursive_include = GetIniBoolOrInt(L"Rendering", L"recursive_include", false, nullptr);
 
-	G->EXPORT_FIXED = GetIniBool(L"Rendering", L"export_fixed", false, NULL);
-	G->EXPORT_SHADERS = GetIniBool(L"Rendering", L"export_shaders", false, NULL);
-	G->EXPORT_HLSL = GetIniInt(L"Rendering", L"export_hlsl", 0, NULL);
-	G->EXPORT_BINARY = GetIniBool(L"Rendering", L"export_binary", false, NULL);
-	G->DumpUsage = GetIniBool(L"Rendering", L"dump_usage", false, NULL);
+	G->EXPORT_FIXED = GetIniBool(L"Rendering", L"export_fixed", false, nullptr);
+	G->EXPORT_SHADERS = GetIniBool(L"Rendering", L"export_shaders", false, nullptr);
+	G->EXPORT_HLSL = GetIniInt(L"Rendering", L"export_hlsl", 0, nullptr);
+	G->EXPORT_BINARY = GetIniBool(L"Rendering", L"export_binary", false, nullptr);
+	G->DumpUsage = GetIniBool(L"Rendering", L"dump_usage", false, nullptr);
 
-	G->IniParamsReg = GetIniInt(L"Rendering", L"ini_params", 120, NULL);
+	G->IniParamsReg = GetIniInt(L"Rendering", L"ini_params", 120, nullptr);
 	G->decompiler_settings.IniParamsReg = G->IniParamsReg;
 	if (G->IniParamsReg >= D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT) {
 		IniWarningW(L"Option ini_params=%i out of range\n - [%ls]\n", G->IniParamsReg, INI_FILENAME);
 		G->IniParamsReg = -1;
 	}
-	G->decompiler_settings.StereoParamsReg = GetIniInt(L"Rendering", L"stereo_params", -1, NULL);
+	G->decompiler_settings.StereoParamsReg = GetIniInt(L"Rendering", L"stereo_params", -1, nullptr);
 	if (G->decompiler_settings.StereoParamsReg >= D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT) {
 		IniWarningW(L"Option stereo_params=%i out of range\n - [%ls]\n", G->decompiler_settings.StereoParamsReg, INI_FILENAME);
 		G->decompiler_settings.StereoParamsReg = -1;
 	}
 
 	// Automatic section
-	G->decompiler_settings.fixSvPosition = GetIniBool(L"Rendering", L"fix_sv_position", false, NULL);
-	G->decompiler_settings.recompileVs = GetIniBool(L"Rendering", L"recompile_all_vs", false, NULL);
+	G->decompiler_settings.fixSvPosition = GetIniBool(L"Rendering", L"fix_sv_position", false, nullptr);
+	G->decompiler_settings.recompileVs = GetIniBool(L"Rendering", L"recompile_all_vs", false, nullptr);
 	if (GetIniStringAndLog(L"Rendering", L"fix_ZRepair_DepthTexture1", 0, setting, MAX_PATH))
 	{
 		char buf[MAX_PATH];
@@ -4710,7 +4942,7 @@ void LoadConfigFile()
 	// Second pass for the Constants command list:
 	G->constants_command_list.clear();
 	G->post_constants_command_list.clear();
-	ParseCommandList(L"Constants", &G->constants_command_list, &G->post_constants_command_list, NULL);
+	ParseCommandList(L"Constants", &G->constants_command_list, &G->post_constants_command_list, nullptr);
 
 	// Must be done after [Constants] has allocated global variables:
 	RegisterPresetKeyBindings();
@@ -4732,27 +4964,27 @@ void LoadConfigFile()
 	LogInfo("[Present]\n");
 	G->present_command_list.clear();
 	G->post_present_command_list.clear();
-	ParseCommandList(L"Present", &G->present_command_list, &G->post_present_command_list, NULL);
+	ParseCommandList(L"Present", &G->present_command_list, &G->post_present_command_list, nullptr);
 
 	LogInfo("[ClearRenderTargetView]\n");
 	G->clear_rtv_command_list.clear();
 	G->post_clear_rtv_command_list.clear();
-	ParseCommandList(L"ClearRenderTargetView", &G->clear_rtv_command_list, &G->post_clear_rtv_command_list, NULL);
+	ParseCommandList(L"ClearRenderTargetView", &G->clear_rtv_command_list, &G->post_clear_rtv_command_list, nullptr);
 
 	LogInfo("[ClearDepthStencilView]\n");
 	G->clear_dsv_command_list.clear();
 	G->post_clear_dsv_command_list.clear();
-	ParseCommandList(L"ClearDepthStencilView", &G->clear_dsv_command_list, &G->post_clear_dsv_command_list, NULL);
+	ParseCommandList(L"ClearDepthStencilView", &G->clear_dsv_command_list, &G->post_clear_dsv_command_list, nullptr);
 
 	LogInfo("[ClearUnorderedAccessViewUint]\n");
 	G->clear_uav_uint_command_list.clear();
 	G->post_clear_uav_uint_command_list.clear();
-	ParseCommandList(L"ClearUnorderedAccessViewUint", &G->clear_uav_uint_command_list, &G->post_clear_uav_uint_command_list, NULL);
+	ParseCommandList(L"ClearUnorderedAccessViewUint", &G->clear_uav_uint_command_list, &G->post_clear_uav_uint_command_list, nullptr);
 
 	LogInfo("[ClearUnorderedAccessViewFloat]\n");
 	G->clear_uav_float_command_list.clear();
 	G->post_clear_uav_float_command_list.clear();
-	ParseCommandList(L"ClearUnorderedAccessViewFloat", &G->clear_uav_float_command_list, &G->post_clear_uav_float_command_list, NULL);
+	ParseCommandList(L"ClearUnorderedAccessViewFloat", &G->clear_uav_float_command_list, &G->post_clear_uav_float_command_list, nullptr);
 
 	LogInfo("\n");
 
@@ -4802,13 +5034,13 @@ void LoadProfileManagerConfig(const wchar_t *config_dir)
 
 	ParseIniFile(iniFile);
 
-	gLogDebug = GetIniBool(L"Logging", L"debug", false, NULL);
+	gLogDebug = GetIniBool(L"Logging", L"debug", false, nullptr);
 
 	// Unbuffered logging to remove need for fflush calls, and r/w access to make it easy
 	// to open active files.
-	if (LogFile && GetIniBool(L"Logging", L"unbuffered", false, NULL))
+	if (LogFile && GetIniBool(L"Logging", L"unbuffered", false, nullptr))
 	{
-		int unbuffered = setvbuf(LogFile, NULL, _IONBF, 0);
+		int unbuffered = setvbuf(LogFile, nullptr, _IONBF, 0);
 		LogInfo("    unbuffered return: %d\n", unbuffered);
 	}
 

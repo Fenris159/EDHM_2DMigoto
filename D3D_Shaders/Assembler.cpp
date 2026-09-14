@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "float.h"
+#include <cstring>
 
 #if MIGOTO_DX == 9
 #include <d3dx9shader.h>
@@ -88,10 +89,11 @@ static string convertF(DWORD original)
 {
 	char buf[80];
 	char scientific[80];
-	char *scientific_exp = NULL;
+	char *scientific_exp = nullptr;
 	int exp;
 
-	float fOriginal = reinterpret_cast<float &>(original);
+	float fOriginal;
+	std::memcpy(&fOriginal, &original, sizeof(fOriginal));
 
 	// This printf produces different results depending on the toolchain
 	// and/or SDK we are using. e.g. the value 0x3CAAAAAB will produce:
@@ -1445,7 +1447,7 @@ static vector<DWORD> assemble_printf(string &s, vector<DWORD> &v, vector<string>
 		v.insert(v.end(), os.begin(), os.end());
 	}
 
-	// Resize large enough to fit the message with a NULL
+	// Resize large enough to fit the message with a nullptr
 	// terminator, rounded up for padding:
 	uintptr_t msgOff = (uintptr_t)v.size() * 4;
 	insLen = (msgLen + 4) / 4 + (uint32_t)v.size();
@@ -2857,16 +2859,16 @@ HRESULT disassemblerDX9(vector<byte> *buffer, vector<byte> *ret, const char *com
 	char* asmBuffer;
 	size_t asmSize;
 	vector<byte> asmBuf;
-	ID3DBlob* pDissassembly = NULL;
-	LPD3DXBUFFER pD3DXDissassembly = NULL;
+	ID3DBlob* pDissassembly = nullptr;
+	LPD3DXBUFFER pD3DXDissassembly = nullptr;
 	HRESULT ok = D3DDisassemble(buffer->data(), buffer->size(), D3D_DISASM_ENABLE_DEFAULT_VALUE_PRINTS, comment, &pDissassembly);
 	if (FAILED(ok))
-		ok = D3DDisassemble(buffer->data(), buffer->size(), NULL, comment, &pDissassembly);
+		ok = D3DDisassemble(buffer->data(), buffer->size(), nullptr, comment, &pDissassembly);
 	if (FAILED(ok))
 		ok = D3DDisassemble(buffer->data(), buffer->size(), D3D_DISASM_DISABLE_DEBUG_INFO, comment, &pDissassembly);
 	if (FAILED(ok)){
 		//below sometimes give an access violation for some reason
-		//ok = D3DXDisassembleShader((DWORD*)buffer->data(), false, NULL, &pD3DXDissassembly);
+		//ok = D3DXDisassembleShader((DWORD*)buffer->data(), false, nullptr, &pD3DXDissassembly);
 		//if (FAILED(ok))
 			return ok;
 		//asmBuffer = (char*)pD3DXDissassembly->GetBufferPointer();
@@ -2892,42 +2894,100 @@ HRESULT disassemblerDX9(vector<byte> *buffer, vector<byte> *ret, const char *com
 }
 #endif
 
+// Minimal validated DXBC container reader, used by both the disassembler
+// and assembler below. Local shader binaries (cached shaders, regex cache
+// blobs) are mutable on-disk input, so the container structure must be
+// proven before any offset is used: minimum header size, declared file
+// size, chunk table bounds, every chunk offset, every chunk header/length,
+// and the presence of a usable SHEX/SHDR code chunk. All arithmetic is
+// done in 64-bit so it cannot wrap. Matches the historical behaviour of
+// selecting the last SHEX/SHDR chunk when several are present.
+static bool find_dxbc_code_chunk(const void *data, size_t size,
+		DWORD *out_num_chunks, DWORD *out_code_chunk_index,
+		DWORD *out_code_chunk_offset, DWORD *out_code_chunk_size,
+		byte **out_code_start)
+{
+	if (!data || size < 32)
+		return false;
+
+	const byte *base = static_cast<const byte*>(data);
+	DWORD file_size, num_chunks;
+	memcpy(&file_size, base + 24, 4);
+	memcpy(&num_chunks, base + 28, 4);
+
+	// The declared file size must fit within the buffer we were actually
+	// given - a truncated cache file must not trick us into reading past
+	// its real end:
+	if (!num_chunks || file_size < 32 || file_size > size)
+		return false;
+
+	// The chunk offset table must fit in the file (64-bit multiplication):
+	uint64_t chunk_table_end = 32 + (uint64_t)num_chunks * 4;
+	if (chunk_table_end > file_size)
+		return false;
+
+	vector<DWORD> chunk_offsets(num_chunks);
+	memcpy(chunk_offsets.data(), base + 32, (size_t)num_chunks * 4);
+
+	// Validate every chunk offset and every chunk header/length up front:
+	for (DWORD i = 0; i < num_chunks; i++) {
+		DWORD chunk_offset = chunk_offsets[i];
+		if (chunk_offset < chunk_table_end || (uint64_t)chunk_offset + 8 > file_size)
+			return false;
+
+		DWORD chunk_size;
+		memcpy(&chunk_size, base + chunk_offset + 4, 4);
+		if ((uint64_t)chunk_offset + 8 + chunk_size > file_size)
+			return false;
+	}
+
+	// Walk backwards, selecting the last SHEX/SHDR chunk:
+	for (DWORD i = num_chunks; i-- > 0; ) {
+		DWORD chunk_offset = chunk_offsets[i];
+		const byte *chunk = base + chunk_offset;
+		if (memcmp(chunk, "SHEX", 4) && memcmp(chunk, "SHDR", 4))
+			continue;
+
+		DWORD chunk_size;
+		memcpy(&chunk_size, chunk + 4, 4);
+
+		if (out_num_chunks) *out_num_chunks = num_chunks;
+		if (out_code_chunk_index) *out_code_chunk_index = i;
+		if (out_code_chunk_offset) *out_code_chunk_offset = chunk_offset;
+		if (out_code_chunk_size) *out_code_chunk_size = chunk_size;
+		if (out_code_start) *out_code_start = const_cast<byte*>(chunk);
+		return true;
+	}
+
+	// No usable code chunk - a controlled parse failure, never a garbage
+	// pointer dereference:
+	return false;
+}
+
 HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *comment,
 		int hexdump, bool d3dcompiler_46_compat,
 		bool disassemble_undecipherable_data,
 		bool patch_cb_offsets)
 {
-	byte fourcc[4];
-	DWORD fHash[4];
-	DWORD one;
-	DWORD fSize;
-	DWORD numChunks;
-	vector<DWORD> chunkOffsets;
 	int rdef_state = 0;
 
-	// TODO: Add robust error checking here (buffer is at least as large as
-	// the header, etc). I've added a check for numChunks < 1 as that
-	// would lead to codeByteStart being used uninitialised
-	byte* pPosition = buffer->data();
-	std::memcpy(fourcc, pPosition, 4);
-	pPosition += 4;
-	std::memcpy(fHash, pPosition, 16);
-	pPosition += 16;
-	one = *(DWORD*)pPosition;
-	pPosition += 4;
-	fSize = *(DWORD*)pPosition;
-	pPosition += 4;
-	numChunks = *(DWORD*)pPosition;
-	if (numChunks < 1)
+	// The old code read the DXBC header and chunk-offset table without
+	// proving the buffer was large enough, and used a garbage codeByteStart
+	// when no SHEX/SHDR chunk was found (FIXME, C4701/C4703 at the two use
+	// sites). Bail out with a controlled failure instead:
+	DWORD numChunks = 0;
+	DWORD codeChunk = 0;
+	DWORD codeChunkOffset = 0;
+	DWORD codeChunkSize = 0;
+	byte* codeByteStart = NULL;
+	if (!find_dxbc_code_chunk(buffer->data(), buffer->size(), &numChunks,
+			&codeChunk, &codeChunkOffset, &codeChunkSize, &codeByteStart))
 		return S_FALSE;
-	pPosition += 4;
-	chunkOffsets.resize(numChunks);
-	std::memcpy(chunkOffsets.data(), pPosition, 4 * numChunks);
 
 	char* asmBuffer;
 	size_t asmSize;
 	vector<byte> asmBuf;
-	ID3DBlob* pDissassembly = NULL;
+	ID3DBlob* pDissassembly = nullptr;
 
 	// We disable debug info in the disassembler as it interferes with our
 	// ability to match assembly lines with bytecode below
@@ -2941,15 +3001,6 @@ HRESULT disassembler(vector<byte> *buffer, vector<byte> *ret, const char *commen
 	asmBuffer = (char*)pDissassembly->GetBufferPointer();
 	asmSize = pDissassembly->GetBufferSize();
 
-	byte* codeByteStart;
-	int codeChunk = 0;
-	for (DWORD i = 1; i <= numChunks; i++) {
-		codeChunk = numChunks - i;
-		codeByteStart = buffer->data() + chunkOffsets[numChunks - i];
-		if (memcmp(codeByteStart, "SHEX", 4) == 0 || memcmp(codeByteStart, "SHDR", 4) == 0)
-			break;
-	}
-	// FIXME: If neither SHEX or SHDR was found in the shader, codeByteStart will be garbage
 	vector<string> lines = stringToLines(asmBuffer, asmSize);
 	DWORD* codeStart = (DWORD*)(codeByteStart + 8);
 	bool codeStarted = false;
@@ -3225,45 +3276,22 @@ static vector<DWORD> ComputeHash(byte const* input, DWORD size)
 vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode,
 		vector<AssemblerParseError> *parse_errors)
 {
-	byte fourcc[4];
-	DWORD fHash[4];
-	DWORD one;
-	DWORD fSize;
-	DWORD numChunks;
-	vector<DWORD> chunkOffsets;
-
-	// TODO: Add robust error checking here (origBytecode is at least as large as
-	// the header, etc). I've added a check for numChunks < 1 as that
-	// would lead to codeByteStart being used uninitialised
-	byte* pPosition = origBytecode.data();
-	std::memcpy(fourcc, pPosition, 4);
-	pPosition += 4;
-	std::memcpy(fHash, pPosition, 16);
-	pPosition += 16;
-	one = *(DWORD*)pPosition;
-	pPosition += 4;
-	fSize = *(DWORD*)pPosition;
-	pPosition += 4;
-	numChunks = *(DWORD*)pPosition;
-	if (numChunks < 1)
+	// Validate the DXBC container before trusting any of its offsets (the
+	// old code had the same unchecked header parse and garbage codeByteStart
+	// FIXME as the disassembler):
+	DWORD numChunks = 0;
+	DWORD codeChunk = 0;
+	DWORD codeChunkOffset = 0;
+	DWORD codeChunkSize = 0;
+	byte* codeByteStart = NULL;
+	if (!find_dxbc_code_chunk(origBytecode.data(), origBytecode.size(), &numChunks,
+			&codeChunk, &codeChunkOffset, &codeChunkSize, &codeByteStart))
 		throw std::invalid_argument("assembler: Bad shader binary");
-	pPosition += 4;
-	chunkOffsets.resize(numChunks);
-	std::memcpy(chunkOffsets.data(), pPosition, 4 * numChunks);
 
 	char* asmBuffer;
 	size_t asmSize;
 	asmBuffer = asmFile->data();
 	asmSize = asmFile->size();
-	byte* codeByteStart;
-	int codeChunk = 0;
-	for (DWORD i = 1; i <= numChunks; i++) {
-		codeChunk = numChunks - i;
-		codeByteStart = origBytecode.data() + chunkOffsets[numChunks - i];
-		if (memcmp(codeByteStart, "SHEX", 4) == 0 || memcmp(codeByteStart, "SHDR", 4) == 0)
-			break;
-	}
-	// FIXME: If neither SHEX or SHDR was found in the shader, codeByteStart will be garbage
 	vector<string> lines = stringToLines(asmBuffer, asmSize);
 	DWORD* codeStart = (DWORD*)(codeByteStart + 8);
 	bool codeStarted = false;
@@ -3321,15 +3349,15 @@ vector<byte> assembler(vector<char> *asmFile, vector<byte> origBytecode,
 		}
 	}
 	codeStart = (DWORD*)(codeByteStart); // Endian bug, not that we care
-	auto it = origBytecode.begin() + chunkOffsets[codeChunk] + 8;
-	size_t codeSize = codeStart[1];
+	auto it = origBytecode.begin() + codeChunkOffset + 8;
+	size_t codeSize = codeChunkSize;
 	origBytecode.erase(it, it + codeSize);
 	size_t newCodeSize = 4 * o.size();
 	codeStart[1] = (DWORD)newCodeSize;
 	vector<byte> newCode(newCodeSize);
 	o[1] = (DWORD)o.size();
 	memcpy(newCode.data(), o.data(), newCodeSize);
-	it = origBytecode.begin() + chunkOffsets[codeChunk] + 8;
+	it = origBytecode.begin() + codeChunkOffset + 8;
 	origBytecode.insert(it, newCode.begin(), newCode.end());
 	DWORD* dwordBuffer = (DWORD*)origBytecode.data();
 	for (DWORD i = codeChunk + 1; i < numChunks; i++) {
@@ -3348,7 +3376,7 @@ vector<byte> assemblerDX9(vector<char> *asmFile)
 {
 	vector<byte> ret;
 	LPD3DXBUFFER pAssembly;
-	HRESULT hr = D3DXAssembleShader(asmFile->data(), (UINT)asmFile->size(), NULL, NULL, 0, &pAssembly, NULL);
+	HRESULT hr = D3DXAssembleShader(asmFile->data(), (UINT)asmFile->size(), nullptr, nullptr, 0, &pAssembly, nullptr);
 	if (!FAILED(hr)) {
 		size_t size = pAssembly->GetBufferSize();
 		LPVOID buffer = pAssembly->GetBufferPointer();

@@ -41,8 +41,8 @@ struct DrawContext
 			UINT VertexCount, UINT IndexCount, UINT InstanceCount,
 			UINT FirstVertex, UINT FirstIndex, UINT FirstInstance,
 			ID3D11Buffer **indirect_buffer, UINT args_offset) :
-		oldVertexShader(NULL),
-		oldPixelShader(NULL),
+		oldVertexShader(nullptr),
+		oldPixelShader(nullptr),
 		call_info(type, VertexCount, IndexCount, InstanceCount, FirstVertex, FirstIndex, FirstInstance,
 				indirect_buffer, args_offset)
 	{
@@ -56,12 +56,12 @@ struct DispatchContext
 	DrawCallInfo call_info;
 
 	DispatchContext(UINT ThreadGroupCountX, UINT ThreadGroupCountY, UINT ThreadGroupCountZ) :
-		post_commands(NULL),
-		call_info(DrawCall::Dispatch, 0, 0, 0, 0, 0, 0, NULL, 0, ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ)
+		post_commands(nullptr),
+		call_info(DrawCall::Dispatch, 0, 0, 0, 0, 0, 0, nullptr, 0, ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ)
 	{}
 
 	DispatchContext(ID3D11Buffer **indirect_buffer, UINT args_offset) :
-		post_commands(NULL),
+		post_commands(nullptr),
 		call_info(DrawCall::DispatchIndirect, 0, 0, 0, 0, 0, 0, indirect_buffer, args_offset)
 	{}
 };
@@ -77,7 +77,7 @@ struct MappedResourceInfo {
 	UINT bind_flags;
 
 	MappedResourceInfo() :
-		orig_pData(NULL),
+		orig_pData(nullptr),
 		size(0),
 		mapped_writable(false),
 		bind_flags(0)
@@ -135,11 +135,19 @@ private:
 	ID3D11Resource *mCurrentDepthTarget;
 	UINT mCurrentPSUAVStartSlot;
 	UINT mCurrentPSNumUAVs;
+
 	HackerInputLayout* mCurrentInputLayout;
+	HackerInputLayout* mOriginalInputLayout;
+	HackerInputLayout* mOverrideInputLayout;
 
 	// Used for deny_cpu_read, track_texture_updates and constant buffer matching
 	typedef std::unordered_map<ID3D11Resource*, MappedResourceInfo> MappedResources;
 	MappedResources mMappedResources;
+
+	unsigned draw_number = 0;
+	unsigned dispatch_number = 0;
+
+	FlatHashMap<UINT, ID3D11Buffer*> mReadbackBuffers = FlatHashMap<UINT, ID3D11Buffer*>(64);
 
 	// These private methods are utility routines for HackerContext.
 	void ClearCurrentInputLayout();
@@ -241,6 +249,16 @@ public:
 	virtual void FrameAnalysisTrigger(FrameAnalysisOptions new_options) {};
 	virtual void FrameAnalysisDump(ID3D11Resource *resource, FrameAnalysisOptions options,
 		const wchar_t *target, DXGI_FORMAT format, UINT stride, UINT offset) {};
+
+	unsigned GetDrawNumber() const { return draw_number; };
+	unsigned GetDispatchNumber() const { return dispatch_number; };
+	void ResetCallCounters() { draw_number = 0; dispatch_number = 0; };
+
+	ID3D11Buffer* GetReadbackBuffer(UINT size);
+
+	void DeferInputLayoutOverride(HackerInputLayout* pInputLayout);
+	void OverrideInputLayout();
+	void RestoreInputLayout();
 
 	// These are the shaders the game has set, which may be different from
 	// the ones we have bound to the pipeline:

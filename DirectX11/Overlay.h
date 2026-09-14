@@ -30,7 +30,7 @@ enum LogLevel {
 class OverlayNotice {
 public:
 	std::wstring message;
-	DWORD timestamp;
+	ULONGLONG timestamp;
 
 	OverlayNotice(std::wstring message);
 };

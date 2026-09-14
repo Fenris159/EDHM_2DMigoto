@@ -87,16 +87,16 @@ static void dump_stack_trace()
 {
 	uintptr_t trace[62];
 	USHORT frames;
-	HMODULE module;
+	HMODULE hModule;
 	wchar_t path[MAX_PATH];
 	MODULEINFO mod_info;
 
 	LogInfo("%04x call stack:\n", GetCurrentThreadId());
-	frames = CaptureStackBackTrace(0, 62, (void**)trace, NULL);
+	frames = CaptureStackBackTrace(0, 62, (void**)trace, nullptr);
 	for (USHORT i = 0; i < frames; i++) {
-		if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)trace[i], &module)
-		 && GetModuleFileName(module, path, MAX_PATH)
-		 && GetModuleInformation(GetCurrentProcess(), module, &mod_info, sizeof(MODULEINFO))) {
+		if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)trace[i], &hModule)
+		 && GetModuleFileName(hModule, path, MAX_PATH)
+		 && GetModuleInformation(GetCurrentProcess(), hModule, &mod_info, sizeof(MODULEINFO))) {
 			LogInfo("%04x: %S+0x%"PRIxPTR"\n",
 					GetCurrentThreadId(), path, trace[i] - (uintptr_t)mod_info.lpBaseOfDll);
 		} else {
@@ -108,7 +108,7 @@ static void dump_stack_trace()
 
 static void log_held_locks(LockStack &held_locks, std::vector<LockStack> &other_sides)
 {
-	HMODULE module;
+	HMODULE hModule;
 	wchar_t path[MAX_PATH];
 	MODULEINFO mod_info;
 	char buf[20];
@@ -120,9 +120,9 @@ static void log_held_locks(LockStack &held_locks, std::vector<LockStack> &other_
 			LogInfo("%04x: EnterCriticalSection(%s) %s(%d)\n",
 					GetCurrentThreadId(), lock_name(info->lock, buf), info->function, info->line);
 		} else {
-			if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)info->ret, &module)
-			 && GetModuleFileName(module, path, MAX_PATH)
-			 && GetModuleInformation(GetCurrentProcess(), module, &mod_info, sizeof(MODULEINFO))) {
+			if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)info->ret, &hModule)
+			 && GetModuleFileName(hModule, path, MAX_PATH)
+			 && GetModuleInformation(GetCurrentProcess(), hModule, &mod_info, sizeof(MODULEINFO))) {
 				LogInfo("%04x: EnterCriticalSection(%s) %S+0x%"PRIxPTR"\n",
 						GetCurrentThreadId(), lock_name(info->lock, buf), path, info->ret - (uintptr_t)mod_info.lpBaseOfDll);
 			} else {
@@ -142,9 +142,9 @@ static void log_held_locks(LockStack &held_locks, std::vector<LockStack> &other_
 				LogInfo("      EnterCriticalSection(%s) %s(%d)\n",
 						lock_name(info->lock, buf), info->function, info->line);
 			} else {
-				if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)info->ret, &module)
-				 && GetModuleFileName(module, path, MAX_PATH)
-				 && GetModuleInformation(GetCurrentProcess(), module, &mod_info, sizeof(MODULEINFO))) {
+				if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)info->ret, &hModule)
+				 && GetModuleFileName(hModule, path, MAX_PATH)
+				 && GetModuleInformation(GetCurrentProcess(), hModule, &mod_info, sizeof(MODULEINFO))) {
 					LogInfo("      EnterCriticalSection(%s) %S+0x%"PRIxPTR"\n",
 							lock_name(info->lock, buf), path, info->ret - (uintptr_t)mod_info.lpBaseOfDll);
 				} else {
@@ -210,8 +210,10 @@ static void validate_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock)
 	_EnterCriticalSection(&graph_lock);
 
 	// Save time by not re-checking previously checked stacks:
-	if (cached_stacks.count(locks_held.back().stack_hash))
-		goto out_unlock;
+	if (cached_stacks.count(locks_held.back().stack_hash)) {
+		_LeaveCriticalSection(&graph_lock);
+		return;
+	}
 
 	// Critical section type locks are re-entrant, so we are not worried if
 	// we see a currently held lock being taken again. Last locks_held is
@@ -219,7 +221,8 @@ static void validate_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock)
 	for (auto info = locks_held.begin(); info < locks_held.end() - 1; info++) {
 		if (info->lock == new_lock) {
 			cached_stacks.insert({locks_held.back().stack_hash, locks_held});
-			goto out_unlock;
+			_LeaveCriticalSection(&graph_lock);
+			return;
 		}
 	}
 
@@ -251,8 +254,10 @@ static void validate_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock)
 	// multiple times:
 	cached_stacks.insert({locks_held.back().stack_hash, locks_held});
 
-	if (issues.empty())
-		goto out_unlock;
+	if (issues.empty()) {
+		_LeaveCriticalSection(&graph_lock);
+		return;
+	}
 
 	reported_stacks.insert(locks_held.back().stack_hash);
 
@@ -290,14 +295,10 @@ static void validate_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock)
 
 	if (IsDebuggerPresent())
 		__debugbreak();
-
-	return;
-out_unlock:
-	_LeaveCriticalSection(&graph_lock);
 }
 
 static void push_lock(LockStack &locks_held, CRITICAL_SECTION *new_lock, uintptr_t ret,
-		char *function = NULL, int line = 0)
+		char *function = nullptr, int line = 0)
 {
 	size_t stack_hash = 0;
 

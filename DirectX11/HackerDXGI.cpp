@@ -160,7 +160,7 @@ HackerSwapChain::HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDev
 	if (mHackerContext) {
 		mHackerContext->AddRef();
 	} else {
-		ID3D11DeviceContext *tmpContext = NULL;
+		ID3D11DeviceContext *tmpContext = nullptr;
 		// GetImmediateContext will bump the refcount for us.
 		// In the case of hooking, GetImmediateContext will not return
 		// a HackerContext, so we don't use it's return directly, but
@@ -178,7 +178,7 @@ HackerSwapChain::HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDev
 	}
 	catch (...) {
 		LogInfo("  *** Failed to create Overlay. Exception caught.\n");
-		mOverlay = NULL;
+		mOverlay = nullptr;
 	}
 }
 
@@ -196,7 +196,11 @@ void HackerSwapChain::RunFrameActions()
 {
 	LogDebug("Running frame actions.  Device: %p\n", mHackerDevice);
 
-	G->gTime = (GetTickCount() - G->ticks_at_launch) / 1000.0f;
+	// 64-bit ticks: GetTickCount() wraps after ~49.7 days and would freeze
+	// or glitch every elapsed-time consumer of gTime in long-lived processes.
+	ULONGLONG now = GetTickCount64();
+	G->gSystemTickCount = (unsigned)now;
+	G->gTime = (float)((double)(now - G->ticks_at_launch) / 1000.0);
 
 	// Avoid fflush every Present — that undoes OS write buffering and costs
 	// measurable time when enabled=1. Debug mode keeps per-frame accuracy;
@@ -215,7 +219,7 @@ void HackerSwapChain::RunFrameActions()
 	// a pre-present command list. We have a separate post-present command
 	// list after the present call in case we need to restore state or
 	// affect something at the start of the frame.
-	RunCommandList(mHackerDevice, mHackerContext, &G->present_command_list, NULL, false);
+	RunCommandList(mHackerDevice, mHackerContext, &G->present_command_list, nullptr, false);
 
 	if (G->analyse_frame) {
 		// We don't allow hold to be changed mid-frame due to potential
@@ -307,6 +311,7 @@ void HackerSwapChain::RunFrameActions()
 	// moment, but let's do it last, because logically it makes sense to be
 	// incremented when we call the original present call:
 	G->frame_no++;
+	mHackerContext->ResetCallCounters();
 
 	// When not hunting most keybindings won't have been registered, but
 	// still skip the below logic that only applies while hunting.
@@ -315,7 +320,7 @@ void HackerSwapChain::RunFrameActions()
 
 	// Update the huntTime whenever we get fresh user input.
 	if (newEvent)
-		G->huntTime = time(NULL);
+		G->huntTime = time(nullptr);
 
 	// Clear buffers after some user idle time.  This allows the buffers to be
 	// stable during a hunt, and cleared after one minute of idle time.  The idea
@@ -327,7 +332,7 @@ void HackerSwapChain::RunFrameActions()
 	// The arrays will be continually filled by the SetShader sections, but should 
 	// rapidly converge upon all active shaders.
 
-	if (difftime(time(NULL), G->huntTime) > 60) {
+	if (difftime(time(nullptr), G->huntTime) > 60) {
 		EnterCriticalSectionPretty(&G->mCriticalSection);
 		TimeoutHuntingBuffers();
 		LeaveCriticalSection(&G->mCriticalSection);
@@ -394,14 +399,14 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 	{
 		LogInfo("***  returns E_NOINTERFACE as error for IDXGISwapChain4.\n");
 		reinterpret_cast<IUnknown*>(*ppvObject)->Release();
-		*ppvObject = NULL;
+		*ppvObject = nullptr;
 		return E_NOINTERFACE;
 	}
 
-	IUnknown* unk_this = NULL;
+	IUnknown* unk_this = nullptr;
 	HRESULT hr_this = mOrigSwapChain1->QueryInterface(__uuidof(IUnknown), (void**)&unk_this);
 
-	IUnknown* unk_ppvObject = NULL;
+	IUnknown* unk_ppvObject = nullptr;
 	HRESULT hr_ppvObject = reinterpret_cast<IUnknown*>(*ppvObject)->QueryInterface(__uuidof(IUnknown), (void**)&unk_ppvObject);
 	bool identity_queries_succeeded = SUCCEEDED(hr_this) && SUCCEEDED(hr_ppvObject);
 
@@ -456,7 +461,7 @@ STDMETHODIMP_(ULONG) HackerSwapChain::Release(THIS)
 			delete mOverlay;
 
 		if (last_fullscreen_swap_chain == mOrigSwapChain1)
-			last_fullscreen_swap_chain = NULL;
+			last_fullscreen_swap_chain = nullptr;
 
 		LogInfo("  counter=%d, this=%p, deleting self.\n", ulRef, this);
 
@@ -565,6 +570,32 @@ STDMETHODIMP HackerSwapChain::GetDevice(
 // -----------------------------------------------------------------------------
 /** IDXGISwapChain **/
 
+// If Present reported that the device was removed, reset or hung, log the
+// HRESULT and the device's removal reason once so field logs can identify
+// driver resets. We deliberately still run the post-present command list:
+// it restores wrapper state changed by the pre-present list, and skipping it
+// blindly could leave that state corrupted for a game that recovers.
+static void LogPresentDeviceLossOnce(HackerDevice *device, HRESULT present_hr)
+{
+	if (present_hr != DXGI_ERROR_DEVICE_REMOVED &&
+	    present_hr != DXGI_ERROR_DEVICE_RESET &&
+	    present_hr != DXGI_ERROR_DEVICE_HUNG)
+		return;
+
+	static LONG logged = 0;
+	if (InterlockedExchange(&logged, 1))
+		return;
+
+	HRESULT reason = E_FAIL;
+	if (device && device->GetPassThroughOrigDevice1())
+		reason = device->GetPassThroughOrigDevice1()->GetDeviceRemovedReason();
+
+	LogInfo("*** Present returned device-loss HRESULT=0x%08x, GetDeviceRemovedReason=0x%08x\n",
+			present_hr, reason);
+	if (LogFile)
+		fflush(LogFile);
+}
+
 STDMETHODIMP HackerSwapChain::Present(THIS_
 	/* [in] */ UINT SyncInterval,
 	/* [in] */ UINT Flags)
@@ -618,6 +649,8 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
 	HRESULT hr = mOrigSwapChain1->Present(SyncInterval, Flags);
 	get_tls()->hooking_quirk_protection = false;
 
+	LogPresentDeviceLossOnce(mHackerDevice, hr);
+
 	if (!(Flags & DXGI_PRESENT_TEST)) {
 		if (profiling)
 			Profiling::start(&profiling_state);
@@ -627,7 +660,7 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
 		// Run the post present command list now, which can be used to restore
 		// state changed in the pre-present command list, or to perform some
 		// action at the start of a frame:
-		RunCommandList(mHackerDevice, mHackerContext, &G->post_present_command_list, NULL, true);
+		RunCommandList(mHackerDevice, mHackerContext, &G->post_present_command_list, nullptr, true);
 
 		if (profiling)
 			Profiling::end(&profiling_state, &Profiling::present_overhead);
@@ -907,6 +940,13 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 		if (profiling)
 			Profiling::start(&profiling_state);
 
+		// Keep the same per-frame maintenance as Present: without this an
+		// application presenting via Present1 would retain region-hash L3
+		// entries beyond the intended frame boundary.
+		if (G->track_region_hashes) {
+			ClearRegionHashesGlobalCache();
+		}
+
 		// Every presented frame, we want to take some CPU time to run our actions,
 		// which enables hunting, and snapshots, and aiming overrides and other inputs
 		RunFrameActions();
@@ -919,6 +959,8 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 	HRESULT hr = mOrigSwapChain1->Present1(SyncInterval, PresentFlags, pPresentParameters);
 	get_tls()->hooking_quirk_protection = false;
 
+	LogPresentDeviceLossOnce(mHackerDevice, hr);
+
 	if (!(PresentFlags & DXGI_PRESENT_TEST)) {
 		if (profiling)
 			Profiling::start(&profiling_state);
@@ -928,7 +970,7 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 		// Run the post present command list now, which can be used to restore
 		// state changed in the pre-present command list, or to perform some
 		// action at the start of a frame:
-		RunCommandList(mHackerDevice, mHackerContext, &G->post_present_command_list, NULL, true);
+		RunCommandList(mHackerDevice, mHackerContext, &G->post_present_command_list, nullptr, true);
 
 		if (profiling)
 			Profiling::end(&profiling_state, &Profiling::present_overhead);
@@ -1121,7 +1163,7 @@ STDMETHODIMP HackerUpscalingSwapChain::GetBuffer(THIS_
 	{
 		// Use QueryInterface on mFakeBackBuffer, which validates that
 		// the requested interface is supported, that ppSurface is not
-		// NULL, and bumps the refcount if successful:
+		// nullptr, and bumps the refcount if successful:
 		hr = mFakeBackBuffer->QueryInterface(riid, ppSurface);
 	}
 	else if (mFakeSwapChain1)
@@ -1316,7 +1358,7 @@ STDMETHODIMP HackerUpscalingSwapChain::ResizeTarget(THIS_
 		dmScreenSettings.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
 
 		// Change the display settings to full screen.
-		LONG displ_chainge_res = ChangeDisplaySettingsEx(NULL, &dmScreenSettings, nullptr, CDS_FULLSCREEN, 0);
+		LONG displ_chainge_res = ChangeDisplaySettingsEx(nullptr, &dmScreenSettings, nullptr, CDS_FULLSCREEN, 0);
 		hr = displ_chainge_res == 0 ? S_OK : DXGI_ERROR_INVALID_CALL;
 	}
 	else if (G->SCREEN_UPSCALING == 1)

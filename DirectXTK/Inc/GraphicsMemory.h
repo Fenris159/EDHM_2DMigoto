@@ -32,8 +32,8 @@ namespace DirectX
         #else
         GraphicsMemory(_In_ ID3D11Device* device, UINT backBufferCount = 2);
         #endif
-        GraphicsMemory(GraphicsMemory&& moveFrom);
-        GraphicsMemory& operator= (GraphicsMemory&& moveFrom);
+        GraphicsMemory(GraphicsMemory&& moveFrom) noexcept;
+        GraphicsMemory& operator= (GraphicsMemory&& moveFrom) noexcept;
 
         GraphicsMemory(GraphicsMemory const&) = delete;
         GraphicsMemory& operator=(GraphicsMemory const&) = delete;
