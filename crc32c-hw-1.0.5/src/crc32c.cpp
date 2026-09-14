@@ -380,8 +380,8 @@ extern "C" CRC32C_API void crc32c_unittest()
 {
     std::random_device rd;
     std::uniform_int_distribution<int> byteDist(0, 255);
-    uint8_t *input = new uint8_t[TEST_BUFFER];
-    for (int i = 0; i < TEST_BUFFER; ++i)
+	auto *input = new uint8_t[TEST_BUFFER];
+	for (int i = 0; i < TEST_BUFFER; ++i)
         input[i] = static_cast<uint8_t>(byteDist(rd));
     int *offsets = new int[TEST_SLICES];
     int *lengths = new int[TEST_SLICES];
@@ -392,11 +392,11 @@ extern "C" CRC32C_API void crc32c_unittest()
         std::uniform_int_distribution<int> offsetDist(0, TEST_BUFFER - lengths[i]);
         offsets[i] = offsetDist(rd);
     }
-    uint32_t *crcsTrivial = new uint32_t[TEST_SLICES];
-    uint32_t *crcsAdlerTable = new uint32_t[TEST_SLICES];
-    uint32_t *crcsTable = new uint32_t[TEST_SLICES];
-    uint32_t *crcsHw = new uint32_t[TEST_SLICES];
-    int iterationsTrivial = benchmark("trivial", append_trivial, input, offsets, lengths, crcsTrivial);
+	auto *crcsTrivial = new uint32_t[TEST_SLICES];
+	auto *crcsAdlerTable = new uint32_t[TEST_SLICES];
+	auto *crcsTable = new uint32_t[TEST_SLICES];
+	auto *crcsHw = new uint32_t[TEST_SLICES];
+	int iterationsTrivial = benchmark("trivial", append_trivial, input, offsets, lengths, crcsTrivial);
     int iterationsAdlerTable = benchmark("adler_table", append_adler_table, input, offsets, lengths, crcsAdlerTable);
     compare_crcs("trivial", crcsTrivial, "adler_table", crcsAdlerTable, std::min(iterationsTrivial, iterationsAdlerTable));
     int iterationsTable = benchmark("table", append_table, input, offsets, lengths, crcsTable);
@@ -434,7 +434,7 @@ extern const uint32_t Crc32Lookup[MaxSlice][256]; // extern is needed to keep co
 uint32_t crc32_16bytes(const void* data, size_t length, uint32_t previousCrc32 = 0)
 {
 	uint32_t crc = ~previousCrc32; // same as previousCrc32 ^ 0xFFFFFFFF
-	const uint32_t* current = (const uint32_t*)data;
+	const auto *current = (const uint32_t *)data;
 
 	// enabling optimization (at least -O2) automatically unrolls the inner for-loop
 	const size_t Unroll = 4;
@@ -492,7 +492,7 @@ uint32_t crc32_16bytes(const void* data, size_t length, uint32_t previousCrc32 =
 		length -= BytesAtOnce;
 	}
 
-	const uint8_t* currentChar = (const uint8_t*)current;
+	const auto *currentChar = (const uint8_t *)current;
 	// remaining 1 to 63 bytes (standard algorithm)
 	while (length-- != 0)
 		crc = (crc >> 8) ^ Crc32Lookup[0][(crc & 0xFF) ^ *currentChar++];

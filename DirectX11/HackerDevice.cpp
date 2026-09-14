@@ -18,6 +18,7 @@
 
 #include <D3Dcompiler.h>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <codecvt>
 
@@ -81,7 +82,7 @@ static DeviceMap device_map;
 // This will look up a HackerDevice corresponding to some unknown device object
 // (ID3D11Device*, IDXGIDevice*, etc). It will bump the refcount on the
 // returned interface.
-HackerDevice* lookup_hacker_device(IUnknown *unknown)
+HackerDevice *lookup_hacker_device(IUnknown *unknown)
 {
 	HackerDevice *ret = nullptr;
 	IUnknown *real_unknown = nullptr;
@@ -99,7 +100,8 @@ HackerDevice* lookup_hacker_device(IUnknown *unknown)
 	// QueryInterface and will return the corresponding HackerDevice here,
 	// but even if they didn't they would still be looked up in the map, so
 	// either way we no longer need to call lookup_hooked_device.
-	if (SUCCEEDED(unknown->QueryInterface(IID_HackerDevice, (void**)&ret))) {
+	if (SUCCEEDED(unknown->QueryInterface(IID_HackerDevice, (void **)&ret)))
+	{
 		LogInfo("lookup_hacker_device(%p): Supports HackerDevice\n", unknown);
 		return ret;
 	}
@@ -109,7 +111,8 @@ HackerDevice* lookup_hacker_device(IUnknown *unknown)
 	// with C style casting), but we need the real IUnknown pointer with
 	// the COM guarantee that it will match for all interfaces of the same
 	// object, so we call QueryInterface on it again to get this:
-	if (FAILED(unknown->QueryInterface(IID_IUnknown, (void**)&real_unknown))) {
+	if (FAILED(unknown->QueryInterface(IID_IUnknown, (void **)&real_unknown)))
+	{
 		// ... ehh, what? Shouldn't happen. Fatal.
 		LogInfo("lookup_hacker_device: QueryInterface(IID_Unknown) failed\n");
 		DoubleBeepExit();
@@ -117,7 +120,8 @@ HackerDevice* lookup_hacker_device(IUnknown *unknown)
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
 	i = device_map.find(real_unknown);
-	if (i != device_map.end()) {
+	if (i != device_map.end())
+	{
 		ret = i->second;
 		ret->AddRef();
 	}
@@ -125,7 +129,8 @@ HackerDevice* lookup_hacker_device(IUnknown *unknown)
 
 	real_unknown->Release();
 
-	if (!ret) {
+	if (!ret)
+	{
 		// Either not a d3d11 device, or something has handed us an
 		// unwrapped device *and also* violated the COM identity rule.
 		// This is known to happen with ReShade in certain games (e.g.
@@ -154,34 +159,36 @@ HackerDevice* lookup_hacker_device(IUnknown *unknown)
 		// agnostic. XXX: It might be worthwhile considering dropping
 		// the above device_map lookup which relies on the COM identity
 		// rule in favour of this, since we expect this to always work:
-		if (SUCCEEDED(unknown->QueryInterface(IID_IDXGIObject, (void**)&dxgi_obj))) {
+		if (SUCCEEDED(unknown->QueryInterface(IID_IDXGIObject, (void **)&dxgi_obj)))
+		{
 			UINT size = sizeof(ret);
-			if (SUCCEEDED(dxgi_obj->GetPrivateData(IID_HackerDevice, &size, &ret))) {
-				LogInfo("Notice: Unwrapped device and COM Identity violation, Found HackerDevice via GetPrivateData strategy\n");
+			if (SUCCEEDED(dxgi_obj->GetPrivateData(IID_HackerDevice, &size, &ret)))
+			{
+				LogInfo("Notice: Unwrapped device and COM Identity violation, Found HackerDevice via GetPrivateData "
+				        "strategy\n");
 				ret->AddRef();
 			}
 			dxgi_obj->Release();
 		}
 	}
 
-	LogInfo("lookup_hacker_device(%p) IUnknown: %p HackerDevice: %p\n",
-			unknown, real_unknown, ret);
+	LogInfo("lookup_hacker_device(%p) IUnknown: %p HackerDevice: %p\n", unknown, real_unknown, ret);
 
 	return ret;
 }
 
-static IUnknown* register_hacker_device(HackerDevice *hacker_device)
+static IUnknown *register_hacker_device(HackerDevice *hacker_device)
 {
 	IUnknown *real_unknown = nullptr;
 
 	// As above, our key is the real IUnknown gained through QueryInterface
-	if (FAILED(hacker_device->GetPassThroughOrigDevice1()->QueryInterface(IID_IUnknown, (void**)&real_unknown))) {
+	if (FAILED(hacker_device->GetPassThroughOrigDevice1()->QueryInterface(IID_IUnknown, (void **)&real_unknown)))
+	{
 		LogInfo("register_hacker_device: QueryInterface(IID_Unknown) failed\n");
 		DoubleBeepExit();
 	}
 
-	LogInfo("register_hacker_device: Registering IUnknown: %p -> HackerDevice: %p\n",
-			real_unknown, hacker_device);
+	LogInfo("register_hacker_device: Registering IUnknown: %p -> HackerDevice: %p\n", real_unknown, hacker_device);
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
 	device_map[real_unknown] = hacker_device;
@@ -225,12 +232,16 @@ static void unregister_hacker_device(HackerDevice *hacker_device)
 	// yet, so this is safe.
 	EnterCriticalSectionPretty(&G->mCriticalSection);
 	i = device_map.find(real_unknown);
-	if (i != device_map.end()) {
-		if (i->second == hacker_device) {
-			LogInfo("unregister_hacker_device: Unregistering IUnknown %p -> HackerDevice %p\n",
-			        real_unknown, hacker_device);
+	if (i != device_map.end())
+	{
+		if (i->second == hacker_device)
+		{
+			LogInfo("unregister_hacker_device: Unregistering IUnknown %p -> HackerDevice %p\n", real_unknown,
+			        hacker_device);
 			device_map.erase(i);
-		} else {
+		}
+		else
+		{
 			LogInfo("BUG: Removing HackerDevice from device_map"
 			        "     IUnknown %p expected to map to %p, actually %p\n",
 			        real_unknown, hacker_device, i->second);
@@ -292,42 +303,47 @@ HRESULT HackerDevice::CreateIniParamResources()
 	memset(&desc, 0, sizeof(D3D11_TEXTURE1D_DESC));
 
 	// If we are resizing IniParams we must release the old versions:
-	if (mIniResourceView) {
+	if (mIniResourceView)
+	{
 		long refcount = mIniResourceView->Release();
 		mIniResourceView = nullptr;
 		LogInfo("  releasing ini parameters resource view, refcount = %d\n", refcount);
 	}
-	if (mIniTexture) {
+	if (mIniTexture)
+	{
 		long refcount = mIniTexture->Release();
 		mIniTexture = nullptr;
 		LogInfo("  releasing iniparams texture, refcount = %d\n", refcount);
 	}
 
-	if (G->iniParamsReserved > INI_PARAMS_SIZE_WARNING) {
-		LogOverlay(LOG_NOTICE, "NOTICE: %d requested IniParams exceeds the recommended %d\n",
-				G->iniParamsReserved, INI_PARAMS_SIZE_WARNING);
+	if (G->iniParamsReserved > INI_PARAMS_SIZE_WARNING)
+	{
+		LogOverlay(LOG_NOTICE, "NOTICE: %d requested IniParams exceeds the recommended %d\n", G->iniParamsReserved,
+		           INI_PARAMS_SIZE_WARNING);
 	}
 
 	G->iniParams.resize(G->iniParamsReserved);
-	if (G->iniParams.empty()) {
+	if (G->iniParams.empty())
+	{
 		LogInfo("  No IniParams used, skipping texture creation.\n");
 		return S_OK;
 	}
 
 	LogInfo("  creating .ini constant parameter texture.\n");
 
-	// Stuff the constants read from the .ini file into the subresource data structure, so 
+	// Stuff the constants read from the .ini file into the subresource data structure, so
 	// we can init the texture with them.
 	initialData.pSysMem = G->iniParams.data();
-	initialData.SysMemPitch = sizeof(DirectX::XMFLOAT4) * (UINT)G->iniParams.size(); // Ignored for Texture1D, but still recommended for debugging
+	initialData.SysMemPitch = sizeof(DirectX::XMFLOAT4) *
+	                          (UINT)G->iniParams.size(); // Ignored for Texture1D, but still recommended for debugging
 
-	desc.Width = (UINT)G->iniParams.size();					// n texels, .rgba as a float4
+	desc.Width = (UINT)G->iniParams.size(); // n texels, .rgba as a float4
 	desc.MipLevels = 1;
 	desc.ArraySize = 1;
-	desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;				// float4
-	desc.Usage = D3D11_USAGE_DYNAMIC;							// Read/Write access from GPU and CPU
-	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;				// As resource view, access via t120
-	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;				// allow CPU access for hotkeys
+	desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // float4
+	desc.Usage = D3D11_USAGE_DYNAMIC;             // Read/Write access from GPU and CPU
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;  // As resource view, access via t120
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE; // allow CPU access for hotkeys
 	desc.MiscFlags = 0;
 	ret = mOrigDevice1->CreateTexture1D(&desc, &initialData, &mIniTexture);
 	if (FAILED(ret))
@@ -361,16 +377,18 @@ void HackerDevice::CreatePinkHuntingResources()
 	if (G->hunting && (G->marking_mode == MarkingMode::PINK || G->config_reloadable))
 	{
 		const char *hlsl = "float4 pshader() : SV_Target0"
-			"{"
-			"	return float4(1,0,1,1);"
-			"}";
+		                   "{"
+		                   "	return float4(1,0,1,1);"
+		                   "}";
 
-		ID3D10Blob* blob = nullptr;
-		HRESULT hr = D3DCompile(hlsl, strlen(hlsl), "JustPink", nullptr, nullptr, "pshader", "ps_4_0", 0, 0, &blob, nullptr);
+		ID3D10Blob *blob = nullptr;
+		HRESULT hr =
+		    D3DCompile(hlsl, strlen(hlsl), "JustPink", nullptr, nullptr, "pshader", "ps_4_0", 0, 0, &blob, nullptr);
 		LogInfo("  Created pink mode pixel shader: %d\n", hr);
 		if (SUCCEEDED(hr))
 		{
-			hr = mOrigDevice1->CreatePixelShader((DWORD*)blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, &G->mPinkingShader);
+			hr = mOrigDevice1->CreatePixelShader((DWORD *)blob->GetBufferPointer(), blob->GetBufferSize(), nullptr,
+			                                     &G->mPinkingShader);
 			CleanupShaderMaps(G->mPinkingShader);
 			if (FAILED(hr))
 				LogInfo("  Failed to create pinking pixel shader: %d\n", hr);
@@ -378,7 +396,6 @@ void HackerDevice::CreatePinkHuntingResources()
 		}
 	}
 }
-
 
 // With the addition of full DXGI support, this init sequence is too dangerous
 // to do at object creation time.  The NV CreateHandleFromIUnknown calls back
@@ -400,7 +417,6 @@ void HackerDevice::Create3DMigotoResources()
 	optimise_command_lists(this);
 }
 
-
 // Save reference to corresponding HackerContext during CreateDevice, needed for GetImmediateContext.
 
 void HackerDevice::SetHackerContext(HackerContext *pHackerContext)
@@ -408,7 +424,7 @@ void HackerDevice::SetHackerContext(HackerContext *pHackerContext)
 	mHackerContext = pHackerContext;
 }
 
-HackerContext* HackerDevice::GetHackerContext()
+HackerContext *HackerDevice::GetHackerContext()
 {
 	// Debug level: this is called per-use and at info level it dominated
 	// normal logs (~1,400 lines in a single session).
@@ -421,11 +437,10 @@ void HackerDevice::SetHackerSwapChain(HackerSwapChain *pHackerSwapChain)
 	mHackerSwapChain = pHackerSwapChain;
 }
 
-HackerSwapChain* HackerDevice::GetHackerSwapChain()
+HackerSwapChain *HackerDevice::GetHackerSwapChain()
 {
 	return mHackerSwapChain;
 }
-
 
 // Returns the "real" DirectX object. Note that if hooking is enabled calls
 // through this object will go back into 3DMigoto, which would then subject
@@ -433,7 +448,7 @@ HackerSwapChain* HackerDevice::GetHackerSwapChain()
 // undesirable in some cases. This used to cause a crash if a command list
 // issued a draw call, since that would then trigger the command list and
 // recurse until the stack ran out:
-ID3D11Device1* HackerDevice::GetPossiblyHookedOrigDevice1()
+ID3D11Device1 *HackerDevice::GetPossiblyHookedOrigDevice1()
 {
 	return mRealOrigDevice1;
 }
@@ -441,17 +456,17 @@ ID3D11Device1* HackerDevice::GetPossiblyHookedOrigDevice1()
 // Use this one when you specifically don't want calls through this object to
 // ever go back into 3DMigoto. If hooking is disabled this is identical to the
 // above, but when hooking this will be the trampoline object instead:
-ID3D11Device1* HackerDevice::GetPassThroughOrigDevice1()
+ID3D11Device1 *HackerDevice::GetPassThroughOrigDevice1()
 {
 	return mOrigDevice1;
 }
 
-ID3D11DeviceContext1* HackerDevice::GetPossiblyHookedOrigContext1()
+ID3D11DeviceContext1 *HackerDevice::GetPossiblyHookedOrigContext1()
 {
 	return mOrigContext1;
 }
 
-ID3D11DeviceContext1* HackerDevice::GetPassThroughOrigContext1()
+ID3D11DeviceContext1 *HackerDevice::GetPassThroughOrigContext1()
 {
 	if (mHackerContext)
 		return mHackerContext->GetPassThroughOrigContext1();
@@ -459,7 +474,7 @@ ID3D11DeviceContext1* HackerDevice::GetPassThroughOrigContext1()
 	return mOrigContext1;
 }
 
-IUnknown* HackerDevice::GetIUnknown()
+IUnknown *HackerDevice::GetIUnknown()
 {
 	return mUnknown;
 }
@@ -475,28 +490,25 @@ void HackerDevice::HookDevice()
 	mOrigDevice1 = hook_device(mOrigDevice1, this);
 }
 
-
-
-
-
 // -----------------------------------------------------------------------------------------------
 // ToDo: I'd really rather not have these standalone utilities here, this file should
 // ideally be only HackerDevice and it's methods.  Because of our spaghetti Globals+Utils,
 // it gets too involved to move these out right now.
 
-
 // For any given vertex or pixel shader from the ShaderFixes folder, we need to track them at load time so
 // that we can associate a given active shader with an override file.  This allows us to reload the shaders
 // dynamically, and do on-the-fly fix testing.
-// ShaderModel is usually something like "vs_5_0", but "bin" is a valid ShaderModel string, and tells the 
+// ShaderModel is usually something like "vs_5_0", but "bin" is a valid ShaderModel string, and tells the
 // reloader to disassemble the .bin file to determine the shader model.
 
 // Currently, critical lock must be taken BEFORE this is called.
 
-static void RegisterForReload(ID3D11DeviceChild* ppShader, UINT64 hash, wstring shaderType, string shaderModel,
-	ID3D11ClassLinkage* pClassLinkage, ID3DBlob* byteCode, FILETIME timeStamp, wstring text, bool deferred_replacement_candidate)
+static void RegisterForReload(ID3D11DeviceChild *ppShader, UINT64 hash, wstring shaderType, string shaderModel,
+                              ID3D11ClassLinkage *pClassLinkage, ID3DBlob *byteCode, FILETIME timeStamp, wstring text,
+                              bool deferred_replacement_candidate)
 {
-	LogDebug("    shader registered for possible reloading: %016llx_%ls as %s - %ls\n", hash, shaderType.c_str(), shaderModel.c_str(), text.c_str());
+	LogDebug("    shader registered for possible reloading: %016llx_%ls as %s - %ls\n", hash, shaderType.c_str(),
+	         shaderModel.c_str(), text.c_str());
 
 	// Pretty sure we had a bug before since we would save a pointer to the
 	// class linkage object without bumping its refcount, but I don't know
@@ -516,7 +528,6 @@ static void RegisterForReload(ID3D11DeviceChild* ppShader, UINT64 hash, wstring 
 	G->mReloadedShaders[ppShader].deferred_replacement_processed = false;
 }
 
-
 // Helper routines for ReplaceShader, as a way to factor out some of the inline code, in
 // order to make it more clear, and as a first step toward full refactoring.
 
@@ -524,7 +535,8 @@ static void RegisterForReload(ID3D11DeviceChild* ppShader, UINT64 hash, wstring 
 // feature in the d3dx.ini.  Seems like it might be nice to have them named *_orig.bin, to
 // make them more clear.
 
-static void ExportOrigBinary(UINT64 hash, const wchar_t *pShaderType, const void *pShaderBytecode, SIZE_T pBytecodeLength)
+static void ExportOrigBinary(UINT64 hash, const wchar_t *pShaderType, const void *pShaderBytecode,
+                             SIZE_T pBytecodeLength)
 {
 	wchar_t path[MAX_PATH];
 	HANDLE f;
@@ -543,7 +555,8 @@ static void ExportOrigBinary(UINT64 hash, const wchar_t *pShaderType, const void
 			DWORD dataSize = GetFileSize(f, nullptr);
 			bool read_ok = false;
 			vector<char> buf;
-			if (dataSize && dataSize != INVALID_FILE_SIZE && dataSize <= MAX_SHADER_FILE_SIZE) {
+			if (dataSize && dataSize != INVALID_FILE_SIZE && dataSize <= MAX_SHADER_FILE_SIZE)
+			{
 				buf.resize(dataSize);
 				DWORD readSize = 0;
 				read_ok = ReadFile(f, buf.data(), dataSize, &readSize, nullptr) && dataSize == readSize;
@@ -576,7 +589,6 @@ static void ExportOrigBinary(UINT64 hash, const wchar_t *pShaderType, const void
 	}
 }
 
-
 static bool GetFileLastWriteTime(wchar_t *path, FILETIME *ftWrite)
 {
 	HANDLE f;
@@ -593,17 +605,21 @@ static bool GetFileLastWriteTime(wchar_t *path, FILETIME *ftWrite)
 
 static bool CheckCacheTimestamp(HANDLE binHandle, wchar_t *binPath, FILETIME &pTimeStamp)
 {
-	FILETIME txtTime, binTime;
-	wchar_t txtPath[MAX_PATH], *end = nullptr;
+	FILETIME txtTime;
+	FILETIME binTime;
+	wchar_t txtPath[MAX_PATH];
+	wchar_t *end = nullptr;
 
 	wcscpy_s(txtPath, MAX_PATH, binPath);
 	end = wcsstr(txtPath, L".bin");
-	if (!end) {
+	if (!end)
+	{
 		LogInfoW(L"    WARNING: Cached shader path has no .bin extension: %s\n", binPath);
 		return false;
 	}
 	wcscpy_s(end, _countof(txtPath) - (end - txtPath), L".txt");
-	if (GetFileLastWriteTime(txtPath, &txtTime) && GetFileTime(binHandle, nullptr, nullptr, &binTime)) {
+	if (GetFileLastWriteTime(txtPath, &txtTime) && GetFileTime(binHandle, nullptr, nullptr, &binTime))
+	{
 		// We need to compare the timestamp on the .bin and .txt files.
 		// This needs to be an exact match to ensure that the .bin file
 		// corresponds to this .txt file (and we need to explicitly set
@@ -638,15 +654,17 @@ static bool CheckCacheTimestamp(HANDLE binHandle, wchar_t *binPath, FILETIME &pT
 	// allowed (but discouraged) that scenario, so for now we issue a
 	// warning but allow it.
 	LogInfo("    WARNING: Unable to validate timestamp of %S"
-			" - no corresponding .txt file?\n", binPath);
+	        " - no corresponding .txt file?\n",
+	        binPath);
 	return true;
 }
 
-static bool LoadCachedShader(wchar_t *binPath, const wchar_t *pShaderType [[maybe_unused]],
-	__out char* &pCode, SIZE_T &pCodeSize, string &pShaderModel, FILETIME &pTimeStamp)
+static bool LoadCachedShader(wchar_t *binPath, const wchar_t *pShaderType [[maybe_unused]], __out char *&pCode,
+                             SIZE_T &pCodeSize, string &pShaderModel, FILETIME &pTimeStamp)
 {
 	HANDLE f;
-	DWORD codeSize, readSize;
+	DWORD codeSize;
+	DWORD readSize;
 
 	pCode = nullptr;
 	pCodeSize = 0;
@@ -656,7 +674,8 @@ static bool LoadCachedShader(wchar_t *binPath, const wchar_t *pShaderType [[mayb
 	if (f == INVALID_HANDLE_VALUE)
 		return false;
 
-	if (!CheckCacheTimestamp(f, binPath, pTimeStamp)) {
+	if (!CheckCacheTimestamp(f, binPath, pTimeStamp))
+	{
 		LogInfoW(L"    Discarding stale cached shader: %s\n", binPath);
 		goto bail_close_handle;
 	}
@@ -665,7 +684,8 @@ static bool LoadCachedShader(wchar_t *binPath, const wchar_t *pShaderType [[mayb
 	WarnIfConflictingShaderExists(binPath, end_user_conflicting_shader_msg);
 
 	codeSize = GetFileSize(f, nullptr);
-	if (!codeSize || codeSize == INVALID_FILE_SIZE || codeSize > MAX_SHADER_FILE_SIZE) {
+	if (!codeSize || codeSize == INVALID_FILE_SIZE || codeSize > MAX_SHADER_FILE_SIZE)
+	{
 		LogInfo("    Invalid binary shader file size: %u\n", codeSize);
 		goto bail_close_handle;
 	}
@@ -680,7 +700,7 @@ static bool LoadCachedShader(wchar_t *binPath, const wchar_t *pShaderType [[mayb
 	LogInfo("    Bytecode loaded. Size = %Iu\n", pCodeSize);
 	CloseHandle(f);
 
-	pShaderModel = "bin";		// tag it as reload candidate, but needing disassemble
+	pShaderModel = "bin"; // tag it as reload candidate, but needing disassemble
 
 	return true;
 
@@ -695,8 +715,8 @@ bail_close_handle:
 // Load .bin shaders from the ShaderFixes folder as cached shaders.
 // This will load either *_replace.bin, or *.bin variants.
 
-static bool LoadBinaryShaders(__in UINT64 hash, const wchar_t *pShaderType,
-	__out char* &pCode, SIZE_T &pCodeSize, string &pShaderModel, FILETIME &pTimeStamp)
+static bool LoadBinaryShaders(__in UINT64 hash, const wchar_t *pShaderType, __out char *&pCode, SIZE_T &pCodeSize,
+                              string &pShaderModel, FILETIME &pTimeStamp)
 {
 	wchar_t path[MAX_PATH];
 
@@ -709,13 +729,12 @@ static bool LoadBinaryShaders(__in UINT64 hash, const wchar_t *pShaderType,
 	return LoadCachedShader(path, pShaderType, pCode, pCodeSize, pShaderModel, pTimeStamp);
 }
 
-
 // Load an HLSL text file as the replacement shader.  Recompile it using D3DCompile.
 // If caching is enabled, save a .bin replacement for this new shader.
 
-static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
-	__in const void *pShaderBytecode, SIZE_T pBytecodeLength, const char *pOverrideShaderModel,
-	__out char* &pCode, SIZE_T &pCodeSize, string &pShaderModel, FILETIME &pTimeStamp, wstring &pHeaderLine)
+static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType, __in const void *pShaderBytecode,
+                              SIZE_T pBytecodeLength, const char *pOverrideShaderModel, __out char *&pCode,
+                              SIZE_T &pCodeSize, string &pShaderModel, FILETIME &pTimeStamp, wstring &pHeaderLine)
 {
 	wchar_t path[MAX_PATH];
 	HANDLE f;
@@ -737,7 +756,8 @@ static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
 	// metadata, and GetFileSize failure (INVALID_FILE_SIZE) must never be
 	// used as an allocation size.
 	DWORD srcDataSize = GetFileSize(f, nullptr);
-	if (!srcDataSize || srcDataSize == INVALID_FILE_SIZE || srcDataSize > MAX_SHADER_FILE_SIZE) {
+	if (!srcDataSize || srcDataSize == INVALID_FILE_SIZE || srcDataSize > MAX_SHADER_FILE_SIZE)
+	{
 		LogInfo("    Invalid HLSL replacement file size: %u\n", srcDataSize);
 		CloseHandle(f);
 		return false;
@@ -771,12 +791,15 @@ static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
 	// strchr could run past the end of a file with no newline). The UTF-8
 	// conversion can throw on malformed input, which must not propagate
 	// through the game's CreateXXShader call.
-	try {
+	try
+	{
 		std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf8_to_utf16;
-		vector<char>::iterator newline = find(srcData.begin(), srcData.end(), '\n');
+		auto newline = find(srcData.begin(), srcData.end(), '\n');
 		pHeaderLine = utf8_to_utf16.from_bytes(srcData.data(),
-				newline == srcData.end() ? srcData.data() + srcData.size() : &*newline);
-	} catch (const std::exception &e) {
+		                                       newline == srcData.end() ? srcData.data() + srcData.size() : &*newline);
+	}
+	catch (const std::exception &e)
+	{
 		LogInfo("    invalid UTF-8 in first line of HLSL replacement: %s\n", e.what());
 		pHeaderLine.clear();
 	}
@@ -795,7 +818,7 @@ static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
 	// Compile replacement.
 	LogInfo("    compiling replacement HLSL code with shader model %s\n", tmpShaderModel);
 
-	// TODO: Add #defines for StereoParams and IniParams
+	// Future work: Add #defines for StereoParams and IniParams
 
 	ID3DBlob *errorMsgs = nullptr;
 	ID3DBlob *compiledOutput = nullptr;
@@ -804,7 +827,8 @@ static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
 	// Later we could add a custom include handler to track dependencies so
 	// that we can make reloading work better when using includes:
 	size_t apath_len = wcstombs(apath, path, MAX_PATH);
-	if (apath_len == (size_t)-1 || apath_len >= MAX_PATH) {
+	if (apath_len == (size_t)-1 || apath_len >= MAX_PATH)
+	{
 		LogInfo("    error converting shader path for the compiler\n");
 		return false;
 	}
@@ -831,10 +855,12 @@ static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
 		{
 			LPVOID errMsg = errorMsgs->GetBufferPointer();
 			SIZE_T errSize = errorMsgs->GetBufferSize();
-			LogInfo("--------------------------------------------- BEGIN ---------------------------------------------\n");
+			LogInfo(
+			    "--------------------------------------------- BEGIN ---------------------------------------------\n");
 			if (errMsg && errSize > 1)
 				fwrite(errMsg, 1, errSize - 1, LogFile);
-			LogInfo("---------------------------------------------- END ----------------------------------------------\n");
+			LogInfo(
+			    "---------------------------------------------- END ----------------------------------------------\n");
 		}
 		errorMsgs->Release();
 		errorMsgs = nullptr;
@@ -855,21 +881,21 @@ static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
 			// Set the last modified timestamp on the cached shader to match the
 			// .txt file it is created from, so we can later check its validity:
 			set_file_last_write_time(path, &ftWrite);
-		} else
+		}
+		else
 			LogInfo("    error writing compiled shader to %S\n", path);
 	}
 
 	return !!pCode;
 }
 
-
-// If a matching file exists, load an ASM text shader as a replacement for a shader.  
+// If a matching file exists, load an ASM text shader as a replacement for a shader.
 // Reassemble it, and return the binary.
 //
 // Changing the output of this routine to be simply .bin files. We had some old test
 // code for assembler validation, but that just causes confusion.  Retiring the *_reasm.txt
 // files as redundant.
-// Files are like: 
+// Files are like:
 //  cc79d4a79b16b59c-vs.txt  as ASM text
 //  cc79d4a79b16b59c-vs.bin  as reassembled binary shader code
 //
@@ -879,10 +905,11 @@ static bool ReplaceHLSLShader(__in UINT64 hash, const wchar_t *pShaderType,
 //  cc79d4a79b16b59c-vs_replace.txt   as HLSL text
 //  cc79d4a79b16b59c-vs_replace.bin   as recompiled binary shader code
 //
-// So it should be clear by name, what type of file they are.  
+// So it should be clear by name, what type of file they are.
 
-static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const void *pShaderBytecode, SIZE_T pBytecodeLength,
-	__out char* &pCode, SIZE_T &pCodeSize, string &pShaderModel, FILETIME &pTimeStamp, wstring &pHeaderLine)
+static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const void *pShaderBytecode,
+                             SIZE_T pBytecodeLength, __out char *&pCode, SIZE_T &pCodeSize, string &pShaderModel,
+                             FILETIME &pTimeStamp, wstring &pHeaderLine)
 {
 	wchar_t path[MAX_PATH];
 	HANDLE f;
@@ -899,7 +926,8 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 		WarnIfConflictingShaderExists(path, end_user_conflicting_shader_msg);
 
 		DWORD srcDataSize = GetFileSize(f, nullptr);
-		if (!srcDataSize || srcDataSize == INVALID_FILE_SIZE || srcDataSize > MAX_SHADER_FILE_SIZE) {
+		if (!srcDataSize || srcDataSize == INVALID_FILE_SIZE || srcDataSize > MAX_SHADER_FILE_SIZE)
+		{
 			LogInfo("    Invalid ASM shader file size: %u\n", srcDataSize);
 			CloseHandle(f);
 			return false;
@@ -931,12 +959,16 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 			// The UTF-8 conversion can throw on malformed input; this runs
 			// on the default EDHM path (ASM replacements) and must never
 			// propagate through the game's CreateXXShader call.
-			try {
+			try
+			{
 				std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf8_to_utf16;
-				vector<char>::iterator newline = find(asmTextBytes.begin(), asmTextBytes.end(), '\n');
-				pHeaderLine = utf8_to_utf16.from_bytes(asmTextBytes.data(),
-					newline == asmTextBytes.end() ? asmTextBytes.data() + asmTextBytes.size() : &*newline);
-			} catch (const std::exception &e) {
+				auto newline = find(asmTextBytes.begin(), asmTextBytes.end(), '\n');
+				pHeaderLine = utf8_to_utf16.from_bytes(
+				    asmTextBytes.data(),
+				    newline == asmTextBytes.end() ? asmTextBytes.data() + asmTextBytes.size() : &*newline);
+			}
+			catch (const std::exception &e)
+			{
 				LogInfo("    invalid UTF-8 in first line of ASM replacement: %s\n", e.what());
 				pHeaderLine.clear();
 			}
@@ -948,7 +980,8 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 			try
 			{
 				vector<AssemblerParseError> parse_errors;
-				byteCode = AssembleFluganWithOptionalSignatureParsing(&asmTextBytes, G->assemble_signature_comments, &byteCode, &parse_errors);
+				byteCode = AssembleFluganWithOptionalSignatureParsing(&asmTextBytes, G->assemble_signature_comments,
+				                                                      &byteCode, &parse_errors);
 
 				// Assuming the re-assembly worked, let's make it the active shader code.
 				pCodeSize = byteCode.size();
@@ -956,7 +989,8 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 				memcpy(pCode, byteCode.data(), pCodeSize);
 
 				// Cache binary replacement.
-				if (parse_errors.empty()) {
+				if (parse_errors.empty())
+				{
 					if (G->CACHE_SHADERS && pCode && parse_errors.empty())
 					{
 						// Write reassembled binary output as a cached shader.
@@ -978,7 +1012,9 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 							LogInfoW(L"    error storing reassembled binary to %s\n", path);
 						}
 					}
-				} else {
+				}
+				else
+				{
 					// Parse errors are currently being treated as non-fatal on
 					// creation time replacement and ShaderRegex for backwards
 					// compatibility (live shader reload is fatal).
@@ -995,8 +1031,7 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 			}
 			catch (const exception &e)
 			{
-				LogOverlay(LOG_WARNING, "Error assembling %S: %s\n",
-						path, e.what());
+				LogOverlay(LOG_WARNING, "Error assembling %S: %s\n", path, e.what());
 			}
 		}
 	}
@@ -1004,13 +1039,13 @@ static bool ReplaceASMShader(__in UINT64 hash, const wchar_t *pShaderType, const
 	return !!pCode;
 }
 
-static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
-		const wchar_t *pShaderType [[maybe_unused]], const void *pShaderBytecode,
-		SIZE_T BytecodeLength, __out char* &pCode, SIZE_T &pCodeSize,
-		string &pShaderModel [[maybe_unused]], FILETIME &pTimeStamp [[maybe_unused]],
-		wstring &pHeaderLine [[maybe_unused]], const wchar_t *shaderType,
-		string &foundShaderModel, FILETIME &timeStamp,
-		const char *overrideShaderModel)
+static bool DecompileAndPossiblyPatchShader(__in UINT64 hash, const wchar_t *pShaderType [[maybe_unused]],
+                                            const void *pShaderBytecode, SIZE_T BytecodeLength, __out char *&pCode,
+                                            SIZE_T &pCodeSize, string &pShaderModel [[maybe_unused]],
+                                            FILETIME &pTimeStamp [[maybe_unused]],
+                                            wstring &pHeaderLine [[maybe_unused]], const wchar_t *shaderType,
+                                            string &foundShaderModel, FILETIME &timeStamp,
+                                            const char *overrideShaderModel)
 {
 	wchar_t val[MAX_PATH];
 	string asmText;
@@ -1028,7 +1063,8 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 
 	// Skip?
 	swprintf_s(val, MAX_PATH, L"%ls\\%016llx-%ls_bad.txt", G->SHADER_PATH, hash, shaderType);
-	if (GetFileAttributes(val) != INVALID_FILE_ATTRIBUTES) {
+	if (GetFileAttributes(val) != INVALID_FILE_ATTRIBUTES)
+	{
 		LogInfo("    skipping shader marked bad. %S\n", val);
 		return false;
 	}
@@ -1045,7 +1081,8 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 
 	// Disassemble old shader for fixing.
 	asmText = BinaryToAsmText(pShaderBytecode, BytecodeLength, false);
-	if (asmText.empty()) {
+	if (asmText.empty())
+	{
 		LogInfo("    disassembly of original shader failed.\n");
 		return false;
 	}
@@ -1087,7 +1124,6 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 			fprintf_s(fw, "\n\n/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Original ASM ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
 			fwrite(asmText.c_str(), 1, asmText.size(), fw);
 			fprintf_s(fw, "\n//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/\n");
-
 		}
 	}
 
@@ -1107,7 +1143,7 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 
 	LogInfo("    compiling fixed HLSL code with shader model %s, size = %Iu\n", tmpShaderModel, decompiledCode.size());
 
-	// TODO: Add #defines for StereoParams and IniParams
+	// Future work: Add #defines for StereoParams and IniParams
 
 	ID3DBlob *pErrorMsgs = nullptr;
 	ID3DBlob *pCompiledOutput = nullptr;
@@ -1115,7 +1151,8 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 	// but for consistency pass the path here as well so that the standard
 	// include handler can correctly handle includes with paths relative to the
 	// shader itself:
-	if (!WideCharToMultiByte(CP_UTF8, 0, val, -1, apath, MAX_PATH, nullptr, nullptr)) {
+	if (!WideCharToMultiByte(CP_UTF8, 0, val, -1, apath, MAX_PATH, nullptr, nullptr))
+	{
 		LogInfo("    error converting shader path to UTF-8: %lu\n", GetLastError());
 		if (fw)
 			fclose(fw);
@@ -1133,10 +1170,12 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 		fwrite(errMsg, 1, errSize - 1, LogFile);
 		LogInfo("------------------------------------------- HLSL code -------------------------------------------\n");
 		fwrite(decompiledCode.c_str(), 1, decompiledCode.size(), LogFile);
-		LogInfo("\n---------------------------------------------- END ----------------------------------------------\n");
+		LogInfo(
+		    "\n---------------------------------------------- END ----------------------------------------------\n");
 
 		// And write the errors to the HLSL file as comments too, as a more convenient spot to see them.
-		if (fw) {
+		if (fw)
+		{
 			fprintf_s(fw, "\n\n/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~ HLSL errors ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
 			fwrite(errMsg, 1, errSize - 1, fw);
 			fprintf_s(fw, "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/\n");
@@ -1149,7 +1188,8 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 	// comparison between original ASM, and recompiled ASM.
 	if ((G->EXPORT_HLSL >= 3) && pCompiledOutput && fw)
 	{
-		asmText = BinaryToAsmText(pCompiledOutput->GetBufferPointer(), pCompiledOutput->GetBufferSize(), G->patch_cb_offsets);
+		asmText =
+		    BinaryToAsmText(pCompiledOutput->GetBufferPointer(), pCompiledOutput->GetBufferSize(), G->patch_cb_offsets);
 		if (asmText.empty())
 		{
 			LogInfo("    disassembly of recompiled shader failed.\n");
@@ -1189,7 +1229,7 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 	return !!pCode;
 }
 
-// Fairly bold new strategy here for ReplaceShader. 
+// Fairly bold new strategy here for ReplaceShader.
 // This is called at launch to replace any shaders that we might want patched to fix problems.
 // It would previously use both ShaderCache, and ShaderFixes both to fix shaders, but this is
 // problematic in that broken shaders dumped as part of universal cache could be buggy, and generated
@@ -1198,8 +1238,8 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 // I'm moving to a model where only stuff in ShaderFixes is active, and stuff in ShaderCache is for reference.
 // This will allow us to dump and use the ShaderCache for offline fixes, looking for similar fix patterns, and
 // also make them live by moving them to ShaderFixes.
-// For auto-fixed shaders- rather than leave them in ShaderCache, when they are fixed, we'll move them into 
-// ShaderFixes as being live.  
+// For auto-fixed shaders- rather than leave them in ShaderCache, when they are fixed, we'll move them into
+// ShaderFixes as being live.
 
 // Only used in CreateXXXShader (Vertex, Pixel, Compute, Geometry, Hull, Domain)
 
@@ -1215,7 +1255,7 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 // Chapter 6 of the Linux coding style guidelines is worth a read:
 //   https://www.kernel.org/doc/Documentation/CodingStyle
 //
-// In general I (bo3b) agree, but would hesitate to apply a C style guide to kinda/sorta 
+// In general I (bo3b) agree, but would hesitate to apply a C style guide to kinda/sorta
 // C++ code.  A sort of mix of the linux guide and C++ is Google's Style Guide:
 //   https://google.github.io/styleguide/cppguide.html
 // Apparently serious C++ programmers hate it, so that must mean it makes things simpler
@@ -1223,16 +1263,17 @@ static bool DecompileAndPossiblyPatchShader(__in UINT64 hash,
 // make everything consistent at a minimum.  I'd say refactoring this sucker is
 // higher value though.
 //
-// I hate to make a bad thing worse, but I need to return yet another parameter here, 
+// I hate to make a bad thing worse, but I need to return yet another parameter here,
 // the string read from the first line of the HLSL file.  This the logical place for
 // it because the file is already open and read into memory.
 
-char* HackerDevice::_ReplaceShaderFromShaderFixes(UINT64 hash, const wchar_t *shaderType, const void *pShaderBytecode,
-	SIZE_T BytecodeLength, SIZE_T &pCodeSize, string &foundShaderModel, FILETIME &timeStamp,
-	wstring &headerLine, const char *overrideShaderModel)
+char *HackerDevice::_ReplaceShaderFromShaderFixes(UINT64 hash, const wchar_t *shaderType, const void *pShaderBytecode,
+                                                  SIZE_T BytecodeLength, SIZE_T &pCodeSize, string &foundShaderModel,
+                                                  FILETIME &timeStamp, wstring &headerLine,
+                                                  const char *overrideShaderModel)
 {
 	foundShaderModel = "";
-	timeStamp = { 0 };
+	timeStamp = {0};
 
 	char *pCode = nullptr;
 
@@ -1247,27 +1288,29 @@ char* HackerDevice::_ReplaceShaderFromShaderFixes(UINT64 hash, const wchar_t *sh
 	if (G->EXPORT_SHADERS)
 		CreateAsmTextFile(G->SHADER_CACHE_PATH, hash, shaderType, pShaderBytecode, BytecodeLength, G->patch_cb_offsets);
 
-
 	// Read the binary compiled shaders, as previously cached shaders.  This is how
 	// fixes normally ship, so that we just load previously compiled/assembled shaders.
 	if (LoadBinaryShaders(hash, shaderType, pCode, pCodeSize, foundShaderModel, timeStamp))
 		return pCode;
 
 	// Load previously created HLSL shaders, but only from ShaderFixes.
-	if (ReplaceHLSLShader(hash, shaderType, pShaderBytecode, BytecodeLength, overrideShaderModel,
-				pCode, pCodeSize, foundShaderModel, timeStamp, headerLine)) {
+	if (ReplaceHLSLShader(hash, shaderType, pShaderBytecode, BytecodeLength, overrideShaderModel, pCode, pCodeSize,
+	                      foundShaderModel, timeStamp, headerLine))
+	{
 		return pCode;
 	}
 
 	// If still not found, look for replacement ASM text shaders.
-	if (ReplaceASMShader(hash, shaderType, pShaderBytecode, BytecodeLength,
-				pCode, pCodeSize, foundShaderModel, timeStamp, headerLine)) {
+	if (ReplaceASMShader(hash, shaderType, pShaderBytecode, BytecodeLength, pCode, pCodeSize, foundShaderModel,
+	                     timeStamp, headerLine))
+	{
 		return pCode;
 	}
 
-	if (DecompileAndPossiblyPatchShader(hash, shaderType, pShaderBytecode, BytecodeLength,
-				pCode, pCodeSize, foundShaderModel, timeStamp, headerLine,
-				shaderType, foundShaderModel, timeStamp, overrideShaderModel)) {
+	if (DecompileAndPossiblyPatchShader(hash, shaderType, pShaderBytecode, BytecodeLength, pCode, pCodeSize,
+	                                    foundShaderModel, timeStamp, headerLine, shaderType, foundShaderModel,
+	                                    timeStamp, overrideShaderModel))
+	{
 		return pCode;
 	}
 
@@ -1283,17 +1326,12 @@ char* HackerDevice::_ReplaceShaderFromShaderFixes(UINT64 hash, const wchar_t *sh
 //
 // When hunting is enabled we always save off the original shader because the
 // answer to "do we need the original?" is "...maybe?"
-template <class ID3D11Shader,
-	 HRESULT (__stdcall ID3D11Device::*OrigCreateShader)(THIS_
-			 __in const void *pShaderBytecode,
-			 __in SIZE_T BytecodeLength,
-			 __in_opt ID3D11ClassLinkage *pClassLinkage,
-			 __out_opt ID3D11Shader **ppShader)
-	 >
-HRESULT HackerDevice::ReplaceShaderFromShaderFixes(UINT64 hash,
-		const void *pShaderBytecode, SIZE_T BytecodeLength,
-		ID3D11ClassLinkage *pClassLinkage, ID3D11Shader **ppShader,
-		const wchar_t *shaderType)
+template <class ID3D11Shader, HRESULT (__stdcall ID3D11Device::*OrigCreateShader)(
+                                  THIS_ __in const void *pShaderBytecode, __in SIZE_T BytecodeLength,
+                                  __in_opt ID3D11ClassLinkage *pClassLinkage, __out_opt ID3D11Shader **ppShader)>
+HRESULT HackerDevice::ReplaceShaderFromShaderFixes(UINT64 hash, const void *pShaderBytecode, SIZE_T BytecodeLength,
+                                                   ID3D11ClassLinkage *pClassLinkage, ID3D11Shader **ppShader,
+                                                   const wchar_t *shaderType)
 {
 	ShaderOverrideMap::iterator shader_override;
 	const char *overrideShaderModel = nullptr;
@@ -1308,9 +1346,9 @@ HRESULT HackerDevice::ReplaceShaderFromShaderFixes(UINT64 hash,
 	if ((shader_override != G->mShaderOverrideMap.end()) && (shader_override->second.model[0]))
 		overrideShaderModel = shader_override->second.model;
 
-	char *replaceShader = _ReplaceShaderFromShaderFixes(hash, shaderType,
-			pShaderBytecode, BytecodeLength, replaceShaderSize,
-			shaderModel, ftWrite, headerLine, overrideShaderModel);
+	char *replaceShader =
+	    _ReplaceShaderFromShaderFixes(hash, shaderType, pShaderBytecode, BytecodeLength, replaceShaderSize, shaderModel,
+		                              ftWrite, headerLine, overrideShaderModel);
 	if (!replaceShader)
 		return E_FAIL;
 
@@ -1319,7 +1357,8 @@ HRESULT HackerDevice::ReplaceShaderFromShaderFixes(UINT64 hash,
 
 	*ppShader = nullptr; // Appease the static analysis gods
 	hr = (mOrigDevice1->*OrigCreateShader)(replaceShader, replaceShaderSize, pClassLinkage, ppShader);
-	if (FAILED(hr)) {
+	if (FAILED(hr))
+	{
 		LogInfo("    error replacing shader.\n");
 		goto out_delete;
 	}
@@ -1328,28 +1367,31 @@ HRESULT HackerDevice::ReplaceShaderFromShaderFixes(UINT64 hash,
 
 	LogInfo("    shader successfully replaced.\n");
 
-	if (G->hunting) {
+	if (G->hunting)
+	{
 		// Hunting mode:  keep byteCode around for possible replacement or marking
-		ID3DBlob* blob;
+		ID3DBlob *blob;
 		hr = D3DCreateBlob(BytecodeLength, &blob);
-		if (SUCCEEDED(hr)) {
+		if (SUCCEEDED(hr))
+		{
 			// We save the *original* shader bytecode, not the replaced shader,
 			// because we will use this in CopyToFixes and ShaderRegex in the
 			// event that the shader is deleted.
 			memcpy(blob->GetBufferPointer(), pShaderBytecode, blob->GetBufferSize());
 			EnterCriticalSectionPretty(&G->mCriticalSection);
-			RegisterForReload(*ppShader, hash, shaderType, shaderModel, pClassLinkage, blob, ftWrite, headerLine, false);
+			RegisterForReload(*ppShader, hash, shaderType, shaderModel, pClassLinkage, blob, ftWrite, headerLine,
+			                  false);
 			LeaveCriticalSection(&G->mCriticalSection);
 		}
 	}
 
-	// FIXME: We have some very similar data structures that we should merge together:
+	// Known limitation: We have some very similar data structures that we should merge together:
 	// mReloadedShaders and mOriginalShader.
-	KeepOriginalShader<ID3D11Shader, OrigCreateShader>
-		(hash, shaderType, *ppShader, pShaderBytecode, BytecodeLength, pClassLinkage);
+	KeepOriginalShader<ID3D11Shader, OrigCreateShader>(hash, shaderType, *ppShader, pShaderBytecode, BytecodeLength,
+	                                                   pClassLinkage);
 
 out_delete:
-	delete replaceShader;
+	delete[] replaceShader;
 	return hr;
 }
 
@@ -1364,17 +1406,12 @@ out_delete:
 //
 // When hunting is enabled we always save off the original shader because the
 // answer to "do we need the original?" is "...maybe?"
-template <class ID3D11Shader,
-	 HRESULT (__stdcall ID3D11Device::*OrigCreateShader)(THIS_
-			 __in const void *pShaderBytecode,
-			 __in SIZE_T BytecodeLength,
-			 __in_opt ID3D11ClassLinkage *pClassLinkage,
-			 __out_opt ID3D11Shader **ppShader)
-	 >
-HRESULT HackerDevice::ProcessShaderNotFoundInShaderFixes(UINT64 hash,
-		const void *pShaderBytecode, SIZE_T BytecodeLength,
-		ID3D11ClassLinkage *pClassLinkage, ID3D11Shader **ppShader,
-		const wchar_t *shaderType)
+template <class ID3D11Shader, HRESULT (__stdcall ID3D11Device::*OrigCreateShader)(
+                                  THIS_ __in const void *pShaderBytecode, __in SIZE_T BytecodeLength,
+                                  __in_opt ID3D11ClassLinkage *pClassLinkage, __out_opt ID3D11Shader **ppShader)>
+HRESULT HackerDevice::ProcessShaderNotFoundInShaderFixes(UINT64 hash, const void *pShaderBytecode,
+                                                         SIZE_T BytecodeLength, ID3D11ClassLinkage *pClassLinkage,
+                                                         ID3D11Shader **ppShader, const wchar_t *shaderType)
 {
 	HRESULT hr;
 
@@ -1389,27 +1426,30 @@ HRESULT HackerDevice::ProcessShaderNotFoundInShaderFixes(UINT64 hash,
 	// have a copy for every shader seen. If we are performing any sort of deferred shader replacement, such as pipline
 	// state analysis we always need to keep a copy of the original bytecode for later analysis. For now the shader
 	// regex engine counts as deferred, though that may change with optimisations in the future.
-	if (G->hunting || !shader_regex_groups.empty()) {
+	if (G->hunting || !shader_regex_groups.empty())
+	{
 		EnterCriticalSectionPretty(&G->mCriticalSection);
-			ID3DBlob* blob;
-			hr = D3DCreateBlob(BytecodeLength, &blob);
-			if (SUCCEEDED(hr)) {
-				memcpy(blob->GetBufferPointer(), pShaderBytecode, blob->GetBufferSize());
-				RegisterForReload(*ppShader, hash, shaderType, "bin", pClassLinkage, blob, {0}, L"", true);
+		ID3DBlob *blob;
+		hr = D3DCreateBlob(BytecodeLength, &blob);
+		if (SUCCEEDED(hr))
+		{
+			memcpy(blob->GetBufferPointer(), pShaderBytecode, blob->GetBufferSize());
+			RegisterForReload(*ppShader, hash, shaderType, "bin", pClassLinkage, blob, {0}, L"", true);
 
-				// Also add the original shader to the original shaders
-				// map so that if it is later replaced marking_mode =
-				// original and depth buffer filtering will work:
-				if (lookup_original_shader(*ppShader) == end(G->mOriginalShaders)) {
-					// Since we are both returning *and* storing this we need to
-					// bump the refcount to 2, otherwise it could get freed and we
-					// may get a crash later in RevertMissingShaders, especially
-					// easy to expose with the auto shader patching engine
-					// and reverting shaders:
-					(*ppShader)->AddRef();
-					G->mOriginalShaders[*ppShader] = *ppShader;
-				}
+			// Also add the original shader to the original shaders
+			// map so that if it is later replaced marking_mode =
+			// original and depth buffer filtering will work:
+			if (lookup_original_shader(*ppShader) == end(G->mOriginalShaders))
+			{
+				// Since we are both returning *and* storing this we need to
+				// bump the refcount to 2, otherwise it could get freed and we
+				// may get a crash later in RevertMissingShaders, especially
+				// easy to expose with the auto shader patching engine
+				// and reverting shaders:
+				(*ppShader)->AddRef();
+				G->mOriginalShaders[*ppShader] = *ppShader;
 			}
+		}
 		LeaveCriticalSection(&G->mCriticalSection);
 	}
 
@@ -1430,7 +1470,8 @@ bool HackerDevice::NeedOriginalShader(UINT64 hash)
 	shaderOverride = &i->second;
 
 	if ((shaderOverride->depth_filter == DepthBufferFilter::DEPTH_ACTIVE) ||
-		(shaderOverride->depth_filter == DepthBufferFilter::DEPTH_INACTIVE)) {
+	    (shaderOverride->depth_filter == DepthBufferFilter::DEPTH_INACTIVE))
+	{
 		return true;
 	}
 
@@ -1461,16 +1502,18 @@ void CleanupShaderMaps(ID3D11DeviceChild *handle)
 	EnterCriticalSectionPretty(&G->mCriticalSection);
 
 	{
-		ShaderMap::iterator i = lookup_shader_hash(handle);
-		if (i != G->mShaders.end()) {
+		auto i = lookup_shader_hash(handle);
+		if (i != G->mShaders.end())
+		{
 			LogInfo("Shader handle %p reused, previous hash was: %016llx\n", handle, i->second);
 			G->mShaders.erase(i);
 		}
 	}
 
 	{
-		ShaderReloadMap::iterator i = lookup_reloaded_shader(handle);
-		if (i != G->mReloadedShaders.end()) {
+		auto i = lookup_reloaded_shader(handle);
+		if (i != G->mReloadedShaders.end())
+		{
 			LogInfo("Shader handle %p reused, found in mReloadedShaders\n", handle);
 			if (i->second.replacement)
 				i->second.replacement->Release();
@@ -1483,8 +1526,9 @@ void CleanupShaderMaps(ID3D11DeviceChild *handle)
 	}
 
 	{
-		ShaderReplacementMap::iterator i = lookup_original_shader(handle);
-		if (i != G->mOriginalShaders.end()) {
+		auto i = lookup_original_shader(handle);
+		if (i != G->mOriginalShaders.end())
+		{
 			LogInfo("Shader handle %p reused, releasing previous original shader\n", handle);
 			i->second->Release();
 			G->mOriginalShaders.erase(i);
@@ -1497,18 +1541,12 @@ void CleanupShaderMaps(ID3D11DeviceChild *handle)
 // Keep the original shader around if it may be needed by a filter in a
 // [ShaderOverride] section, or if hunting is enabled and either the
 // marking_mode=original, or reload_config support is enabled
-template <class ID3D11Shader,
-	 HRESULT (__stdcall ID3D11Device::*OrigCreateShader)(THIS_
-			 __in const void *pShaderBytecode,
-			 __in SIZE_T BytecodeLength,
-			 __in_opt ID3D11ClassLinkage *pClassLinkage,
-			 __out_opt ID3D11Shader **ppShader)
-	 >
-void HackerDevice::KeepOriginalShader(UINT64 hash, const wchar_t *shaderType,
-		ID3D11Shader *pShader,
-		const void *pShaderBytecode,
-		SIZE_T BytecodeLength,
-		ID3D11ClassLinkage *pClassLinkage)
+template <class ID3D11Shader, HRESULT (__stdcall ID3D11Device::*OrigCreateShader)(
+                                  THIS_ __in const void *pShaderBytecode, __in SIZE_T BytecodeLength,
+                                  __in_opt ID3D11ClassLinkage *pClassLinkage, __out_opt ID3D11Shader **ppShader)>
+void HackerDevice::KeepOriginalShader(UINT64 hash, const wchar_t *shaderType, ID3D11Shader *pShader,
+                                      const void *pShaderBytecode, SIZE_T BytecodeLength,
+                                      ID3D11ClassLinkage *pClassLinkage)
 {
 	ID3D11Shader *originalShader = nullptr;
 	HRESULT hr;
@@ -1520,19 +1558,18 @@ void HackerDevice::KeepOriginalShader(UINT64 hash, const wchar_t *shaderType,
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
 
-		hr = (mOrigDevice1->*OrigCreateShader)(pShaderBytecode, BytecodeLength, pClassLinkage, &originalShader);
-		CleanupShaderMaps(originalShader);
-		if (SUCCEEDED(hr))
-			G->mOriginalShaders[pShader] = originalShader;
+	hr = (mOrigDevice1->*OrigCreateShader)(pShaderBytecode, BytecodeLength, pClassLinkage, &originalShader);
+	CleanupShaderMaps(originalShader);
+	if (SUCCEEDED(hr))
+		G->mOriginalShaders[pShader] = originalShader;
 
-		// Unlike the *other* code path in CreateShader that can also
-		// fill out this structure, we do *not* bump the refcount on
-		// the originalShader here since we are *only* storing it, not
-		// also returning it to the game.
+	// Unlike the *other* code path in CreateShader that can also
+	// fill out this structure, we do *not* bump the refcount on
+	// the originalShader here since we are *only* storing it, not
+	// also returning it to the game.
 
 	LeaveCriticalSection(&G->mCriticalSection);
 }
-
 
 // -----------------------------------------------------------------------------------------------
 
@@ -1575,10 +1612,10 @@ STDMETHODIMP_(ULONG) HackerDevice::Release(THIS)
 	return ulRef;
 }
 
-// If called with IDXGIDevice, that's the game trying to access the original DXGIFactory to 
-// get access to the swap chain.  We need to return a HackerDXGIDevice so that we can get 
+// If called with IDXGIDevice, that's the game trying to access the original DXGIFactory to
+// get access to the swap chain.  We need to return a HackerDXGIDevice so that we can get
 // access to that swap chain.
-// 
+//
 // This is the 'secret' path to getting the DXGIFactory and thus the swap chain, without
 // having to go direct to DXGI calls. As described:
 // https://msdn.microsoft.com/en-us/library/windows/desktop/bb174535(v=vs.85).aspx
@@ -1589,7 +1626,7 @@ STDMETHODIMP_(ULONG) HackerDevice::Release(THIS)
 // WatchDogs uses that call.  Another oddity: this device is called to return the
 // same device. ID3D11Device->QueryInterface(ID3D11Device).  No idea why, but we
 // need to return our wrapped version.
-// 
+//
 // 1-4-18: No longer using this technique, we have a direct hook on CreateSwapChain,
 // which will catch all variants. But leaving documentation for awhile.
 
@@ -1602,12 +1639,14 @@ STDMETHODIMP_(ULONG) HackerDevice::Release(THIS)
 // keep it consistent, all normal cases will be LogDebug, error states are LogInfo.
 
 HRESULT STDMETHODCALLTYPE HackerDevice::QueryInterface(
-	/* [in] */ REFIID riid,
-	/* [iid_is][out] */ _COM_Outptr_ void __RPC_FAR *__RPC_FAR *ppvObject)
+    /* [in] */ REFIID riid,
+    /* [iid_is][out] */ _COM_Outptr_ void __RPC_FAR * __RPC_FAR * ppvObject)
 {
-	LogDebug("HackerDevice::QueryInterface(%s@%p) called with IID: %s\n", type_name(this), this, NameFromIID(riid).c_str());
+	LogDebug("HackerDevice::QueryInterface(%s@%p) called with IID: %s\n", type_name(this), this,
+	         NameFromIID(riid).c_str());
 
-	if (ppvObject && IsEqualIID(riid, IID_HackerDevice)) {
+	if (ppvObject && IsEqualIID(riid, IID_HackerDevice))
+	{
 		// This is a special case - only 3DMigoto itself should know
 		// this IID, so this is us checking if it has a HackerDevice.
 		// There's no need to call through to DX for this one.
@@ -1628,7 +1667,8 @@ HRESULT STDMETHODCALLTYPE HackerDevice::QueryInterface(
 
 	if (riid == __uuidof(ID3D11Device))
 	{
-		if (!(G->enable_hooks & EnableHooks::DEVICE)) {
+		if (!(G->enable_hooks & EnableHooks::DEVICE))
+		{
 			// If we are hooking we don't return the wrapped device
 			*ppvObject = this;
 		}
@@ -1636,9 +1676,9 @@ HRESULT STDMETHODCALLTYPE HackerDevice::QueryInterface(
 	}
 	else if (riid == __uuidof(ID3D11Device1))
 	{
-		// Well, bizarrely, this approach to upcasting to a ID3D11Device1 is supported on Win7, 
+		// Well, bizarrely, this approach to upcasting to a ID3D11Device1 is supported on Win7,
 		// but only if you have the 'evil update', the platform update installed.  Since that
-		// is an optional update, that certainly means that numerous people do not have it 
+		// is an optional update, that certainly means that numerous people do not have it
 		// installed. Ergo, a game developer cannot in good faith just assume that it's there,
 		// and it's very unlikely they would require it. No performance advantage on Win8.
 		// So, that means that a game developer must support a fallback path, even if they
@@ -1648,20 +1688,23 @@ HRESULT STDMETHODCALLTYPE HackerDevice::QueryInterface(
 		// update is not installed, or missing feature on Win8.1.  This will force the game
 		// to use a more compatible path and make our job easier.
 		// This worked in DragonAge, to avoid a crash. Wrapping Device1 also progressed but
-		// adds a ton of undesirable complexity, so let's keep it simpler since we don't 
+		// adds a ton of undesirable complexity, so let's keep it simpler since we don't
 		// seem to lose anything. Not features, not performance.
 		//
 		// Dishonored 2 is the first known game that lacks a fallback
 		// and requires the platform update.
 
-		if (!G->enable_platform_update) {
-			LogInfo("  returns E_NOINTERFACE as error for ID3D11Device1 (try allow_platform_update=1 if the game refuses to run).\n");
-			reinterpret_cast<IUnknown*>(*ppvObject)->Release();
+		if (!G->enable_platform_update)
+		{
+			LogInfo("  returns E_NOINTERFACE as error for ID3D11Device1 (try allow_platform_update=1 if the game "
+			        "refuses to run).\n");
+			reinterpret_cast<IUnknown *>(*ppvObject)->Release();
 			*ppvObject = nullptr;
 			return E_NOINTERFACE;
 		}
 
-		if (!(G->enable_hooks & EnableHooks::DEVICE)) {
+		if (!(G->enable_hooks & EnableHooks::DEVICE))
+		{
 			// If we are hooking we don't return the wrapped device
 			*ppvObject = this;
 		}
@@ -1680,19 +1723,20 @@ HRESULT STDMETHODCALLTYPE HackerDevice::QueryInterface(
 // to Direct3D.  Since Direct3D does not have proper objects, we can't rely on super class calls.
 
 STDMETHODIMP HackerDevice::CreateUnorderedAccessView(THIS_
-	/* [annotation] */
-	__in  ID3D11Resource *pResource,
-	/* [annotation] */
-	__in_opt  const D3D11_UNORDERED_ACCESS_VIEW_DESC *pDesc,
-	/* [annotation] */
-	__out_opt  ID3D11UnorderedAccessView **ppUAView)
+                                                         /* [annotation] */
+                                                         __in ID3D11Resource *pResource,
+                                                     /* [annotation] */
+                                                     __in_opt const D3D11_UNORDERED_ACCESS_VIEW_DESC *pDesc,
+                                                     /* [annotation] */
+                                                     __out_opt ID3D11UnorderedAccessView **ppUAView)
 {
 	// D3D11_UNORDERED_ACCESS_VIEW_DESC is a tagged union: the Buffer member
 	// is only meaningful when ViewDimension is D3D11_UAV_DIMENSION_BUFFER.
 	// Reading or writing it for a texture UAV would silently reinterpret and
 	// corrupt unrelated descriptor fields (e.g. Texture2D.MipSlice), so the
 	// element-count override must only ever run for genuine buffer UAVs.
-	if (pDesc && pResource && pDesc->ViewDimension == D3D11_UAV_DIMENSION_BUFFER) {
+	if (pDesc && pResource && pDesc->ViewDimension == D3D11_UAV_DIMENSION_BUFFER)
+	{
 		D3D11_RESOURCE_DIMENSION dimension = D3D11_RESOURCE_DIMENSION_UNKNOWN;
 		pResource->GetType(&dimension);
 		if (dimension != D3D11_RESOURCE_DIMENSION_BUFFER)
@@ -1701,16 +1745,20 @@ STDMETHODIMP HackerDevice::CreateUnorderedAccessView(THIS_
 		TextureOverrideMatches matches;
 		find_texture_overrides_for_resource(pResource, &matches, nullptr);
 
-		if (!matches.empty()) {
-			TextureOverride* textureOverride = nullptr;
+		if (!matches.empty())
+		{
+			TextureOverride *textureOverride = nullptr;
 			UINT override_num_elements = 0;
 
-			for (unsigned i = 0; i < matches.size(); i++) {
+			for (unsigned i = 0; i < matches.size(); i++)
+			{
 				textureOverride = matches[i];
-				if (textureOverride->override_num_elements > 0) {
+				if (textureOverride->override_num_elements > 0)
+				{
 					UINT requested_num_elements = static_cast<UINT>(textureOverride->override_num_elements);
 					if (requested_num_elements > pDesc->Buffer.FirstElement &&
-							requested_num_elements - pDesc->Buffer.FirstElement > override_num_elements) {
+					    requested_num_elements - pDesc->Buffer.FirstElement > override_num_elements)
+					{
 						override_num_elements = requested_num_elements - pDesc->Buffer.FirstElement;
 					}
 				}
@@ -1721,7 +1769,8 @@ STDMETHODIMP HackerDevice::CreateUnorderedAccessView(THIS_
 			// against the buffer's actual capacity and stride and fails
 			// creation cleanly if the override is still too large.
 			if (override_num_elements && pDesc->Buffer.NumElements < override_num_elements &&
-					(uint64_t)pDesc->Buffer.FirstElement + override_num_elements <= UINT_MAX) {
+			    (uint64_t)pDesc->Buffer.FirstElement + override_num_elements <= UINT_MAX)
+			{
 				D3D11_UNORDERED_ACCESS_VIEW_DESC pNewDesc = *pDesc;
 				pNewDesc.Buffer.NumElements = override_num_elements;
 				//LogOverlayW(LOG_INFO, L"UAV resized: %d->%d\n", pDesc->Buffer.NumElements, override_num_elements);
@@ -1734,47 +1783,49 @@ STDMETHODIMP HackerDevice::CreateUnorderedAccessView(THIS_
 }
 
 STDMETHODIMP HackerDevice::CreateRenderTargetView(THIS_
-	/* [annotation] */
-	__in  ID3D11Resource *pResource,
-	/* [annotation] */
-	__in_opt  const D3D11_RENDER_TARGET_VIEW_DESC *pDesc,
-	/* [annotation] */
-	__out_opt  ID3D11RenderTargetView **ppRTView)
+                                                      /* [annotation] */
+                                                      __in ID3D11Resource *pResource,
+                                                  /* [annotation] */
+                                                  __in_opt const D3D11_RENDER_TARGET_VIEW_DESC *pDesc,
+                                                  /* [annotation] */
+                                                  __out_opt ID3D11RenderTargetView **ppRTView)
 {
 	LogDebug("HackerDevice::CreateRenderTargetView(%s@%p)\n", type_name(this), this);
 	return mOrigDevice1->CreateRenderTargetView(pResource, pDesc, ppRTView);
 }
 
 STDMETHODIMP HackerDevice::CreateDepthStencilView(THIS_
-	/* [annotation] */
-	__in  ID3D11Resource *pResource,
-	/* [annotation] */
-	__in_opt  const D3D11_DEPTH_STENCIL_VIEW_DESC *pDesc,
-	/* [annotation] */
-	__out_opt  ID3D11DepthStencilView **ppDepthStencilView)
+                                                      /* [annotation] */
+                                                      __in ID3D11Resource *pResource,
+                                                  /* [annotation] */
+                                                  __in_opt const D3D11_DEPTH_STENCIL_VIEW_DESC *pDesc,
+                                                  /* [annotation] */
+                                                  __out_opt ID3D11DepthStencilView **ppDepthStencilView)
 {
 	LogDebug("HackerDevice::CreateDepthStencilView(%s@%p)\n", type_name(this), this);
 	return mOrigDevice1->CreateDepthStencilView(pResource, pDesc, ppDepthStencilView);
 }
 
 STDMETHODIMP HackerDevice::CreateInputLayout(THIS_
-	/* [annotation] */
-	__in_ecount(NumElements)  const D3D11_INPUT_ELEMENT_DESC *pInputElementDescs,
-	/* [annotation] */
-	__in_range(0, D3D11_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT)  UINT NumElements,
-	/* [annotation] */
-	__in  const void *pShaderBytecodeWithInputSignature,
-	/* [annotation] */
-	__in  SIZE_T BytecodeLength,
-	/* [annotation] */
-	__out_opt  ID3D11InputLayout **ppInputLayout)
+                                                 /* [annotation] */
+                                                 __in_ecount(NumElements)
+                                                     const D3D11_INPUT_ELEMENT_DESC *pInputElementDescs,
+                                             /* [annotation] */
+                                             __in_range(0, D3D11_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT)
+                                                 UINT NumElements,
+                                             /* [annotation] */
+                                             __in const void *pShaderBytecodeWithInputSignature,
+                                             /* [annotation] */
+                                             __in SIZE_T BytecodeLength,
+                                             /* [annotation] */
+                                             __out_opt ID3D11InputLayout **ppInputLayout)
 {
 	HRESULT ret;
 
 	LogDebug("HackerDevice::CreateInputLayout(%s@%p) called\n", type_name(this), this);
 
 	ret = mOrigDevice1->CreateInputLayout(pInputElementDescs, NumElements, pShaderBytecodeWithInputSignature,
-		BytecodeLength, ppInputLayout);
+	                                      BytecodeLength, ppInputLayout);
 
 	// Side-car only: attach layout cache via private data on the *original* COM
 	// object. Do NOT replace *ppInputLayout with HackerInputLayout — handing a
@@ -1783,9 +1834,10 @@ STDMETHODIMP HackerDevice::CreateInputLayout(THIS_
 	// without unwrapping (seen as AV read @ 0x18 in d3d11.dll+0x4D9A during
 	// location load). Classic 3Dmigoto / EDHM 1.4.5 never exposed a layout COM
 	// wrapper; XXMI's full wrap is unsafe for Elite + EDHM.
-	if (SUCCEEDED(ret) && ppInputLayout && *ppInputLayout) {
-		HackerInputLayout* layout = new HackerInputLayout(*ppInputLayout, pInputElementDescs, NumElements,
-			pShaderBytecodeWithInputSignature, BytecodeLength);
+	if (SUCCEEDED(ret) && ppInputLayout && *ppInputLayout)
+	{
+		auto *layout = new HackerInputLayout(*ppInputLayout, pInputElementDescs, NumElements,
+		                                     pShaderBytecodeWithInputSignature, BytecodeLength);
 		HRESULT attach_result = layout->GetAttachResult();
 		uint32_t layout_hash = layout->GetLayoutHash();
 		if (FAILED(attach_result))
@@ -1799,47 +1851,48 @@ STDMETHODIMP HackerDevice::CreateInputLayout(THIS_
 }
 
 STDMETHODIMP HackerDevice::CreateClassLinkage(THIS_
-	/* [annotation] */
-	__out  ID3D11ClassLinkage **ppLinkage)
+                                                  /* [annotation] */
+                                                  __out ID3D11ClassLinkage **ppLinkage)
 {
 	return mOrigDevice1->CreateClassLinkage(ppLinkage);
 }
 
 STDMETHODIMP HackerDevice::CreateBlendState(THIS_
-	/* [annotation] */
-	__in  const D3D11_BLEND_DESC *pBlendStateDesc,
-	/* [annotation] */
-	__out_opt  ID3D11BlendState **ppBlendState)
+                                                /* [annotation] */
+                                                __in const D3D11_BLEND_DESC *pBlendStateDesc,
+                                            /* [annotation] */
+                                            __out_opt ID3D11BlendState **ppBlendState)
 {
 	return mOrigDevice1->CreateBlendState(pBlendStateDesc, ppBlendState);
 }
 
 STDMETHODIMP HackerDevice::CreateDepthStencilState(THIS_
-	/* [annotation] */
-	__in  const D3D11_DEPTH_STENCIL_DESC *pDepthStencilDesc,
-	/* [annotation] */
-	__out_opt  ID3D11DepthStencilState **ppDepthStencilState)
+                                                       /* [annotation] */
+                                                       __in const D3D11_DEPTH_STENCIL_DESC *pDepthStencilDesc,
+                                                   /* [annotation] */
+                                                   __out_opt ID3D11DepthStencilState **ppDepthStencilState)
 {
 	return mOrigDevice1->CreateDepthStencilState(pDepthStencilDesc, ppDepthStencilState);
 }
 
 STDMETHODIMP HackerDevice::CreateSamplerState(THIS_
-	/* [annotation] */
-	__in  const D3D11_SAMPLER_DESC *pSamplerDesc,
-	/* [annotation] */
-	__out_opt  ID3D11SamplerState **ppSamplerState)
+                                                  /* [annotation] */
+                                                  __in const D3D11_SAMPLER_DESC *pSamplerDesc,
+                                              /* [annotation] */
+                                              __out_opt ID3D11SamplerState **ppSamplerState)
 {
 	return mOrigDevice1->CreateSamplerState(pSamplerDesc, ppSamplerState);
 }
 
 STDMETHODIMP HackerDevice::CreateQuery(THIS_
-	/* [annotation] */
-	__in  const D3D11_QUERY_DESC *pQueryDesc,
-	/* [annotation] */
-	__out_opt  ID3D11Query **ppQuery)
+                                           /* [annotation] */
+                                           __in const D3D11_QUERY_DESC *pQueryDesc,
+                                       /* [annotation] */
+                                       __out_opt ID3D11Query **ppQuery)
 {
 	HRESULT hr = mOrigDevice1->CreateQuery(pQueryDesc, ppQuery);
-	if (G->hunting && SUCCEEDED(hr) && ppQuery && *ppQuery) {
+	if (G->hunting && SUCCEEDED(hr) && ppQuery && *ppQuery)
+	{
 		EnterCriticalSectionPretty(&G->mCriticalSection);
 		G->mQueryTypes[*ppQuery] = AsyncQueryType::QUERY;
 		LeaveCriticalSection(&G->mCriticalSection);
@@ -1848,13 +1901,14 @@ STDMETHODIMP HackerDevice::CreateQuery(THIS_
 }
 
 STDMETHODIMP HackerDevice::CreatePredicate(THIS_
-	/* [annotation] */
-	__in  const D3D11_QUERY_DESC *pPredicateDesc,
-	/* [annotation] */
-	__out_opt  ID3D11Predicate **ppPredicate)
+                                               /* [annotation] */
+                                               __in const D3D11_QUERY_DESC *pPredicateDesc,
+                                           /* [annotation] */
+                                           __out_opt ID3D11Predicate **ppPredicate)
 {
 	HRESULT hr = mOrigDevice1->CreatePredicate(pPredicateDesc, ppPredicate);
-	if (G->hunting && SUCCEEDED(hr) && ppPredicate && *ppPredicate) {
+	if (G->hunting && SUCCEEDED(hr) && ppPredicate && *ppPredicate)
+	{
 		EnterCriticalSectionPretty(&G->mCriticalSection);
 		G->mQueryTypes[*ppPredicate] = AsyncQueryType::PREDICATE;
 		LeaveCriticalSection(&G->mCriticalSection);
@@ -1863,13 +1917,14 @@ STDMETHODIMP HackerDevice::CreatePredicate(THIS_
 }
 
 STDMETHODIMP HackerDevice::CreateCounter(THIS_
-	/* [annotation] */
-	__in  const D3D11_COUNTER_DESC *pCounterDesc,
-	/* [annotation] */
-	__out_opt  ID3D11Counter **ppCounter)
+                                             /* [annotation] */
+                                             __in const D3D11_COUNTER_DESC *pCounterDesc,
+                                         /* [annotation] */
+                                         __out_opt ID3D11Counter **ppCounter)
 {
 	HRESULT hr = mOrigDevice1->CreateCounter(pCounterDesc, ppCounter);
-	if (G->hunting && SUCCEEDED(hr) && ppCounter && *ppCounter) {
+	if (G->hunting && SUCCEEDED(hr) && ppCounter && *ppCounter)
+	{
 		EnterCriticalSectionPretty(&G->mCriticalSection);
 		G->mQueryTypes[*ppCounter] = AsyncQueryType::COUNTER;
 		LeaveCriticalSection(&G->mCriticalSection);
@@ -1878,105 +1933,106 @@ STDMETHODIMP HackerDevice::CreateCounter(THIS_
 }
 
 STDMETHODIMP HackerDevice::OpenSharedResource(THIS_
-	/* [annotation] */
-	__in  HANDLE hResource,
-	/* [annotation] */
-	__in  REFIID ReturnedInterface,
-	/* [annotation] */
-	__out_opt  void **ppResource)
+                                                  /* [annotation] */
+                                                  __in HANDLE hResource,
+                                              /* [annotation] */
+                                              __in REFIID ReturnedInterface,
+                                              /* [annotation] */
+                                              __out_opt void **ppResource)
 {
 	return mOrigDevice1->OpenSharedResource(hResource, ReturnedInterface, ppResource);
 }
 
 STDMETHODIMP HackerDevice::CheckFormatSupport(THIS_
-	/* [annotation] */
-	__in  DXGI_FORMAT Format,
-	/* [annotation] */
-	__out  UINT *pFormatSupport)
+                                                  /* [annotation] */
+                                                  __in DXGI_FORMAT Format,
+                                              /* [annotation] */
+                                              __out UINT *pFormatSupport)
 {
 	return mOrigDevice1->CheckFormatSupport(Format, pFormatSupport);
 }
 
 STDMETHODIMP HackerDevice::CheckMultisampleQualityLevels(THIS_
-	/* [annotation] */
-	__in  DXGI_FORMAT Format,
-	/* [annotation] */
-	__in  UINT SampleCount,
-	/* [annotation] */
-	__out  UINT *pNumQualityLevels)
+                                                             /* [annotation] */
+                                                             __in DXGI_FORMAT Format,
+                                                         /* [annotation] */
+                                                         __in UINT SampleCount,
+                                                         /* [annotation] */
+                                                         __out UINT *pNumQualityLevels)
 {
 	return mOrigDevice1->CheckMultisampleQualityLevels(Format, SampleCount, pNumQualityLevels);
 }
 
-STDMETHODIMP_(void) HackerDevice::CheckCounterInfo(THIS_
-	/* [annotation] */
-	__out  D3D11_COUNTER_INFO *pCounterInfo)
+STDMETHODIMP_(void)
+HackerDevice::CheckCounterInfo(THIS_
+                                   /* [annotation] */
+                                   __out D3D11_COUNTER_INFO *pCounterInfo)
 {
 	return mOrigDevice1->CheckCounterInfo(pCounterInfo);
 }
 
 STDMETHODIMP HackerDevice::CheckCounter(THIS_
-	/* [annotation] */
-	__in  const D3D11_COUNTER_DESC *pDesc,
-	/* [annotation] */
-	__out  D3D11_COUNTER_TYPE *pType,
-	/* [annotation] */
-	__out  UINT *pActiveCounters,
-	/* [annotation] */
-	__out_ecount_opt(*pNameLength)  LPSTR szName,
-	/* [annotation] */
-	__inout_opt  UINT *pNameLength,
-	/* [annotation] */
-	__out_ecount_opt(*pUnitsLength)  LPSTR szUnits,
-	/* [annotation] */
-	__inout_opt  UINT *pUnitsLength,
-	/* [annotation] */
-	__out_ecount_opt(*pDescriptionLength)  LPSTR szDescription,
-	/* [annotation] */
-	__inout_opt  UINT *pDescriptionLength)
+                                            /* [annotation] */
+                                            __in const D3D11_COUNTER_DESC *pDesc,
+                                        /* [annotation] */
+                                        __out D3D11_COUNTER_TYPE *pType,
+                                        /* [annotation] */
+                                        __out UINT *pActiveCounters,
+                                        /* [annotation] */
+                                        __out_ecount_opt(*pNameLength) LPSTR szName,
+                                        /* [annotation] */
+                                        __inout_opt UINT *pNameLength,
+                                        /* [annotation] */
+                                        __out_ecount_opt(*pUnitsLength) LPSTR szUnits,
+                                        /* [annotation] */
+                                        __inout_opt UINT *pUnitsLength,
+                                        /* [annotation] */
+                                        __out_ecount_opt(*pDescriptionLength) LPSTR szDescription,
+                                        /* [annotation] */
+                                        __inout_opt UINT *pDescriptionLength)
 {
-	return mOrigDevice1->CheckCounter(pDesc, pType, pActiveCounters, szName, pNameLength, szUnits,
-		pUnitsLength, szDescription, pDescriptionLength);
+	return mOrigDevice1->CheckCounter(pDesc, pType, pActiveCounters, szName, pNameLength, szUnits, pUnitsLength,
+	                                  szDescription, pDescriptionLength);
 }
 
-STDMETHODIMP HackerDevice::CheckFeatureSupport(THIS_
-	D3D11_FEATURE Feature,
-	/* [annotation] */
-	__out_bcount(FeatureSupportDataSize)  void *pFeatureSupportData,
-	UINT FeatureSupportDataSize)
+STDMETHODIMP HackerDevice::CheckFeatureSupport(THIS_ D3D11_FEATURE Feature,
+                                               /* [annotation] */
+                                               __out_bcount(FeatureSupportDataSize) void *pFeatureSupportData,
+                                               UINT FeatureSupportDataSize)
 {
 	return mOrigDevice1->CheckFeatureSupport(Feature, pFeatureSupportData, FeatureSupportDataSize);
 }
 
 STDMETHODIMP HackerDevice::GetPrivateData(THIS_
-	/* [annotation] */
-	__in  REFGUID guid,
-	/* [annotation] */
-	__inout  UINT *pDataSize,
-	/* [annotation] */
-	__out_bcount_opt(*pDataSize)  void *pData)
+                                              /* [annotation] */
+                                              __in REFGUID guid,
+                                          /* [annotation] */
+                                          __inout UINT *pDataSize,
+                                          /* [annotation] */
+                                          __out_bcount_opt(*pDataSize) void *pData)
 {
 	return mOrigDevice1->GetPrivateData(guid, pDataSize, pData);
 }
 
 STDMETHODIMP HackerDevice::SetPrivateData(THIS_
-	/* [annotation] */
-	__in  REFGUID guid,
-	/* [annotation] */
-	__in  UINT DataSize,
-	/* [annotation] */
-	__in_bcount_opt(DataSize)  const void *pData)
+                                              /* [annotation] */
+                                              __in REFGUID guid,
+                                          /* [annotation] */
+                                          __in UINT DataSize,
+                                          /* [annotation] */
+                                          __in_bcount_opt(DataSize) const void *pData)
 {
 	return mOrigDevice1->SetPrivateData(guid, DataSize, pData);
 }
 
 STDMETHODIMP HackerDevice::SetPrivateDataInterface(THIS_
-	/* [annotation] */
-	__in  REFGUID guid,
-	/* [annotation] */
-	__in_opt  const IUnknown *pData)
+                                                       /* [annotation] */
+                                                       __in REFGUID guid,
+                                                   /* [annotation] */
+                                                   __in_opt const IUnknown *pData)
 {
-	LogInfo("HackerDevice::SetPrivateDataInterface(%s@%p) called with IID: %s\n", type_name(this), this, NameFromIID(guid).c_str());
+	LogInfo("HackerDevice::SetPrivateDataInterface(%s@%p) called with IID: %s\n", type_name(this), this,
+	        NameFromIID(guid).c_str());
 
 	return mOrigDevice1->SetPrivateDataInterface(guid, pData);
 }
@@ -2002,8 +2058,7 @@ STDMETHODIMP HackerDevice::GetDeviceRemovedReason(THIS)
 	return mOrigDevice1->GetDeviceRemovedReason();
 }
 
-STDMETHODIMP HackerDevice::SetExceptionMode(THIS_
-	UINT RaiseFlags)
+STDMETHODIMP HackerDevice::SetExceptionMode(THIS_ UINT RaiseFlags)
 {
 	return mOrigDevice1->SetExceptionMode(RaiseFlags);
 }
@@ -2013,8 +2068,6 @@ STDMETHODIMP_(UINT) HackerDevice::GetExceptionMode(THIS)
 	return mOrigDevice1->GetExceptionMode();
 }
 
-
-
 // -----------------------------------------------------------------------------------------------
 
 static bool check_texture_override_iteration(TextureOverride *textureOverride)
@@ -2022,11 +2075,12 @@ static bool check_texture_override_iteration(TextureOverride *textureOverride)
 	if (textureOverride->iterations.empty())
 		return true;
 
-	std::vector<int>::iterator k = textureOverride->iterations.begin();
+	auto k = textureOverride->iterations.begin();
 	int currentIteration = textureOverride->iterations[0] = textureOverride->iterations[0] + 1;
 	LogInfo("  current iteration = %d\n", currentIteration);
 
-	while (++k != textureOverride->iterations.end()) {
+	while (++k != textureOverride->iterations.end())
+	{
 		if (currentIteration == *k)
 			return true;
 	}
@@ -2036,8 +2090,8 @@ static bool check_texture_override_iteration(TextureOverride *textureOverride)
 }
 
 // Template specialisations to override resource descriptions.
-// TODO: Refactor this to use common code with CustomResource.
-// TODO: Add overrides for BindFlags since they can affect the stereo mode.
+// Future work: Refactor this to use common code with CustomResource.
+// Future work: Add overrides for BindFlags since they can affect the stereo mode.
 // Maybe MiscFlags as well in case we need to do something like forcing a
 // buffer to be unstructured to allow it to be steroised when
 // StereoFlagsDX10=0x000C000.
@@ -2050,7 +2104,8 @@ static bool check_texture_override_iteration(TextureOverride *textureOverride)
 static UINT scale_dimension_checked(UINT dimension, float multiplier, const char *name)
 {
 	double scaled = (double)dimension * (double)multiplier;
-	if (!std::isfinite(scaled) || scaled < 1.0 || scaled > (double)UINT_MAX) {
+	if (!std::isfinite(scaled) || scaled < 1.0 || scaled > (double)UINT_MAX)
+	{
 		LogInfo("  ignoring invalid %s %f (result %f out of range)\n", name, multiplier, scaled);
 		return dimension;
 	}
@@ -2060,53 +2115,70 @@ static UINT scale_dimension_checked(UINT dimension, float multiplier, const char
 template <typename DescType>
 static void override_resource_desc_common_2d_3d(DescType *desc, TextureOverride *textureOverride)
 {
-	if (textureOverride->format != -1) {
+	if (textureOverride->format != -1)
+	{
 		LogInfo("  setting custom format to %d\n", textureOverride->format);
-		desc->Format = (DXGI_FORMAT) textureOverride->format;
+		desc->Format = (DXGI_FORMAT)textureOverride->format;
 	}
 
 	// width/height are parsed as signed ints; a negative value must never be
 	// converted to UINT (it would become a ~4 billion pixel dimension):
-	if (textureOverride->width != -1) {
-		if (textureOverride->width > 0) {
+	if (textureOverride->width != -1)
+	{
+		if (textureOverride->width > 0)
+		{
 			LogInfo("  setting custom width to %d\n", textureOverride->width);
 			desc->Width = (UINT)textureOverride->width;
-		} else {
+		}
+		else
+		{
 			LogInfo("  ignoring invalid width override %d\n", textureOverride->width);
 		}
 	}
 
-	if (textureOverride->width_multiply != 1.0f) {
+	if (textureOverride->width_multiply != 1.0f)
+	{
 		desc->Width = scale_dimension_checked(desc->Width, textureOverride->width_multiply, "width_multiply");
 		LogInfo("  multiplying custom width by %f to %d\n", textureOverride->width_multiply, desc->Width);
 	}
 
-	if (textureOverride->height != -1) {
-		if (textureOverride->height > 0) {
+	if (textureOverride->height != -1)
+	{
+		if (textureOverride->height > 0)
+		{
 			LogInfo("  setting custom height to %d\n", textureOverride->height);
 			desc->Height = (UINT)textureOverride->height;
-		} else {
+		}
+		else
+		{
 			LogInfo("  ignoring invalid height override %d\n", textureOverride->height);
 		}
 	}
 
-	if (textureOverride->height_multiply != 1.0f) {
+	if (textureOverride->height_multiply != 1.0f)
+	{
 		desc->Height = scale_dimension_checked(desc->Height, textureOverride->height_multiply, "height_multiply");
 		LogInfo("  multiplying custom height by %f to %d\n", textureOverride->height_multiply, desc->Height);
 	}
 }
 
-static void override_resource_desc(D3D11_BUFFER_DESC *desc, TextureOverride *textureOverride) {
-	if (textureOverride->override_byte_width > 0) {
+static void override_resource_desc(D3D11_BUFFER_DESC *desc, TextureOverride *textureOverride)
+{
+	if (textureOverride->override_byte_width > 0)
+	{
 		UINT override_byte_width = static_cast<UINT>(textureOverride->override_byte_width);
-		if (desc->ByteWidth < override_byte_width) {
+		if (desc->ByteWidth < override_byte_width)
+		{
 			LogInfo("  resizing buffer: %u->%u\n", desc->ByteWidth, override_byte_width);
 			//LogOverlayW(LOG_WARNING, L"Buffer resized: %u->%u\n - [%s]\n", desc->ByteWidth, override_byte_width, textureOverride->ini_section.c_str());
 			desc->ByteWidth = override_byte_width;
 		}
 	}
 }
-static void override_resource_desc(D3D11_TEXTURE1D_DESC *desc [[maybe_unused]], TextureOverride *textureOverride [[maybe_unused]]) {}
+static void override_resource_desc(D3D11_TEXTURE1D_DESC *desc [[maybe_unused]],
+                                   TextureOverride *textureOverride [[maybe_unused]])
+{
+}
 static void override_resource_desc(D3D11_TEXTURE2D_DESC *desc, TextureOverride *textureOverride)
 {
 	override_resource_desc_common_2d_3d(desc, textureOverride);
@@ -2117,18 +2189,17 @@ static void override_resource_desc(D3D11_TEXTURE3D_DESC *desc, TextureOverride *
 }
 
 template <typename DescType>
-static const DescType* process_texture_override(uint32_t hash,
-		const DescType *origDesc,
-		DescType *newDesc)
+static const DescType *process_texture_override(uint32_t hash, const DescType *origDesc, DescType *newDesc)
 {
 	TextureOverrideMatches matches;
 	TextureOverride *textureOverride = nullptr;
-	const DescType* ret = origDesc;
+	const DescType *ret = origDesc;
 	unsigned i;
 
 	find_texture_overrides(hash, origDesc, &matches, nullptr);
 
-	if (origDesc && !matches.empty()) {
+	if (origDesc && !matches.empty())
+	{
 		// There is at least one matching texture override, which means
 		// we may possibly be altering the resource description. Make a
 		// copy of it and adjust the return pointer to the copy:
@@ -2140,16 +2211,17 @@ static const DescType* process_texture_override(uint32_t hash,
 		// overrides with higher priorities come later in the list, so
 		// if there are any conflicts they will override the earlier
 		// lower priority ones.
-		for (i = 0; i < matches.size(); i++) {
+		for (i = 0; i < matches.size(); i++)
+		{
 			textureOverride = matches[i];
 
 			// EDHM has many TextureOverrides that match the same hash; logging
 			// every match with LogInfo produces 100k+ lines/session. Gate on debug.
-			if (gLogDebug) {
+			if (gLogDebug)
+			{
 				char buf[256];
 				StrResourceDesc(buf, 256, origDesc);
-				LogDebug("  %S matched resource with hash=%08x %s\n",
-						textureOverride->ini_section.c_str(), hash, buf);
+				LogDebug("  %S matched resource with hash=%08x %s\n", textureOverride->ini_section.c_str(), hash, buf);
 			}
 
 			if (!check_texture_override_iteration(textureOverride))
@@ -2163,12 +2235,12 @@ static const DescType* process_texture_override(uint32_t hash,
 }
 
 STDMETHODIMP HackerDevice::CreateBuffer(THIS_
-	/* [annotation] */
-	__in  const D3D11_BUFFER_DESC *pDesc,
-	/* [annotation] */
-	__in_opt  const D3D11_SUBRESOURCE_DATA *pInitialData,
-	/* [annotation] */
-	__out_opt  ID3D11Buffer **ppBuffer)
+                                            /* [annotation] */
+                                            __in const D3D11_BUFFER_DESC *pDesc,
+                                        /* [annotation] */
+                                        __in_opt const D3D11_SUBRESOURCE_DATA *pInitialData,
+                                        /* [annotation] */
+                                        __out_opt ID3D11Buffer **ppBuffer)
 {
 	D3D11_BUFFER_DESC newDesc;
 	const D3D11_BUFFER_DESC *pNewDesc = nullptr;
@@ -2179,7 +2251,8 @@ STDMETHODIMP HackerDevice::CreateBuffer(THIS_
 
 	// Create hash from the raw buffer data if available, but also include
 	// the pDesc data as a unique fingerprint for a buffer.
-	uint32_t data_hash = 0, hash = 0;
+	uint32_t data_hash = 0;
+	uint32_t hash = 0;
 	if (pInitialData && pInitialData->pSysMem && pDesc)
 		hash = data_hash = crc32c_hw(hash, pInitialData->pSysMem, pDesc->ByteWidth);
 	if (pDesc)
@@ -2196,40 +2269,43 @@ STDMETHODIMP HackerDevice::CreateBuffer(THIS_
 	{
 		ResourceReleaseTracker::Attach(*ppBuffer);
 		EnterCriticalSectionPretty(&G->mResourcesLock);
-			ResourceHandleInfo *handle_info = &G->mResources[*ppBuffer];
-			handle_info->type = D3D11_RESOURCE_DIMENSION_BUFFER;
-			handle_info->hash = hash;
-			handle_info->orig_hash = hash;
-			handle_info->data_hash = data_hash;
+		ResourceHandleInfo *handle_info = &G->mResources[*ppBuffer];
+		handle_info->type = D3D11_RESOURCE_DIMENSION_BUFFER;
+		handle_info->hash = hash;
+		handle_info->orig_hash = hash;
+		handle_info->data_hash = data_hash;
 
-			// XXX: This is only used for hash tracking, which we
-			// don't enable for buffers for performance reasons:
-			// if (pDesc)
-			//	memcpy(&handle_info->descBuf, pDesc, sizeof(D3D11_BUFFER_DESC));
+		// XXX: This is only used for hash tracking, which we
+		// don't enable for buffers for performance reasons:
+		// if (pDesc)
+		//	memcpy(&handle_info->descBuf, pDesc, sizeof(D3D11_BUFFER_DESC));
 
 		LeaveCriticalSection(&G->mResourcesLock);
 		EnterCriticalSectionPretty(&G->mCriticalSection);
-			// For stat collection and hash contamination tracking:
-			if (G->hunting && pDesc) {
-				G->mResourceInfo[hash] = *pDesc;
-				G->mResourceInfo[hash].initial_data_used_in_hash = !!data_hash;
-			}
+		// For stat collection and hash contamination tracking:
+		if (G->hunting && pDesc)
+		{
+			G->mResourceInfo[hash] = *pDesc;
+			G->mResourceInfo[hash].initial_data_used_in_hash = !!data_hash;
+		}
 		LeaveCriticalSection(&G->mCriticalSection);
 	}
 	return hr;
 }
 
 STDMETHODIMP HackerDevice::CreateTexture1D(THIS_
-	/* [annotation] */
-	__in  const D3D11_TEXTURE1D_DESC *pDesc,
-	/* [annotation] */
-	__in_xcount_opt(pDesc->MipLevels * pDesc->ArraySize)  const D3D11_SUBRESOURCE_DATA *pInitialData,
-	/* [annotation] */
-	__out_opt  ID3D11Texture1D **ppTexture1D)
+                                               /* [annotation] */
+                                               __in const D3D11_TEXTURE1D_DESC *pDesc,
+                                           /* [annotation] */
+                                           __in_xcount_opt(pDesc->MipLevels * pDesc->ArraySize)
+                                               const D3D11_SUBRESOURCE_DATA *pInitialData,
+                                           /* [annotation] */
+                                           __out_opt ID3D11Texture1D **ppTexture1D)
 {
 	D3D11_TEXTURE1D_DESC newDesc;
 	const D3D11_TEXTURE1D_DESC *pNewDesc = nullptr;
-	uint32_t data_hash, hash;
+	uint32_t data_hash;
+	uint32_t hash;
 
 	LogDebug("HackerDevice::CreateTexture1D called\n");
 	if (pDesc)
@@ -2251,23 +2327,24 @@ STDMETHODIMP HackerDevice::CreateTexture1D(THIS_
 	{
 		ResourceReleaseTracker::Attach(*ppTexture1D);
 		EnterCriticalSectionPretty(&G->mResourcesLock);
-			ResourceHandleInfo *handle_info = &G->mResources[*ppTexture1D];
-			handle_info->type = D3D11_RESOURCE_DIMENSION_TEXTURE1D;
-			handle_info->hash = hash;
-			handle_info->orig_hash = hash;
-			handle_info->data_hash = data_hash;
+		ResourceHandleInfo *handle_info = &G->mResources[*ppTexture1D];
+		handle_info->type = D3D11_RESOURCE_DIMENSION_TEXTURE1D;
+		handle_info->hash = hash;
+		handle_info->orig_hash = hash;
+		handle_info->data_hash = data_hash;
 
-			// TODO: For hash tracking if we ever need it for Texture1Ds:
-			// if (pDesc)
-			// 	memcpy(&handle_info->desc1D, pDesc, sizeof(D3D11_TEXTURE1D_DESC));
+		// Future work: For hash tracking if we ever need it for Texture1Ds:
+		// if (pDesc)
+		// 	memcpy(&handle_info->desc1D, pDesc, sizeof(D3D11_TEXTURE1D_DESC));
 		LeaveCriticalSection(&G->mResourcesLock);
 		EnterCriticalSectionPretty(&G->mCriticalSection);
 
-			// For stat collection and hash contamination tracking:
-			if (G->hunting && pDesc) {
-				G->mResourceInfo[hash] = *pDesc;
-				G->mResourceInfo[hash].initial_data_used_in_hash = !!data_hash;
-			}
+		// For stat collection and hash contamination tracking:
+		if (G->hunting && pDesc)
+		{
+			G->mResourceInfo[hash] = *pDesc;
+			G->mResourceInfo[hash].initial_data_used_in_hash = !!data_hash;
+		}
 		LeaveCriticalSection(&G->mCriticalSection);
 	}
 	return hr;
@@ -2293,12 +2370,13 @@ static bool heuristic_could_be_possible_resolution(unsigned width, unsigned heig
 }
 
 STDMETHODIMP HackerDevice::CreateTexture2D(THIS_
-	/* [annotation] */
-	__in  const D3D11_TEXTURE2D_DESC *pDesc,
-	/* [annotation] */
-	__in_xcount_opt(pDesc->MipLevels * pDesc->ArraySize)  const D3D11_SUBRESOURCE_DATA *pInitialData,
-	/* [annotation] */
-	__out_opt  ID3D11Texture2D **ppTexture2D)
+                                               /* [annotation] */
+                                               __in const D3D11_TEXTURE2D_DESC *pDesc,
+                                           /* [annotation] */
+                                           __in_xcount_opt(pDesc->MipLevels * pDesc->ArraySize)
+                                               const D3D11_SUBRESOURCE_DATA *pInitialData,
+                                           /* [annotation] */
+                                           __out_opt ID3D11Texture2D **ppTexture2D)
 {
 	D3D11_TEXTURE2D_DESC newDesc;
 	const D3D11_TEXTURE2D_DESC *pNewDesc = nullptr;
@@ -2308,9 +2386,9 @@ STDMETHODIMP HackerDevice::CreateTexture2D(THIS_
 		LogDebugResourceDesc(pDesc);
 	if (pInitialData && pInitialData->pSysMem)
 	{
-		LogDebugNoNL("  pInitialData = %p->%p, SysMemPitch: %u, SysMemSlicePitch: %u ",
-			pInitialData, pInitialData->pSysMem, pInitialData->SysMemPitch, pInitialData->SysMemSlicePitch);
-		const uint8_t* hex = static_cast<const uint8_t*>(pInitialData->pSysMem);
+		LogDebugNoNL("  pInitialData = %p->%p, SysMemPitch: %u, SysMemSlicePitch: %u ", pInitialData,
+		             pInitialData->pSysMem, pInitialData->SysMemPitch, pInitialData->SysMemSlicePitch);
+		const auto *hex = static_cast<const uint8_t *>(pInitialData->pSysMem);
 		for (size_t i = 0; i < 16; i++)
 			LogDebugNoNL(" %02hX", hex[i]);
 		LogDebug("\n");
@@ -2318,22 +2396,21 @@ STDMETHODIMP HackerDevice::CreateTexture2D(THIS_
 
 	// Rectangular depth stencil textures of at least 640x480 may indicate
 	// the game's resolution, for games that upscale to their swap chains:
-	if (pDesc &&
-		(pDesc->BindFlags & D3D11_BIND_DEPTH_STENCIL) &&
-		G->mResolutionInfo.from == GetResolutionFrom::DEPTH_STENCIL &&
-		heuristic_could_be_possible_resolution(pDesc->Width, pDesc->Height))
+	if (pDesc && (pDesc->BindFlags & D3D11_BIND_DEPTH_STENCIL) &&
+	    G->mResolutionInfo.from == GetResolutionFrom::DEPTH_STENCIL &&
+	    heuristic_could_be_possible_resolution(pDesc->Width, pDesc->Height))
 	{
 		G->mResolutionInfo.width = pDesc->Width;
 		G->mResolutionInfo.height = pDesc->Height;
-		LogInfo("Got resolution from depth/stencil buffer: %ix%i\n",
-			G->mResolutionInfo.width, G->mResolutionInfo.height);
+		LogInfo("Got resolution from depth/stencil buffer: %ix%i\n", G->mResolutionInfo.width,
+		        G->mResolutionInfo.height);
 	}
 
 	// Hash based on raw texture data
-	// TODO: Wrap these texture objects and return them to the game.
+	// Future work: Wrap these texture objects and return them to the game.
 	//  That would avoid the hash lookup later.
 
-	// We are using both pDesc and pInitialData if it exists.  Even in the 
+	// We are using both pDesc and pInitialData if it exists.  Even in the
 	// pInitialData=0 case, we still need to make a hash, as these are often
 	// hashes that are created on the fly, filled in later. So, even though all
 	// we have to go on is the easily duplicated pDesc, we'll still use it and
@@ -2346,7 +2423,8 @@ STDMETHODIMP HackerDevice::CreateTexture2D(THIS_
 	// We also see the handle itself get reused. That suggests that maybe we ought
 	// to be tracking Release operations as well, and removing them from the map.
 
-	uint32_t data_hash, hash;
+	uint32_t data_hash;
+	uint32_t hash;
 	hash = data_hash = CalcTexture2DDataHash(pDesc, pInitialData);
 	if (pDesc)
 		hash = CalcTexture2DDescHash(hash, pDesc);
@@ -2360,26 +2438,28 @@ STDMETHODIMP HackerDevice::CreateTexture2D(THIS_
 	HRESULT hr = mOrigDevice1->CreateTexture2D(pNewDesc, pInitialData, ppTexture2D);
 	UnlockResourceCreationMode();
 
-	if (ppTexture2D) LogDebug("  returns result = %x, handle = %p\n", hr, *ppTexture2D);
+	if (ppTexture2D)
+		LogDebug("  returns result = %x, handle = %p\n", hr, *ppTexture2D);
 
 	// Register texture. Every one seen.
 	if (hr == S_OK && ppTexture2D && *ppTexture2D)
 	{
 		ResourceReleaseTracker::Attach(*ppTexture2D);
 		EnterCriticalSectionPretty(&G->mResourcesLock);
-			ResourceHandleInfo *handle_info = &G->mResources[*ppTexture2D];
-			handle_info->type = D3D11_RESOURCE_DIMENSION_TEXTURE2D;
-			handle_info->hash = hash;
-			handle_info->orig_hash = hash;
-			handle_info->data_hash = data_hash;
-			if (pDesc)
-				memcpy(&handle_info->desc2D, pDesc, sizeof(D3D11_TEXTURE2D_DESC));
+		ResourceHandleInfo *handle_info = &G->mResources[*ppTexture2D];
+		handle_info->type = D3D11_RESOURCE_DIMENSION_TEXTURE2D;
+		handle_info->hash = hash;
+		handle_info->orig_hash = hash;
+		handle_info->data_hash = data_hash;
+		if (pDesc)
+			memcpy(&handle_info->desc2D, pDesc, sizeof(D3D11_TEXTURE2D_DESC));
 		LeaveCriticalSection(&G->mResourcesLock);
 		EnterCriticalSectionPretty(&G->mCriticalSection);
-			if (G->hunting && pDesc) {
-				G->mResourceInfo[hash] = *pDesc;
-				G->mResourceInfo[hash].initial_data_used_in_hash = !!data_hash;
-			}
+		if (G->hunting && pDesc)
+		{
+			G->mResourceInfo[hash] = *pDesc;
+			G->mResourceInfo[hash].initial_data_used_in_hash = !!data_hash;
+		}
 		LeaveCriticalSection(&G->mCriticalSection);
 	}
 
@@ -2387,12 +2467,12 @@ STDMETHODIMP HackerDevice::CreateTexture2D(THIS_
 }
 
 STDMETHODIMP HackerDevice::CreateTexture3D(THIS_
-	/* [annotation] */
-	__in  const D3D11_TEXTURE3D_DESC *pDesc,
-	/* [annotation] */
-	__in_xcount_opt(pDesc->MipLevels)  const D3D11_SUBRESOURCE_DATA *pInitialData,
-	/* [annotation] */
-	__out_opt  ID3D11Texture3D **ppTexture3D)
+                                               /* [annotation] */
+                                               __in const D3D11_TEXTURE3D_DESC *pDesc,
+                                           /* [annotation] */
+                                           __in_xcount_opt(pDesc->MipLevels) const D3D11_SUBRESOURCE_DATA *pInitialData,
+                                           /* [annotation] */
+                                           __out_opt ID3D11Texture3D **ppTexture3D)
 {
 	D3D11_TEXTURE3D_DESC newDesc;
 	const D3D11_TEXTURE3D_DESC *pNewDesc = nullptr;
@@ -2400,25 +2480,28 @@ STDMETHODIMP HackerDevice::CreateTexture3D(THIS_
 	LogDebug("HackerDevice::CreateTexture3D called with parameters\n");
 	if (pDesc)
 		LogDebugResourceDesc(pDesc);
-	if (pInitialData && pInitialData->pSysMem) {
-		LogDebug("  pInitialData = %p->%p, SysMemPitch: %u, SysMemSlicePitch: %u\n",
-			pInitialData, pInitialData->pSysMem, pInitialData->SysMemPitch, pInitialData->SysMemSlicePitch);
+	if (pInitialData && pInitialData->pSysMem)
+	{
+		LogDebug("  pInitialData = %p->%p, SysMemPitch: %u, SysMemSlicePitch: %u\n", pInitialData,
+		         pInitialData->pSysMem, pInitialData->SysMemPitch, pInitialData->SysMemSlicePitch);
 	}
 
 	// Rectangular depth stencil textures of at least 640x480 may indicate
 	// the game's resolution, for games that upscale to their swap chains:
 	if (pDesc && (pDesc->BindFlags & D3D11_BIND_DEPTH_STENCIL) &&
-		G->mResolutionInfo.from == GetResolutionFrom::DEPTH_STENCIL &&
-		heuristic_could_be_possible_resolution(pDesc->Width, pDesc->Height)) {
+	    G->mResolutionInfo.from == GetResolutionFrom::DEPTH_STENCIL &&
+	    heuristic_could_be_possible_resolution(pDesc->Width, pDesc->Height))
+	{
 		G->mResolutionInfo.width = pDesc->Width;
 		G->mResolutionInfo.height = pDesc->Height;
-		LogInfo("Got resolution from depth/stencil buffer: %ix%i\n",
-			G->mResolutionInfo.width, G->mResolutionInfo.height);
+		LogInfo("Got resolution from depth/stencil buffer: %ix%i\n", G->mResolutionInfo.width,
+		        G->mResolutionInfo.height);
 	}
 
 	// Create hash code from raw texture data and description.
 	// Initial data is optional, so we might have zero data to add to the hash there.
-	uint32_t data_hash, hash;
+	uint32_t data_hash;
+	uint32_t hash;
 	hash = data_hash = CalcTexture3DDataHash(pDesc, pInitialData);
 	if (pDesc)
 		hash = CalcTexture3DDescHash(hash, pDesc);
@@ -2436,19 +2519,20 @@ STDMETHODIMP HackerDevice::CreateTexture3D(THIS_
 	{
 		ResourceReleaseTracker::Attach(*ppTexture3D);
 		EnterCriticalSectionPretty(&G->mResourcesLock);
-			ResourceHandleInfo *handle_info = &G->mResources[*ppTexture3D];
-			handle_info->type = D3D11_RESOURCE_DIMENSION_TEXTURE3D;
-			handle_info->hash = hash;
-			handle_info->orig_hash = hash;
-			handle_info->data_hash = data_hash;
-			if (pDesc)
-				memcpy(&handle_info->desc3D, pDesc, sizeof(D3D11_TEXTURE3D_DESC));
+		ResourceHandleInfo *handle_info = &G->mResources[*ppTexture3D];
+		handle_info->type = D3D11_RESOURCE_DIMENSION_TEXTURE3D;
+		handle_info->hash = hash;
+		handle_info->orig_hash = hash;
+		handle_info->data_hash = data_hash;
+		if (pDesc)
+			memcpy(&handle_info->desc3D, pDesc, sizeof(D3D11_TEXTURE3D_DESC));
 		LeaveCriticalSection(&G->mResourcesLock);
 		EnterCriticalSectionPretty(&G->mCriticalSection);
-			if (G->hunting && pDesc) {
-				G->mResourceInfo[hash] = *pDesc;
-				G->mResourceInfo[hash].initial_data_used_in_hash = !!data_hash;
-			}
+		if (G->hunting && pDesc)
+		{
+			G->mResourceInfo[hash] = *pDesc;
+			G->mResourceInfo[hash].initial_data_used_in_hash = !!data_hash;
+		}
 		LeaveCriticalSection(&G->mCriticalSection);
 	}
 
@@ -2458,12 +2542,12 @@ STDMETHODIMP HackerDevice::CreateTexture3D(THIS_
 }
 
 STDMETHODIMP HackerDevice::CreateShaderResourceView(THIS_
-	/* [annotation] */
-	__in  ID3D11Resource *pResource,
-	/* [annotation] */
-	__in_opt  const D3D11_SHADER_RESOURCE_VIEW_DESC *pDesc,
-	/* [annotation] */
-	__out_opt  ID3D11ShaderResourceView **ppSRView)
+                                                        /* [annotation] */
+                                                        __in ID3D11Resource *pResource,
+                                                    /* [annotation] */
+                                                    __in_opt const D3D11_SHADER_RESOURCE_VIEW_DESC *pDesc,
+                                                    /* [annotation] */
+                                                    __out_opt ID3D11ShaderResourceView **ppSRView)
 {
 	LogDebug("HackerDevice::CreateShaderResourceView called\n");
 
@@ -2475,7 +2559,7 @@ STDMETHODIMP HackerDevice::CreateShaderResourceView(THIS_
 		bool z_buffer_found = false;
 
 		EnterCriticalSectionPretty(&G->mResourcesLock);
-		unordered_map<ID3D11Resource *, ResourceHandleInfo>::iterator i = lookup_resource_handle_info(pResource);
+		auto i = lookup_resource_handle_info(pResource);
 		if (i != G->mResources.end() && i->second.hash == G->ZBufferHashToInject)
 		{
 			LogInfo("  resource view of z buffer found: handle = %p, hash = %08lx\n", *ppSRView, i->second.hash);
@@ -2512,18 +2596,19 @@ STDMETHODIMP HackerDevice::CreateShaderResourceView(THIS_
 // otherwise identical shaders. However I don't think there is much advantage
 // of that over just hashing the full shader, and in some cases we might like
 // to ignore variable name changes, so it seems best to skip it.
-static const char *hash_whitelisted_sections[] = {
-	"SHDR", "SHEX",         // Bytecode
-	"ISGN",         "ISG1", // Input signature
-	"PCSG",         "PSG1", // Patch constant signature
-	"OSGN", "OSG5", "OSG1", // Output signature
+static constexpr auto hash_whitelisted_sections = std::array{
+    "SHDR", "SHEX",         // Bytecode
+    "ISGN", "ISG1",         // Input signature
+    "PCSG", "PSG1",         // Patch constant signature
+    "OSGN", "OSG5", "OSG1", // Output signature
 };
 
 static uint32_t hash_shader_bytecode(struct dxbc_header *header, SIZE_T BytecodeLength)
 {
 	uint32_t *offsets;
 	struct section_header *section;
-	unsigned i, j;
+	unsigned i;
+	unsigned j;
 	uint32_t hash = 0;
 	SIZE_T offsets_size;
 	SIZE_T section_offset;
@@ -2538,23 +2623,24 @@ static uint32_t hash_shader_bytecode(struct dxbc_header *header, SIZE_T Bytecode
 	if (header->num_sections > (header->size - sizeof(struct dxbc_header)) / sizeof(uint32_t))
 		return 0;
 	offsets_size = header->num_sections * sizeof(uint32_t);
-	offsets = (uint32_t*)((char*)header + sizeof(struct dxbc_header));
+	offsets = (uint32_t *)((char *)header + sizeof(struct dxbc_header));
 
-	for (i = 0; i < header->num_sections; i++) {
+	for (i = 0; i < header->num_sections; i++)
+	{
 		section_offset = offsets[i];
-		if (section_offset < sizeof(struct dxbc_header) + offsets_size ||
-			section_offset > header->size ||
-			header->size - section_offset < sizeof(struct section_header))
+		if (section_offset < sizeof(struct dxbc_header) + offsets_size || section_offset > header->size ||
+		    header->size - section_offset < sizeof(struct section_header))
 			return 0;
 
-		section = (struct section_header*)((char*)header + section_offset);
+		section = (struct section_header *)((char *)header + section_offset);
 		section_data_size = header->size - section_offset - sizeof(struct section_header);
 		if (section->size > section_data_size)
 			return 0;
 
-		for (j = 0; j < ARRAYSIZE(hash_whitelisted_sections); j++) {
+		for (j = 0; j < hash_whitelisted_sections.size(); j++)
+		{
 			if (!strncmp(section->signature, hash_whitelisted_sections[j], 4))
-				hash = crc32c_hw(hash, (char*)section + sizeof(struct section_header), section->size);
+				hash = crc32c_hw(hash, (char *)section + sizeof(struct section_header), section->size);
 		}
 	}
 
@@ -2564,12 +2650,13 @@ static uint32_t hash_shader_bytecode(struct dxbc_header *header, SIZE_T Bytecode
 static UINT64 hash_shader(const void *pShaderBytecode, SIZE_T BytecodeLength)
 {
 	UINT64 hash = 0;
-	struct dxbc_header *header = (struct dxbc_header *)pShaderBytecode;
-	bool use_fnv = (BytecodeLength < sizeof(struct dxbc_header)) ||
-		(G->shader_hash_type == ShaderHashType::FNV);
+	auto *header = (struct dxbc_header *)pShaderBytecode;
+	bool use_fnv = (BytecodeLength < sizeof(struct dxbc_header)) || (G->shader_hash_type == ShaderHashType::FNV);
 
-	if (!use_fnv) {
-		switch (G->shader_hash_type) {
+	if (!use_fnv)
+	{
+		switch (G->shader_hash_type)
+		{
 		case ShaderHashType::EMBEDDED:
 			// Confirmed with dx11shaderanalyse that the hash
 			// embedded in the file is as md5sum would have printed
@@ -2586,7 +2673,8 @@ static UINT64 hash_shader(const void *pShaderBytecode, SIZE_T BytecodeLength)
 
 		case ShaderHashType::BYTECODE:
 			hash = hash_shader_bytecode(header, BytecodeLength);
-			if (hash) {
+			if (hash)
+			{
 				LogInfo("  Bytecode hash = %016I64x\n", hash);
 				return hash;
 			}
@@ -2603,30 +2691,25 @@ static UINT64 hash_shader(const void *pShaderBytecode, SIZE_T BytecodeLength)
 	return hash;
 }
 
-
 // C++ function template of common code shared by all CreateXXXShader functions:
-template <class ID3D11Shader,
-	 HRESULT (__stdcall ID3D11Device::*OrigCreateShader)(THIS_
-			 __in const void *pShaderBytecode,
-			 __in SIZE_T BytecodeLength,
-			 __in_opt ID3D11ClassLinkage *pClassLinkage,
-			 __out_opt ID3D11Shader **ppShader)
-	 >
+template <class ID3D11Shader, HRESULT (__stdcall ID3D11Device::*OrigCreateShader)(
+                                  THIS_ __in const void *pShaderBytecode, __in SIZE_T BytecodeLength,
+                                  __in_opt ID3D11ClassLinkage *pClassLinkage, __out_opt ID3D11Shader **ppShader)>
 STDMETHODIMP HackerDevice::CreateShader(THIS_
-	/* [annotation] */
-	__in  const void *pShaderBytecode,
-	/* [annotation] */
-	__in  SIZE_T BytecodeLength,
-	/* [annotation] */
-	__in_opt  ID3D11ClassLinkage *pClassLinkage,
-	/* [annotation] */
-	__out_opt  ID3D11Shader **ppShader,
-	const wchar_t *shaderType)
+                                            /* [annotation] */
+                                            __in const void *pShaderBytecode,
+                                        /* [annotation] */
+                                        __in SIZE_T BytecodeLength,
+                                        /* [annotation] */
+                                        __in_opt ID3D11ClassLinkage *pClassLinkage,
+                                        /* [annotation] */
+                                        __out_opt ID3D11Shader **ppShader, const wchar_t *shaderType)
 {
 	HRESULT hr;
 	UINT64 hash;
 
-	if (!ppShader || !pShaderBytecode) {
+	if (!ppShader || !pShaderBytecode)
+	{
 		// Let DX worry about the error code
 		return (mOrigDevice1->*OrigCreateShader)(pShaderBytecode, BytecodeLength, pClassLinkage, ppShader);
 	}
@@ -2634,20 +2717,20 @@ STDMETHODIMP HackerDevice::CreateShader(THIS_
 	// Calculate hash
 	hash = hash_shader(pShaderBytecode, BytecodeLength);
 
-	hr = ReplaceShaderFromShaderFixes<ID3D11Shader, OrigCreateShader>
-		(hash, pShaderBytecode, BytecodeLength, pClassLinkage,
-		 ppShader, shaderType);
+	hr = ReplaceShaderFromShaderFixes<ID3D11Shader, OrigCreateShader>(hash, pShaderBytecode, BytecodeLength,
+	                                                                  pClassLinkage, ppShader, shaderType);
 
-	if (hr != S_OK) {
-		hr = ProcessShaderNotFoundInShaderFixes<ID3D11Shader, OrigCreateShader>
-			(hash, pShaderBytecode, BytecodeLength, pClassLinkage,
-			 ppShader, shaderType);
+	if (hr != S_OK)
+	{
+		hr = ProcessShaderNotFoundInShaderFixes<ID3D11Shader, OrigCreateShader>(hash, pShaderBytecode, BytecodeLength,
+		                                                                        pClassLinkage, ppShader, shaderType);
 	}
 
-	if (hr == S_OK) {
+	if (hr == S_OK)
+	{
 		EnterCriticalSectionPretty(&G->mCriticalSection);
-			G->mShaders[*ppShader] = hash;
-			LogDebugW(L"    %ls: handle = %p, hash = %016I64x\n", shaderType, *ppShader, hash);
+		G->mShaders[*ppShader] = hash;
+		LogDebugW(L"    %ls: handle = %p, hash = %016I64x\n", shaderType, *ppShader, hash);
 		LeaveCriticalSection(&G->mCriticalSection);
 	}
 
@@ -2657,148 +2740,158 @@ STDMETHODIMP HackerDevice::CreateShader(THIS_
 }
 
 STDMETHODIMP HackerDevice::CreateVertexShader(THIS_
-	/* [annotation] */
-	__in  const void *pShaderBytecode,
-	/* [annotation] */
-	__in  SIZE_T BytecodeLength,
-	/* [annotation] */
-	__in_opt  ID3D11ClassLinkage *pClassLinkage,
-	/* [annotation] */
-	__out_opt  ID3D11VertexShader **ppVertexShader)
+                                                  /* [annotation] */
+                                                  __in const void *pShaderBytecode,
+                                              /* [annotation] */
+                                              __in SIZE_T BytecodeLength,
+                                              /* [annotation] */
+                                              __in_opt ID3D11ClassLinkage *pClassLinkage,
+                                              /* [annotation] */
+                                              __out_opt ID3D11VertexShader **ppVertexShader)
 {
-	LogDebug("HackerDevice::CreateVertexShader called with BytecodeLength = %Iu, handle = %p, ClassLinkage = %p\n", BytecodeLength, pShaderBytecode, pClassLinkage);
+	LogDebug("HackerDevice::CreateVertexShader called with BytecodeLength = %Iu, handle = %p, ClassLinkage = %p\n",
+	         BytecodeLength, pShaderBytecode, pClassLinkage);
 
-	return CreateShader<ID3D11VertexShader, &ID3D11Device::CreateVertexShader>
-			(pShaderBytecode, BytecodeLength, pClassLinkage, ppVertexShader, L"vs");
+	return CreateShader<ID3D11VertexShader, &ID3D11Device::CreateVertexShader>(pShaderBytecode, BytecodeLength,
+	                                                                           pClassLinkage, ppVertexShader, L"vs");
 }
 
 STDMETHODIMP HackerDevice::CreateGeometryShader(THIS_
-	/* [annotation] */
-	__in  const void *pShaderBytecode,
-	/* [annotation] */
-	__in  SIZE_T BytecodeLength,
-	/* [annotation] */
-	__in_opt  ID3D11ClassLinkage *pClassLinkage,
-	/* [annotation] */
-	__out_opt  ID3D11GeometryShader **ppGeometryShader)
+                                                    /* [annotation] */
+                                                    __in const void *pShaderBytecode,
+                                                /* [annotation] */
+                                                __in SIZE_T BytecodeLength,
+                                                /* [annotation] */
+                                                __in_opt ID3D11ClassLinkage *pClassLinkage,
+                                                /* [annotation] */
+                                                __out_opt ID3D11GeometryShader **ppGeometryShader)
 {
-	LogDebug("HackerDevice::CreateGeometryShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength, pShaderBytecode);
+	LogDebug("HackerDevice::CreateGeometryShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength,
+	         pShaderBytecode);
 
-	return CreateShader<ID3D11GeometryShader, &ID3D11Device::CreateGeometryShader>
-			(pShaderBytecode, BytecodeLength, pClassLinkage, ppGeometryShader, L"gs");
+	return CreateShader<ID3D11GeometryShader, &ID3D11Device::CreateGeometryShader>(
+	    pShaderBytecode, BytecodeLength, pClassLinkage, ppGeometryShader, L"gs");
 }
 
-STDMETHODIMP HackerDevice::CreateGeometryShaderWithStreamOutput(THIS_
-	/* [annotation] */
-	__in  const void *pShaderBytecode,
-	/* [annotation] */
-	__in  SIZE_T BytecodeLength,
-	/* [annotation] */
-	__in_ecount_opt(NumEntries)  const D3D11_SO_DECLARATION_ENTRY *pSODeclaration,
-	/* [annotation] */
-	__in_range(0, D3D11_SO_STREAM_COUNT * D3D11_SO_OUTPUT_COMPONENT_COUNT)  UINT NumEntries,
-	/* [annotation] */
-	__in_ecount_opt(NumStrides)  const UINT *pBufferStrides,
-	/* [annotation] */
-	__in_range(0, D3D11_SO_BUFFER_SLOT_COUNT)  UINT NumStrides,
-	/* [annotation] */
-	__in  UINT RasterizedStream,
-	/* [annotation] */
-	__in_opt  ID3D11ClassLinkage *pClassLinkage,
-	/* [annotation] */
-	__out_opt  ID3D11GeometryShader **ppGeometryShader)
+STDMETHODIMP HackerDevice::CreateGeometryShaderWithStreamOutput(
+    THIS_
+        /* [annotation] */
+        __in const void *pShaderBytecode,
+    /* [annotation] */
+    __in SIZE_T BytecodeLength,
+    /* [annotation] */
+    __in_ecount_opt(NumEntries) const D3D11_SO_DECLARATION_ENTRY *pSODeclaration,
+    /* [annotation] */
+    __in_range(0, D3D11_SO_STREAM_COUNT *D3D11_SO_OUTPUT_COMPONENT_COUNT) UINT NumEntries,
+    /* [annotation] */
+    __in_ecount_opt(NumStrides) const UINT *pBufferStrides,
+    /* [annotation] */
+    __in_range(0, D3D11_SO_BUFFER_SLOT_COUNT) UINT NumStrides,
+    /* [annotation] */
+    __in UINT RasterizedStream,
+    /* [annotation] */
+    __in_opt ID3D11ClassLinkage *pClassLinkage,
+    /* [annotation] */
+    __out_opt ID3D11GeometryShader **ppGeometryShader)
 {
 	LogDebug("HackerDevice::CreateGeometryShaderWithStreamOutput called.\n");
 
-	// TODO: This is another call that can create geometry and/or vertex
+	// Future work: This is another call that can create geometry and/or vertex
 	// shaders - hook them up and allow them to be overridden as well.
 
 	HRESULT hr = mOrigDevice1->CreateGeometryShaderWithStreamOutput(pShaderBytecode, BytecodeLength, pSODeclaration,
-		NumEntries, pBufferStrides, NumStrides, RasterizedStream, pClassLinkage, ppGeometryShader);
+	                                                                NumEntries, pBufferStrides, NumStrides,
+	                                                                RasterizedStream, pClassLinkage, ppGeometryShader);
 	LogDebug("  returns result = %x, handle = %p\n", hr, (ppGeometryShader ? *ppGeometryShader : nullptr));
 
 	return hr;
 }
 
 STDMETHODIMP HackerDevice::CreatePixelShader(THIS_
-	/* [annotation] */
-	__in  const void *pShaderBytecode,
-	/* [annotation] */
-	__in  SIZE_T BytecodeLength,
-	/* [annotation] */
-	__in_opt  ID3D11ClassLinkage *pClassLinkage,
-	/* [annotation] */
-	__out_opt  ID3D11PixelShader **ppPixelShader)
+                                                 /* [annotation] */
+                                                 __in const void *pShaderBytecode,
+                                             /* [annotation] */
+                                             __in SIZE_T BytecodeLength,
+                                             /* [annotation] */
+                                             __in_opt ID3D11ClassLinkage *pClassLinkage,
+                                             /* [annotation] */
+                                             __out_opt ID3D11PixelShader **ppPixelShader)
 {
-	LogDebug("HackerDevice::CreatePixelShader called with BytecodeLength = %Iu, handle = %p, ClassLinkage = %p\n", BytecodeLength, pShaderBytecode, pClassLinkage);
+	LogDebug("HackerDevice::CreatePixelShader called with BytecodeLength = %Iu, handle = %p, ClassLinkage = %p\n",
+	         BytecodeLength, pShaderBytecode, pClassLinkage);
 
-	return CreateShader<ID3D11PixelShader, &ID3D11Device::CreatePixelShader>
-			(pShaderBytecode, BytecodeLength, pClassLinkage, ppPixelShader, L"ps");
+	return CreateShader<ID3D11PixelShader, &ID3D11Device::CreatePixelShader>(pShaderBytecode, BytecodeLength,
+	                                                                         pClassLinkage, ppPixelShader, L"ps");
 }
 
 STDMETHODIMP HackerDevice::CreateHullShader(THIS_
-	/* [annotation] */
-	__in  const void *pShaderBytecode,
-	/* [annotation] */
-	__in  SIZE_T BytecodeLength,
-	/* [annotation] */
-	__in_opt  ID3D11ClassLinkage *pClassLinkage,
-	/* [annotation] */
-	__out_opt  ID3D11HullShader **ppHullShader)
+                                                /* [annotation] */
+                                                __in const void *pShaderBytecode,
+                                            /* [annotation] */
+                                            __in SIZE_T BytecodeLength,
+                                            /* [annotation] */
+                                            __in_opt ID3D11ClassLinkage *pClassLinkage,
+                                            /* [annotation] */
+                                            __out_opt ID3D11HullShader **ppHullShader)
 {
-	LogDebug("HackerDevice::CreateHullShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength, pShaderBytecode);
+	LogDebug("HackerDevice::CreateHullShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength,
+	         pShaderBytecode);
 
-	return CreateShader<ID3D11HullShader, &ID3D11Device::CreateHullShader>
-			(pShaderBytecode, BytecodeLength, pClassLinkage, ppHullShader, L"hs");
+	return CreateShader<ID3D11HullShader, &ID3D11Device::CreateHullShader>(pShaderBytecode, BytecodeLength,
+	                                                                       pClassLinkage, ppHullShader, L"hs");
 }
 
 STDMETHODIMP HackerDevice::CreateDomainShader(THIS_
-	/* [annotation] */
-	__in  const void *pShaderBytecode,
-	/* [annotation] */
-	__in  SIZE_T BytecodeLength,
-	/* [annotation] */
-	__in_opt  ID3D11ClassLinkage *pClassLinkage,
-	/* [annotation] */
-	__out_opt  ID3D11DomainShader **ppDomainShader)
+                                                  /* [annotation] */
+                                                  __in const void *pShaderBytecode,
+                                              /* [annotation] */
+                                              __in SIZE_T BytecodeLength,
+                                              /* [annotation] */
+                                              __in_opt ID3D11ClassLinkage *pClassLinkage,
+                                              /* [annotation] */
+                                              __out_opt ID3D11DomainShader **ppDomainShader)
 {
-	LogDebug("HackerDevice::CreateDomainShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength, pShaderBytecode);
+	LogDebug("HackerDevice::CreateDomainShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength,
+	         pShaderBytecode);
 
-	return CreateShader<ID3D11DomainShader, &ID3D11Device::CreateDomainShader>
-			(pShaderBytecode, BytecodeLength, pClassLinkage, ppDomainShader, L"ds");
+	return CreateShader<ID3D11DomainShader, &ID3D11Device::CreateDomainShader>(pShaderBytecode, BytecodeLength,
+	                                                                           pClassLinkage, ppDomainShader, L"ds");
 }
 
 STDMETHODIMP HackerDevice::CreateComputeShader(THIS_
-	/* [annotation] */
-	__in  const void *pShaderBytecode,
-	/* [annotation] */
-	__in  SIZE_T BytecodeLength,
-	/* [annotation] */
-	__in_opt  ID3D11ClassLinkage *pClassLinkage,
-	/* [annotation] */
-	__out_opt  ID3D11ComputeShader **ppComputeShader)
+                                                   /* [annotation] */
+                                                   __in const void *pShaderBytecode,
+                                               /* [annotation] */
+                                               __in SIZE_T BytecodeLength,
+                                               /* [annotation] */
+                                               __in_opt ID3D11ClassLinkage *pClassLinkage,
+                                               /* [annotation] */
+                                               __out_opt ID3D11ComputeShader **ppComputeShader)
 {
-	LogDebug("HackerDevice::CreateComputeShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength, pShaderBytecode);
+	LogDebug("HackerDevice::CreateComputeShader called with BytecodeLength = %Iu, handle = %p\n", BytecodeLength,
+	         pShaderBytecode);
 
-	return CreateShader<ID3D11ComputeShader, &ID3D11Device::CreateComputeShader>
-			(pShaderBytecode, BytecodeLength, pClassLinkage, ppComputeShader, L"cs");
+	return CreateShader<ID3D11ComputeShader, &ID3D11Device::CreateComputeShader>(pShaderBytecode, BytecodeLength,
+	                                                                             pClassLinkage, ppComputeShader, L"cs");
 }
 
 STDMETHODIMP HackerDevice::CreateRasterizerState(THIS_
-	/* [annotation] */
-	__in const D3D11_RASTERIZER_DESC *pRasterizerDesc,
-	/* [annotation] */
-	__out_opt  ID3D11RasterizerState **ppRasterizerState)
+                                                     /* [annotation] */
+                                                     __in const D3D11_RASTERIZER_DESC *pRasterizerDesc,
+                                                 /* [annotation] */
+                                                 __out_opt ID3D11RasterizerState **ppRasterizerState)
 {
 	HRESULT hr;
 	D3D11_RASTERIZER_DESC newDesc;
 
-	if (pRasterizerDesc) LogDebug("HackerDevice::CreateRasterizerState called with\n"
-		"  FillMode = %d, CullMode = %d, DepthBias = %d, DepthBiasClamp = %f, SlopeScaledDepthBias = %f,\n"
-		"  DepthClipEnable = %d, ScissorEnable = %d, MultisampleEnable = %d, AntialiasedLineEnable = %d\n",
-		pRasterizerDesc->FillMode, pRasterizerDesc->CullMode, pRasterizerDesc->DepthBias, pRasterizerDesc->DepthBiasClamp,
-		pRasterizerDesc->SlopeScaledDepthBias, pRasterizerDesc->DepthClipEnable, pRasterizerDesc->ScissorEnable,
-		pRasterizerDesc->MultisampleEnable, pRasterizerDesc->AntialiasedLineEnable);
+	if (pRasterizerDesc)
+		LogDebug("HackerDevice::CreateRasterizerState called with\n"
+		         "  FillMode = %d, CullMode = %d, DepthBias = %d, DepthBiasClamp = %f, SlopeScaledDepthBias = %f,\n"
+		         "  DepthClipEnable = %d, ScissorEnable = %d, MultisampleEnable = %d, AntialiasedLineEnable = %d\n",
+		         pRasterizerDesc->FillMode, pRasterizerDesc->CullMode, pRasterizerDesc->DepthBias,
+		         pRasterizerDesc->DepthBiasClamp, pRasterizerDesc->SlopeScaledDepthBias,
+		         pRasterizerDesc->DepthClipEnable, pRasterizerDesc->ScissorEnable, pRasterizerDesc->MultisampleEnable,
+		         pRasterizerDesc->AntialiasedLineEnable);
 
 	if (G->SCISSOR_DISABLE && pRasterizerDesc && pRasterizerDesc->ScissorEnable)
 	{
@@ -2815,18 +2908,17 @@ STDMETHODIMP HackerDevice::CreateRasterizerState(THIS_
 }
 
 // This method creates a Context, and we want to return a wrapped/hacker
-// version as the result. The method signature requires an 
+// version as the result. The method signature requires an
 // ID3D11DeviceContext, but we return our HackerContext.
 
-// A deferred context is for multithreading part of the drawing. 
+// A deferred context is for multithreading part of the drawing.
 
-STDMETHODIMP HackerDevice::CreateDeferredContext(THIS_
-	UINT ContextFlags,
-	/* [annotation] */
-	__out_opt  ID3D11DeviceContext **ppDeferredContext)
+STDMETHODIMP HackerDevice::CreateDeferredContext(THIS_ UINT ContextFlags,
+                                                 /* [annotation] */
+                                                 __out_opt ID3D11DeviceContext **ppDeferredContext)
 {
-	LogInfo("HackerDevice::CreateDeferredContext(%s@%p) called with flags = %#x, ptr:%p\n", 
-		type_name(this), this, ContextFlags, ppDeferredContext);
+	LogInfo("HackerDevice::CreateDeferredContext(%s@%p) called with flags = %#x, ptr:%p\n", type_name(this), this,
+	        ContextFlags, ppDeferredContext);
 
 	HRESULT hr = mOrigDevice1->CreateDeferredContext(ContextFlags, ppDeferredContext);
 	if (FAILED(hr))
@@ -2843,7 +2935,7 @@ STDMETHODIMP HackerDevice::CreateDeferredContext(THIS_
 		if (SUCCEEDED(res))
 			(*ppDeferredContext)->Release();
 		else
-			origContext1 = static_cast<ID3D11DeviceContext1*>(*ppDeferredContext);
+			origContext1 = static_cast<ID3D11DeviceContext1 *>(*ppDeferredContext);
 		HackerContext *hackerContext = HackerContextFactory(mRealOrigDevice1, origContext1);
 		hackerContext->SetHackerDevice(this);
 		hackerContext->Bind3DMigotoResources();
@@ -2853,7 +2945,8 @@ STDMETHODIMP HackerDevice::CreateDeferredContext(THIS_
 		else
 			*ppDeferredContext = hackerContext;
 
-		LogInfo("  created HackerContext(%s@%p) wrapper of %p\n", type_name(hackerContext), hackerContext, origContext1);
+		LogInfo("  created HackerContext(%s@%p) wrapper of %p\n", type_name(hackerContext), hackerContext,
+		        origContext1);
 	}
 
 	LogInfo("  returns result = %x for %p\n", hr, ppDeferredContext ? *ppDeferredContext : nullptr);
@@ -2861,19 +2954,19 @@ STDMETHODIMP HackerDevice::CreateDeferredContext(THIS_
 }
 
 // A variant where we want to return a HackerContext instead of the
-// real one.  Creating a new HackerContext is not correct here, because we 
+// real one.  Creating a new HackerContext is not correct here, because we
 // need to provide the one created originally with the device.
 
 // This is a main way to get the context when you only have the device.
 // There is only one immediate context per device, so if they are requesting
 // it, we need to return them the HackerContext.
-// 
+//
 // It is apparently possible for poorly written games to call this function
 // with null as the ppImmediateContext. This not an optional parameter, and
 // that call makes no sense, but apparently happens if they pass null to
 // CreateDeviceAndSwapChain for ImmediateContext.  A bug in an older SDK.
-// WatchDogs seems to do this. 
-// 
+// WatchDogs seems to do this.
+//
 // Also worth noting here is that by not calling through to GetImmediateContext
 // we did not properly account for references.
 // "The GetImmediateContext method increments the reference count of the immediate context by one. "
@@ -2881,12 +2974,12 @@ STDMETHODIMP HackerDevice::CreateDeferredContext(THIS_
 // Fairly common to see this called all the time, so switching to LogDebug for
 // this as a way to trim down normal log.
 
-STDMETHODIMP_(void) HackerDevice::GetImmediateContext(THIS_
-	/* [annotation] */
-	__out  ID3D11DeviceContext **ppImmediateContext)
+STDMETHODIMP_(void)
+HackerDevice::GetImmediateContext(THIS_
+                                      /* [annotation] */
+                                      __out ID3D11DeviceContext **ppImmediateContext)
 {
-	LogDebug("HackerDevice::GetImmediateContext(%s@%p) called with:%p\n", 
-		type_name(this), this, ppImmediateContext);
+	LogDebug("HackerDevice::GetImmediateContext(%s@%p) called with:%p\n", type_name(this), this, ppImmediateContext);
 
 	if (ppImmediateContext == nullptr)
 	{
@@ -2917,7 +3010,7 @@ STDMETHODIMP_(void) HackerDevice::GetImmediateContext(THIS_
 		ID3D11DeviceContext1 *origContext1;
 		HRESULT res = (*ppImmediateContext)->QueryInterface(IID_PPV_ARGS(&origContext1));
 		if (FAILED(res))
-			origContext1 = static_cast<ID3D11DeviceContext1*>(*ppImmediateContext);
+			origContext1 = static_cast<ID3D11DeviceContext1 *>(*ppImmediateContext);
 		mHackerContext = HackerContextFactory(mRealOrigDevice1, origContext1);
 		mHackerContext->SetHackerDevice(this);
 		mHackerContext->Bind3DMigotoResources();
@@ -2929,15 +3022,15 @@ STDMETHODIMP_(void) HackerDevice::GetImmediateContext(THIS_
 	}
 	else if (mHackerContext->GetPossiblyHookedOrigContext1() != *ppImmediateContext)
 	{
-		LogInfo("WARNING: mHackerContext %p found to be wrapping %p instead of %p at HackerDevice::GetImmediateContext!\n",
-				mHackerContext, mHackerContext->GetPossiblyHookedOrigContext1(), *ppImmediateContext);
+		LogInfo(
+		    "WARNING: mHackerContext %p found to be wrapping %p instead of %p at HackerDevice::GetImmediateContext!\n",
+		    mHackerContext, mHackerContext->GetPossiblyHookedOrigContext1(), *ppImmediateContext);
 	}
 
 	if (!(G->enable_hooks & EnableHooks::IMMEDIATE_CONTEXT))
 		*ppImmediateContext = mHackerContext;
 	LogDebug("  returns handle = %p\n", *ppImmediateContext);
 }
-
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -2946,20 +3039,19 @@ STDMETHODIMP_(void) HackerDevice::GetImmediateContext(THIS_
 // This object requires implementation of every single method in the object
 // hierarchy ID3D11Device1->ID3D11Device->IUnknown
 //
-// Everything outside of the methods directly related to the ID3D11Device1 
+// Everything outside of the methods directly related to the ID3D11Device1
 // will call through to the HackerDevice object using the local reference
 // as composition, instead of inheritance.  We cannot use inheritance, because
 // the vtable needs to remain exactly as defined by COM.
 
-
 // Follow the lead for GetImmediateContext and return the wrapped version.
 
-STDMETHODIMP_(void) HackerDevice::GetImmediateContext1(
-	/* [annotation] */
-	_Out_  ID3D11DeviceContext1 **ppImmediateContext)
+STDMETHODIMP_(void)
+HackerDevice::GetImmediateContext1(
+    /* [annotation] */
+    _Out_ ID3D11DeviceContext1 **ppImmediateContext)
 {
-	LogInfo("HackerDevice::GetImmediateContext1(%s@%p) called with:%p\n",
-		type_name(this), this, ppImmediateContext);
+	LogInfo("HackerDevice::GetImmediateContext1(%s@%p) called with:%p\n", type_name(this), this, ppImmediateContext);
 
 	if (ppImmediateContext == nullptr)
 	{
@@ -2985,25 +3077,24 @@ STDMETHODIMP_(void) HackerDevice::GetImmediateContext1(
 	}
 	else if (mHackerContext->GetPossiblyHookedOrigContext1() != *ppImmediateContext)
 	{
-		LogInfo("WARNING: mHackerContext %p found to be wrapping %p instead of %p at HackerDevice::GetImmediateContext1!\n",
-			mHackerContext, mHackerContext->GetPossiblyHookedOrigContext1(), *ppImmediateContext);
+		LogInfo(
+		    "WARNING: mHackerContext %p found to be wrapping %p instead of %p at HackerDevice::GetImmediateContext1!\n",
+		    mHackerContext, mHackerContext->GetPossiblyHookedOrigContext1(), *ppImmediateContext);
 	}
 
-	*ppImmediateContext = reinterpret_cast<ID3D11DeviceContext1*>(mHackerContext);
+	*ppImmediateContext = reinterpret_cast<ID3D11DeviceContext1 *>(mHackerContext);
 	LogInfo("  returns handle = %p\n", *ppImmediateContext);
 }
-
 
 // Now used for platform_update games.  Dishonored2 uses this.
 // Updated to follow the lead of CreateDeferredContext.
 
-STDMETHODIMP HackerDevice::CreateDeferredContext1(
-	UINT ContextFlags,
-	/* [annotation] */
-	_Out_opt_  ID3D11DeviceContext1 **ppDeferredContext)
+STDMETHODIMP HackerDevice::CreateDeferredContext1(UINT ContextFlags,
+                                                  /* [annotation] */
+                                                  _Out_opt_ ID3D11DeviceContext1 **ppDeferredContext)
 {
-	LogInfo("HackerDevice::CreateDeferredContext1(%s@%p) called with flags = %#x, ptr:%p\n",
-		type_name(this), this, ContextFlags, ppDeferredContext);
+	LogInfo("HackerDevice::CreateDeferredContext1(%s@%p) called with flags = %#x, ptr:%p\n", type_name(this), this,
+	        ContextFlags, ppDeferredContext);
 
 	HRESULT hr = mOrigDevice1->CreateDeferredContext1(ContextFlags, ppDeferredContext);
 	if (FAILED(hr))
@@ -3024,7 +3115,8 @@ STDMETHODIMP HackerDevice::CreateDeferredContext1(
 		else
 			*ppDeferredContext = hackerContext;
 
-		LogInfo("  created HackerContext(%s@%p) wrapper of %p\n", type_name(hackerContext), hackerContext, *ppDeferredContext);
+		LogInfo("  created HackerContext(%s@%p) wrapper of %p\n", type_name(hackerContext), hackerContext,
+		        *ppDeferredContext);
 	}
 
 	LogInfo("  returns result = %x for %p\n", hr, ppDeferredContext ? *ppDeferredContext : nullptr);
@@ -3032,19 +3124,19 @@ STDMETHODIMP HackerDevice::CreateDeferredContext1(
 }
 
 STDMETHODIMP HackerDevice::CreateBlendState1(
-	/* [annotation] */
-	_In_  const D3D11_BLEND_DESC1 *pBlendStateDesc,
-	/* [annotation] */
-	_Out_opt_  ID3D11BlendState1 **ppBlendState)
+    /* [annotation] */
+    _In_ const D3D11_BLEND_DESC1 *pBlendStateDesc,
+    /* [annotation] */
+    _Out_opt_ ID3D11BlendState1 **ppBlendState)
 {
 	return mOrigDevice1->CreateBlendState1(pBlendStateDesc, ppBlendState);
 }
 
 STDMETHODIMP HackerDevice::CreateRasterizerState1(
-	/* [annotation] */
-	_In_  const D3D11_RASTERIZER_DESC1 *pRasterizerDesc,
-	/* [annotation] */
-	_Out_opt_  ID3D11RasterizerState1 **ppRasterizerState)
+    /* [annotation] */
+    _In_ const D3D11_RASTERIZER_DESC1 *pRasterizerDesc,
+    /* [annotation] */
+    _Out_opt_ ID3D11RasterizerState1 **ppRasterizerState)
 {
 	D3D11_RASTERIZER_DESC1 newDesc;
 
@@ -3062,42 +3154,39 @@ STDMETHODIMP HackerDevice::CreateRasterizerState1(
 	return mOrigDevice1->CreateRasterizerState1(pRasterizerDesc, ppRasterizerState);
 }
 
-STDMETHODIMP HackerDevice::CreateDeviceContextState(
-	UINT Flags,
-	/* [annotation] */
-	_In_reads_(FeatureLevels)  const D3D_FEATURE_LEVEL *pFeatureLevels,
-	UINT FeatureLevels,
-	UINT SDKVersion,
-	REFIID EmulatedInterface,
-	/* [annotation] */
-	_Out_opt_  D3D_FEATURE_LEVEL *pChosenFeatureLevel,
-	/* [annotation] */
-	_Out_opt_  ID3DDeviceContextState **ppContextState)
+STDMETHODIMP HackerDevice::CreateDeviceContextState(UINT Flags,
+                                                    /* [annotation] */
+                                                    _In_reads_(FeatureLevels) const D3D_FEATURE_LEVEL *pFeatureLevels,
+                                                    UINT FeatureLevels, UINT SDKVersion, REFIID EmulatedInterface,
+                                                    /* [annotation] */
+                                                    _Out_opt_ D3D_FEATURE_LEVEL *pChosenFeatureLevel,
+                                                    /* [annotation] */
+                                                    _Out_opt_ ID3DDeviceContextState **ppContextState)
 {
-	return mOrigDevice1->CreateDeviceContextState(Flags, pFeatureLevels, FeatureLevels, SDKVersion, EmulatedInterface, pChosenFeatureLevel, ppContextState);
+	return mOrigDevice1->CreateDeviceContextState(Flags, pFeatureLevels, FeatureLevels, SDKVersion, EmulatedInterface,
+	                                              pChosenFeatureLevel, ppContextState);
 }
 
 STDMETHODIMP HackerDevice::OpenSharedResource1(
-	/* [annotation] */
-	_In_  HANDLE hResource,
-	/* [annotation] */
-	_In_  REFIID returnedInterface,
-	/* [annotation] */
-	_Out_  void **ppResource)
+    /* [annotation] */
+    _In_ HANDLE hResource,
+    /* [annotation] */
+    _In_ REFIID returnedInterface,
+    /* [annotation] */
+    _Out_ void **ppResource)
 {
 	return mOrigDevice1->OpenSharedResource1(hResource, returnedInterface, ppResource);
 }
 
 STDMETHODIMP HackerDevice::OpenSharedResourceByName(
-	/* [annotation] */
-	_In_  LPCWSTR lpName,
-	/* [annotation] */
-	_In_  DWORD dwDesiredAccess,
-	/* [annotation] */
-	_In_  REFIID returnedInterface,
-	/* [annotation] */
-	_Out_  void **ppResource)
+    /* [annotation] */
+    _In_ LPCWSTR lpName,
+    /* [annotation] */
+    _In_ DWORD dwDesiredAccess,
+    /* [annotation] */
+    _In_ REFIID returnedInterface,
+    /* [annotation] */
+    _Out_ void **ppResource)
 {
 	return mOrigDevice1->OpenSharedResourceByName(lpName, dwDesiredAccess, returnedInterface, ppResource);
 }
-

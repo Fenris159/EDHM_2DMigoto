@@ -1,5 +1,5 @@
 
-extern "C" {
+extern "C"
+{
 #include "hlslcc.h"
 }
-

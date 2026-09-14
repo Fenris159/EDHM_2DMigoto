@@ -171,7 +171,7 @@ function Invoke-Format {
 
     $files = @(Get-QualityFiles -Extensions @('.c', '.cc', '.cpp', '.cxx', '.h', '.hh', '.hpp', '.hxx', '.inl'))
     if ($files.Count -eq 0) {
-        Write-Host 'No maintained native files selected for formatting.'
+        Write-Output 'No maintained native files selected for formatting.'
         return
     }
 
@@ -200,7 +200,7 @@ function Invoke-PowerShellAnalysis {
     Import-Module PSScriptAnalyzer -RequiredVersion $requiredVersion -Force
     $files = @(Get-QualityFiles -Extensions @('.ps1', '.psm1', '.psd1'))
     if ($files.Count -eq 0) {
-        Write-Host 'No PowerShell files selected for analysis.'
+        Write-Output 'No PowerShell files selected for analysis.'
         return
     }
 

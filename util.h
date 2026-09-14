@@ -26,7 +26,6 @@
 #include "DirectX11\HookedContext.h"
 #endif // MIGOTO_DX
 
-
 // Sets the threshold for warning about IniParams size. The larger IniParams is
 // the more CPU -> GPU bandwidth we will require to update it, so we want to
 // discourage modders from picking arbitrarily high IniParams.
@@ -69,19 +68,16 @@ extern CRITICAL_SECTION resource_creation_mode_lock;
 // Use the pretty lock debugging version if lock.h is included first, otherwise
 // use the regular EnterCriticalSection:
 #ifdef EnterCriticalSectionPretty
-#define LockResourceCreationMode() \
-	EnterCriticalSectionPretty(&resource_creation_mode_lock)
+#define LockResourceCreationMode() EnterCriticalSectionPretty(&resource_creation_mode_lock)
 #else
-#define LockResourceCreationMode() \
-	EnterCriticalSection(&resource_creation_mode_lock)
+#define LockResourceCreationMode() EnterCriticalSection(&resource_creation_mode_lock)
 #endif
 
-#define UnlockResourceCreationMode() \
-	LeaveCriticalSection(&resource_creation_mode_lock)
+#define UnlockResourceCreationMode() LeaveCriticalSection(&resource_creation_mode_lock)
 
 // -----------------------------------------------------------------------------------------------
 
-// Create hash code for textures or buffers.  
+// Create hash code for textures or buffers.
 
 // Wrapped in try/catch because it can crash in Dirt Rally,
 // because of noncontiguous or non-mapped memory for the texture.  Not sure this
@@ -90,7 +86,7 @@ extern CRITICAL_SECTION resource_creation_mode_lock;
 // Now switching to use crc32_append instead of fnv_64_buf for performance. This
 // implementation of crc32c uses the SSE 4.2 instructions in the CPU to calculate,
 // and is some 30x faster than fnv_64_buf.
-// 
+//
 // Not changing shader hash calculation as there are thousands of shaders already
 // in the field, and there is no known bottleneck for that calculation.
 
@@ -98,7 +94,7 @@ static uint32_t crc32c_hw(uint32_t seed, const void *buffer, size_t length)
 {
 	try
 	{
-		const uint8_t *cast_buffer = static_cast<const uint8_t*>(buffer);
+		const uint8_t *cast_buffer = static_cast<const uint8_t *>(buffer);
 
 		return crc32c_append(seed, cast_buffer, length);
 	}
@@ -110,7 +106,6 @@ static uint32_t crc32c_hw(uint32_t seed, const void *buffer, size_t length)
 	}
 }
 
-
 // -----------------------------------------------------------------------------------------------
 
 // Primary hash calculation for all shader file names.
@@ -120,8 +115,8 @@ static uint32_t crc32c_hw(uint32_t seed, const void *buffer, size_t length)
 [[maybe_unused]] static UINT64 fnv_64_buf(const void *buf, size_t len)
 {
 	UINT64 hval = 0;
-	unsigned const char *bp = (unsigned const char *)buf;	/* start of buffer */
-	unsigned const char *be = bp + len;		/* beyond end of buffer */
+	unsigned const char *bp = (unsigned const char *)buf; /* start of buffer */
+	unsigned const char *be = bp + len;                   /* beyond end of buffer */
 
 	// FNV-1 hash each octet of the buffer
 	while (bp < be)
@@ -133,7 +128,6 @@ static uint32_t crc32c_hw(uint32_t seed, const void *buffer, size_t length)
 	}
 	return hval;
 }
-
 
 // -----------------------------------------------------------------------------------------------
 
@@ -161,32 +155,35 @@ static char *RightStripA(char *buf)
 	static char buf[MAX_PATH];
 	wcstombs(buf, val, MAX_PATH);
 	RightStripA(buf);
-	char *start = buf; while (isspace(*start)) start++;
+	char *start = buf;
+	while (isspace(*start))
+		start++;
 	return start;
 }
 
-[[maybe_unused]] static void BeepSuccess() 
+[[maybe_unused]] static void BeepSuccess()
 {
 	// High beep for success
 	Beep(1800, 400);
 }
 
-[[maybe_unused]] static void BeepShort() 
+[[maybe_unused]] static void BeepShort()
 {
 	// Short High beep
 	Beep(1800, 100);
 }
 
-[[maybe_unused]] static void BeepFailure() 
+[[maybe_unused]] static void BeepFailure()
 {
 	// Bonk sound for failure.
 	Beep(200, 150);
 }
 
-static void BeepFailure2() 
+static void BeepFailure2()
 {
 	// Brnk, dunk sound for failure.
-	Beep(300, 200); Beep(200, 150);
+	Beep(300, 200);
+	Beep(200, 150);
 }
 
 [[maybe_unused]] static void BeepProfileFail()
@@ -209,14 +206,14 @@ static void BeepFailure2()
 	Sleep(500);
 	BeepFailure2();
 	Sleep(200);
-	if (LogFile) {
+	if (LogFile)
+	{
 		// Make sure the log is written out so we see the failure message
 		fclose(LogFile);
 		LogFile = 0;
 	}
 	ExitProcess(0xc0000135);
 }
-
 
 // -----------------------------------------------------------------------------------------------
 
@@ -232,10 +229,12 @@ static void BeepFailure2()
 // To use this function be sure to terminate an EnumName_t list with {nullptr, 0}
 // as it cannot use ArraySize on passed in arrays.
 template <class T1, class T2>
-static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, T2 fallback, bool *found=nullptr)
+static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, T2 fallback, bool *found = nullptr)
 {
-	for (; enum_names->name; enum_names++) {
-		if (!_autoicmp(name, enum_names->name)) {
+	for (; enum_names->name; enum_names++)
+	{
+		if (!_autoicmp(name, enum_names->name))
+		{
 			if (found)
 				*found = true;
 			return enum_names->val;
@@ -248,10 +247,13 @@ static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, T2 fal
 	return fallback;
 }
 template <class T1, class T2>
-static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, size_t len, T2 fallback, bool *found=nullptr)
+static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, size_t len, T2 fallback,
+                          bool *found = nullptr)
 {
-	for (; enum_names->name; enum_names++) {
-		if (!_wcsnicmp(name, enum_names->name, len)) {
+	for (; enum_names->name; enum_names++)
+	{
+		if (!_wcsnicmp(name, enum_names->name, len))
+		{
 			if (found)
 				*found = true;
 			return enum_names->val;
@@ -263,10 +265,10 @@ static T2 lookup_enum_val(struct EnumName_t<T1, T2> *enum_names, T1 name, size_t
 
 	return fallback;
 }
-template <class T1, class T2>
-static T1 lookup_enum_name(struct EnumName_t<T1, T2> *enum_names, T2 val)
+template <class T1, class T2> static T1 lookup_enum_name(struct EnumName_t<T1, T2> *enum_names, T2 val)
 {
-	for (; enum_names->name; enum_names++) {
+	for (; enum_names->name; enum_names++)
+	{
 		if (val == enum_names->val)
 			return enum_names->name;
 	}
@@ -274,14 +276,15 @@ static T1 lookup_enum_name(struct EnumName_t<T1, T2> *enum_names, T2 val)
 	return nullptr;
 }
 
-template <class T2>
-static wstring lookup_enum_bit_names(struct EnumName_t<const wchar_t*, T2> *enum_names, T2 val)
+template <class T2> static wstring lookup_enum_bit_names(struct EnumName_t<const wchar_t *, T2> *enum_names, T2 val)
 {
 	wstring ret;
 	T2 remaining = val;
 
-	for (; enum_names->name; enum_names++) {
-		if ((T2)(val & enum_names->val) == enum_names->val) {
+	for (; enum_names->name; enum_names++)
+	{
+		if ((T2)(val & enum_names->val) == enum_names->val)
+		{
 			if (!ret.empty())
 				ret += L' ';
 			ret += enum_names->name;
@@ -289,7 +292,8 @@ static wstring lookup_enum_bit_names(struct EnumName_t<const wchar_t*, T2> *enum
 		}
 	}
 
-	if (remaining != (T2)0) {
+	if (remaining != (T2)0)
+	{
 		wchar_t buf[20];
 		wsprintf(buf, L"%x", remaining);
 		if (!ret.empty())
@@ -320,30 +324,42 @@ static T2 parse_enum_option_string(struct EnumName_t<T1, T2> *enum_names, T3 opt
 	if (unrecognised)
 		*unrecognised = nullptr;
 
-	while (*ptr) {
+	while (*ptr)
+	{
 		// Skip over whitespace:
-		for (; *ptr == L' '; ptr++) {}
+		for (; *ptr == L' '; ptr++)
+		{
+		}
 
 		// Mark start of current entry:
 		cur = ptr;
 
 		// Scan until the next whitespace or end of string:
-		for (; *ptr && *ptr != L' '; ptr++) {}
+		for (; *ptr && *ptr != L' '; ptr++)
+		{
+		}
 
-		if (*ptr) {
+		if (*ptr)
+		{
 			// nullptr terminate the current entry and advance pointer:
 			*ptr = L'\0';
 			ptr++;
 		}
 
 		// Lookup the value of the current entry:
-		tmp = lookup_enum_val<T1, T2> (enum_names, cur, T2::INVALID);
-		if (tmp != T2::INVALID) {
+		tmp = lookup_enum_val<T1, T2>(enum_names, cur, T2::INVALID);
+		if (tmp != T2::INVALID)
+		{
 			ret |= tmp;
-		} else {
-			if (unrecognised && !(*unrecognised)) {
+		}
+		else
+		{
+			if (unrecognised && !(*unrecognised))
+			{
 				*unrecognised = cur;
-			} else {
+			}
+			else
+			{
 				LogInfoW(L"WARNING: Unknown option: %s\n", cur);
 				ret |= T2::INVALID;
 			}
@@ -378,15 +394,20 @@ static T2 parse_enum_option_string_prefix(struct EnumName_t<T1, T2> *enum_names,
 	if (unrecognised)
 		*unrecognised = nullptr;
 
-	while (*ptr) {
+	while (*ptr)
+	{
 		// Skip over whitespace:
-		for (; *ptr == L' '; ptr++) {}
+		for (; *ptr == L' '; ptr++)
+		{
+		}
 
 		// Mark start of current entry:
 		cur = ptr;
 
 		// Scan until the next whitespace or end of string:
-		for (; *ptr && *ptr != L' '; ptr++) {}
+		for (; *ptr && *ptr != L' '; ptr++)
+		{
+		}
 
 		// Note word length:
 		len = ptr - cur;
@@ -396,10 +417,13 @@ static T2 parse_enum_option_string_prefix(struct EnumName_t<T1, T2> *enum_names,
 			ptr++;
 
 		// Lookup the value of the current entry:
-		tmp = lookup_enum_val<T1, T2> (enum_names, cur, len, T2::INVALID);
-		if (tmp != T2::INVALID) {
+		tmp = lookup_enum_val<T1, T2>(enum_names, cur, len, T2::INVALID);
+		if (tmp != T2::INVALID)
+		{
 			ret |= tmp;
-		} else {
+		}
+		else
+		{
 			if (unrecognised)
 				*unrecognised = cur;
 			return ret;
@@ -410,124 +434,122 @@ static T2 parse_enum_option_string_prefix(struct EnumName_t<T1, T2> *enum_names,
 
 #if MIGOTO_DX == 11
 // http://msdn.microsoft.com/en-us/library/windows/desktop/bb173059(v=vs.85).aspx
-static const char *DXGIFormats[] = {
-	"UNKNOWN",
-	"R32G32B32A32_TYPELESS",
-	"R32G32B32A32_FLOAT",
-	"R32G32B32A32_UINT",
-	"R32G32B32A32_SINT",
-	"R32G32B32_TYPELESS",
-	"R32G32B32_FLOAT",
-	"R32G32B32_UINT",
-	"R32G32B32_SINT",
-	"R16G16B16A16_TYPELESS",
-	"R16G16B16A16_FLOAT",
-	"R16G16B16A16_UNORM",
-	"R16G16B16A16_UINT",
-	"R16G16B16A16_SNORM",
-	"R16G16B16A16_SINT",
-	"R32G32_TYPELESS",
-	"R32G32_FLOAT",
-	"R32G32_UINT",
-	"R32G32_SINT",
-	"R32G8X24_TYPELESS",
-	"D32_FLOAT_S8X24_UINT",
-	"R32_FLOAT_X8X24_TYPELESS",
-	"X32_TYPELESS_G8X24_UINT",
-	"R10G10B10A2_TYPELESS",
-	"R10G10B10A2_UNORM",
-	"R10G10B10A2_UINT",
-	"R11G11B10_FLOAT",
-	"R8G8B8A8_TYPELESS",
-	"R8G8B8A8_UNORM",
-	"R8G8B8A8_UNORM_SRGB",
-	"R8G8B8A8_UINT",
-	"R8G8B8A8_SNORM",
-	"R8G8B8A8_SINT",
-	"R16G16_TYPELESS",
-	"R16G16_FLOAT",
-	"R16G16_UNORM",
-	"R16G16_UINT",
-	"R16G16_SNORM",
-	"R16G16_SINT",
-	"R32_TYPELESS",
-	"D32_FLOAT",
-	"R32_FLOAT",
-	"R32_UINT",
-	"R32_SINT",
-	"R24G8_TYPELESS",
-	"D24_UNORM_S8_UINT",
-	"R24_UNORM_X8_TYPELESS",
-	"X24_TYPELESS_G8_UINT",
-	"R8G8_TYPELESS",
-	"R8G8_UNORM",
-	"R8G8_UINT",
-	"R8G8_SNORM",
-	"R8G8_SINT",
-	"R16_TYPELESS",
-	"R16_FLOAT",
-	"D16_UNORM",
-	"R16_UNORM",
-	"R16_UINT",
-	"R16_SNORM",
-	"R16_SINT",
-	"R8_TYPELESS",
-	"R8_UNORM",
-	"R8_UINT",
-	"R8_SNORM",
-	"R8_SINT",
-	"A8_UNORM",
-	"R1_UNORM",
-	"R9G9B9E5_SHAREDEXP",
-	"R8G8_B8G8_UNORM",
-	"G8R8_G8B8_UNORM",
-	"BC1_TYPELESS",
-	"BC1_UNORM",
-	"BC1_UNORM_SRGB",
-	"BC2_TYPELESS",
-	"BC2_UNORM",
-	"BC2_UNORM_SRGB",
-	"BC3_TYPELESS",
-	"BC3_UNORM",
-	"BC3_UNORM_SRGB",
-	"BC4_TYPELESS",
-	"BC4_UNORM",
-	"BC4_SNORM",
-	"BC5_TYPELESS",
-	"BC5_UNORM",
-	"BC5_SNORM",
-	"B5G6R5_UNORM",
-	"B5G5R5A1_UNORM",
-	"B8G8R8A8_UNORM",
-	"B8G8R8X8_UNORM",
-	"R10G10B10_XR_BIAS_A2_UNORM",
-	"B8G8R8A8_TYPELESS",
-	"B8G8R8A8_UNORM_SRGB",
-	"B8G8R8X8_TYPELESS",
-	"B8G8R8X8_UNORM_SRGB",
-	"BC6H_TYPELESS",
-	"BC6H_UF16",
-	"BC6H_SF16",
-	"BC7_TYPELESS",
-	"BC7_UNORM",
-	"BC7_UNORM_SRGB",
-	"AYUV",
-	"Y410",
-	"Y416",
-	"NV12",
-	"P010",
-	"P016",
-	"420_OPAQUE",
-	"YUY2",
-	"Y210",
-	"Y216",
-	"NV11",
-	"AI44",
-	"IA44",
-	"P8",
-	"A8P8",
-	"B4G4R4A4_UNORM"
-};
+static const char *DXGIFormats[] = {"UNKNOWN",
+                                    "R32G32B32A32_TYPELESS",
+                                    "R32G32B32A32_FLOAT",
+                                    "R32G32B32A32_UINT",
+                                    "R32G32B32A32_SINT",
+                                    "R32G32B32_TYPELESS",
+                                    "R32G32B32_FLOAT",
+                                    "R32G32B32_UINT",
+                                    "R32G32B32_SINT",
+                                    "R16G16B16A16_TYPELESS",
+                                    "R16G16B16A16_FLOAT",
+                                    "R16G16B16A16_UNORM",
+                                    "R16G16B16A16_UINT",
+                                    "R16G16B16A16_SNORM",
+                                    "R16G16B16A16_SINT",
+                                    "R32G32_TYPELESS",
+                                    "R32G32_FLOAT",
+                                    "R32G32_UINT",
+                                    "R32G32_SINT",
+                                    "R32G8X24_TYPELESS",
+                                    "D32_FLOAT_S8X24_UINT",
+                                    "R32_FLOAT_X8X24_TYPELESS",
+                                    "X32_TYPELESS_G8X24_UINT",
+                                    "R10G10B10A2_TYPELESS",
+                                    "R10G10B10A2_UNORM",
+                                    "R10G10B10A2_UINT",
+                                    "R11G11B10_FLOAT",
+                                    "R8G8B8A8_TYPELESS",
+                                    "R8G8B8A8_UNORM",
+                                    "R8G8B8A8_UNORM_SRGB",
+                                    "R8G8B8A8_UINT",
+                                    "R8G8B8A8_SNORM",
+                                    "R8G8B8A8_SINT",
+                                    "R16G16_TYPELESS",
+                                    "R16G16_FLOAT",
+                                    "R16G16_UNORM",
+                                    "R16G16_UINT",
+                                    "R16G16_SNORM",
+                                    "R16G16_SINT",
+                                    "R32_TYPELESS",
+                                    "D32_FLOAT",
+                                    "R32_FLOAT",
+                                    "R32_UINT",
+                                    "R32_SINT",
+                                    "R24G8_TYPELESS",
+                                    "D24_UNORM_S8_UINT",
+                                    "R24_UNORM_X8_TYPELESS",
+                                    "X24_TYPELESS_G8_UINT",
+                                    "R8G8_TYPELESS",
+                                    "R8G8_UNORM",
+                                    "R8G8_UINT",
+                                    "R8G8_SNORM",
+                                    "R8G8_SINT",
+                                    "R16_TYPELESS",
+                                    "R16_FLOAT",
+                                    "D16_UNORM",
+                                    "R16_UNORM",
+                                    "R16_UINT",
+                                    "R16_SNORM",
+                                    "R16_SINT",
+                                    "R8_TYPELESS",
+                                    "R8_UNORM",
+                                    "R8_UINT",
+                                    "R8_SNORM",
+                                    "R8_SINT",
+                                    "A8_UNORM",
+                                    "R1_UNORM",
+                                    "R9G9B9E5_SHAREDEXP",
+                                    "R8G8_B8G8_UNORM",
+                                    "G8R8_G8B8_UNORM",
+                                    "BC1_TYPELESS",
+                                    "BC1_UNORM",
+                                    "BC1_UNORM_SRGB",
+                                    "BC2_TYPELESS",
+                                    "BC2_UNORM",
+                                    "BC2_UNORM_SRGB",
+                                    "BC3_TYPELESS",
+                                    "BC3_UNORM",
+                                    "BC3_UNORM_SRGB",
+                                    "BC4_TYPELESS",
+                                    "BC4_UNORM",
+                                    "BC4_SNORM",
+                                    "BC5_TYPELESS",
+                                    "BC5_UNORM",
+                                    "BC5_SNORM",
+                                    "B5G6R5_UNORM",
+                                    "B5G5R5A1_UNORM",
+                                    "B8G8R8A8_UNORM",
+                                    "B8G8R8X8_UNORM",
+                                    "R10G10B10_XR_BIAS_A2_UNORM",
+                                    "B8G8R8A8_TYPELESS",
+                                    "B8G8R8A8_UNORM_SRGB",
+                                    "B8G8R8X8_TYPELESS",
+                                    "B8G8R8X8_UNORM_SRGB",
+                                    "BC6H_TYPELESS",
+                                    "BC6H_UF16",
+                                    "BC6H_SF16",
+                                    "BC7_TYPELESS",
+                                    "BC7_UNORM",
+                                    "BC7_UNORM_SRGB",
+                                    "AYUV",
+                                    "Y410",
+                                    "Y416",
+                                    "NV12",
+                                    "P010",
+                                    "P016",
+                                    "420_OPAQUE",
+                                    "YUY2",
+                                    "Y210",
+                                    "Y216",
+                                    "NV11",
+                                    "AI44",
+                                    "IA44",
+                                    "P8",
+                                    "A8P8",
+                                    "B4G4R4A4_UNORM"};
 
 [[maybe_unused]] static const char *TexFormatStr(unsigned int format)
 {
@@ -542,7 +564,8 @@ static DXGI_FORMAT ParseFormatString(const char *fmt, bool allow_numeric_format)
 	unsigned format;
 	int nargs, end;
 
-	if (allow_numeric_format) {
+	if (allow_numeric_format)
+	{
 		// Try parsing format string as decimal:
 		nargs = sscanf_s(fmt, "%u%n", &format, &end);
 		if (nargs == 1 && static_cast<size_t>(end) == strlen(fmt))
@@ -553,7 +576,8 @@ static DXGI_FORMAT ParseFormatString(const char *fmt, bool allow_numeric_format)
 		fmt += 12;
 
 	// Look up format string:
-	for (format = 0; format < num_formats; format++) {
+	for (format = 0; format < num_formats; format++)
+	{
 		if (!_strnicmp(fmt, DXGIFormats[format], 30))
 			return (DXGI_FORMAT)format;
 	}
@@ -574,133 +598,155 @@ static DXGI_FORMAT ParseFormatString(const char *fmt, bool allow_numeric_format)
 }
 
 // From DirectXTK with extra formats added
-[[maybe_unused]] static DXGI_FORMAT EnsureNotTypeless( DXGI_FORMAT fmt )
+[[maybe_unused]] static DXGI_FORMAT EnsureNotTypeless(DXGI_FORMAT fmt)
 {
-    // Assumes UNORM or FLOAT; doesn't use UINT or SINT
-    switch( fmt )
-    {
-    case DXGI_FORMAT_R32G32B32A32_TYPELESS:    return DXGI_FORMAT_R32G32B32A32_FLOAT;
-    case DXGI_FORMAT_R32G32B32_TYPELESS:       return DXGI_FORMAT_R32G32B32_FLOAT;
-    case DXGI_FORMAT_R16G16B16A16_TYPELESS:    return DXGI_FORMAT_R16G16B16A16_UNORM;
-    case DXGI_FORMAT_R32G32_TYPELESS:          return DXGI_FORMAT_R32G32_FLOAT;
-    case DXGI_FORMAT_R10G10B10A2_TYPELESS:     return DXGI_FORMAT_R10G10B10A2_UNORM;
-    case DXGI_FORMAT_R8G8B8A8_TYPELESS:        return DXGI_FORMAT_R8G8B8A8_UNORM;
-    case DXGI_FORMAT_R16G16_TYPELESS:          return DXGI_FORMAT_R16G16_UNORM;
-    case DXGI_FORMAT_R32_TYPELESS:             return DXGI_FORMAT_R32_FLOAT;
-    case DXGI_FORMAT_R8G8_TYPELESS:            return DXGI_FORMAT_R8G8_UNORM;
-    case DXGI_FORMAT_R16_TYPELESS:             return DXGI_FORMAT_R16_UNORM;
-    case DXGI_FORMAT_R8_TYPELESS:              return DXGI_FORMAT_R8_UNORM;
-    case DXGI_FORMAT_BC1_TYPELESS:             return DXGI_FORMAT_BC1_UNORM;
-    case DXGI_FORMAT_BC2_TYPELESS:             return DXGI_FORMAT_BC2_UNORM;
-    case DXGI_FORMAT_BC3_TYPELESS:             return DXGI_FORMAT_BC3_UNORM;
-    case DXGI_FORMAT_BC4_TYPELESS:             return DXGI_FORMAT_BC4_UNORM;
-    case DXGI_FORMAT_BC5_TYPELESS:             return DXGI_FORMAT_BC5_UNORM;
-    case DXGI_FORMAT_B8G8R8A8_TYPELESS:        return DXGI_FORMAT_B8G8R8A8_UNORM;
-    case DXGI_FORMAT_B8G8R8X8_TYPELESS:        return DXGI_FORMAT_B8G8R8X8_UNORM;
-    case DXGI_FORMAT_BC7_TYPELESS:             return DXGI_FORMAT_BC7_UNORM;
-// Extra depth/stencil buffer formats not covered in DirectXTK (discards
-// stencil buffer to allow binding to a shader resource, alternatively we could
-// discard the depth buffer if we ever needed the stencil buffer):
-    case DXGI_FORMAT_R32G8X24_TYPELESS:        return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
-    case DXGI_FORMAT_R24G8_TYPELESS:           return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
-    default:                                   return fmt;
-    }
+	// Assumes UNORM or FLOAT; doesn't use UINT or SINT
+	switch (fmt)
+	{
+	case DXGI_FORMAT_R32G32B32A32_TYPELESS:
+		return DXGI_FORMAT_R32G32B32A32_FLOAT;
+	case DXGI_FORMAT_R32G32B32_TYPELESS:
+		return DXGI_FORMAT_R32G32B32_FLOAT;
+	case DXGI_FORMAT_R16G16B16A16_TYPELESS:
+		return DXGI_FORMAT_R16G16B16A16_UNORM;
+	case DXGI_FORMAT_R32G32_TYPELESS:
+		return DXGI_FORMAT_R32G32_FLOAT;
+	case DXGI_FORMAT_R10G10B10A2_TYPELESS:
+		return DXGI_FORMAT_R10G10B10A2_UNORM;
+	case DXGI_FORMAT_R8G8B8A8_TYPELESS:
+		return DXGI_FORMAT_R8G8B8A8_UNORM;
+	case DXGI_FORMAT_R16G16_TYPELESS:
+		return DXGI_FORMAT_R16G16_UNORM;
+	case DXGI_FORMAT_R32_TYPELESS:
+		return DXGI_FORMAT_R32_FLOAT;
+	case DXGI_FORMAT_R8G8_TYPELESS:
+		return DXGI_FORMAT_R8G8_UNORM;
+	case DXGI_FORMAT_R16_TYPELESS:
+		return DXGI_FORMAT_R16_UNORM;
+	case DXGI_FORMAT_R8_TYPELESS:
+		return DXGI_FORMAT_R8_UNORM;
+	case DXGI_FORMAT_BC1_TYPELESS:
+		return DXGI_FORMAT_BC1_UNORM;
+	case DXGI_FORMAT_BC2_TYPELESS:
+		return DXGI_FORMAT_BC2_UNORM;
+	case DXGI_FORMAT_BC3_TYPELESS:
+		return DXGI_FORMAT_BC3_UNORM;
+	case DXGI_FORMAT_BC4_TYPELESS:
+		return DXGI_FORMAT_BC4_UNORM;
+	case DXGI_FORMAT_BC5_TYPELESS:
+		return DXGI_FORMAT_BC5_UNORM;
+	case DXGI_FORMAT_B8G8R8A8_TYPELESS:
+		return DXGI_FORMAT_B8G8R8A8_UNORM;
+	case DXGI_FORMAT_B8G8R8X8_TYPELESS:
+		return DXGI_FORMAT_B8G8R8X8_UNORM;
+	case DXGI_FORMAT_BC7_TYPELESS:
+		return DXGI_FORMAT_BC7_UNORM;
+		// Extra depth/stencil buffer formats not covered in DirectXTK (discards
+		// stencil buffer to allow binding to a shader resource, alternatively we could
+		// discard the depth buffer if we ever needed the stencil buffer):
+	case DXGI_FORMAT_R32G8X24_TYPELESS:
+		return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+	case DXGI_FORMAT_R24G8_TYPELESS:
+		return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+	default:
+		return fmt;
+	}
 }
 
 // Is there already a utility function that does this?
 [[maybe_unused]] static UINT dxgi_format_size(DXGI_FORMAT format)
 {
-	switch (format) {
-		case DXGI_FORMAT_R32G32B32A32_TYPELESS:
-		case DXGI_FORMAT_R32G32B32A32_FLOAT:
-		case DXGI_FORMAT_R32G32B32A32_UINT:
-		case DXGI_FORMAT_R32G32B32A32_SINT:
-			return 16;
-		case DXGI_FORMAT_R32G32B32_TYPELESS:
-		case DXGI_FORMAT_R32G32B32_FLOAT:
-		case DXGI_FORMAT_R32G32B32_UINT:
-		case DXGI_FORMAT_R32G32B32_SINT:
-			return 12;
-		case DXGI_FORMAT_R16G16B16A16_TYPELESS:
-		case DXGI_FORMAT_R16G16B16A16_FLOAT:
-		case DXGI_FORMAT_R16G16B16A16_UNORM:
-		case DXGI_FORMAT_R16G16B16A16_UINT:
-		case DXGI_FORMAT_R16G16B16A16_SNORM:
-		case DXGI_FORMAT_R16G16B16A16_SINT:
-		case DXGI_FORMAT_R32G32_TYPELESS:
-		case DXGI_FORMAT_R32G32_FLOAT:
-		case DXGI_FORMAT_R32G32_UINT:
-		case DXGI_FORMAT_R32G32_SINT:
-		case DXGI_FORMAT_R32G8X24_TYPELESS:
-		case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
-		case DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS:
-		case DXGI_FORMAT_X32_TYPELESS_G8X24_UINT:
-			return 8;
-		case DXGI_FORMAT_R10G10B10A2_TYPELESS:
-		case DXGI_FORMAT_R10G10B10A2_UNORM:
-		case DXGI_FORMAT_R10G10B10A2_UINT:
-		case DXGI_FORMAT_R11G11B10_FLOAT:
-		case DXGI_FORMAT_R8G8B8A8_TYPELESS:
-		case DXGI_FORMAT_R8G8B8A8_UNORM:
-		case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
-		case DXGI_FORMAT_R8G8B8A8_UINT:
-		case DXGI_FORMAT_R8G8B8A8_SNORM:
-		case DXGI_FORMAT_R8G8B8A8_SINT:
-		case DXGI_FORMAT_R16G16_TYPELESS:
-		case DXGI_FORMAT_R16G16_FLOAT:
-		case DXGI_FORMAT_R16G16_UNORM:
-		case DXGI_FORMAT_R16G16_UINT:
-		case DXGI_FORMAT_R16G16_SNORM:
-		case DXGI_FORMAT_R16G16_SINT:
-		case DXGI_FORMAT_R32_TYPELESS:
-		case DXGI_FORMAT_D32_FLOAT:
-		case DXGI_FORMAT_R32_FLOAT:
-		case DXGI_FORMAT_R32_UINT:
-		case DXGI_FORMAT_R32_SINT:
-		case DXGI_FORMAT_R24G8_TYPELESS:
-		case DXGI_FORMAT_D24_UNORM_S8_UINT:
-		case DXGI_FORMAT_R24_UNORM_X8_TYPELESS:
-		case DXGI_FORMAT_X24_TYPELESS_G8_UINT:
-		case DXGI_FORMAT_R9G9B9E5_SHAREDEXP:
-		case DXGI_FORMAT_R8G8_B8G8_UNORM:
-		case DXGI_FORMAT_G8R8_G8B8_UNORM:
-		case DXGI_FORMAT_B8G8R8A8_UNORM:
-		case DXGI_FORMAT_B8G8R8X8_UNORM:
-		case DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM:
-		case DXGI_FORMAT_B8G8R8A8_TYPELESS:
-		case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
-		case DXGI_FORMAT_B8G8R8X8_TYPELESS:
-		case DXGI_FORMAT_B8G8R8X8_UNORM_SRGB:
-			return 4;
-		case DXGI_FORMAT_R8G8_TYPELESS:
-		case DXGI_FORMAT_R8G8_UNORM:
-		case DXGI_FORMAT_R8G8_UINT:
-		case DXGI_FORMAT_R8G8_SNORM:
-		case DXGI_FORMAT_R8G8_SINT:
-		case DXGI_FORMAT_R16_TYPELESS:
-		case DXGI_FORMAT_R16_FLOAT:
-		case DXGI_FORMAT_D16_UNORM:
-		case DXGI_FORMAT_R16_UNORM:
-		case DXGI_FORMAT_R16_UINT:
-		case DXGI_FORMAT_R16_SNORM:
-		case DXGI_FORMAT_R16_SINT:
-		case DXGI_FORMAT_B5G6R5_UNORM:
-		case DXGI_FORMAT_B5G5R5A1_UNORM:
-			return 2;
-		case DXGI_FORMAT_R8_TYPELESS:
-		case DXGI_FORMAT_R8_UNORM:
-		case DXGI_FORMAT_R8_UINT:
-		case DXGI_FORMAT_R8_SNORM:
-		case DXGI_FORMAT_R8_SINT:
-		case DXGI_FORMAT_A8_UNORM:
-			return 1;
-		default:
-			return 0;
+	switch (format)
+	{
+	case DXGI_FORMAT_R32G32B32A32_TYPELESS:
+	case DXGI_FORMAT_R32G32B32A32_FLOAT:
+	case DXGI_FORMAT_R32G32B32A32_UINT:
+	case DXGI_FORMAT_R32G32B32A32_SINT:
+		return 16;
+	case DXGI_FORMAT_R32G32B32_TYPELESS:
+	case DXGI_FORMAT_R32G32B32_FLOAT:
+	case DXGI_FORMAT_R32G32B32_UINT:
+	case DXGI_FORMAT_R32G32B32_SINT:
+		return 12;
+	case DXGI_FORMAT_R16G16B16A16_TYPELESS:
+	case DXGI_FORMAT_R16G16B16A16_FLOAT:
+	case DXGI_FORMAT_R16G16B16A16_UNORM:
+	case DXGI_FORMAT_R16G16B16A16_UINT:
+	case DXGI_FORMAT_R16G16B16A16_SNORM:
+	case DXGI_FORMAT_R16G16B16A16_SINT:
+	case DXGI_FORMAT_R32G32_TYPELESS:
+	case DXGI_FORMAT_R32G32_FLOAT:
+	case DXGI_FORMAT_R32G32_UINT:
+	case DXGI_FORMAT_R32G32_SINT:
+	case DXGI_FORMAT_R32G8X24_TYPELESS:
+	case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+	case DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS:
+	case DXGI_FORMAT_X32_TYPELESS_G8X24_UINT:
+		return 8;
+	case DXGI_FORMAT_R10G10B10A2_TYPELESS:
+	case DXGI_FORMAT_R10G10B10A2_UNORM:
+	case DXGI_FORMAT_R10G10B10A2_UINT:
+	case DXGI_FORMAT_R11G11B10_FLOAT:
+	case DXGI_FORMAT_R8G8B8A8_TYPELESS:
+	case DXGI_FORMAT_R8G8B8A8_UNORM:
+	case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+	case DXGI_FORMAT_R8G8B8A8_UINT:
+	case DXGI_FORMAT_R8G8B8A8_SNORM:
+	case DXGI_FORMAT_R8G8B8A8_SINT:
+	case DXGI_FORMAT_R16G16_TYPELESS:
+	case DXGI_FORMAT_R16G16_FLOAT:
+	case DXGI_FORMAT_R16G16_UNORM:
+	case DXGI_FORMAT_R16G16_UINT:
+	case DXGI_FORMAT_R16G16_SNORM:
+	case DXGI_FORMAT_R16G16_SINT:
+	case DXGI_FORMAT_R32_TYPELESS:
+	case DXGI_FORMAT_D32_FLOAT:
+	case DXGI_FORMAT_R32_FLOAT:
+	case DXGI_FORMAT_R32_UINT:
+	case DXGI_FORMAT_R32_SINT:
+	case DXGI_FORMAT_R24G8_TYPELESS:
+	case DXGI_FORMAT_D24_UNORM_S8_UINT:
+	case DXGI_FORMAT_R24_UNORM_X8_TYPELESS:
+	case DXGI_FORMAT_X24_TYPELESS_G8_UINT:
+	case DXGI_FORMAT_R9G9B9E5_SHAREDEXP:
+	case DXGI_FORMAT_R8G8_B8G8_UNORM:
+	case DXGI_FORMAT_G8R8_G8B8_UNORM:
+	case DXGI_FORMAT_B8G8R8A8_UNORM:
+	case DXGI_FORMAT_B8G8R8X8_UNORM:
+	case DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM:
+	case DXGI_FORMAT_B8G8R8A8_TYPELESS:
+	case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+	case DXGI_FORMAT_B8G8R8X8_TYPELESS:
+	case DXGI_FORMAT_B8G8R8X8_UNORM_SRGB:
+		return 4;
+	case DXGI_FORMAT_R8G8_TYPELESS:
+	case DXGI_FORMAT_R8G8_UNORM:
+	case DXGI_FORMAT_R8G8_UINT:
+	case DXGI_FORMAT_R8G8_SNORM:
+	case DXGI_FORMAT_R8G8_SINT:
+	case DXGI_FORMAT_R16_TYPELESS:
+	case DXGI_FORMAT_R16_FLOAT:
+	case DXGI_FORMAT_D16_UNORM:
+	case DXGI_FORMAT_R16_UNORM:
+	case DXGI_FORMAT_R16_UINT:
+	case DXGI_FORMAT_R16_SNORM:
+	case DXGI_FORMAT_R16_SINT:
+	case DXGI_FORMAT_B5G6R5_UNORM:
+	case DXGI_FORMAT_B5G5R5A1_UNORM:
+		return 2;
+	case DXGI_FORMAT_R8_TYPELESS:
+	case DXGI_FORMAT_R8_UNORM:
+	case DXGI_FORMAT_R8_UINT:
+	case DXGI_FORMAT_R8_SNORM:
+	case DXGI_FORMAT_R8_SINT:
+	case DXGI_FORMAT_A8_UNORM:
+		return 1;
+	default:
+		return 0;
 	}
 }
 
-
-[[maybe_unused]] static const char* type_name(IUnknown *object)
+[[maybe_unused]] static const char *type_name(IUnknown *object)
 {
 	ID3D11Device1 *device;
 	ID3D11DeviceContext1 *context;
@@ -711,25 +757,30 @@ static DXGI_FORMAT ParseFormatString(const char *fmt, bool allow_numeric_format)
 	// hooking the device and/or context, so check if it is one of those
 	// cases:
 
-	device = lookup_hooked_device((ID3D11Device1*)object);
+	device = lookup_hooked_device((ID3D11Device1 *)object);
 	if (device)
 		return "Hooked_ID3D11Device";
-	context = lookup_hooked_context((ID3D11DeviceContext1*)object);
+	context = lookup_hooked_context((ID3D11DeviceContext1 *)object);
 	if (context)
 		return "Hooked_ID3D11DeviceContext";
 
-	try {
+	try
+	{
 		return typeid(*object).name();
-	} catch (__non_rtti_object) {
+	}
+	catch (const __non_rtti_object &)
+	{
 		return "<NO_RTTI>";
-	} catch(bad_typeid) {
+	}
+	catch (const bad_typeid &)
+	{
 		return "<nullptr>";
 	}
 }
 #endif // MIGOTO_DX == 11
 
 #if MIGOTO_DX == 9
-static const char* type_name_dx9(IUnknown *object)
+static const char *type_name_dx9(IUnknown *object)
 {
 	IDirect3DDevice9 *device;
 
@@ -739,17 +790,20 @@ static const char* type_name_dx9(IUnknown *object)
 	// hooking the device and/or context, so check if it is one of those
 	// cases:
 
-	device = lookup_hooked_device_dx9((IDirect3DDevice9Ex*)object);
+	device = lookup_hooked_device_dx9((IDirect3DDevice9Ex *)object);
 	if (device)
 		return "Hooked_IDirect3DDevice9";
 
-	try {
+	try
+	{
 		return typeid(*object).name();
 	}
-	catch (__non_rtti_object) {
+	catch (const __non_rtti_object &)
+	{
 		return "<NO_RTTI>";
 	}
-	catch (bad_typeid) {
+	catch (const bad_typeid &)
+	{
 		return "<nullptr>";
 	}
 }
@@ -759,14 +813,12 @@ static const char* type_name_dx9(IUnknown *object)
 // Common routine to handle disassembling binary shaders to asm text.
 // This is used whenever we need the Asm text.
 
-
 // New version using Flugan's wrapper around D3DDisassemble to replace the
 // problematic %f floating point values with %.9e, which is enough that a 32bit
 // floating point value will be reproduced exactly:
-static string BinaryToAsmText(const void *pShaderBytecode, size_t BytecodeLength,
-		bool patch_cb_offsets,
-		bool disassemble_undecipherable_data = true,
-		int hexdump = 0, bool d3dcompiler_46_compat = true)
+static string BinaryToAsmText(const void *pShaderBytecode, size_t BytecodeLength, bool patch_cb_offsets,
+                              bool disassemble_undecipherable_data = true, int hexdump = 0,
+                              bool d3dcompiler_46_compat = true)
 {
 	string comments;
 	vector<byte> byteCode(BytecodeLength);
@@ -779,10 +831,11 @@ static string BinaryToAsmText(const void *pShaderBytecode, size_t BytecodeLength
 #if MIGOTO_DX == 9
 	r = disassemblerDX9(&byteCode, &disassembly, comments.c_str());
 #elif MIGOTO_DX == 11
-	r = disassembler(&byteCode, &disassembly, comments.c_str(), hexdump,
-			d3dcompiler_46_compat, disassemble_undecipherable_data, patch_cb_offsets);
+	r = disassembler(&byteCode, &disassembly, comments.c_str(), hexdump, d3dcompiler_46_compat,
+	                 disassemble_undecipherable_data, patch_cb_offsets);
 #endif // MIGOTO_DX
-	if (FAILED(r)) {
+	if (FAILED(r))
+	{
 		LogInfo("  disassembly failed. Error: %x\n", r);
 		return "";
 	}
@@ -808,7 +861,7 @@ static string BinaryToAsmText(const void *pShaderBytecode, size_t BytecodeLength
 //		return "";
 //
 //	string shaderModel;
-//	
+//
 //	switch (shader->eShaderType)
 //	{
 //	case PIXEL_SHADER:
@@ -852,12 +905,14 @@ static string BinaryToAsmText(const void *pShaderBytecode, size_t BytecodeLength
 	char *end = pos + asmText.size();
 	while ((pos[0] == '/' || pos[0] == '\n') && pos < end)
 	{
-		while (pos[0] != 0x0a && pos < end) pos++;
+		while (pos[0] != 0x0a && pos < end)
+			pos++;
 		pos++;
 	}
 	// Extract model.
 	char *eol = pos;
-	while (eol[0] != 0x0a && pos < end) eol++;
+	while (eol[0] != 0x0a && pos < end)
+		eol++;
 	string shaderModel(pos, eol);
 
 	return shaderModel;
@@ -875,7 +930,8 @@ static HRESULT CreateTextFile(wchar_t *fullPath, string *asmText, bool overwrite
 {
 	FILE *f;
 
-	if (!overwrite) {
+	if (!overwrite)
+	{
 		_wfopen_s(&f, fullPath, L"rb");
 		if (f)
 		{
@@ -898,16 +954,17 @@ static HRESULT CreateTextFile(wchar_t *fullPath, string *asmText, bool overwrite
 // Get shader type from asm, first non-commented line.  CS, PS, VS.
 // Not sure this works on weird Unity variant with embedded types.
 
-
 // Specific variant to name files consistently, so we know they are Asm text.
 
-[[maybe_unused]] static HRESULT CreateAsmTextFile(wchar_t* fileDirectory, UINT64 hash, const wchar_t* shaderType, 
-	const void *pShaderBytecode, size_t bytecodeLength, bool patch_cb_offsets)
+[[maybe_unused]] static HRESULT CreateAsmTextFile(wchar_t *fileDirectory, UINT64 hash, const wchar_t *shaderType,
+                                                  const void *pShaderBytecode, size_t bytecodeLength,
+                                                  bool patch_cb_offsets)
 {
-	// TODO: Poorly added try catch. Must replace for a more robust solution in line with the rest of the codebase
+	// Future work: Poorly added try catch. Must replace for a more robust solution in line with the rest of the codebase
 	// Specifically added to avoid crashes when the following error displays in the log:
 	// error exporting original shader: invalid string position
-	try {
+	try
+	{
 		string asmText = BinaryToAsmText(pShaderBytecode, bytecodeLength, patch_cb_offsets);
 		if (asmText.empty())
 		{
@@ -926,7 +983,7 @@ static HRESULT CreateTextFile(wchar_t *fullPath, string *asmText, bool overwrite
 
 		return hr;
 	}
-	catch (const std::exception& e)
+	catch (const std::exception &e)
 	{
 		LogInfoW(L"    CreateAsmTextFile exception: %hs\n", e.what());
 		return E_FAIL;
@@ -955,32 +1012,38 @@ static HRESULT CreateTextFile(wchar_t *fullPath, string *asmText, bool overwrite
 
 	// May or may not have matched index. Make sure entire string was
 	// matched either way and check index is valid if it was matched:
-	if (ret == 1 && static_cast<size_t>(len1) == length) {
+	if (ret == 1 && static_cast<size_t>(len1) == length)
+	{
 		*idx = 0;
-	} else if (ret == 2 && static_cast<size_t>(len2) == length) {
+	}
+	else if (ret == 2 && static_cast<size_t>(len2) == length)
+	{
 #if MIGOTO_DX == 9
 		// Added gating for this DX9 specific limitation that we definitely do
 		// not want to enforce in DX11 as that would break a bunch of mods -DSS
 		if (*idx >= 225)
 			return false;
 #endif // MIGOTO_DX == 9
-	} else {
+	}
+	else
+	{
 		return false;
 	}
 
-	switch (towlower(component_chr)) {
-		case L'x':
-			*component = &DirectX::XMFLOAT4::x;
-			return true;
-		case L'y':
-			*component = &DirectX::XMFLOAT4::y;
-			return true;
-		case L'z':
-			*component = &DirectX::XMFLOAT4::z;
-			return true;
-		case L'w':
-			*component = &DirectX::XMFLOAT4::w;
-			return true;
+	switch (towlower(component_chr))
+	{
+	case L'x':
+		*component = &DirectX::XMFLOAT4::x;
+		return true;
+	case L'y':
+		*component = &DirectX::XMFLOAT4::y;
+		return true;
+	case L'z':
+		*component = &DirectX::XMFLOAT4::z;
+		return true;
+	case L'w':
+		*component = &DirectX::XMFLOAT4::w;
+		return true;
 	}
 
 	return false;
@@ -989,9 +1052,9 @@ static HRESULT CreateTextFile(wchar_t *fullPath, string *asmText, bool overwrite
 // -----------------------------------------------------------------------------------------------
 
 BOOL CreateDirectoryEnsuringAccess(LPCWSTR path);
-errno_t wfopen_ensuring_access(FILE** pFile, const wchar_t *filename, const wchar_t *mode);
-void set_file_last_write_time(wchar_t *path, FILETIME *ftWrite, DWORD flags=0);
-void touch_file(wchar_t *path, DWORD flags=0);
+errno_t wfopen_ensuring_access(FILE **pFile, const wchar_t *filename, const wchar_t *mode);
+void set_file_last_write_time(wchar_t *path, FILETIME *ftWrite, DWORD flags = 0);
+void touch_file(wchar_t *path, DWORD flags = 0);
 #define touch_dir(path) touch_file(path, FILE_FLAG_BACKUP_SEMANTICS)
 
 bool check_interface_supported(IUnknown *unknown, REFIID riid);
@@ -1010,12 +1073,13 @@ std::string NameFromIID(IID id);
 
 void WarnIfConflictingShaderExists(wchar_t *orig_path, const char *message = "");
 static const char *end_user_conflicting_shader_msg =
-	"Conflicting shaders present - please use uninstall.bat and reinstall the fix.\n";
+    "Conflicting shaders present - please use uninstall.bat and reinstall the fix.\n";
 
-struct OMState {
+struct OMState
+{
 	UINT NumRTVs;
 #if MIGOTO_DX == 9
-	vector<IDirect3DSurface9*> rtvs;
+	vector<IDirect3DSurface9 *> rtvs;
 	IDirect3DSurface9 *dsv;
 #elif MIGOTO_DX == 11
 	ID3D11RenderTargetView *rtvs[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
@@ -1026,7 +1090,7 @@ struct OMState {
 #endif // MIGOTO_DX
 };
 
-// TODO: Could use DX version specific typedefs for these differences
+// Future work: Could use DX version specific typedefs for these differences
 #if MIGOTO_DX == 9
 void save_om_state(IDirect3DDevice9 *device, struct OMState *state);
 void restore_om_state(IDirect3DDevice9 *device, struct OMState *state);
@@ -1037,67 +1101,66 @@ void restore_om_state(ID3D11DeviceContext *context, struct OMState *state);
 
 // -----------------------------------------------------------------------------------------------
 #if MIGOTO_DX == 9
-static std::map<int, char*> D3DFORMATS = {
-	{ 0, "UNKNOWN" },
-	{ 20, "R8G8B8" },
-	{ 21, "A8R8G8B8" },
-	{ 22, "X8R8G8B8" },
-	{ 23, "R5G6B5" },
-	{ 24, "X1R5G5B5" },
-	{ 25, "A1R5G5B5" },
-	{ 26, "A4R4G4B4" },
-	{ 27, "R3G3B2" },
-	{ 28, "A8" },
-	{ 29, "A8R3G3B2" },
-	{ 30, "X4R4G4B4" },
-	{ 31, "A2B10G10R10" },
-	{ 32, "A8B8G8R8" },
-	{ 33, "X8B8G8R8" },
-	{ 34, "G16R16" },
-	{ 35, "A2R10G10B10" },
-	{ 36, "A16B16G16R16" },
-	{ 40, "A8P8" },
-	{ 41, "P8" },
-	{ 50, "L8" },
-	{ 51, "A8L8" },
-	{ 52, "A4L4" },
-	{ 60, "V8U8" },
-	{ 61, "L6V5U5" },
-	{ 62, "X8L8V8U8" },
-	{ 63, "Q8W8V8U8" },
-	{ 64, "V16U16" },
-	{ 67, "A2W10V10U10" },
-	{ 70, "D16_LOCKABLE" },
-	{ 71, "D32" },
-	{ 73, "D15S1" },
-	{ 75, "D24S8" },
-	{ 77, "D24X8" },
-	{ 79, "D24X4S4" },
-	{ 80, "D16" },
-	{ 82, "D32F_LOCKABLE" },
-	{ 83, "D24FS8" },
-	{ 84, "D32_LOCKABLE" },
-	{ 85, "S8_LOCKABLE" },
-	{ 81, "L16" },
-	{ 100, "VERTEXDATA" },
-	{ 101, "INDEX16" },
-	{ 102, "INDEX32" },
-	{ 110, "Q16W16V16U16" },
-	{ 111, "R16F" },
-	{ 112, "G16R16F" },
-	{ 113, "A16B16G16R16F" },
-	{ 114, "R32F" },
-	{ 115, "G32R32F" },
-	{ 116, "A32B32G32R32F" },
-	{ 117, "CxV8U8" },
-	{ 118, "A1" },
-	{ 119, "A2B10G10R10_XR_BIAS" },
-	{ 199, "BINARYBUFFER " }
-};
+static std::map<int, char *> D3DFORMATS = {{0, "UNKNOWN"},
+                                           {20, "R8G8B8"},
+                                           {21, "A8R8G8B8"},
+                                           {22, "X8R8G8B8"},
+                                           {23, "R5G6B5"},
+                                           {24, "X1R5G5B5"},
+                                           {25, "A1R5G5B5"},
+                                           {26, "A4R4G4B4"},
+                                           {27, "R3G3B2"},
+                                           {28, "A8"},
+                                           {29, "A8R3G3B2"},
+                                           {30, "X4R4G4B4"},
+                                           {31, "A2B10G10R10"},
+                                           {32, "A8B8G8R8"},
+                                           {33, "X8B8G8R8"},
+                                           {34, "G16R16"},
+                                           {35, "A2R10G10B10"},
+                                           {36, "A16B16G16R16"},
+                                           {40, "A8P8"},
+                                           {41, "P8"},
+                                           {50, "L8"},
+                                           {51, "A8L8"},
+                                           {52, "A4L4"},
+                                           {60, "V8U8"},
+                                           {61, "L6V5U5"},
+                                           {62, "X8L8V8U8"},
+                                           {63, "Q8W8V8U8"},
+                                           {64, "V16U16"},
+                                           {67, "A2W10V10U10"},
+                                           {70, "D16_LOCKABLE"},
+                                           {71, "D32"},
+                                           {73, "D15S1"},
+                                           {75, "D24S8"},
+                                           {77, "D24X8"},
+                                           {79, "D24X4S4"},
+                                           {80, "D16"},
+                                           {82, "D32F_LOCKABLE"},
+                                           {83, "D24FS8"},
+                                           {84, "D32_LOCKABLE"},
+                                           {85, "S8_LOCKABLE"},
+                                           {81, "L16"},
+                                           {100, "VERTEXDATA"},
+                                           {101, "INDEX16"},
+                                           {102, "INDEX32"},
+                                           {110, "Q16W16V16U16"},
+                                           {111, "R16F"},
+                                           {112, "G16R16F"},
+                                           {113, "A16B16G16R16F"},
+                                           {114, "R32F"},
+                                           {115, "G32R32F"},
+                                           {116, "A32B32G32R32F"},
+                                           {117, "CxV8U8"},
+                                           {118, "A1"},
+                                           {119, "A2B10G10R10_XR_BIAS"},
+                                           {199, "BINARYBUFFER "}};
 
 static char *TexFormatStrDX9(D3DFORMAT format)
 {
-	switch (format) {
+	switch (format)
+	{
 	case MAKEFOURCC('U', 'Y', 'V', 'Y'):
 		return "UYVY";
 	case MAKEFOURCC('R', 'G', 'B', 'G'):
@@ -1119,12 +1182,11 @@ static char *TexFormatStrDX9(D3DFORMAT format)
 	case MAKEFOURCC('M', 'E', 'T', '1'):
 		return "MULTI2_ARGB8";
 	default:
-		std::map<int, char*>::iterator it;
+		std::map<int, char *>::iterator it;
 		it = D3DFORMATS.find(format);
 		if (it != D3DFORMATS.end())
 			return it->second;
 		return "UNKNOWN";
-
 	}
 }
 
@@ -1134,7 +1196,8 @@ static D3DFORMAT ParseFormatStringDX9(const char *fmt, bool allow_numeric_format
 	unsigned format;
 	int nargs, end;
 
-	if (allow_numeric_format) {
+	if (allow_numeric_format)
+	{
 		// Try parsing format string as decimal:
 		nargs = sscanf_s(fmt, "%u%n", &format, &end);
 		if (nargs == 1 && end == strlen(fmt))
@@ -1145,7 +1208,7 @@ static D3DFORMAT ParseFormatStringDX9(const char *fmt, bool allow_numeric_format
 		fmt += 7;
 
 	// Look up format string:
-	map<int, char*>::iterator it;
+	map<int, char *>::iterator it;
 	for (it = D3DFORMATS.begin(); it != D3DFORMATS.end(); it++)
 	{
 		if (!_strnicmp(fmt, it->second, 30))
@@ -1153,7 +1216,7 @@ static D3DFORMAT ParseFormatStringDX9(const char *fmt, bool allow_numeric_format
 	}
 	// UNKNOWN/0 is a valid format (e.g. for structured buffers), so return
 	// -1 cast to a DXGI_FORMAT to signify an error:
-	return (D3DFORMAT) - 1;
+	return (D3DFORMAT)-1;
 }
 
 static D3DFORMAT ParseFormatStringDX9(const wchar_t *wfmt, bool allow_numeric_format)
@@ -1239,9 +1302,11 @@ inline size_t BitsPerPixel(_In_ D3DFORMAT fmt)
 		return 0;
 	}
 }
-static UINT d3d_format_bytes(D3DFORMAT format) {
+static UINT d3d_format_bytes(D3DFORMAT format)
+{
 
-	switch (format) {
+	switch (format)
+	{
 	case D3DFMT_A32B32G32R32F:
 	case D3DFMT_DXT2:
 	case D3DFMT_DXT3:
@@ -1311,10 +1376,11 @@ static UINT d3d_format_bytes(D3DFORMAT format) {
 	default:
 		return 0;
 	}
-
 }
-static UINT byteSizeFromD3DType(D3DDECLTYPE type) {
-	switch (type) {
+static UINT byteSizeFromD3DType(D3DDECLTYPE type)
+{
+	switch (type)
+	{
 	case D3DDECLTYPE_FLOAT1:
 		return sizeof(float);
 	case D3DDECLTYPE_FLOAT2:
@@ -1347,10 +1413,13 @@ static UINT byteSizeFromD3DType(D3DDECLTYPE type) {
 	}
 }
 
-static DWORD decl_type_to_FVF(D3DDECLTYPE type, D3DDECLUSAGE usage, BYTE usageIndex, int nWeights) {
-	switch (type) {
+static DWORD decl_type_to_FVF(D3DDECLTYPE type, D3DDECLUSAGE usage, BYTE usageIndex, int nWeights)
+{
+	switch (type)
+	{
 	case D3DDECLTYPE_FLOAT3:
-		switch (usage) {
+		switch (usage)
+		{
 		case D3DDECLUSAGE_POSITION:
 			return D3DFVF_XYZ;
 		case D3DDECLUSAGE_NORMAL:
@@ -1364,7 +1433,8 @@ static DWORD decl_type_to_FVF(D3DDECLTYPE type, D3DDECLUSAGE usage, BYTE usageIn
 		return nullptr;
 	case D3DDECLTYPE_UBYTE4:
 		if (usage == D3DDECLUSAGE_BLENDINDICES)
-			switch (nWeights) {
+			switch (nWeights)
+			{
 			case 0:
 				return D3DFVF_XYZB1;
 			case 1:
@@ -1383,8 +1453,10 @@ static DWORD decl_type_to_FVF(D3DDECLTYPE type, D3DDECLUSAGE usage, BYTE usageIn
 			return D3DFVF_PSIZE;
 		return nullptr;
 	case D3DDECLTYPE_D3DCOLOR:
-		if (usage == D3DDECLUSAGE_COLOR) {
-			switch (usageIndex) {
+		if (usage == D3DDECLUSAGE_COLOR)
+		{
+			switch (usageIndex)
+			{
 			case 0:
 				return D3DFVF_DIFFUSE;
 			case 1:
@@ -1393,19 +1465,19 @@ static DWORD decl_type_to_FVF(D3DDECLTYPE type, D3DDECLUSAGE usage, BYTE usageIn
 				return nullptr;
 			}
 		}
-		else {
+		else
+		{
 			return nullptr;
 		}
 	default:
 		return nullptr;
-
 	}
-
 }
 
 static D3DDECLTYPE d3d_format_to_decl_type(D3DFORMAT format)
 {
-	switch (format) {
+	switch (format)
+	{
 	case D3DFMT_A32B32G32R32F:
 		return D3DDECLTYPE_FLOAT4;
 	case D3DFMT_A16B16G16R16:
@@ -1419,9 +1491,9 @@ static D3DDECLTYPE d3d_format_to_decl_type(D3DFORMAT format)
 	case D3DFMT_A2B10G10R10:
 		return D3DDECLTYPE_UDEC3;
 	case D3DFMT_A8B8G8R8:
-		return 	D3DDECLTYPE_UBYTE4;
+		return D3DDECLTYPE_UBYTE4;
 	case D3DFMT_X8B8G8R8:
-		return 	D3DDECLTYPE_UBYTE4;
+		return D3DDECLTYPE_UBYTE4;
 	case D3DFMT_G16R16:
 		return D3DDECLTYPE_USHORT2N;
 	case D3DFMT_A2R10G10B10:
@@ -1477,12 +1549,12 @@ static D3DDECLTYPE d3d_format_to_decl_type(D3DFORMAT format)
 	case D3DFMT_A4L4:
 	case D3DFMT_S8_LOCKABLE:
 	default:
-		return (D3DDECLTYPE) - 1;
+		return (D3DDECLTYPE)-1;
 	}
 }
 
-
-static UINT strideForFVF(DWORD FVF) {
+static UINT strideForFVF(DWORD FVF)
+{
 	UINT totalBytes = 0;
 
 	if (FVF & D3DFVF_XYZ)
@@ -1491,61 +1563,78 @@ static UINT strideForFVF(DWORD FVF) {
 		totalBytes += 4 * sizeof(float);
 	if (FVF & D3DFVF_XYZW)
 		totalBytes += 4 * sizeof(float);
-	if (FVF & D3DFVF_XYZB5) {
+	if (FVF & D3DFVF_XYZB5)
+	{
 		totalBytes += 8 * sizeof(float);
 	}
-	if (FVF & D3DFVF_LASTBETA_UBYTE4) {
+	if (FVF & D3DFVF_LASTBETA_UBYTE4)
+	{
 		totalBytes += 8 * sizeof(float);
 	}
-	if (FVF & D3DFVF_LASTBETA_D3DCOLOR) {
+	if (FVF & D3DFVF_LASTBETA_D3DCOLOR)
+	{
 		totalBytes += 8 * sizeof(float);
 	}
-	if (FVF & D3DFVF_XYZB4) {
+	if (FVF & D3DFVF_XYZB4)
+	{
 		totalBytes += 7 * sizeof(float);
 	}
-	if (FVF & D3DFVF_XYZB3) {
+	if (FVF & D3DFVF_XYZB3)
+	{
 		totalBytes += 6 * sizeof(float);
 	}
-	if (FVF & D3DFVF_XYZB2) {
+	if (FVF & D3DFVF_XYZB2)
+	{
 		totalBytes += 5 * sizeof(float);
 	}
-	if (FVF & D3DFVF_XYZB1) {
+	if (FVF & D3DFVF_XYZB1)
+	{
 		totalBytes += 4 * sizeof(float);
 	}
-	if (FVF & D3DFVF_NORMAL) {
+	if (FVF & D3DFVF_NORMAL)
+	{
 		totalBytes += 3 * sizeof(float);
 	}
-	if (FVF & D3DFVF_PSIZE) {
+	if (FVF & D3DFVF_PSIZE)
+	{
 		totalBytes += sizeof(float);
 	}
-	if (FVF & D3DFVF_DIFFUSE) {
+	if (FVF & D3DFVF_DIFFUSE)
+	{
 		totalBytes += sizeof(float);
 	}
-	if (FVF & D3DFVF_SPECULAR) {
+	if (FVF & D3DFVF_SPECULAR)
+	{
 		totalBytes += sizeof(float);
 	}
 
-	for (int x = 1; x < 8; x++) {
-		if (FVF & D3DFVF_TEXCOORDSIZE1(x)) {
+	for (int x = 1; x < 8; x++)
+	{
+		if (FVF & D3DFVF_TEXCOORDSIZE1(x))
+		{
 			totalBytes += sizeof(float);
 		}
-		if (FVF & D3DFVF_TEXCOORDSIZE2(x)) {
+		if (FVF & D3DFVF_TEXCOORDSIZE2(x))
+		{
 			totalBytes += 2 * sizeof(float);
 		}
-		if (FVF & D3DFVF_TEXCOORDSIZE3(x)) {
+		if (FVF & D3DFVF_TEXCOORDSIZE3(x))
+		{
 			totalBytes += 3 * sizeof(float);
 		}
-		if (FVF & D3DFVF_TEXCOORDSIZE4(x)) {
+		if (FVF & D3DFVF_TEXCOORDSIZE4(x))
+		{
 			totalBytes += 4 * sizeof(float);
 		}
 	}
 
 	return totalBytes;
-
 }
-static UINT DrawVerticesCountToPrimitiveCount(UINT vCount, D3DPRIMITIVETYPE pType) {
+static UINT DrawVerticesCountToPrimitiveCount(UINT vCount, D3DPRIMITIVETYPE pType)
+{
 
-	switch (pType) {
+	switch (pType)
+	{
 	case D3DPT_POINTLIST:
 		return vCount;
 	case D3DPT_LINELIST:
@@ -1563,12 +1652,12 @@ static UINT DrawVerticesCountToPrimitiveCount(UINT vCount, D3DPRIMITIVETYPE pTyp
 	default:
 		return vCount - 2;
 	}
-
-
 }
-static UINT DrawPrimitiveCountToVerticesCount(UINT pCount, D3DPRIMITIVETYPE pType) {
+static UINT DrawPrimitiveCountToVerticesCount(UINT pCount, D3DPRIMITIVETYPE pType)
+{
 
-	switch (pType) {
+	switch (pType)
+	{
 	case D3DPT_POINTLIST:
 		return pCount;
 	case D3DPT_LINELIST:

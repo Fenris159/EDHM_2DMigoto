@@ -8,7 +8,8 @@
 #include "Input.h"
 #include "HackerDevice.h"
 
-enum class KeyOverrideType {
+enum class KeyOverrideType
+{
 	INVALID = -1,
 	ACTIVATE,
 	HOLD,
@@ -16,22 +17,23 @@ enum class KeyOverrideType {
 	CYCLE,
 };
 static EnumName_t<const wchar_t *, KeyOverrideType> KeyOverrideTypeNames[] = {
-	{L"activate", KeyOverrideType::ACTIVATE},
-	{L"hold", KeyOverrideType::HOLD},
-	{L"toggle", KeyOverrideType::TOGGLE},
-	{L"cycle", KeyOverrideType::CYCLE},
-	{nullptr, KeyOverrideType::INVALID} // End of list marker
+    {L"activate", KeyOverrideType::ACTIVATE},
+    {L"hold", KeyOverrideType::HOLD},
+    {L"toggle", KeyOverrideType::TOGGLE},
+    {L"cycle", KeyOverrideType::CYCLE},
+    {nullptr, KeyOverrideType::INVALID} // End of list marker
 };
 
-enum class TransitionType {
+enum class TransitionType
+{
 	INVALID = -1,
 	LINEAR,
 	COSINE,
 };
 static EnumName_t<const char *, TransitionType> TransitionTypeNames[] = {
-	{"linear", TransitionType::LINEAR},
-	{"cosine", TransitionType::COSINE},
-	{nullptr, TransitionType::INVALID} // End of list marker
+    {"linear", TransitionType::LINEAR},
+    {"cosine", TransitionType::COSINE},
+    {nullptr, TransitionType::INVALID} // End of list marker
 };
 
 struct OverrideParam
@@ -49,11 +51,16 @@ struct OverrideParam
 	{
 		// Oh come on C++, a pointer to member is just an offset you
 		// could test directly... Fine, let's dance:
-		switch ((uintptr_t)&((DirectX::XMFLOAT4*)(nullptr)->*component)) {
-			case (offsetof(DirectX::XMFLOAT4, x)): return 'x';
-			case (offsetof(DirectX::XMFLOAT4, y)): return 'y';
-			case (offsetof(DirectX::XMFLOAT4, z)): return 'z';
-			case (offsetof(DirectX::XMFLOAT4, w)): return 'w';
+		switch ((uintptr_t)&((DirectX::XMFLOAT4 *)(nullptr)->*component))
+		{
+		case (offsetof(DirectX::XMFLOAT4, x)):
+			return 'x';
+		case (offsetof(DirectX::XMFLOAT4, y)):
+			return 'y';
+		case (offsetof(DirectX::XMFLOAT4, z)):
+			return 'z';
+		case (offsetof(DirectX::XMFLOAT4, w)):
+			return 'w';
 		}
 		return '?';
 	};
@@ -62,34 +69,34 @@ static inline bool operator<(const OverrideParam &lhs, const OverrideParam &rhs)
 {
 	if (lhs.idx != rhs.idx)
 		return (lhs.idx < rhs.idx);
-	return ((uintptr_t)&((DirectX::XMFLOAT4*)(nullptr)->*(lhs.component)) <
-	        (uintptr_t)&((DirectX::XMFLOAT4*)(nullptr)->*(rhs.component)));
+	return ((uintptr_t)&((DirectX::XMFLOAT4 *)(nullptr)->*(lhs.component)) <
+	        (uintptr_t)&((DirectX::XMFLOAT4 *)(nullptr)->*(rhs.component)));
 }
 typedef std::map<OverrideParam, float> OverrideParams;
-typedef std::map<CommandListVariable*, float> OverrideVars;
+typedef std::map<CommandListVariable *, float> OverrideVars;
 
 class OverrideBase
 {
-public:
+  public:
 	virtual void ParseIniSection(LPCWSTR section) = 0;
 };
 
 class Override : public virtual OverrideBase
 {
-private:
-  int transition{}, release_transition{};
-  TransitionType transition_type, release_transition_type;
+  private:
+	int transition{}, release_transition{};
+	TransitionType transition_type{}, release_transition_type{};
 
-  bool is_conditional;
-  CommandListExpression condition;
+	bool is_conditional;
+	CommandListExpression condition;
 
-  CommandList activate_command_list;
-  CommandList deactivate_command_list;
+	CommandList activate_command_list;
+	CommandList deactivate_command_list;
 
-protected:
+  protected:
 	bool active;
 
-public:
+  public:
 	OverrideParams mOverrideParams;
 	OverrideVars mOverrideVars;
 
@@ -97,23 +104,16 @@ public:
 	OverrideVars mSavedVars;
 
 	Override();
-	Override(const Override&) = default;
-	Override& operator=(const Override&) = default;
-	Override(Override&&) noexcept = default;
-	Override& operator=(Override&&) noexcept = default;
+	Override(const Override &) = default;
+	Override &operator=(const Override &) = default;
+	Override(Override &&) noexcept = default;
+	Override &operator=(Override &&) noexcept = default;
 	Override(OverrideParams *params, OverrideVars *vars, int transition, int release_transition,
-		 TransitionType transition_type,
-		 TransitionType release_transition_type,
-		 bool is_conditional, CommandListExpression condition,
-		 CommandList activate_command_list, CommandList deactivate_command_list) :
-		transition(transition),
-		release_transition(release_transition),
-		transition_type(transition_type),
-		release_transition_type(release_transition_type),
-		is_conditional(is_conditional),
-		condition(condition),
-		activate_command_list(activate_command_list),
-		deactivate_command_list(deactivate_command_list)
+	         TransitionType transition_type, TransitionType release_transition_type, bool is_conditional,
+	         CommandListExpression condition, CommandList activate_command_list, CommandList deactivate_command_list)
+	    : transition(transition), release_transition(release_transition), transition_type(transition_type),
+	      release_transition_type(release_transition_type), is_conditional(is_conditional), condition(condition),
+	      activate_command_list(activate_command_list), deactivate_command_list(deactivate_command_list)
 	{
 		mOverrideParams = *params;
 		mOverrideVars = *vars;
@@ -133,27 +133,20 @@ class KeyOverrideBase : public virtual OverrideBase, public InputListener
 
 class KeyOverride : public KeyOverrideBase, public Override
 {
-private:
+  private:
 	KeyOverrideType type;
 
-public:
-	KeyOverride(KeyOverrideType type) :
-		Override(),
-		type(type)
-	{}
-	KeyOverride(KeyOverrideType type, OverrideParams *params, OverrideVars *vars,
-			int transition, int release_transition,
-			TransitionType transition_type,
-			TransitionType release_transition_type,
-			bool is_conditional, CommandListExpression condition,
-			CommandList activate_command_list, CommandList deactivate_command_list) :
-		Override(params, vars,
-				transition, release_transition,
-				transition_type, release_transition_type,
-				is_conditional, condition,
-				activate_command_list, deactivate_command_list),
-		 type(type)
-	{}
+  public:
+	KeyOverride(KeyOverrideType type) : Override(), type(type) {}
+	KeyOverride(KeyOverrideType type, OverrideParams *params, OverrideVars *vars, int transition,
+	            int release_transition, TransitionType transition_type, TransitionType release_transition_type,
+	            bool is_conditional, CommandListExpression condition, CommandList activate_command_list,
+	            CommandList deactivate_command_list)
+	    : Override(params, vars, transition, release_transition, transition_type, release_transition_type,
+		           is_conditional, condition, activate_command_list, deactivate_command_list),
+	      type(type)
+	{
+	}
 
 	void ParseIniSection(LPCWSTR section) override;
 	void DownEvent(HackerDevice *device);
@@ -162,17 +155,14 @@ public:
 
 class KeyOverrideCycle : public KeyOverrideBase
 {
-private:
+  private:
 	std::vector<class KeyOverride> presets;
 	int current;
 	bool wrap;
 	bool smart;
-public:
-	KeyOverrideCycle() :
-		current(-1),
-		wrap(true),
-		smart(true)
-	{}
+
+  public:
+	KeyOverrideCycle() : current(-1), wrap(true), smart(true) {}
 
 	void ParseIniSection(LPCWSTR section) override;
 	void DownEvent(HackerDevice *device);
@@ -183,28 +173,22 @@ public:
 class KeyOverrideCycleBack : public InputListener
 {
 	shared_ptr<KeyOverrideCycle> cycle;
-public:
-	KeyOverrideCycleBack(shared_ptr<KeyOverrideCycle> cycle) :
-		cycle(cycle)
-	{}
+
+  public:
+	KeyOverrideCycleBack(shared_ptr<KeyOverrideCycle> cycle) : cycle(cycle) {}
 
 	void DownEvent(HackerDevice *device);
 };
 
 class PresetOverride : public Override
 {
-private:
+  private:
 	bool triggered;
 	bool excluded;
-	unordered_set<CommandListCommand*> triggers_this_frame;
+	unordered_set<CommandListCommand *> triggers_this_frame;
 
-public:
-	PresetOverride() :
-		Override(),
-		triggered(false),
-		excluded(false),
-		unique_triggers_required(0)
-	{}
+  public:
+	PresetOverride() : Override(), triggered(false), excluded(false), unique_triggers_required(0) {}
 
 	void Trigger(CommandListCommand *triggered_from);
 	void Exclude();
@@ -226,24 +210,20 @@ struct OverrideTransitionParam
 	int time;
 	TransitionType transition_type;
 
-	OverrideTransitionParam() :
-		start(FLT_MAX),
-		target(FLT_MAX),
-		activation_time(0),
-		time(-1),
-		transition_type(TransitionType::LINEAR)
-	{}
+	OverrideTransitionParam()
+	    : start(FLT_MAX), target(FLT_MAX), activation_time(0), time(-1), transition_type(TransitionType::LINEAR)
+	{
+	}
 };
 
 class OverrideTransition
 {
-public:
+  public:
 	std::map<OverrideParam, OverrideTransitionParam> params;
-	std::map<CommandListVariable*, OverrideTransitionParam> vars;
+	std::map<CommandListVariable *, OverrideTransitionParam> vars;
 
-	void ScheduleTransition(HackerDevice *wrapper,
-			OverrideParams *targets, OverrideVars *vars,
-			int time, TransitionType transition_type);
+	void ScheduleTransition(HackerDevice *wrapper, OverrideParams *targets, OverrideVars *vars, int time,
+	                        TransitionType transition_type);
 	void UpdatePresets(HackerDevice *wrapper);
 	void UpdateTransitions(HackerDevice *wrapper);
 	void Stop();
@@ -256,10 +236,11 @@ public:
 // this.
 class OverrideGlobalSaveParam
 {
-private:
+  private:
 	float save;
 	int refcount;
-public:
+
+  public:
 	OverrideGlobalSaveParam();
 
 	float Reset();
@@ -269,11 +250,11 @@ public:
 
 class OverrideGlobalSave
 {
-public:
+  public:
 	std::map<OverrideParam, OverrideGlobalSaveParam> params;
-	std::map<CommandListVariable*, OverrideGlobalSaveParam> vars;
+	std::map<CommandListVariable *, OverrideGlobalSaveParam> vars;
 
-	void Reset(HackerDevice* wrapper);
+	void Reset(HackerDevice *wrapper);
 	void Save(HackerDevice *wrapper, Override *preset);
 	void Restore(Override *preset);
 };

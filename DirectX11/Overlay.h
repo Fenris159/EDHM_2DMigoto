@@ -17,7 +17,8 @@
 
 class HackerSwapChain;
 
-enum LogLevel {
+enum LogLevel
+{
 	LOG_DIRE,
 	LOG_WARNING,
 	LOG_WARNING_MONOSPACE,
@@ -27,8 +28,9 @@ enum LogLevel {
 	NUM_LOG_LEVELS
 };
 
-class OverlayNotice {
-public:
+class OverlayNotice
+{
+  public:
 	std::wstring message;
 	ULONGLONG timestamp;
 
@@ -37,12 +39,12 @@ public:
 
 class Overlay
 {
-private:
-	IDXGISwapChain* mOrigSwapChain;
-	ID3D11Device* mOrigDevice;
-	ID3D11DeviceContext* mOrigContext;
-	HackerDevice* mHackerDevice;
-	HackerContext* mHackerContext;
+  private:
+	IDXGISwapChain *mOrigSwapChain;
+	ID3D11Device *mOrigDevice;
+	ID3D11DeviceContext *mOrigContext;
+	HackerDevice *mHackerDevice;
+	HackerContext *mHackerContext;
 
 	DirectX::XMUINT2 mResolution{};
 	std::unique_ptr<DirectX::SpriteBatch> mSpriteBatch;
@@ -54,7 +56,8 @@ private:
 	// These are all state that we save away before drawing the overlay and
 	// restore again afterwards. Basically everything that DirectTK
 	// SimpleSprite may clobber:
-	struct {
+	struct
+	{
 		ID3D11BlendState *pBlendState;
 		FLOAT BlendFactor[4];
 		UINT SampleMask;
@@ -104,9 +107,10 @@ private:
 	void DrawNotices(float *y);
 	void DrawProfiling(float *y);
 	void DrawRectangle(float x, float y, float w, float h, float r, float g, float b, float opacity);
-	void DrawOutlinedString(DirectX::SpriteFont *font, wchar_t const *text, DirectX::XMFLOAT2 const &position, DirectX::FXMVECTOR color);
+	void DrawOutlinedString(DirectX::SpriteFont *font, wchar_t const *text, DirectX::XMFLOAT2 const &position,
+	                        DirectX::FXMVECTOR color);
 
-public:
+  public:
 	std::unique_ptr<DirectX::SpriteFont> mFont;
 	std::unique_ptr<DirectX::SpriteFont> mFontNotifications;
 	std::unique_ptr<DirectX::SpriteFont> mFontProfiling;

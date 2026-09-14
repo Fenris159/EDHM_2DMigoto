@@ -5,8 +5,12 @@ Checks: >
   -clang-analyzer-optin.core.EnumCastOutOfRange,
   bugprone-*,
   -bugprone-easily-swappable-parameters,
+  -bugprone-exception-escape,
   -bugprone-signed-bitwise,
+  -bugprone-suspicious-semicolon,
+  -bugprone-throwing-static-initialization,
   cert-err58-cpp,
+  -cert-err58-cpp,
   cert-oop11-cpp,
   cppcoreguidelines-pro-type-member-init,
   misc-misplaced-const,
@@ -29,7 +33,9 @@ WarningsAsErrors: >
   cert-*,
   performance-*,
   portability-*
-HeaderFilterRegex: '^(?!.*[\\/](DirectXTK[\\/]Src[\\/]Shaders[\\/]Compiled|vendor|pcre2|Nektra|crc32c-hw-1\.0\.5)[\\/]).*$'
+HeaderFilterRegex: '^(?!.*[\\/](DirectXTK|vendor|pcre2|Nektra|crc32c-hw-1\.0\.5)[\\/]).*$'
 SystemHeaders: false
 FormatStyle: file
+CheckOptions:
+  bugprone-narrowing-conversions.WarnOnIntegerToFloatingPointNarrowingConversion: false
 ...

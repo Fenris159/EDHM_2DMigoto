@@ -31,14 +31,14 @@
 //
 // Thread safety :
 // - Not thread-safe.
-template<typename K, typename V, typename Hasher = std::hash<K>>
-class FlatHashMap
+template <typename K, typename V, typename Hasher = std::hash<K>> class FlatHashMap
 {
-public:
+  public:
 	// Entry represents a single slot in the hash table.
 	// 'occupied' indicates whether the slot contains a valid key-value pair.
 	// Empty slots are treated as termination points during probing.
-	struct Entry {
+	struct Entry
+	{
 		K key;
 		V value;
 		uint32_t generation = 0;
@@ -46,7 +46,8 @@ public:
 
 	static size_t NextPow2(size_t v)
 	{
-		if (v <= 1) return 1;
+		if (v <= 1)
+			return 1;
 		v--;
 		v |= v >> 1;
 		v |= v >> 2;
@@ -54,7 +55,7 @@ public:
 		v |= v >> 8;
 		v |= v >> 16;
 #if SIZE_MAX > UINT32_MAX
-			v |= v >> 32;
+		v |= v >> 32;
 #endif
 		v++;
 		return v;
@@ -81,10 +82,11 @@ public:
 	// Performance:
 	// - Amortized O(1)
 	// - May trigger rehash if load factor exceeds threshold
-	inline void insert(const K& key, const V& value)
+	inline void insert(const K &key, const V &value)
 	{
 		// Maintain load factor <= 0.5
-		if ((count * 2) >= table.size()) {
+		if ((count * 2) >= table.size())
+		{
 			rehash(table.size() * 2);
 		}
 
@@ -92,10 +94,11 @@ public:
 
 		while (true)
 		{
-			Entry& e = table[idx];
+			Entry &e = table[idx];
 
 			// Empty slot (generation mismatch)
-			if (e.generation != current_generation) {
+			if (e.generation != current_generation)
+			{
 				e.key = key;
 				e.value = value;
 				e.generation = current_generation;
@@ -104,7 +107,8 @@ public:
 			}
 
 			// Update existing
-			if (e.key == key) {
+			if (e.key == key)
+			{
 				e.value = value;
 				return;
 			}
@@ -120,7 +124,7 @@ public:
 	// Performance:
 	// - Average O(1)
 	// - Depends on load factor and clustering
-	inline bool find(const K& key, V& out) const
+	inline bool find(const K &key, V &out) const
 	{
 		size_t idx = hasher(key) & mask;
 
@@ -128,7 +132,7 @@ public:
 		// slot, while the bound prevents a corrupt/full table from hanging.
 		for (size_t probes = 0; probes < table.size(); ++probes)
 		{
-			const Entry& e = table[idx];
+			const Entry &e = table[idx];
 
 			// Empty slot to key not present
 			if (e.generation != current_generation)
@@ -147,13 +151,13 @@ public:
 	}
 
 	// Finds value by key (no copy, faster)
-	inline V* find_ptr(const K& key)
+	inline V *find_ptr(const K &key)
 	{
 		size_t idx = hasher(key) & mask;
 
 		for (size_t probes = 0; probes < table.size(); ++probes)
 		{
-			Entry& e = table[idx];
+			Entry &e = table[idx];
 
 			if (e.generation != current_generation)
 				return nullptr;
@@ -176,7 +180,7 @@ public:
 	// Performance:
 	// - Average O(1)
 	// - Worst case O(cluster length)
-	inline bool erase(const K& key)
+	inline bool erase(const K &key)
 	{
 		size_t idx = hasher(key) & mask;
 
@@ -185,12 +189,13 @@ public:
 		bool found = false;
 		for (size_t probes = 0; probes < table.size(); ++probes)
 		{
-			Entry& e = table[idx];
+			Entry &e = table[idx];
 
 			if (e.generation != current_generation)
 				return false;
 
-			if (e.key == key) {
+			if (e.key == key)
+			{
 				found = true;
 				break;
 			}
@@ -206,7 +211,7 @@ public:
 
 		while (true)
 		{
-			Entry& e = table[next];
+			Entry &e = table[next];
 
 			// End of cluster
 			if (e.generation != current_generation)
@@ -264,7 +269,7 @@ public:
 		if (current_generation == 0)
 		{
 			// Full reset fallback
-			for (auto& e : table)
+			for (auto &e : table)
 				e.generation = 0;
 
 			current_generation = 1;
@@ -284,17 +289,16 @@ public:
 	}
 
 	// Iterates over active entries.
-	template<typename F>
-	void for_each(F&& fn)
+	template <typename F> void for_each(F &&fn)
 	{
-		for (auto& e : table)
+		for (auto &e : table)
 		{
 			if (e.generation == current_generation)
 				fn(e.key, e.value);
 		}
 	}
 
-private:
+  private:
 	std::vector<Entry> table; // Contiguous storage for cache efficiency
 	size_t count = 0;         // Number of active entries
 	size_t mask = 0;
@@ -323,7 +327,7 @@ private:
 		current_generation = 1;
 
 		// Reinsert all valid entries
-		for (auto& e : old)
+		for (auto &e : old)
 		{
 			if (e.generation == old_generation)
 			{
@@ -338,7 +342,7 @@ struct RegionHashKeyL2
 	uint32_t offset;
 	uint32_t size;
 
-	bool operator==(const RegionHashKeyL2& other) const
+	bool operator==(const RegionHashKeyL2 &other) const
 	{
 		return offset == other.offset && size == other.size;
 	}
@@ -346,7 +350,7 @@ struct RegionHashKeyL2
 
 struct RegionHashKeyHasherL2
 {
-	size_t operator()(const RegionHashKeyL2& k) const
+	size_t operator()(const RegionHashKeyL2 &k) const
 	{
 		uint64_t h = (static_cast<uint64_t>(k.offset) << 32) | k.size;
 		h ^= h >> 32;
@@ -360,7 +364,7 @@ struct RegionHashKeyL3
 	uint32_t offset;
 	uint32_t size;
 
-	bool operator==(const RegionHashKeyL3& other) const
+	bool operator==(const RegionHashKeyL3 &other) const
 	{
 		return ptr == other.ptr && offset == other.offset && size == other.size;
 	}
@@ -368,7 +372,7 @@ struct RegionHashKeyL3
 
 struct RegionHashKeyHasherL3
 {
-	size_t operator()(const RegionHashKeyL3& k) const
+	size_t operator()(const RegionHashKeyL3 &k) const
 	{
 		uint64_t h = k.ptr;            // Use 64-bit pointer as base
 		h ^= (uint64_t)k.offset << 32; // XOR offset with upper bits
@@ -380,11 +384,13 @@ struct RegionHashKeyHasherL3
 
 struct RegionHashesCache
 {
-	struct RegionCacheEntry {
+	struct RegionCacheEntry
+	{
 		uint32_t hash;
 		uint64_t version;
 	};
-public:
+
+  public:
 	// Data cache invalidation step size in bytes.
 	// So, for page size of 256 and buffer size of 16MB we'll get 16MB/256=65536 page count.
 	// Page size of 256 looks like a good balance between invalidation precision and memory usage.
@@ -397,19 +403,19 @@ public:
 	static constexpr UINT HASHES_PER_PAGE = 2;
 
 	void Initialize(size_t buffer_size);
-	void Add(const RegionHashKeyL2& key, uint32_t hash);
-	uint32_t Get(const RegionHashKeyL2& key);
+	void Add(const RegionHashKeyL2 &key, uint32_t hash);
+	uint32_t Get(const RegionHashKeyL2 &key);
 	size_t GetSize();
 	void Invalidate(size_t start, size_t end);
 	void Clear();
 
-private:
-	bool GetRegionVersion(const RegionHashKeyL2& key, uint64_t *version) const;
+  private:
+	bool GetRegionVersion(const RegionHashKeyL2 &key, uint64_t *version) const;
 
 	// Cache of per-region hashes for given buffer.
 	// Key = region offset, Value = CRC32 hash of that region.
 	// Avoids recomputing hashes for the same draw-call regions.
-	std::unique_ptr <FlatHashMap<RegionHashKeyL2, RegionCacheEntry, RegionHashKeyHasherL2>> cache;
+	std::unique_ptr<FlatHashMap<RegionHashKeyL2, RegionCacheEntry, RegionHashKeyHasherL2>> cache;
 	std::vector<uint64_t> page_versions;
 	std::vector<uint64_t> block_versions;
 	uint64_t next_version = 0;
@@ -421,8 +427,8 @@ struct ResourceHandleInfo
 {
 	D3D11_RESOURCE_DIMENSION type = D3D11_RESOURCE_DIMENSION_UNKNOWN;
 	uint32_t hash = 0;
-	uint32_t orig_hash = 0;	// Original hash at the time of creation
-	uint32_t data_hash = 0;	// Just the data hash for track_texture_updates
+	uint32_t orig_hash = 0; // Original hash at the time of creation
+	uint32_t data_hash = 0; // Just the data hash for track_texture_updates
 
 	// CPU-side copy of the resource data captured via hooks or staging buffer.
 	// Used to compute hashes for arbitrary regions without re-mapping
@@ -434,7 +440,7 @@ struct ResourceHandleInfo
 
 	std::unique_ptr<RegionHashesCache> region_hashes_cache;
 
-	// TODO: If we are sure we understand all possible differences between
+	// Future work: If we are sure we understand all possible differences between
 	// the original desc and that obtained by querying the resource we
 	// probably don't need to store these. One possible difference is the
 	// MipMaps field, which can be set to 0 at creation time to tell DX to
@@ -442,21 +448,22 @@ struct ResourceHandleInfo
 	// we query the desc. Most of the other fields shouldn't change, but
 	// I'm not positive about all the misc flags. For now, storing this
 	// copy is safer but wasteful.
-	union {
+	union
+	{
 		D3D11_TEXTURE2D_DESC desc2D;
 		D3D11_TEXTURE3D_DESC desc3D;
 	};
 
 	void InitializeDataCache(size_t size, size_t offset = 0);
-	void SetDataCache(const void* src, size_t size);
-	void SetDataCacheRegion(const void* src, size_t size, UINT offset);
+	void SetDataCache(const void *src, size_t size);
+	void SetDataCacheRegion(const void *src, size_t size, UINT offset);
 	// Clears cached region hashes and invalidates cached buffer data.
 	// Should be called when the underlying resource contents change.
 	void ClearDataCache();
-	uint8_t* GetCachedData();
+	uint8_t *GetCachedData();
 
-	void CacheRegionHash(const RegionHashKeyL2& key, uint32_t hash);
-	uint32_t GetCachedRegionHash(const RegionHashKeyL2& key);
+	void CacheRegionHash(const RegionHashKeyL2 &key, uint32_t hash) const;
+	uint32_t GetCachedRegionHash(const RegionHashKeyL2 &key) const;
 };
 
 struct CopySubresourceRegionContamination
@@ -467,13 +474,10 @@ struct CopySubresourceRegionContamination
 	UINT DstZ;
 	D3D11_BOX SrcBox;
 
-	CopySubresourceRegionContamination() :
-		partial(false),
-		DstX(0),
-		DstY(0),
-		DstZ(0),
-		SrcBox({0, 0, 0, UINT_MAX, UINT_MAX, UINT_MAX})
-	{}
+	CopySubresourceRegionContamination()
+	    : partial(false), DstX(0), DstY(0), DstZ(0), SrcBox({0, 0, 0, UINT_MAX, UINT_MAX, UINT_MAX})
+	{
+	}
 
 	void Update(bool partial, UINT DstX, UINT DstY, UINT DstZ, const D3D11_BOX *SrcBox)
 	{
@@ -481,7 +485,8 @@ struct CopySubresourceRegionContamination
 		this->DstX = max(this->DstX, DstX);
 		this->DstY = max(this->DstY, DstY);
 		this->DstZ = max(this->DstZ, DstZ);
-		if (SrcBox) {
+		if (SrcBox)
+		{
 			this->SrcBox.left = max(this->SrcBox.left, SrcBox->left);
 			this->SrcBox.top = max(this->SrcBox.top, SrcBox->top);
 			this->SrcBox.front = max(this->SrcBox.front, SrcBox->front);
@@ -496,7 +501,7 @@ struct CopySubresourceRegionContamination
 // Create a map that uses a hashable tuple of five integers as they key (Hey C++,
 // this is something Python can do with what? ... 0 lines of boilerplate?)
 typedef std::tuple<uint32_t, UINT, UINT, UINT, UINT> CopySubresourceRegionContaminationMapKey;
-template<> struct std::hash<CopySubresourceRegionContaminationMapKey>
+template <> struct std::hash<CopySubresourceRegionContaminationMapKey>
 {
 	size_t operator()(CopySubresourceRegionContaminationMapKey const &key)
 	{
@@ -511,13 +516,14 @@ template<> struct std::hash<CopySubresourceRegionContaminationMapKey>
 	}
 };
 typedef std::map<CopySubresourceRegionContaminationMapKey, CopySubresourceRegionContamination>
-	CopySubresourceRegionContaminationMap;
+    CopySubresourceRegionContaminationMap;
 
 // Tracks info about resources by their *original* hash. Primarily for stat collection:
 struct ResourceHashInfo
 {
 	D3D11_RESOURCE_DIMENSION type;
-	union {
+	union
+	{
 		D3D11_BUFFER_DESC buf_desc;
 		D3D11_TEXTURE1D_DESC tex1d_desc;
 		D3D11_TEXTURE2D_DESC tex2d_desc;
@@ -531,34 +537,33 @@ struct ResourceHashInfo
 	std::set<uint32_t> copy_contamination;
 	CopySubresourceRegionContaminationMap region_contamination;
 
-	ResourceHashInfo() :
-		type(D3D11_RESOURCE_DIMENSION_UNKNOWN),
-		initial_data_used_in_hash(false),
-		hash_contaminated(false)
-	{}
+	ResourceHashInfo()
+	    : type(D3D11_RESOURCE_DIMENSION_UNKNOWN), initial_data_used_in_hash(false), hash_contaminated(false)
+	{
+	}
 
-	struct ResourceHashInfo & operator= (D3D11_BUFFER_DESC desc)
+	struct ResourceHashInfo &operator=(D3D11_BUFFER_DESC desc)
 	{
 		type = D3D11_RESOURCE_DIMENSION_BUFFER;
 		buf_desc = desc;
 		return *this;
 	}
 
-	struct ResourceHashInfo & operator= (D3D11_TEXTURE1D_DESC desc)
+	struct ResourceHashInfo &operator=(D3D11_TEXTURE1D_DESC desc)
 	{
 		type = D3D11_RESOURCE_DIMENSION_TEXTURE1D;
 		tex1d_desc = desc;
 		return *this;
 	}
 
-	struct ResourceHashInfo & operator= (D3D11_TEXTURE2D_DESC desc)
+	struct ResourceHashInfo &operator=(D3D11_TEXTURE2D_DESC desc)
 	{
 		type = D3D11_RESOURCE_DIMENSION_TEXTURE2D;
 		tex2d_desc = desc;
 		return *this;
 	}
 
-	struct ResourceHashInfo & operator= (D3D11_TEXTURE3D_DESC desc)
+	struct ResourceHashInfo &operator=(D3D11_TEXTURE3D_DESC desc)
 	{
 		type = D3D11_RESOURCE_DIMENSION_TEXTURE3D;
 		tex3d_desc = desc;
@@ -595,7 +600,7 @@ class ResourceReleaseTracker : public IUnknown
 	ID3D11Resource *resource;
 	ResourceReleaseTracker(ID3D11Resource *resource);
 
-public:
+  public:
 	static HRESULT Attach(ID3D11Resource *resource);
 
 	HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, _COM_Outptr_ void **ppvObject);
@@ -607,22 +612,23 @@ uint32_t CalcTexture2DDescHash(uint32_t initial_hash, const D3D11_TEXTURE2D_DESC
 uint32_t CalcTexture3DDescHash(uint32_t initial_hash, const D3D11_TEXTURE3D_DESC *const_desc);
 
 uint32_t CalcTexture1DDataHash(const D3D11_TEXTURE1D_DESC *pDesc, const D3D11_SUBRESOURCE_DATA *pInitialData);
-uint32_t CalcTexture2DDataHash(const D3D11_TEXTURE2D_DESC *pDesc, const D3D11_SUBRESOURCE_DATA *pInitialData, bool zero_padding = false);
+uint32_t CalcTexture2DDataHash(const D3D11_TEXTURE2D_DESC *pDesc, const D3D11_SUBRESOURCE_DATA *pInitialData,
+                               bool zero_padding = false);
 uint32_t CalcTexture2DDataHashAccurate(const D3D11_TEXTURE2D_DESC *pDesc, const D3D11_SUBRESOURCE_DATA *pInitialData);
 uint32_t CalcTexture3DDataHash(const D3D11_TEXTURE3D_DESC *pDesc, const D3D11_SUBRESOURCE_DATA *pInitialData);
 
-ResourceHandleInfo* GetResourceHandleInfo(ID3D11Resource *resource);
+ResourceHandleInfo *GetResourceHandleInfo(ID3D11Resource *resource);
 uint32_t GetOrigResourceHash(ID3D11Resource *resource);
 uint32_t GetResourceHash(ID3D11Resource *resource);
-void ClearResourceRegionHashCache(ID3D11Resource* resource);
-UINT GetVertexBufferRegionOffset(UINT stride, DrawCallInfo* call_info, UINT byte_offset);
-UINT GetIndexBufferRegionOffset(DXGI_FORMAT format, DrawCallInfo* call_info, UINT byte_offset);
-UINT GetIndexBufferRegionSize(DXGI_FORMAT format, DrawCallInfo* call_info);
-UINT GetVertexBufferRegionSize(UINT stride, DrawCallInfo* call_info);
+void ClearResourceRegionHashCache(ID3D11Resource *resource);
+UINT GetVertexBufferRegionOffset(UINT stride, DrawCallInfo *call_info, UINT byte_offset);
+UINT GetIndexBufferRegionOffset(DXGI_FORMAT format, DrawCallInfo *call_info, UINT byte_offset);
+UINT GetIndexBufferRegionSize(DXGI_FORMAT format, DrawCallInfo *call_info);
+UINT GetVertexBufferRegionSize(UINT stride, DrawCallInfo *call_info);
 
 float BitCastToFloat(uint32_t bits);
 uint32_t BitCastToUint(float bits);
-uint64_t HashPointer(const void* p);
+uint64_t HashPointer(const void *p);
 uint32_t HashUnsigned32(uint32_t u);
 float EncodeFloat30(const uint32_t hash);
 
@@ -633,17 +639,17 @@ struct GridPos
 	uint32_t z;
 };
 GridPos UnpackCellCoords(uint32_t packed);
-uint32_t SpatialDistanceChebyshev(const GridPos& a, const GridPos& b);
+uint32_t SpatialDistanceChebyshev(const GridPos &a, const GridPos &b);
 
-uint32_t GetRegionHash(HackerContext* context, ID3D11Buffer* buffer, UINT offset, UINT size, CustomResource* custom_resource = nullptr);
-uint32_t GetSpatialHash(HackerContext* context, ID3D11Buffer* buffer, UINT offset_x, UINT offset_y, UINT offset_z, float cell_size = 0.125f, CustomResource* custom_resource = nullptr);
+uint32_t GetRegionHash(HackerContext *context, ID3D11Buffer *buffer, UINT offset, UINT size,
+                       CustomResource *custom_resource = nullptr);
+uint32_t GetSpatialHash(HackerContext *context, ID3D11Buffer *buffer, UINT offset_x, UINT offset_y, UINT offset_z,
+                        float cell_size = 0.125f, CustomResource *custom_resource = nullptr);
 
-void MarkResourceHashContaminated(ID3D11Resource *dest, UINT DstSubresource,
-		ID3D11Resource *src, UINT srcSubresource, char type,
-		UINT DstX, UINT DstY, UINT DstZ, const D3D11_BOX *SrcBox);
+void MarkResourceHashContaminated(ID3D11Resource *dest, UINT DstSubresource, ID3D11Resource *src, UINT srcSubresource,
+                                  char type, UINT DstX, UINT DstY, UINT DstZ, const D3D11_BOX *SrcBox);
 
-void UpdateResourceHashFromCPU(ID3D11Resource *resource,
-	const void *data, UINT rowPitch, UINT depthPitch);
+void UpdateResourceHashFromCPU(ID3D11Resource *resource, const void *data, UINT rowPitch, UINT depthPitch);
 
 void PropagateResourceHash(ID3D11Resource *dst, ID3D11Resource *src);
 
@@ -660,8 +666,7 @@ void LogResourceDesc(const D3D11_TEXTURE1D_DESC *desc);
 void LogResourceDesc(const D3D11_TEXTURE2D_DESC *desc);
 void LogResourceDesc(const D3D11_TEXTURE3D_DESC *desc);
 void LogResourceDesc(ID3D11Resource *resource);
-template <typename DescType>
-static void LogDebugResourceDesc(DescType *desc)
+template <typename DescType> static void LogDebugResourceDesc(DescType *desc)
 {
 	if (gLogDebug)
 		LogResourceDesc(desc);
@@ -670,13 +675,11 @@ void LogViewDesc(const D3D11_SHADER_RESOURCE_VIEW_DESC *desc);
 void LogViewDesc(const D3D11_RENDER_TARGET_VIEW_DESC *desc);
 void LogViewDesc(const D3D11_DEPTH_STENCIL_VIEW_DESC *desc);
 void LogViewDesc(const D3D11_UNORDERED_ACCESS_VIEW_DESC *desc);
-template <typename DescType>
-static void LogDebugViewDesc(DescType *desc)
+template <typename DescType> static void LogDebugViewDesc(DescType *desc)
 {
 	if (gLogDebug)
 		LogViewDesc(desc);
 }
-
 
 // -----------------------------------------------------------------------------------------------
 //                       Fuzzy Texture Override Matching Support
@@ -684,20 +687,11 @@ static void LogDebugViewDesc(DescType *desc)
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ff476202(v=vs.85).aspx
 static const wchar_t *ResourceDimensions[] = {
-	L"UNKNOWN",
-	L"BUFFER",
-	L"TEXTURE1D",
-	L"TEXTURE2D",
-	L"TEXTURE3D",
+    L"UNKNOWN", L"BUFFER", L"TEXTURE1D", L"TEXTURE2D", L"TEXTURE3D",
 };
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ff476259(v=vs.85).aspx
-static const wchar_t *ResourceUsage[] = {
-	L"DEFAULT",
-	L"IMMUTABLE",
-	L"DYNAMIC",
-	L"STAGING"
-};
+static const wchar_t *ResourceUsage[] = {L"DEFAULT", L"IMMUTABLE", L"DYNAMIC", L"STAGING"};
 static const wchar_t *TexResourceUsage(UINT usage)
 {
 	if (usage < sizeof(ResourceUsage) / sizeof(ResourceUsage[0]))
@@ -706,61 +700,64 @@ static const wchar_t *TexResourceUsage(UINT usage)
 }
 
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ff476106(v=vs.85).aspx
-enum class ResourceCPUAccessFlags {
+enum class ResourceCPUAccessFlags
+{
 	INVALID = 0,
-	WRITE   = 0x00010000,
-	READ    = 0x00020000,
+	WRITE = 0x00010000,
+	READ = 0x00020000,
 };
 SENSIBLE_ENUM(ResourceCPUAccessFlags);
 static EnumName_t<const wchar_t *, ResourceCPUAccessFlags> ResourceCPUAccessFlagNames[] = {
-	{L"write", ResourceCPUAccessFlags::WRITE},
-	{L"read", ResourceCPUAccessFlags::READ},
-	{nullptr, ResourceCPUAccessFlags::INVALID} // End of list marker
+    {L"write", ResourceCPUAccessFlags::WRITE},
+    {L"read", ResourceCPUAccessFlags::READ},
+    {nullptr, ResourceCPUAccessFlags::INVALID} // End of list marker
 };
 
-enum class ResourceMiscFlags {
-	INVALID                          = 0,
-	GENERATE_MIPS                    = 0x00000001,
-	SHARED                           = 0x00000002,
-	TEXTURECUBE                      = 0x00000004,
-	DRAWINDIRECT_ARGS                = 0x00000010,
-	BUFFER_ALLOW_RAW_VIEWS           = 0x00000020,
-	BUFFER_STRUCTURED                = 0x00000040,
-	RESOURCE_CLAMP                   = 0x00000080,
-	SHARED_KEYEDMUTEX                = 0x00000100,
-	GDI_COMPATIBLE                   = 0x00000200,
-	SHARED_NTHANDLE                  = 0x00000800,
-	RESTRICTED_CONTENT               = 0x00001000,
-	RESTRICT_SHARED_RESOURCE         = 0x00002000,
-	RESTRICT_SHARED_RESOURCE_DRIVER  = 0x00004000,
-	GUARDED                          = 0x00008000,
-	TILE_POOL                        = 0x00020000,
-	TILED                            = 0x00040000,
-	HW_PROTECTED                     = 0x00080000,
+enum class ResourceMiscFlags
+{
+	INVALID = 0,
+	GENERATE_MIPS = 0x00000001,
+	SHARED = 0x00000002,
+	TEXTURECUBE = 0x00000004,
+	DRAWINDIRECT_ARGS = 0x00000010,
+	BUFFER_ALLOW_RAW_VIEWS = 0x00000020,
+	BUFFER_STRUCTURED = 0x00000040,
+	RESOURCE_CLAMP = 0x00000080,
+	SHARED_KEYEDMUTEX = 0x00000100,
+	GDI_COMPATIBLE = 0x00000200,
+	SHARED_NTHANDLE = 0x00000800,
+	RESTRICTED_CONTENT = 0x00001000,
+	RESTRICT_SHARED_RESOURCE = 0x00002000,
+	RESTRICT_SHARED_RESOURCE_DRIVER = 0x00004000,
+	GUARDED = 0x00008000,
+	TILE_POOL = 0x00020000,
+	TILED = 0x00040000,
+	HW_PROTECTED = 0x00080000,
 };
 SENSIBLE_ENUM(ResourceMiscFlags);
 static EnumName_t<const wchar_t *, ResourceMiscFlags> ResourceMiscFlagNames[] = {
-	{L"generate_mips", ResourceMiscFlags::GENERATE_MIPS},
-	{L"shared", ResourceMiscFlags::SHARED},
-	{L"texturecube", ResourceMiscFlags::TEXTURECUBE},
-	{L"drawindirect_args", ResourceMiscFlags::DRAWINDIRECT_ARGS},
-	{L"buffer_allow_raw_views", ResourceMiscFlags::BUFFER_ALLOW_RAW_VIEWS},
-	{L"buffer_structured", ResourceMiscFlags::BUFFER_STRUCTURED},
-	{L"resource_clamp", ResourceMiscFlags::RESOURCE_CLAMP},
-	{L"shared_keyedmutex", ResourceMiscFlags::SHARED_KEYEDMUTEX},
-	{L"gdi_compatible", ResourceMiscFlags::GDI_COMPATIBLE},
-	{L"shared_nthandle", ResourceMiscFlags::SHARED_NTHANDLE},
-	{L"restricted_content", ResourceMiscFlags::RESTRICTED_CONTENT},
-	{L"restrict_shared_resource", ResourceMiscFlags::RESTRICT_SHARED_RESOURCE},
-	{L"restrict_shared_resource_driver", ResourceMiscFlags::RESTRICT_SHARED_RESOURCE_DRIVER},
-	{L"guarded", ResourceMiscFlags::GUARDED},
-	{L"tile_pool", ResourceMiscFlags::TILE_POOL},
-	{L"tiled", ResourceMiscFlags::TILED},
-	{L"hw_protected", ResourceMiscFlags::HW_PROTECTED},
-	{nullptr, ResourceMiscFlags::INVALID} // End of list marker
+    {L"generate_mips", ResourceMiscFlags::GENERATE_MIPS},
+    {L"shared", ResourceMiscFlags::SHARED},
+    {L"texturecube", ResourceMiscFlags::TEXTURECUBE},
+    {L"drawindirect_args", ResourceMiscFlags::DRAWINDIRECT_ARGS},
+    {L"buffer_allow_raw_views", ResourceMiscFlags::BUFFER_ALLOW_RAW_VIEWS},
+    {L"buffer_structured", ResourceMiscFlags::BUFFER_STRUCTURED},
+    {L"resource_clamp", ResourceMiscFlags::RESOURCE_CLAMP},
+    {L"shared_keyedmutex", ResourceMiscFlags::SHARED_KEYEDMUTEX},
+    {L"gdi_compatible", ResourceMiscFlags::GDI_COMPATIBLE},
+    {L"shared_nthandle", ResourceMiscFlags::SHARED_NTHANDLE},
+    {L"restricted_content", ResourceMiscFlags::RESTRICTED_CONTENT},
+    {L"restrict_shared_resource", ResourceMiscFlags::RESTRICT_SHARED_RESOURCE},
+    {L"restrict_shared_resource_driver", ResourceMiscFlags::RESTRICT_SHARED_RESOURCE_DRIVER},
+    {L"guarded", ResourceMiscFlags::GUARDED},
+    {L"tile_pool", ResourceMiscFlags::TILE_POOL},
+    {L"tiled", ResourceMiscFlags::TILED},
+    {L"hw_protected", ResourceMiscFlags::HW_PROTECTED},
+    {nullptr, ResourceMiscFlags::INVALID} // End of list marker
 };
 
-enum class FuzzyMatchOp {
+enum class FuzzyMatchOp
+{
 	ALWAYS,
 	EQUAL,
 	LESS,
@@ -770,24 +767,27 @@ enum class FuzzyMatchOp {
 	NOT_EQUAL,
 };
 
-enum class FuzzyMatchOperandType {
+enum class FuzzyMatchOperandType
+{
 	VALUE,
-	WIDTH,      // Width, Height & Depth useful for checking
-	HEIGHT,     // for square/cube/rectangular textures.
+	WIDTH,  // Width, Height & Depth useful for checking
+	HEIGHT, // for square/cube/rectangular textures.
 	DEPTH,
 	ARRAY,      // Probably not useful, but similar to depth
 	RES_WIDTH,  // Useful for detecting full screen buffers
 	RES_HEIGHT, // including arbitrary multiples of the resolution
 };
 
-class FuzzyMatch {
+class FuzzyMatch
+{
 	bool matches_common(UINT lhs, UINT effective) const;
-public:
+
+  public:
 	FuzzyMatchOp op;
 	FuzzyMatchOperandType rhs_type1;
 	FuzzyMatchOperandType rhs_type2;
 
-	// TODO: Support more operand types, such as texture/resolution
+	// Future work: Support more operand types, such as texture/resolution
 	// width/height. Maybe for advanced usage even allow an operand to be
 	// an ini param so it can be changed on the fly (might be useful for
 	// MEA to replace the mid-game profile switch, but I'd be surprised if
@@ -798,8 +798,7 @@ public:
 	UINT denominator;
 
 	FuzzyMatch();
-	template <typename DescType>
-	bool matches(UINT lhs, const DescType *desc) const;
+	template <typename DescType> bool matches(UINT lhs, const DescType *desc) const;
 	bool matches_uint(UINT lhs) const;
 };
 
@@ -812,13 +811,13 @@ public:
 // FrameAnalysis.h to make that work, and that is an area that diverged from 1.2:
 struct TextureOverride;
 
-class FuzzyMatchResourceDesc {
-private:
-	template <typename DescType>
-	bool check_common_resource_fields(const DescType *desc) const;
-	template <typename DescType>
-	bool check_common_texture_fields(const DescType *desc) const;
-public:
+class FuzzyMatchResourceDesc
+{
+  private:
+	template <typename DescType> bool check_common_resource_fields(const DescType *desc) const;
+	template <typename DescType> bool check_common_texture_fields(const DescType *desc) const;
+
+  public:
 	struct TextureOverride *texture_override;
 
 	bool matches_buffer;
@@ -826,22 +825,24 @@ public:
 	bool matches_tex2d;
 	bool matches_tex3d;
 
-	// TODO: Consider making this a vector we iterate over so we only
+	// Future work: Consider making this a vector we iterate over so we only
 	// process tests specified in this texture override
-	FuzzyMatch Usage;               // Common
-	FuzzyMatch BindFlags;           // Common
-	FuzzyMatch CPUAccessFlags;      // Common
-	FuzzyMatch MiscFlags;           // Common
-	FuzzyMatch ByteWidth;           // Buffer+StructuredBuffer
-	FuzzyMatch StructureByteStride; //        StructuredBuffer XXX: I think I may have seen this later set to 0 if it was initially set on a regular buffer?
-	FuzzyMatch MipLevels;           // 1D+2D+3D XXX: Need to check what happens for resources created with mips=0 and mips generated later
-	FuzzyMatch Format;              // 1D+2D+3D
-	FuzzyMatch Width;               // 1D+2D+3D
-	FuzzyMatch Height;              //    2D+3D
-	FuzzyMatch Depth;               //       3D
-	FuzzyMatch ArraySize;           // 1D+2D
-	FuzzyMatch SampleDesc_Count;    //    2D
-	FuzzyMatch SampleDesc_Quality;  //    2D    XXX Can anything change here if count=1?
+	FuzzyMatch Usage;          // Common
+	FuzzyMatch BindFlags;      // Common
+	FuzzyMatch CPUAccessFlags; // Common
+	FuzzyMatch MiscFlags;      // Common
+	FuzzyMatch ByteWidth;      // Buffer+StructuredBuffer
+	FuzzyMatch
+	    StructureByteStride; //        StructuredBuffer XXX: I think I may have seen this later set to 0 if it was initially set on a regular buffer?
+	FuzzyMatch
+	    MipLevels; // 1D+2D+3D XXX: Need to check what happens for resources created with mips=0 and mips generated later
+	FuzzyMatch Format;             // 1D+2D+3D
+	FuzzyMatch Width;              // 1D+2D+3D
+	FuzzyMatch Height;             //    2D+3D
+	FuzzyMatch Depth;              //       3D
+	FuzzyMatch ArraySize;          // 1D+2D
+	FuzzyMatch SampleDesc_Count;   //    2D
+	FuzzyMatch SampleDesc_Quality; //    2D    XXX Can anything change here if count=1?
 
 	FuzzyMatchResourceDesc(std::wstring section);
 	~FuzzyMatchResourceDesc();
@@ -854,32 +855,43 @@ public:
 	bool update_types_matched();
 };
 bool TextureOverrideLess(const struct TextureOverride &lhs, const struct TextureOverride &rhs);
-struct FuzzyMatchResourceDescLess {
-	bool operator() (const std::shared_ptr<FuzzyMatchResourceDesc> &lhs, const std::shared_ptr<FuzzyMatchResourceDesc> &rhs) const;
+struct FuzzyMatchResourceDescLess
+{
+	bool operator()(const std::shared_ptr<FuzzyMatchResourceDesc> &lhs,
+	                const std::shared_ptr<FuzzyMatchResourceDesc> &rhs) const;
 };
 // This set is sorted because multiple fuzzy texture overrides may match a
 // given resource, but we want to make sure we always process them in the same
 // order for consistent results.
 typedef std::set<std::shared_ptr<FuzzyMatchResourceDesc>, FuzzyMatchResourceDescLess> FuzzyTextureOverrides;
 
-typedef std::vector<TextureOverride*> TextureOverrideMatches;
+typedef std::vector<TextureOverride *> TextureOverrideMatches;
 
-struct TextureOverrideFuzzyMatch {
+struct TextureOverrideFuzzyMatch
+{
 	uint32_t hash;
-	TextureOverride* texture_override;
+	TextureOverride *texture_override;
 };
 typedef std::vector<TextureOverrideFuzzyMatch> TextureOverrideFuzzyMatches;
 
-TextureOverrideFuzzyMatches* get_fuzzy_matches_by_draw_info(DrawCallInfo* call_info);
+TextureOverrideFuzzyMatches *get_fuzzy_matches_by_draw_info(DrawCallInfo *call_info);
 
 template <typename DescType>
-void find_texture_overrides(uint32_t hash, const DescType *desc, TextureOverrideMatches *matches, DrawCallInfo *call_info);
-void find_texture_overrides_for_resource_by_hash(ID3D11Resource* resource, TextureOverrideMatches* matches, DrawCallInfo* call_info);
-void find_texture_overrides_for_resource_desc(ID3D11Resource *resource, TextureOverrideMatches *matches, DrawCallInfo *call_info);
-void find_texture_overrides_for_resource(ID3D11Resource *resource, TextureOverrideMatches *matches, DrawCallInfo *call_info);
-void find_texture_override_for_hash(uint32_t hash, TextureOverrideMatches* matches, DrawCallInfo* call_info);
+void find_texture_overrides(uint32_t hash, const DescType *desc, TextureOverrideMatches *matches,
+                            DrawCallInfo *call_info);
+void find_texture_overrides_for_resource_by_hash(ID3D11Resource *resource, TextureOverrideMatches *matches,
+                                                 DrawCallInfo *call_info);
+void find_texture_overrides_for_resource_desc(ID3D11Resource *resource, TextureOverrideMatches *matches,
+                                              DrawCallInfo *call_info);
+void find_texture_overrides_for_resource(ID3D11Resource *resource, TextureOverrideMatches *matches,
+                                         DrawCallInfo *call_info);
+void find_texture_override_for_hash(uint32_t hash, TextureOverrideMatches *matches, DrawCallInfo *call_info);
 
-void find_texture_overrides_by_hash_from_fuzzy_matches(uint32_t hash, TextureOverrideFuzzyMatches* fuzzy_matches, TextureOverrideMatches* matches, DrawCallInfo* call_info);
-void find_texture_overrides_for_resource_by_hash_from_fuzzy_matches(ID3D11Resource* resource, TextureOverrideFuzzyMatches* fuzzy_matches, TextureOverrideMatches* matches, DrawCallInfo* call_info);
+void find_texture_overrides_by_hash_from_fuzzy_matches(uint32_t hash, TextureOverrideFuzzyMatches *fuzzy_matches,
+                                                       TextureOverrideMatches *matches, DrawCallInfo *call_info);
+void find_texture_overrides_for_resource_by_hash_from_fuzzy_matches(ID3D11Resource *resource,
+                                                                    TextureOverrideFuzzyMatches *fuzzy_matches,
+                                                                    TextureOverrideMatches *matches,
+                                                                    DrawCallInfo *call_info);
 
 void ClearRegionHashesGlobalCache();

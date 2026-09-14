@@ -23,7 +23,8 @@
 // C5038 can't use strictly correct initialization order due to Dev12 initialization limitations
 
 // Off by default warnings
-#pragma warning(disable : 4061 4265 4365 4571 4623 4625 4626 4668 4710 4711 4746 4774 4820 4987 5026 5027 5031 5032 5039)
+#pragma warning(disable                                                                                                \
+                : 4061 4265 4365 4571 4623 4625 4626 4668 4710 4711 4746 4774 4820 4987 5026 5027 5031 5032 5039)
 // C4061 enumerator 'X' in switch of enum 'X' is not explicitly handled by a case label
 // C4265 class has virtual functions, but destructor is not virtual
 // C4365 signed/unsigned mismatch
@@ -81,7 +82,7 @@
 
 #if (defined(WINAPI_FAMILY) && (WINAPI_FAMILY == WINAPI_FAMILY_APP)) || (defined(_XBOX_ONE) && defined(_TITLE))
 #pragma warning(push)
-#pragma warning(disable: 4471)
+#pragma warning(disable : 4471)
 #include <Windows.UI.Core.h>
 #pragma warning(pop)
 #endif

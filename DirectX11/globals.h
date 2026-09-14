@@ -26,14 +26,15 @@ extern HINSTANCE migoto_handle;
 class CommandListCommand;
 class CommandList;
 
-
-enum HuntingMode {
+enum HuntingMode
+{
 	HUNTING_MODE_DISABLED = 0,
 	HUNTING_MODE_ENABLED = 1,
 	HUNTING_MODE_SOFT_DISABLED = 2,
 };
 
-enum class MarkingMode {
+enum class MarkingMode
+{
 	SKIP,
 	ORIGINAL,
 	PINK,
@@ -42,49 +43,51 @@ enum class MarkingMode {
 	INVALID, // Must be last - used for next_marking_mode
 };
 static EnumName_t<const wchar_t *, MarkingMode> MarkingModeNames[] = {
-	{L"skip", MarkingMode::SKIP},
-	{L"mono", MarkingMode::MONO},
-	{L"original", MarkingMode::ORIGINAL},
-	{L"pink", MarkingMode::PINK},
-	{nullptr, MarkingMode::INVALID} // End of list marker
+    {L"skip", MarkingMode::SKIP},
+    {L"mono", MarkingMode::MONO},
+    {L"original", MarkingMode::ORIGINAL},
+    {L"pink", MarkingMode::PINK},
+    {nullptr, MarkingMode::INVALID} // End of list marker
 };
 
-enum class MarkingAction {
-	INVALID    = 0,
-	CLIPBOARD  = 0x0000001,
-	HLSL       = 0x0000002,
-	ASM        = 0x0000004,
-	REGEX      = 0x0000008,
-	DUMP_MASK  = 0x000000e, // HLSL, Assembly and/or ShaderRegex is selected
-	MONO_SS    = 0x0000010,
+enum class MarkingAction
+{
+	INVALID = 0,
+	CLIPBOARD = 0x0000001,
+	HLSL = 0x0000002,
+	ASM = 0x0000004,
+	REGEX = 0x0000008,
+	DUMP_MASK = 0x000000e, // HLSL, Assembly and/or ShaderRegex is selected
+	MONO_SS = 0x0000010,
 	SS_IF_PINK = 0x0000040,
 
-	DEFAULT    = 0x0000003,
+	DEFAULT = 0x0000003,
 };
 SENSIBLE_ENUM(MarkingAction);
 static EnumName_t<const wchar_t *, MarkingAction> MarkingActionNames[] = {
-	{L"hlsl", MarkingAction::HLSL},
-	{L"asm", MarkingAction::ASM},
-	{L"assembly", MarkingAction::ASM},
-	{L"regex", MarkingAction::REGEX},
-	{L"ShaderRegex", MarkingAction::REGEX},
-	{L"clipboard", MarkingAction::CLIPBOARD},
-	{L"mono_snapshot", MarkingAction::MONO_SS},
-	{L"snapshot_if_pink", MarkingAction::SS_IF_PINK},
-	{nullptr, MarkingAction::INVALID} // End of list marker
+    {L"hlsl", MarkingAction::HLSL},
+    {L"asm", MarkingAction::ASM},
+    {L"assembly", MarkingAction::ASM},
+    {L"regex", MarkingAction::REGEX},
+    {L"ShaderRegex", MarkingAction::REGEX},
+    {L"clipboard", MarkingAction::CLIPBOARD},
+    {L"mono_snapshot", MarkingAction::MONO_SS},
+    {L"snapshot_if_pink", MarkingAction::SS_IF_PINK},
+    {nullptr, MarkingAction::INVALID} // End of list marker
 };
 
-enum class ShaderHashType {
+enum class ShaderHashType
+{
 	INVALID = -1,
 	FNV,
 	EMBEDDED,
 	BYTECODE,
 };
 static EnumName_t<const wchar_t *, ShaderHashType> ShaderHashNames[] = {
-	{L"3dmigoto", ShaderHashType::FNV},
-	{L"embedded", ShaderHashType::EMBEDDED},
-	{L"bytecode", ShaderHashType::BYTECODE},
-	{nullptr, ShaderHashType::INVALID} // End of list marker
+    {L"3dmigoto", ShaderHashType::FNV},
+    {L"embedded", ShaderHashType::EMBEDDED},
+    {L"bytecode", ShaderHashType::BYTECODE},
+    {nullptr, ShaderHashType::INVALID} // End of list marker
 };
 
 // Strategy: This OriginalShaderInfo record and associated map is to allow us to keep track of every
@@ -109,10 +112,10 @@ struct OriginalShaderInfo
 	UINT64 hash;
 	std::wstring shaderType;
 	std::string shaderModel;
-	ID3D11ClassLinkage* linkage;
-	ID3DBlob* byteCode;
+	ID3D11ClassLinkage *linkage;
+	ID3DBlob *byteCode;
 	FILETIME timeStamp;
-	ID3D11DeviceChild* replacement;
+	ID3D11DeviceChild *replacement;
 	bool found;
 	bool deferred_replacement_candidate;
 	bool deferred_replacement_processed;
@@ -126,132 +129,136 @@ void CleanupShaderMaps(ID3D11DeviceChild *handle);
 // Key is the overridden shader that was given back to the game at CreateVertexShader (vs or ps)
 typedef std::unordered_map<ID3D11DeviceChild *, OriginalShaderInfo> ShaderReloadMap;
 
-// TODO: We can probably merge this into ShaderReloadMap
+// Future work: We can probably merge this into ShaderReloadMap
 typedef std::unordered_map<ID3D11DeviceChild *, ID3D11DeviceChild *> ShaderReplacementMap;
 
 // Key is shader, value is hash key.
 typedef std::unordered_map<ID3D11DeviceChild *, UINT64> ShaderMap;
 
-enum class FrameAnalysisOptions {
-	INVALID         = 0,
+enum class FrameAnalysisOptions
+{
+	INVALID = 0,
 
 	// Bind selection:
-	DUMP_RT         = 0x00000001,
-	DUMP_DEPTH      = 0x00000002,
-	DUMP_SRV        = 0x00000004,
-	DUMP_CB         = 0x00000008,
-	DUMP_VB         = 0x00000010,
-	DUMP_IB         = 0x00000020,
+	DUMP_RT = 0x00000001,
+	DUMP_DEPTH = 0x00000002,
+	DUMP_SRV = 0x00000004,
+	DUMP_CB = 0x00000008,
+	DUMP_VB = 0x00000010,
+	DUMP_IB = 0x00000020,
 
 	// Format selection:
-	FMT_2D_AUTO     = 0x00000040,
-	FMT_2D_JPS      = 0x00000080,
-	FMT_2D_DDS      = 0x00000100,
-	FMT_BUF_BIN     = 0x00000200,
-	FMT_BUF_TXT     = 0x00000400,
-	FMT_DESC        = 0x00000800,
+	FMT_2D_AUTO = 0x00000040,
+	FMT_2D_JPS = 0x00000080,
+	FMT_2D_DDS = 0x00000100,
+	FMT_BUF_BIN = 0x00000200,
+	FMT_BUF_TXT = 0x00000400,
+	FMT_DESC = 0x00000800,
 
 	// Masks:
-	DUMP_XB_MASK    = 0x00000038, // CB+VB+IB, to check if a user specified any of these
-	FMT_2D_MASK     = 0x000009c0, // Mask of Texture2D formats
-	FMT_BUF_MASK    = 0x00000e00, // Mask of Buffer formats
+	DUMP_XB_MASK = 0x00000038, // CB+VB+IB, to check if a user specified any of these
+	FMT_2D_MASK = 0x000009c0,  // Mask of Texture2D formats
+	FMT_BUF_MASK = 0x00000e00, // Mask of Buffer formats
 
 	// Legacy bind + format combo options:
-	DUMP_RT_JPS     = 0x00000081,
-	DUMP_RT_DDS     = 0x00000301,
-	DUMP_DEPTH_JPS  = 0x00000082,
-	DUMP_DEPTH_DDS  = 0x00000302,
-	DUMP_TEX_JPS    = 0x00000084,
-	DUMP_TEX_DDS    = 0x00000304,
-	DUMP_CB_TXT     = 0x00000408,
-	DUMP_VB_TXT     = 0x00000410,
-	DUMP_IB_TXT     = 0x00000420,
+	DUMP_RT_JPS = 0x00000081,
+	DUMP_RT_DDS = 0x00000301,
+	DUMP_DEPTH_JPS = 0x00000082,
+	DUMP_DEPTH_DDS = 0x00000302,
+	DUMP_TEX_JPS = 0x00000084,
+	DUMP_TEX_DDS = 0x00000304,
+	DUMP_CB_TXT = 0x00000408,
+	DUMP_VB_TXT = 0x00000410,
+	DUMP_IB_TXT = 0x00000420,
 
 	// Misc options:
-	CLEAR_RT        = 0x00001000,
-	FILENAME_REG    = 0x00002000,
+	CLEAR_RT = 0x00001000,
+	FILENAME_REG = 0x00002000,
 	FILENAME_HANDLE = 0x00004000,
-	PERSIST         = 0x00008000, // Used by shader/texture triggers
-	MONO            = 0x00020000,
-	STEREO_MASK     = 0x00030000,
-	HOLD            = 0x00040000,
-	DUMP_ON_UNMAP   = 0x00080000,
-	DUMP_ON_UPDATE  = 0x00100000,
-	SHARE_DEDUPED   = 0x00200000,
-	DEFRD_CTX_IMM   = 0x00400000,
+	PERSIST = 0x00008000, // Used by shader/texture triggers
+	MONO = 0x00020000,
+	STEREO_MASK = 0x00030000,
+	HOLD = 0x00040000,
+	DUMP_ON_UNMAP = 0x00080000,
+	DUMP_ON_UPDATE = 0x00100000,
+	SHARE_DEDUPED = 0x00200000,
+	DEFRD_CTX_IMM = 0x00400000,
 	DEFRD_CTX_DELAY = 0x00800000,
-	DEFRD_CTX_MASK  = 0x00c00000,
-	SYMLINK         = 0x01000000,
-	DEPRECATED      = (signed)0x80000000,
+	DEFRD_CTX_MASK = 0x00c00000,
+	SYMLINK = 0x01000000,
+	DEPRECATED = (signed)0x80000000,
 };
 SENSIBLE_ENUM(FrameAnalysisOptions);
 static EnumName_t<const wchar_t *, FrameAnalysisOptions> FrameAnalysisOptionNames[] = {
-	// Bind flag selection:
-	{L"dump_rt", FrameAnalysisOptions::DUMP_RT},
-	{L"dump_depth", FrameAnalysisOptions::DUMP_DEPTH},
-	{L"dump_tex", FrameAnalysisOptions::DUMP_SRV},
-	{L"dump_cb", FrameAnalysisOptions::DUMP_CB},
-	{L"dump_vb", FrameAnalysisOptions::DUMP_VB},
-	{L"dump_ib", FrameAnalysisOptions::DUMP_IB},
+    // Bind flag selection:
+    {L"dump_rt", FrameAnalysisOptions::DUMP_RT},
+    {L"dump_depth", FrameAnalysisOptions::DUMP_DEPTH},
+    {L"dump_tex", FrameAnalysisOptions::DUMP_SRV},
+    {L"dump_cb", FrameAnalysisOptions::DUMP_CB},
+    {L"dump_vb", FrameAnalysisOptions::DUMP_VB},
+    {L"dump_ib", FrameAnalysisOptions::DUMP_IB},
 
-	// Texture2D format selection:
-	{L"jps", FrameAnalysisOptions::FMT_2D_JPS},
-	{L"jpg", FrameAnalysisOptions::FMT_2D_JPS},
-	{L"jpeg", FrameAnalysisOptions::FMT_2D_JPS},
-	{L"dds", FrameAnalysisOptions::FMT_2D_DDS},
-	{L"jps_dds", FrameAnalysisOptions::FMT_2D_AUTO},
-	{L"jpg_dds", FrameAnalysisOptions::FMT_2D_AUTO},
-	{L"jpeg_dds", FrameAnalysisOptions::FMT_2D_AUTO},
+    // Texture2D format selection:
+    {L"jps", FrameAnalysisOptions::FMT_2D_JPS},
+    {L"jpg", FrameAnalysisOptions::FMT_2D_JPS},
+    {L"jpeg", FrameAnalysisOptions::FMT_2D_JPS},
+    {L"dds", FrameAnalysisOptions::FMT_2D_DDS},
+    {L"jps_dds", FrameAnalysisOptions::FMT_2D_AUTO},
+    {L"jpg_dds", FrameAnalysisOptions::FMT_2D_AUTO},
+    {L"jpeg_dds", FrameAnalysisOptions::FMT_2D_AUTO},
 
-	// Buffer format selection:
-	{L"buf", FrameAnalysisOptions::FMT_BUF_BIN},
-	{L"txt", FrameAnalysisOptions::FMT_BUF_TXT},
+    // Buffer format selection:
+    {L"buf", FrameAnalysisOptions::FMT_BUF_BIN},
+    {L"txt", FrameAnalysisOptions::FMT_BUF_TXT},
 
-	{L"desc", FrameAnalysisOptions::FMT_DESC},
+    {L"desc", FrameAnalysisOptions::FMT_DESC},
 
-	// Misc options:
-	{L"clear_rt", FrameAnalysisOptions::CLEAR_RT},
-	{L"persist", FrameAnalysisOptions::PERSIST},
-	{L"mono", FrameAnalysisOptions::MONO},
-	{L"filename_reg", FrameAnalysisOptions::FILENAME_REG},
-	{L"filename_handle", FrameAnalysisOptions::FILENAME_HANDLE},
-	{L"log", FrameAnalysisOptions::DEPRECATED}, // Left in the list for backwards compatibility, but this is now always enabled
-	{L"hold", FrameAnalysisOptions::HOLD},
-	{L"dump_on_unmap", FrameAnalysisOptions::DUMP_ON_UNMAP},
-	{L"dump_on_update", FrameAnalysisOptions::DUMP_ON_UPDATE},
-	{L"deferred_ctx_immediate", FrameAnalysisOptions::DEFRD_CTX_IMM},
-	{L"deferred_ctx_accurate", FrameAnalysisOptions::DEFRD_CTX_DELAY},
-	{L"share_dupes", FrameAnalysisOptions::SHARE_DEDUPED},
-	{L"symlink", FrameAnalysisOptions::SYMLINK},
+    // Misc options:
+    {L"clear_rt", FrameAnalysisOptions::CLEAR_RT},
+    {L"persist", FrameAnalysisOptions::PERSIST},
+    {L"mono", FrameAnalysisOptions::MONO},
+    {L"filename_reg", FrameAnalysisOptions::FILENAME_REG},
+    {L"filename_handle", FrameAnalysisOptions::FILENAME_HANDLE},
+    {L"log",
+	 FrameAnalysisOptions::DEPRECATED}, // Left in the list for backwards compatibility, but this is now always enabled
+    {L"hold", FrameAnalysisOptions::HOLD},
+    {L"dump_on_unmap", FrameAnalysisOptions::DUMP_ON_UNMAP},
+    {L"dump_on_update", FrameAnalysisOptions::DUMP_ON_UPDATE},
+    {L"deferred_ctx_immediate", FrameAnalysisOptions::DEFRD_CTX_IMM},
+    {L"deferred_ctx_accurate", FrameAnalysisOptions::DEFRD_CTX_DELAY},
+    {L"share_dupes", FrameAnalysisOptions::SHARE_DEDUPED},
+    {L"symlink", FrameAnalysisOptions::SYMLINK},
 
-	// Legacy combo options:
-	{L"dump_rt_jps", FrameAnalysisOptions::DUMP_RT_JPS},
-	{L"dump_rt_dds", FrameAnalysisOptions::DUMP_RT_DDS},
-	{L"dump_depth_jps", FrameAnalysisOptions::DUMP_DEPTH_JPS}, // Doesn't work yet
-	{L"dump_depth_dds", FrameAnalysisOptions::DUMP_DEPTH_DDS},
-	{L"dump_tex_jps", FrameAnalysisOptions::DUMP_TEX_JPS},
-	{L"dump_tex_dds", FrameAnalysisOptions::DUMP_TEX_DDS},
-	{L"dump_cb_txt", FrameAnalysisOptions::DUMP_CB_TXT},
-	{L"dump_vb_txt", FrameAnalysisOptions::DUMP_VB_TXT},
-	{L"dump_ib_txt", FrameAnalysisOptions::DUMP_IB_TXT},
+    // Legacy combo options:
+    {L"dump_rt_jps", FrameAnalysisOptions::DUMP_RT_JPS},
+    {L"dump_rt_dds", FrameAnalysisOptions::DUMP_RT_DDS},
+    {L"dump_depth_jps", FrameAnalysisOptions::DUMP_DEPTH_JPS}, // Doesn't work yet
+    {L"dump_depth_dds", FrameAnalysisOptions::DUMP_DEPTH_DDS},
+    {L"dump_tex_jps", FrameAnalysisOptions::DUMP_TEX_JPS},
+    {L"dump_tex_dds", FrameAnalysisOptions::DUMP_TEX_DDS},
+    {L"dump_cb_txt", FrameAnalysisOptions::DUMP_CB_TXT},
+    {L"dump_vb_txt", FrameAnalysisOptions::DUMP_VB_TXT},
+    {L"dump_ib_txt", FrameAnalysisOptions::DUMP_IB_TXT},
 
-	{nullptr, FrameAnalysisOptions::INVALID} // End of list marker
+    {nullptr, FrameAnalysisOptions::INVALID} // End of list marker
 };
 
-enum class DepthBufferFilter {
+enum class DepthBufferFilter
+{
 	INVALID = -1,
 	NONE,
 	DEPTH_ACTIVE,
 	DEPTH_INACTIVE,
 };
 static EnumName_t<const wchar_t *, DepthBufferFilter> DepthBufferFilterNames[] = {
-	{L"none", DepthBufferFilter::NONE},
-	{L"depth_active", DepthBufferFilter::DEPTH_ACTIVE},
-	{L"depth_inactive", DepthBufferFilter::DEPTH_INACTIVE},
-	{nullptr, DepthBufferFilter::INVALID} // End of list marker
+    {L"none", DepthBufferFilter::NONE},
+    {L"depth_active", DepthBufferFilter::DEPTH_ACTIVE},
+    {L"depth_inactive", DepthBufferFilter::DEPTH_INACTIVE},
+    {nullptr, DepthBufferFilter::INVALID} // End of list marker
 };
 
-struct ShaderOverride {
+struct ShaderOverride
+{
 	std::wstring first_ini_section;
 	DepthBufferFilter depth_filter;
 	char model[20]; // More than long enough for even ps_4_0_level_9_0
@@ -261,18 +268,17 @@ struct ShaderOverride {
 	CommandList command_list;
 	CommandList post_command_list;
 
-	ShaderOverride() :
-		depth_filter(DepthBufferFilter::NONE),
-		allow_duplicate_hashes(1),
-		filter_index(FLT_MAX),
-		backup_filter_index(FLT_MAX)
+	ShaderOverride()
+	    : depth_filter(DepthBufferFilter::NONE), allow_duplicate_hashes(1), filter_index(FLT_MAX),
+	      backup_filter_index(FLT_MAX)
 	{
 		model[0] = '\0';
 	}
 };
 typedef std::unordered_map<UINT64, struct ShaderOverride> ShaderOverrideMap;
 
-struct TextureOverride {
+struct TextureOverride
+{
 	std::wstring ini_section;
 	int format;
 	int width;
@@ -300,21 +306,12 @@ struct TextureOverride {
 	CommandList command_list;
 	CommandList post_command_list;
 
-	TextureOverride() :
-		format(-1),
-		width(-1),
-		height(-1),
-		width_multiply(1.0),
-		height_multiply(1.0),
-		override_byte_width(-1),
-		override_num_elements(-1),
-		expand_region_copy(false),
-		deny_cpu_read(false),
-		filter_index(FLT_MAX),
-		has_draw_context_match(false),
-		has_match_priority(false),
-		priority(0)
-	{}
+	TextureOverride()
+	    : format(-1), width(-1), height(-1), width_multiply(1.0), height_multiply(1.0), override_byte_width(-1),
+	      override_num_elements(-1), expand_region_copy(false), deny_cpu_read(false), filter_index(FLT_MAX),
+	      has_draw_context_match(false), has_match_priority(false), priority(0)
+	{
+	}
 };
 
 typedef std::unordered_map<ID3D11Resource *, ResourceHandleInfo> ResourceMap;
@@ -338,9 +335,10 @@ struct ResourceSnapshot
 	uint32_t hash;
 	uint32_t orig_hash;
 
-	ResourceSnapshot(ID3D11Resource *handle, uint32_t hash, uint32_t orig_hash):
-		handle(handle), hash(hash), orig_hash(orig_hash)
-	{}
+	ResourceSnapshot(ID3D11Resource *handle, uint32_t hash, uint32_t orig_hash)
+	    : handle(handle), hash(hash), orig_hash(orig_hash)
+	{
+	}
 };
 static inline bool operator<(const ResourceSnapshot &lhs, const ResourceSnapshot &rhs)
 {
@@ -361,15 +359,16 @@ struct ShaderInfoData
 	std::set<ResourceSnapshot> DepthTargets;
 };
 
-enum class GetResolutionFrom {
-	INVALID       = -1,
+enum class GetResolutionFrom
+{
+	INVALID = -1,
 	SWAP_CHAIN,
 	DEPTH_STENCIL,
 };
 static EnumName_t<const wchar_t *, GetResolutionFrom> GetResolutionFromNames[] = {
-	{L"swap_chain", GetResolutionFrom::SWAP_CHAIN},
-	{L"depth_stencil", GetResolutionFrom::DEPTH_STENCIL},
-	{nullptr, GetResolutionFrom::INVALID} // End of list marker
+    {L"swap_chain", GetResolutionFrom::SWAP_CHAIN},
+    {L"depth_stencil", GetResolutionFrom::DEPTH_STENCIL},
+    {nullptr, GetResolutionFrom::INVALID} // End of list marker
 };
 
 struct ResolutionInfo
@@ -377,11 +376,7 @@ struct ResolutionInfo
 	int width, height;
 	GetResolutionFrom from;
 
-	ResolutionInfo() :
-		from(GetResolutionFrom::INVALID),
-		width(-1),
-		height(-1)
-	{}
+	ResolutionInfo() : from(GetResolutionFrom::INVALID), width(-1), height(-1) {}
 };
 
 enum class AsyncQueryType
@@ -391,7 +386,8 @@ enum class AsyncQueryType
 	COUNTER,
 };
 
-struct ShaderModelCacheEntry {
+struct ShaderModelCacheEntry
+{
 	std::string shaderModel;
 };
 
@@ -423,7 +419,7 @@ struct Globals
 	int user_config_dirty;
 
 	EnableHooks enable_hooks;
-	
+
 	bool enable_check_interface;
 	int enable_create_device;
 	bool enable_platform_update;
@@ -462,14 +458,14 @@ struct Globals
 	unsigned analyse_frame_no;
 	wchar_t ANALYSIS_PATH[MAX_PATH];
 	FrameAnalysisOptions def_analyse_options, cur_analyse_options;
-	std::unordered_set<void*> frame_analysis_seen_rts;
+	std::unordered_set<void *> frame_analysis_seen_rts;
 
 	ShaderHashType shader_hash_type;
 	bool track_region_hashes;
 	bool track_implicit_index_buffers;
 	bool allow_buffer_resize;
 	int texture_hash_version;
-	int EXPORT_HLSL;		// 0=off, 1=HLSL only, 2=HLSL+OriginalASM, 3= HLSL+OriginalASM+recompiledASM
+	int EXPORT_HLSL; // 0=off, 1=HLSL only, 2=HLSL+OriginalASM, 3= HLSL+OriginalASM+recompiledASM
 	bool EXPORT_SHADERS, EXPORT_FIXED, EXPORT_BINARY, CACHE_SHADERS, SCISSOR_DISABLE;
 	int track_texture_updates;
 	bool assemble_signature_comments;
@@ -538,34 +534,44 @@ struct Globals
 	std::unordered_map<uint32_t, unsigned> mVisitedIndexBuffersLastSeenFrame;
 	std::unordered_map<uint32_t, unsigned> mVisitedVertexBuffersLastSeenFrame;
 
-	std::set<uint32_t> mVisitedIndexBuffers;		        // std::set is sorted for consistent order while hunting
+	std::set<uint32_t> mVisitedIndexBuffers; // std::set is sorted for consistent order while hunting
 	uint32_t mSelectedIndexBuffer;
 	int mSelectedIndexBufferPos;
-	std::set<UINT64> mSelectedIndexBuffer_VertexShader;		// std::set so that shaders used with an index buffer will be sorted in log when marked
-	std::set<UINT64> mSelectedIndexBuffer_PixelShader;		// std::set so that shaders used with an index buffer will be sorted in log when marked
+	std::set<UINT64>
+	    mSelectedIndexBuffer_VertexShader; // std::set so that shaders used with an index buffer will be sorted in log when marked
+	std::set<UINT64>
+	    mSelectedIndexBuffer_PixelShader; // std::set so that shaders used with an index buffer will be sorted in log when marked
 
-	std::set<uint32_t> mVisitedVertexBuffers;		        // std::set is sorted for consistent order while hunting
+	std::set<uint32_t> mVisitedVertexBuffers; // std::set is sorted for consistent order while hunting
 	uint32_t mSelectedVertexBuffer;
 	int mSelectedVertexBufferPos;
-	std::set<UINT64> mSelectedVertexBuffer_VertexShader;	// std::set so that shaders used with an index buffer will be sorted in log when marked
-	std::set<UINT64> mSelectedVertexBuffer_PixelShader;		// std::set so that shaders used with an index buffer will be sorted in log when marked
+	std::set<UINT64>
+	    mSelectedVertexBuffer_VertexShader; // std::set so that shaders used with an index buffer will be sorted in log when marked
+	std::set<UINT64>
+	    mSelectedVertexBuffer_PixelShader; // std::set so that shaders used with an index buffer will be sorted in log when marked
 
-	std::set<UINT64> mVisitedVertexShaders;					// Only shaders seen since last hunting timeout; std::set for consistent order while hunting
-	UINT64 mSelectedVertexShader;				 			// Hash.  -1 now for unselected state. The shader selected using Input object.
-	int mSelectedVertexShaderPos;							// -1 for unselected state.
-	std::set<uint32_t> mSelectedVertexShader_IndexBuffer;	// std::set so that index buffers used with a shader will be sorted in log when marked
-	std::set<uint32_t> mSelectedVertexShader_VertexBuffer;	// std::set so that index buffers used with a shader will be sorted in log when marked
+	std::set<UINT64>
+	    mVisitedVertexShaders; // Only shaders seen since last hunting timeout; std::set for consistent order while hunting
+	UINT64 mSelectedVertexShader; // Hash.  -1 now for unselected state. The shader selected using Input object.
+	int mSelectedVertexShaderPos; // -1 for unselected state.
+	std::set<uint32_t>
+	    mSelectedVertexShader_IndexBuffer; // std::set so that index buffers used with a shader will be sorted in log when marked
+	std::set<uint32_t>
+	    mSelectedVertexShader_VertexBuffer; // std::set so that index buffers used with a shader will be sorted in log when marked
 
-	std::set<UINT64> mVisitedPixelShaders;					// std::set is sorted for consistent order while hunting
-	UINT64 mSelectedPixelShader;							// Hash.  -1 now for unselected state.
-	int mSelectedPixelShaderPos;							// -1 for unselected state.
-	std::set<uint32_t> mSelectedPixelShader_IndexBuffer;	// std::set so that index buffers used with a shader will be sorted in log when marked
-	std::set<uint32_t> mSelectedPixelShader_VertexBuffer;	// std::set so that index buffers used with a shader will be sorted in log when marked
-	ID3D11PixelShader* mPinkingShader;						// Special pixels shader to mark a selection with hot pink.
+	std::set<UINT64> mVisitedPixelShaders; // std::set is sorted for consistent order while hunting
+	UINT64 mSelectedPixelShader;           // Hash.  -1 now for unselected state.
+	int mSelectedPixelShaderPos;           // -1 for unselected state.
+	std::set<uint32_t>
+	    mSelectedPixelShader_IndexBuffer; // std::set so that index buffers used with a shader will be sorted in log when marked
+	std::set<uint32_t>
+	    mSelectedPixelShader_VertexBuffer; // std::set so that index buffers used with a shader will be sorted in log when marked
+	ID3D11PixelShader *mPinkingShader; // Special pixels shader to mark a selection with hot pink.
 
-	ShaderMap mShaders;										// All shaders ever registered with CreateXXXShader
-	ShaderReloadMap mReloadedShaders;						// Shaders that were reloaded live from ShaderFixes
-	ShaderReplacementMap mOriginalShaders;					// When MarkingMode=Original, switch to original. Also used for show_original and shader reversion
+	ShaderMap mShaders;               // All shaders ever registered with CreateXXXShader
+	ShaderReloadMap mReloadedShaders; // Shaders that were reloaded live from ShaderFixes
+	ShaderReplacementMap
+	    mOriginalShaders; // When MarkingMode=Original, switch to original. Also used for show_original and shader reversion
 
 	std::set<UINT64> mVisitedComputeShaders;
 	UINT64 mSelectedComputeShader;
@@ -589,8 +595,10 @@ struct Globals
 
 	std::unordered_map<UINT64, ShaderModelCacheEntry> mShaderModelCache;
 
-	unordered_map<uint32_t, TextureOverrideFuzzyMatches> mTextureOverrideDrawIndexMap;  // Contains hash+TextureOverrides pairs indexed by match_index_count
-	unordered_map<uint32_t, TextureOverrideFuzzyMatches> mTextureOverrideDrawVertexMap; // Contains hash+TextureOverrides pairs indexed by match_vertex_count
+	unordered_map<uint32_t, TextureOverrideFuzzyMatches>
+	    mTextureOverrideDrawIndexMap; // Contains hash+TextureOverrides pairs indexed by match_index_count
+	unordered_map<uint32_t, TextureOverrideFuzzyMatches>
+	    mTextureOverrideDrawVertexMap; // Contains hash+TextureOverrides pairs indexed by match_vertex_count
 
 	// Statistics
 	///////////////////////////////////////////////////////////////////////
@@ -620,143 +628,90 @@ struct Globals
 	CRITICAL_SECTION mResourcesLock;
 	ResourceMap mResources;
 
-	std::unordered_map<ID3D11Asynchronous*, AsyncQueryType> mQueryTypes;
+	std::unordered_map<ID3D11Asynchronous *, AsyncQueryType> mQueryTypes;
 
 	// These five items work with the *original* resource hash:
 	ResourceInfoMap mResourceInfo;
-	std::set<uint32_t> mRenderTargetInfo;					// std::set so that ShaderUsage.txt is sorted - lookup time is O(log N)
-	std::set<uint32_t> mUnorderedAccessInfo;				// std::set so that ShaderUsage.txt is sorted - lookup time is O(log N)
-	std::set<uint32_t> mDepthTargetInfo;					// std::set so that ShaderUsage.txt is sorted - lookup time is O(log N)
-	std::set<uint32_t> mShaderResourceInfo;					// std::set so that ShaderUsage.txt is sorted - lookup time is O(log N)
-	std::set<uint32_t> mCopiedResourceInfo;					// std::set so that ShaderUsage.txt is sorted - lookup time is O(log N)
+	std::set<uint32_t> mRenderTargetInfo;    // std::set so that ShaderUsage.txt is sorted - lookup time is O(log N)
+	std::set<uint32_t> mUnorderedAccessInfo; // std::set so that ShaderUsage.txt is sorted - lookup time is O(log N)
+	std::set<uint32_t> mDepthTargetInfo;     // std::set so that ShaderUsage.txt is sorted - lookup time is O(log N)
+	std::set<uint32_t> mShaderResourceInfo;  // std::set so that ShaderUsage.txt is sorted - lookup time is O(log N)
+	std::set<uint32_t> mCopiedResourceInfo;  // std::set so that ShaderUsage.txt is sorted - lookup time is O(log N)
 
-	std::set<ID3D11Resource *> mVisitedRenderTargets;						// std::set is sorted for consistent order while hunting
+	std::set<ID3D11Resource *> mVisitedRenderTargets; // std::set is sorted for consistent order while hunting
 	ID3D11Resource *mSelectedRenderTarget;
 	int mSelectedRenderTargetPos;
 	// Snapshot of all targets for selection.
 	ID3D11Resource *mSelectedRenderTargetSnapshot;
-	std::set<ID3D11Resource *> mSelectedRenderTargetSnapshotList;			// std::set so that render targets will be sorted in log when marked
+	std::set<ID3D11Resource *>
+	    mSelectedRenderTargetSnapshotList; // std::set so that render targets will be sorted in log when marked
 	// Relations
-	std::map<UINT64, ShaderInfoData> mVertexShaderInfo;			// std::map so that ShaderUsage.txt is sorted - lookup time is O(log N)
-	std::map<UINT64, ShaderInfoData> mHullShaderInfo;			// std::map so that ShaderUsage.txt is sorted - lookup time is O(log N)
-	std::map<UINT64, ShaderInfoData> mDomainShaderInfo;			// std::map so that ShaderUsage.txt is sorted - lookup time is O(log N)
-	std::map<UINT64, ShaderInfoData> mGeometryShaderInfo;		// std::map so that ShaderUsage.txt is sorted - lookup time is O(log N)
-	std::map<UINT64, ShaderInfoData> mPixelShaderInfo;			// std::map so that ShaderUsage.txt is sorted - lookup time is O(log N)
-	std::map<UINT64, ShaderInfoData> mComputeShaderInfo;		// std::map so that ShaderUsage.txt is sorted - lookup time is O(log N)
+	std::map<UINT64, ShaderInfoData>
+	    mVertexShaderInfo; // std::map so that ShaderUsage.txt is sorted - lookup time is O(log N)
+	std::map<UINT64, ShaderInfoData>
+	    mHullShaderInfo; // std::map so that ShaderUsage.txt is sorted - lookup time is O(log N)
+	std::map<UINT64, ShaderInfoData>
+	    mDomainShaderInfo; // std::map so that ShaderUsage.txt is sorted - lookup time is O(log N)
+	std::map<UINT64, ShaderInfoData>
+	    mGeometryShaderInfo; // std::map so that ShaderUsage.txt is sorted - lookup time is O(log N)
+	std::map<UINT64, ShaderInfoData>
+	    mPixelShaderInfo; // std::map so that ShaderUsage.txt is sorted - lookup time is O(log N)
+	std::map<UINT64, ShaderInfoData>
+	    mComputeShaderInfo; // std::map so that ShaderUsage.txt is sorted - lookup time is O(log N)
 
-	Globals() :
+	Globals()
+	    :
 
-		mSelectedRenderTargetSnapshot(0),
-		mSelectedRenderTargetPos(-1),
-		mSelectedRenderTarget((ID3D11Resource *)-1),
-		mSelectedPixelShader(UINT64_MAX),
-		mSelectedPixelShaderPos(-1),
-		mSelectedVertexShader(UINT64_MAX),
-		mSelectedVertexShaderPos(-1),
-		mSelectedIndexBuffer(UINT32_MAX),
-		mSelectedIndexBufferPos(-1),
-		mSelectedVertexBuffer(UINT32_MAX),
-		mSelectedVertexBufferPos(-1),
-		mSelectedComputeShader(UINT64_MAX),
-		mSelectedComputeShaderPos(-1),
-		mSelectedGeometryShader(UINT64_MAX),
-		mSelectedGeometryShaderPos(-1),
-		mSelectedDomainShader(UINT64_MAX),
-		mSelectedDomainShaderPos(-1),
-		mSelectedHullShader(UINT64_MAX),
-		mSelectedHullShaderPos(-1),
-		mPinkingShader(0),
+	      mSelectedRenderTargetSnapshot(0), mSelectedRenderTargetPos(-1), mSelectedRenderTarget((ID3D11Resource *)-1),
+	      mSelectedPixelShader(UINT64_MAX), mSelectedPixelShaderPos(-1), mSelectedVertexShader(UINT64_MAX),
+	      mSelectedVertexShaderPos(-1), mSelectedIndexBuffer(UINT32_MAX), mSelectedIndexBufferPos(-1),
+	      mSelectedVertexBuffer(UINT32_MAX), mSelectedVertexBufferPos(-1), mSelectedComputeShader(UINT64_MAX),
+	      mSelectedComputeShaderPos(-1), mSelectedGeometryShader(UINT64_MAX), mSelectedGeometryShaderPos(-1),
+	      mSelectedDomainShader(UINT64_MAX), mSelectedDomainShaderPos(-1), mSelectedHullShader(UINT64_MAX),
+	      mSelectedHullShaderPos(-1), mPinkingShader(0),
 
-		hunting(HUNTING_MODE_DISABLED),
-		overlay_buffer_hash_lifetime(-1),
-		fix_enabled(true),
-		config_reloadable(false),
-		show_original_enabled(false),
-		huntTime(0),
-		verbose_overlay(false),
-		suppress_overlay(false),
-		gSelectedVertexBufferSlotId(-1),
-		gResetSelectedVertexBufferSlotId(false),
+	      hunting(HUNTING_MODE_DISABLED), overlay_buffer_hash_lifetime(-1), fix_enabled(true), config_reloadable(false),
+	      show_original_enabled(false), huntTime(0), verbose_overlay(false), suppress_overlay(false),
+	      gSelectedVertexBufferSlotId(-1), gResetSelectedVertexBufferSlotId(false),
 
-		deferred_contexts_enabled(true),
+	      deferred_contexts_enabled(true),
 
-		frame_analysis_registered(false),
-		analyse_frame(false),
-		analyse_frame_no(0),
-		def_analyse_options(FrameAnalysisOptions::INVALID),
-		cur_analyse_options(FrameAnalysisOptions::INVALID),
+	      frame_analysis_registered(false), analyse_frame(false), analyse_frame_no(0),
+	      def_analyse_options(FrameAnalysisOptions::INVALID), cur_analyse_options(FrameAnalysisOptions::INVALID),
 
-		shader_hash_type(ShaderHashType::FNV),
-		track_region_hashes(false),
-		track_implicit_index_buffers(false),
-		allow_buffer_resize(true),
-		texture_hash_version(0),
-		EXPORT_SHADERS(false),
-		EXPORT_HLSL(0),
-		EXPORT_FIXED(false),
-		EXPORT_BINARY(false),
-		CACHE_SHADERS(false),
-		DumpUsage(false),
-		ENABLE_TUNE(false),
-		gTuneStep(0.001f),
+	      shader_hash_type(ShaderHashType::FNV), track_region_hashes(false), track_implicit_index_buffers(false),
+	      allow_buffer_resize(true), texture_hash_version(0), EXPORT_SHADERS(false), EXPORT_HLSL(0),
+	      EXPORT_FIXED(false), EXPORT_BINARY(false), CACHE_SHADERS(false), DumpUsage(false), ENABLE_TUNE(false),
+	      gTuneStep(0.001f),
 
-		iniParamsReserved(0),
+	      iniParamsReserved(0),
 
-		constants_run(false),
-		frame_no(0),
-		hWnd(nullptr),
-		hide_cursor(false),
-		cursor_upscaling_bypass(true),
-		check_foreground_window(false),
-		wine_compat(-1),
-		wine_compat_profile_applied(false),
-		running_under_wine(false),
+	      constants_run(false), frame_no(0), hWnd(nullptr), hide_cursor(false), cursor_upscaling_bypass(true),
+	      check_foreground_window(false), wine_compat(-1), wine_compat_profile_applied(false),
+	      running_under_wine(false),
 
-		GAME_INTERNAL_WIDTH(1), // it gonna be used by mouse pos hook in case of softwaremouse is on and it can be called before
-		GAME_INTERNAL_HEIGHT(1),//  the swap chain is created and the proper data set to avoid errors in the hooked winapi functions
-		SCREEN_WIDTH(-1),
-		SCREEN_HEIGHT(-1),
-		SCREEN_REFRESH(-1),
-		SCREEN_FULLSCREEN(0),
-		SCREEN_ALLOW_COMMANDS(false),
-		upscaling_hooks_armed(true),
-		upscaling_command_list_using_explicit_bb_flip(false),
-		bb_is_upscaling_bb(false),
-		implicit_post_checktextureoverride_used(false),
+	      GAME_INTERNAL_WIDTH(
+	          1), // it gonna be used by mouse pos hook in case of softwaremouse is on and it can be called before
+	      GAME_INTERNAL_HEIGHT(
+	          1), //  the swap chain is created and the proper data set to avoid errors in the hooked winapi functions
+	      SCREEN_WIDTH(-1), SCREEN_HEIGHT(-1), SCREEN_REFRESH(-1), SCREEN_FULLSCREEN(0), SCREEN_ALLOW_COMMANDS(false),
+	      upscaling_hooks_armed(true), upscaling_command_list_using_explicit_bb_flip(false), bb_is_upscaling_bb(false),
+	      implicit_post_checktextureoverride_used(false),
 
-		marking_mode(MarkingMode::INVALID),
-		marking_actions(MarkingAction::INVALID),
-		ZBufferHashToInject(0),
-		SCISSOR_DISABLE(0),
+	      marking_mode(MarkingMode::INVALID), marking_actions(MarkingAction::INVALID), ZBufferHashToInject(0),
+	      SCISSOR_DISABLE(0),
 
-		load_library_redirect(2),
-		enable_hooks(EnableHooks::INVALID),
-		enable_check_interface(false),
-		enable_create_device(0),
-		enable_platform_update(false),
-		gInitialized(false),
-		bIntendedTargetExe(false),
-		gReloadConfigPending(false),
-		gConfigInitialized(false),
-		gWipeUserConfig(false),
-		user_config_dirty(0),
-		gLogInput(false),
-		gShowWarnings(true),
-		gDllInitializationDelay(0),
-		gSettingsAutoSaveInterval(0),
-		gConfigInitializationDelay(0),
-		// Classic 3Dmigoto / EDHM: load [Include] files on first parse.
-		// XXMI defaulted this to true for launcher boot; that leaves EDHM's
-		// EDHM-ini/* TextureOverrides and Constants unloaded until a delayed reload.
-		gSkipEarlyIncludesLoad(false),
-		fuzzy_match_alongside_hash(false),
-		auto_refresh_have_last_write(false),
-		auto_refresh_last_check_time(0.0f),
-		gFallbackScreenWidth(0),
-		gFallbackScreenHeight(0),
-		dump_all_profiles(false),
-		gSystemTickCount(0),
-		gTime(0)
+	      load_library_redirect(2), enable_hooks(EnableHooks::INVALID), enable_check_interface(false),
+	      enable_create_device(0), enable_platform_update(false), gInitialized(false), bIntendedTargetExe(false),
+	      gReloadConfigPending(false), gConfigInitialized(false), gWipeUserConfig(false), user_config_dirty(0),
+	      gLogInput(false), gShowWarnings(true), gDllInitializationDelay(0), gSettingsAutoSaveInterval(0),
+	      gConfigInitializationDelay(0),
+	      // Classic 3Dmigoto / EDHM: load [Include] files on first parse.
+	      // XXMI defaulted this to true for launcher boot; that leaves EDHM's
+	      // EDHM-ini/* TextureOverrides and Constants unloaded until a delayed reload.
+	      gSkipEarlyIncludesLoad(false), fuzzy_match_alongside_hash(false), auto_refresh_have_last_write(false),
+	      auto_refresh_last_check_time(0.0f), gFallbackScreenWidth(0), gFallbackScreenHeight(0),
+	      dump_all_profiles(false), gSystemTickCount(0), gTime(0)
 	{
 		int i;
 
@@ -815,17 +770,13 @@ struct TLS
 
 	bool com_initialized;
 
-	TLS() :
-		hooking_quirk_protection(false),
-		suppress_d3d11_redirect_once(false),
-		com_initialized(false)
-	{}
+	TLS() : hooking_quirk_protection(false), suppress_d3d11_redirect_once(false), com_initialized(false) {}
 };
 
 extern DWORD tls_idx;
-static struct TLS* get_tls()
+static struct TLS *get_tls()
 {
-	TLS* tls = (TLS*)TlsGetValue(tls_idx);
+	TLS *tls = (TLS *)TlsGetValue(tls_idx);
 
 	if (!tls)
 	{
@@ -838,7 +789,7 @@ static struct TLS* get_tls()
 
 inline bool EnsureCOM()
 {
-	TLS* tls = get_tls();
+	TLS *tls = get_tls();
 
 	if (tls->com_initialized)
 		return true;

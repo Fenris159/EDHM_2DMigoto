@@ -59,10 +59,12 @@ function Test-SourceArgument {
 function Test-BuildOnlyArgument {
     param([string] $Argument)
 
-    return $Argument -match '(?i)^/(c|FC|FS|GL|Gm-|MP|WX)$' -or
+    return (
+        $Argument -match '(?i)^/(c|FC|FS|GL|Gm-|MP|WX)$' -or
         $Argument -match '(?i)^/(Fd|Fo).+' -or
         $Argument -match '(?i)^/Y[cu].+' -or
         $Argument -match '(?i)^/Fp(?!:).+'
+    )
 }
 
 $resolvedInput = (Resolve-Path -LiteralPath $InputPath).Path

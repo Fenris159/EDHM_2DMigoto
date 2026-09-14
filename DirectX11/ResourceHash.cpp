@@ -24,14 +24,16 @@
 static wstring TexBindFlags(UINT bind_flags)
 {
 	if (bind_flags)
-		return L"bind_flags=\"" + lookup_enum_bit_names(CustomResourceBindFlagNames, (CustomResourceBindFlags)bind_flags) + L"\"";
+		return L"bind_flags=\"" +
+		       lookup_enum_bit_names(CustomResourceBindFlagNames, (CustomResourceBindFlags)bind_flags) + L"\"";
 	return L"bind_flags=0";
 }
 
 static wstring TexCPUFlags(UINT cpu_flags)
 {
 	if (cpu_flags)
-		return L"cpu_access_flags=\"" + lookup_enum_bit_names(ResourceCPUAccessFlagNames, (ResourceCPUAccessFlags)cpu_flags) + L"\"";
+		return L"cpu_access_flags=\"" +
+		       lookup_enum_bit_names(ResourceCPUAccessFlagNames, (ResourceCPUAccessFlags)cpu_flags) + L"\"";
 	return L"cpu_access_flags=0";
 }
 
@@ -44,68 +46,64 @@ static wstring TexMiscFlags(UINT misc_flags)
 
 int StrResourceDesc(char *buf, size_t size, const D3D11_BUFFER_DESC *desc)
 {
-	return _snprintf_s(buf, size, size, "type=Buffer byte_width=%u "
-		"usage=\"%S\" %S %S %S stride=%u",
-		desc->ByteWidth, TexResourceUsage(desc->Usage),
-		TexBindFlags(desc->BindFlags).c_str(),
-		TexCPUFlags(desc->CPUAccessFlags).c_str(),
-		TexMiscFlags(desc->MiscFlags).c_str(),
-		desc->StructureByteStride);
+	return _snprintf_s(buf, size, size,
+	                   "type=Buffer byte_width=%u "
+	                   "usage=\"%S\" %S %S %S stride=%u",
+	                   desc->ByteWidth, TexResourceUsage(desc->Usage), TexBindFlags(desc->BindFlags).c_str(),
+	                   TexCPUFlags(desc->CPUAccessFlags).c_str(), TexMiscFlags(desc->MiscFlags).c_str(),
+	                   desc->StructureByteStride);
 }
 
 int StrResourceDesc(char *buf, size_t size, const D3D11_TEXTURE1D_DESC *desc)
 {
-	return _snprintf_s(buf, size, size, "type=Texture1D width=%u mips=%u "
-		"array=%u format=\"%s\" usage=\"%S\" %S %S %S",
-		desc->Width, desc->MipLevels, desc->ArraySize,
-		TexFormatStr(desc->Format), TexResourceUsage(desc->Usage),
-		TexBindFlags(desc->BindFlags).c_str(),
-		TexCPUFlags(desc->CPUAccessFlags).c_str(),
-		TexMiscFlags(desc->MiscFlags).c_str());
+	return _snprintf_s(buf, size, size,
+	                   "type=Texture1D width=%u mips=%u "
+	                   "array=%u format=\"%s\" usage=\"%S\" %S %S %S",
+	                   desc->Width, desc->MipLevels, desc->ArraySize, TexFormatStr(desc->Format),
+	                   TexResourceUsage(desc->Usage), TexBindFlags(desc->BindFlags).c_str(),
+	                   TexCPUFlags(desc->CPUAccessFlags).c_str(), TexMiscFlags(desc->MiscFlags).c_str());
 }
 
 int StrResourceDesc(char *buf, size_t size, const D3D11_TEXTURE2D_DESC *desc)
 {
-	return _snprintf_s(buf, size, size, "type=Texture2D width=%u height=%u mips=%u "
-		"array=%u format=\"%s\" msaa=%u "
-		"msaa_quality=%u usage=\"%S\" %S %S %S",
-		desc->Width, desc->Height, desc->MipLevels, desc->ArraySize,
-		TexFormatStr(desc->Format), desc->SampleDesc.Count,
-		desc->SampleDesc.Quality, TexResourceUsage(desc->Usage),
-		TexBindFlags(desc->BindFlags).c_str(),
-		TexCPUFlags(desc->CPUAccessFlags).c_str(),
-		TexMiscFlags(desc->MiscFlags).c_str());
+	return _snprintf_s(buf, size, size,
+	                   "type=Texture2D width=%u height=%u mips=%u "
+	                   "array=%u format=\"%s\" msaa=%u "
+	                   "msaa_quality=%u usage=\"%S\" %S %S %S",
+	                   desc->Width, desc->Height, desc->MipLevels, desc->ArraySize, TexFormatStr(desc->Format),
+	                   desc->SampleDesc.Count, desc->SampleDesc.Quality, TexResourceUsage(desc->Usage),
+	                   TexBindFlags(desc->BindFlags).c_str(), TexCPUFlags(desc->CPUAccessFlags).c_str(),
+	                   TexMiscFlags(desc->MiscFlags).c_str());
 }
 
 int StrResourceDesc(char *buf, size_t size, const D3D11_TEXTURE3D_DESC *desc)
 {
-	return _snprintf_s(buf, size, size, "type=Texture3D width=%u height=%u depth=%u "
-		"mips=%u format=\"%s\" usage=\"%S\" %S %S %S",
-		desc->Width, desc->Height, desc->Depth, desc->MipLevels,
-		TexFormatStr(desc->Format), TexResourceUsage(desc->Usage),
-		TexBindFlags(desc->BindFlags).c_str(),
-		TexCPUFlags(desc->CPUAccessFlags).c_str(),
-		TexMiscFlags(desc->MiscFlags).c_str());
+	return _snprintf_s(buf, size, size,
+	                   "type=Texture3D width=%u height=%u depth=%u "
+	                   "mips=%u format=\"%s\" usage=\"%S\" %S %S %S",
+	                   desc->Width, desc->Height, desc->Depth, desc->MipLevels, TexFormatStr(desc->Format),
+	                   TexResourceUsage(desc->Usage), TexBindFlags(desc->BindFlags).c_str(),
+	                   TexCPUFlags(desc->CPUAccessFlags).c_str(), TexMiscFlags(desc->MiscFlags).c_str());
 }
 
 int StrResourceDesc(char *buf, size_t size, struct ResourceHashInfo &info)
 {
-	switch (info.type) {
-		case D3D11_RESOURCE_DIMENSION_BUFFER:
-			return StrResourceDesc(buf, size, &info.buf_desc);
-		case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
-			return StrResourceDesc(buf, size, &info.tex1d_desc);
-		case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
-			return StrResourceDesc(buf, size, &info.tex2d_desc);
-		case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
-			return StrResourceDesc(buf, size, &info.tex3d_desc);
-		default:
-			return _snprintf_s(buf, size, size, "type=%i", info.type);
+	switch (info.type)
+	{
+	case D3D11_RESOURCE_DIMENSION_BUFFER:
+		return StrResourceDesc(buf, size, &info.buf_desc);
+	case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
+		return StrResourceDesc(buf, size, &info.tex1d_desc);
+	case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
+		return StrResourceDesc(buf, size, &info.tex2d_desc);
+	case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
+		return StrResourceDesc(buf, size, &info.tex3d_desc);
+	default:
+		return _snprintf_s(buf, size, size, "type=%i", info.type);
 	}
 }
 
-template <typename DescType>
-static void LogResourceDescCommon(DescType *desc)
+template <typename DescType> static void LogResourceDescCommon(DescType *desc)
 {
 	LogInfo("    Usage = %d\n", desc->Usage);
 	LogInfo("    BindFlags = 0x%x\n", desc->BindFlags);
@@ -168,23 +166,24 @@ void LogResourceDesc(ID3D11Resource *resource)
 	D3D11_TEXTURE3D_DESC desc_3d;
 
 	resource->GetType(&dim);
-	switch (dim) {
-		case D3D11_RESOURCE_DIMENSION_BUFFER:
-			buffer = (ID3D11Buffer*)resource;
-			buffer->GetDesc(&buffer_desc);
-			return LogResourceDesc(&buffer_desc);
-		case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
-			tex_1d = (ID3D11Texture1D*)resource;
-			tex_1d->GetDesc(&desc_1d);
-			return LogResourceDesc(&desc_1d);
-		case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
-			tex_2d = (ID3D11Texture2D*)resource;
-			tex_2d->GetDesc(&desc_2d);
-			return LogResourceDesc(&desc_2d);
-		case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
-			tex_3d = (ID3D11Texture3D*)resource;
-			tex_3d->GetDesc(&desc_3d);
-			return LogResourceDesc(&desc_3d);
+	switch (dim)
+	{
+	case D3D11_RESOURCE_DIMENSION_BUFFER:
+		buffer = (ID3D11Buffer *)resource;
+		buffer->GetDesc(&buffer_desc);
+		return LogResourceDesc(&buffer_desc);
+	case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
+		tex_1d = (ID3D11Texture1D *)resource;
+		tex_1d->GetDesc(&desc_1d);
+		return LogResourceDesc(&desc_1d);
+	case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
+		tex_2d = (ID3D11Texture2D *)resource;
+		tex_2d->GetDesc(&desc_2d);
+		return LogResourceDesc(&desc_2d);
+	case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
+		tex_3d = (ID3D11Texture3D *)resource;
+		tex_3d->GetDesc(&desc_3d);
+		return LogResourceDesc(&desc_3d);
 	}
 }
 
@@ -192,70 +191,71 @@ void LogViewDesc(const D3D11_SHADER_RESOURCE_VIEW_DESC *desc)
 {
 	LogInfo("  View Type = Shader Resource\n");
 	LogInfo("    Format = %s (%d)\n", TexFormatStr(desc->Format), desc->Format);
-	switch (desc->ViewDimension) {
-		case D3D11_SRV_DIMENSION_UNKNOWN:
-			LogInfo("    ViewDimension = UNKNOWN\n");
-			break;
-		case D3D11_SRV_DIMENSION_BUFFER:
-			LogInfo("    ViewDimension = BUFFER\n");
-			LogInfo("      Buffer.FirstElement/NumElements = %u\n", desc->Buffer.FirstElement);
-			LogInfo("      Buffer.ElementOffset/ElementWidth = %u\n", desc->Buffer.ElementOffset);
-			break;
-		case D3D11_SRV_DIMENSION_TEXTURE1D:
-			LogInfo("    ViewDimension = TEXTURE1D\n");
-			LogInfo("      Texture1D.MostDetailedMip = %u\n", desc->Texture1D.MostDetailedMip);
-			LogInfo("      Texture1D.MipLevels = %d\n", desc->Texture1D.MipLevels);
-			break;
-		case D3D11_SRV_DIMENSION_TEXTURE1DARRAY:
-			LogInfo("    ViewDimension = TEXTURE1DARRAY\n");
-			LogInfo("      Texture1DArray.MostDetailedMip = %u\n", desc->Texture1DArray.MostDetailedMip);
-			LogInfo("      Texture1DArray.MipLevels = %d\n", desc->Texture1DArray.MipLevels);
-			LogInfo("      Texture1DArray.FirstArraySlice = %u\n", desc->Texture1DArray.FirstArraySlice);
-			LogInfo("      Texture1DArray.ArraySize = %u\n", desc->Texture1DArray.ArraySize);
-			break;
-		case D3D11_SRV_DIMENSION_TEXTURE2D:
-			LogInfo("    ViewDimension = TEXTURE2D\n");
-			LogInfo("      Texture2D.MostDetailedMip = %u\n", desc->Texture2D.MostDetailedMip);
-			LogInfo("      Texture2D.MipLevels = %d\n", desc->Texture2D.MipLevels);
-			break;
-		case D3D11_SRV_DIMENSION_TEXTURE2DARRAY:
-			LogInfo("    ViewDimension = TEXTURE2DARRAY\n");
-			LogInfo("      Texture2DArray.MostDetailedMip = %u\n", desc->Texture2DArray.MostDetailedMip);
-			LogInfo("      Texture2DArray.MipLevels = %d\n", desc->Texture2DArray.MipLevels);
-			LogInfo("      Texture2DArray.FirstArraySlice = %u\n", desc->Texture2DArray.FirstArraySlice);
-			LogInfo("      Texture2DArray.ArraySize = %u\n", desc->Texture2DArray.ArraySize);
-			break;
-		case D3D11_SRV_DIMENSION_TEXTURE2DMS:
-			LogInfo("    ViewDimension = TEXTURE2DMS\n");
-			break;
-		case D3D11_SRV_DIMENSION_TEXTURE2DMSARRAY:
-			LogInfo("    ViewDimension = TEXTURE2DMSARRAY\n");
-			LogInfo("      Texture2DMSArray.FirstArraySlice = %u\n", desc->Texture2DMSArray.FirstArraySlice);
-			LogInfo("      Texture2DMSArray.ArraySize = %u\n", desc->Texture2DMSArray.ArraySize);
-			break;
-		case D3D11_SRV_DIMENSION_TEXTURE3D:
-			LogInfo("    ViewDimension = TEXTURE3D\n");
-			LogInfo("      Texture3D.MostDetailedMip = %u\n", desc->Texture3D.MostDetailedMip);
-			LogInfo("      Texture3D.MipLevels = %d\n", desc->Texture3D.MipLevels);
-			break;
-		case D3D11_SRV_DIMENSION_TEXTURECUBE:
-			LogInfo("    ViewDimension = TEXTURECUBE\n");
-			LogInfo("      TextureCube.MostDetailedMip = %u\n", desc->TextureCube.MostDetailedMip);
-			LogInfo("      TextureCube.MipLevels = %d\n", desc->TextureCube.MipLevels);
-			break;
-		case D3D11_SRV_DIMENSION_TEXTURECUBEARRAY:
-			LogInfo("    ViewDimension = TEXTURECUBEARRAY\n");
-			LogInfo("      TextureCubeArray.MostDetailedMip = %u\n", desc->TextureCubeArray.MostDetailedMip);
-			LogInfo("      TextureCubeArray.MipLevels = %d\n", desc->TextureCubeArray.MipLevels);
-			LogInfo("      TextureCubeArray.First2DArrayFace = %u\n", desc->TextureCubeArray.First2DArrayFace);
-			LogInfo("      TextureCubeArray.NumCubes = %u\n", desc->TextureCubeArray.NumCubes);
-			break;
-		case D3D11_SRV_DIMENSION_BUFFEREX:
-			LogInfo("    ViewDimension = BUFFEREX\n");
-			LogInfo("      BufferEx.FirstElement = %u\n", desc->BufferEx.FirstElement);
-			LogInfo("      BufferEx.NumElements = %u\n", desc->BufferEx.NumElements);
-			LogInfo("      BufferEx.Flags = 0x%x\n", desc->BufferEx.Flags);
-			break;
+	switch (desc->ViewDimension)
+	{
+	case D3D11_SRV_DIMENSION_UNKNOWN:
+		LogInfo("    ViewDimension = UNKNOWN\n");
+		break;
+	case D3D11_SRV_DIMENSION_BUFFER:
+		LogInfo("    ViewDimension = BUFFER\n");
+		LogInfo("      Buffer.FirstElement/NumElements = %u\n", desc->Buffer.FirstElement);
+		LogInfo("      Buffer.ElementOffset/ElementWidth = %u\n", desc->Buffer.ElementOffset);
+		break;
+	case D3D11_SRV_DIMENSION_TEXTURE1D:
+		LogInfo("    ViewDimension = TEXTURE1D\n");
+		LogInfo("      Texture1D.MostDetailedMip = %u\n", desc->Texture1D.MostDetailedMip);
+		LogInfo("      Texture1D.MipLevels = %d\n", desc->Texture1D.MipLevels);
+		break;
+	case D3D11_SRV_DIMENSION_TEXTURE1DARRAY:
+		LogInfo("    ViewDimension = TEXTURE1DARRAY\n");
+		LogInfo("      Texture1DArray.MostDetailedMip = %u\n", desc->Texture1DArray.MostDetailedMip);
+		LogInfo("      Texture1DArray.MipLevels = %d\n", desc->Texture1DArray.MipLevels);
+		LogInfo("      Texture1DArray.FirstArraySlice = %u\n", desc->Texture1DArray.FirstArraySlice);
+		LogInfo("      Texture1DArray.ArraySize = %u\n", desc->Texture1DArray.ArraySize);
+		break;
+	case D3D11_SRV_DIMENSION_TEXTURE2D:
+		LogInfo("    ViewDimension = TEXTURE2D\n");
+		LogInfo("      Texture2D.MostDetailedMip = %u\n", desc->Texture2D.MostDetailedMip);
+		LogInfo("      Texture2D.MipLevels = %d\n", desc->Texture2D.MipLevels);
+		break;
+	case D3D11_SRV_DIMENSION_TEXTURE2DARRAY:
+		LogInfo("    ViewDimension = TEXTURE2DARRAY\n");
+		LogInfo("      Texture2DArray.MostDetailedMip = %u\n", desc->Texture2DArray.MostDetailedMip);
+		LogInfo("      Texture2DArray.MipLevels = %d\n", desc->Texture2DArray.MipLevels);
+		LogInfo("      Texture2DArray.FirstArraySlice = %u\n", desc->Texture2DArray.FirstArraySlice);
+		LogInfo("      Texture2DArray.ArraySize = %u\n", desc->Texture2DArray.ArraySize);
+		break;
+	case D3D11_SRV_DIMENSION_TEXTURE2DMS:
+		LogInfo("    ViewDimension = TEXTURE2DMS\n");
+		break;
+	case D3D11_SRV_DIMENSION_TEXTURE2DMSARRAY:
+		LogInfo("    ViewDimension = TEXTURE2DMSARRAY\n");
+		LogInfo("      Texture2DMSArray.FirstArraySlice = %u\n", desc->Texture2DMSArray.FirstArraySlice);
+		LogInfo("      Texture2DMSArray.ArraySize = %u\n", desc->Texture2DMSArray.ArraySize);
+		break;
+	case D3D11_SRV_DIMENSION_TEXTURE3D:
+		LogInfo("    ViewDimension = TEXTURE3D\n");
+		LogInfo("      Texture3D.MostDetailedMip = %u\n", desc->Texture3D.MostDetailedMip);
+		LogInfo("      Texture3D.MipLevels = %d\n", desc->Texture3D.MipLevels);
+		break;
+	case D3D11_SRV_DIMENSION_TEXTURECUBE:
+		LogInfo("    ViewDimension = TEXTURECUBE\n");
+		LogInfo("      TextureCube.MostDetailedMip = %u\n", desc->TextureCube.MostDetailedMip);
+		LogInfo("      TextureCube.MipLevels = %d\n", desc->TextureCube.MipLevels);
+		break;
+	case D3D11_SRV_DIMENSION_TEXTURECUBEARRAY:
+		LogInfo("    ViewDimension = TEXTURECUBEARRAY\n");
+		LogInfo("      TextureCubeArray.MostDetailedMip = %u\n", desc->TextureCubeArray.MostDetailedMip);
+		LogInfo("      TextureCubeArray.MipLevels = %d\n", desc->TextureCubeArray.MipLevels);
+		LogInfo("      TextureCubeArray.First2DArrayFace = %u\n", desc->TextureCubeArray.First2DArrayFace);
+		LogInfo("      TextureCubeArray.NumCubes = %u\n", desc->TextureCubeArray.NumCubes);
+		break;
+	case D3D11_SRV_DIMENSION_BUFFEREX:
+		LogInfo("    ViewDimension = BUFFEREX\n");
+		LogInfo("      BufferEx.FirstElement = %u\n", desc->BufferEx.FirstElement);
+		LogInfo("      BufferEx.NumElements = %u\n", desc->BufferEx.NumElements);
+		LogInfo("      BufferEx.Flags = 0x%x\n", desc->BufferEx.Flags);
+		break;
 	}
 }
 
@@ -263,49 +263,50 @@ void LogViewDesc(const D3D11_RENDER_TARGET_VIEW_DESC *desc)
 {
 	LogInfo("  View Type = Render Target\n");
 	LogInfo("    Format = %s (%d)\n", TexFormatStr(desc->Format), desc->Format);
-	switch (desc->ViewDimension) {
-		case D3D11_RTV_DIMENSION_UNKNOWN:
-			LogInfo("    ViewDimension = UNKNOWN\n");
-			break;
-		case D3D11_RTV_DIMENSION_BUFFER:
-			LogInfo("    ViewDimension = BUFFER\n");
-			LogInfo("      Buffer.FirstElement/NumElements = %u\n", desc->Buffer.FirstElement);
-			LogInfo("      Buffer.ElementOffset/ElementWidth = %u\n", desc->Buffer.ElementOffset);
-			break;
-		case D3D11_RTV_DIMENSION_TEXTURE1D:
-			LogInfo("    ViewDimension = TEXTURE1D\n");
-			LogInfo("      Texture1D.MipSlice = %u\n", desc->Texture1D.MipSlice);
-			break;
-		case D3D11_RTV_DIMENSION_TEXTURE1DARRAY:
-			LogInfo("    ViewDimension = TEXTURE1DARRAY\n");
-			LogInfo("      Texture1DArray.MipSlice = %u\n", desc->Texture1DArray.MipSlice);
-			LogInfo("      Texture1DArray.FirstArraySlice = %u\n", desc->Texture1DArray.FirstArraySlice);
-			LogInfo("      Texture1DArray.ArraySize = %u\n", desc->Texture1DArray.ArraySize);
-			break;
-		case D3D11_RTV_DIMENSION_TEXTURE2D:
-			LogInfo("    ViewDimension = TEXTURE2D\n");
-			LogInfo("      Texture2D.MipSlice = %u\n", desc->Texture2D.MipSlice);
-			break;
-		case D3D11_RTV_DIMENSION_TEXTURE2DARRAY:
-			LogInfo("    ViewDimension = TEXTURE2DARRAY\n");
-			LogInfo("      Texture2DArray.MipSlice = %u\n", desc->Texture2DArray.MipSlice);
-			LogInfo("      Texture2DArray.FirstArraySlice = %u\n", desc->Texture2DArray.FirstArraySlice);
-			LogInfo("      Texture2DArray.ArraySize = %u\n", desc->Texture2DArray.ArraySize);
-			break;
-		case D3D11_RTV_DIMENSION_TEXTURE2DMS:
-			LogInfo("    ViewDimension = TEXTURE2DMS\n");
-			break;
-		case D3D11_RTV_DIMENSION_TEXTURE2DMSARRAY:
-			LogInfo("    ViewDimension = TEXTURE2DMSARRAY\n");
-			LogInfo("      Texture2DMSArray.FirstArraySlice = %u\n", desc->Texture2DMSArray.FirstArraySlice);
-			LogInfo("      Texture2DMSArray.ArraySize = %u\n", desc->Texture2DMSArray.ArraySize);
-			break;
-		case D3D11_RTV_DIMENSION_TEXTURE3D:
-			LogInfo("    ViewDimension = TEXTURE3D\n");
-			LogInfo("      Texture3D.MipSlice = %u\n", desc->Texture3D.MipSlice);
-			LogInfo("      Texture3D.FirstWSlice = %u\n", desc->Texture3D.FirstWSlice);
-			LogInfo("      Texture3D.WSize = %u\n", desc->Texture3D.WSize);
-			break;
+	switch (desc->ViewDimension)
+	{
+	case D3D11_RTV_DIMENSION_UNKNOWN:
+		LogInfo("    ViewDimension = UNKNOWN\n");
+		break;
+	case D3D11_RTV_DIMENSION_BUFFER:
+		LogInfo("    ViewDimension = BUFFER\n");
+		LogInfo("      Buffer.FirstElement/NumElements = %u\n", desc->Buffer.FirstElement);
+		LogInfo("      Buffer.ElementOffset/ElementWidth = %u\n", desc->Buffer.ElementOffset);
+		break;
+	case D3D11_RTV_DIMENSION_TEXTURE1D:
+		LogInfo("    ViewDimension = TEXTURE1D\n");
+		LogInfo("      Texture1D.MipSlice = %u\n", desc->Texture1D.MipSlice);
+		break;
+	case D3D11_RTV_DIMENSION_TEXTURE1DARRAY:
+		LogInfo("    ViewDimension = TEXTURE1DARRAY\n");
+		LogInfo("      Texture1DArray.MipSlice = %u\n", desc->Texture1DArray.MipSlice);
+		LogInfo("      Texture1DArray.FirstArraySlice = %u\n", desc->Texture1DArray.FirstArraySlice);
+		LogInfo("      Texture1DArray.ArraySize = %u\n", desc->Texture1DArray.ArraySize);
+		break;
+	case D3D11_RTV_DIMENSION_TEXTURE2D:
+		LogInfo("    ViewDimension = TEXTURE2D\n");
+		LogInfo("      Texture2D.MipSlice = %u\n", desc->Texture2D.MipSlice);
+		break;
+	case D3D11_RTV_DIMENSION_TEXTURE2DARRAY:
+		LogInfo("    ViewDimension = TEXTURE2DARRAY\n");
+		LogInfo("      Texture2DArray.MipSlice = %u\n", desc->Texture2DArray.MipSlice);
+		LogInfo("      Texture2DArray.FirstArraySlice = %u\n", desc->Texture2DArray.FirstArraySlice);
+		LogInfo("      Texture2DArray.ArraySize = %u\n", desc->Texture2DArray.ArraySize);
+		break;
+	case D3D11_RTV_DIMENSION_TEXTURE2DMS:
+		LogInfo("    ViewDimension = TEXTURE2DMS\n");
+		break;
+	case D3D11_RTV_DIMENSION_TEXTURE2DMSARRAY:
+		LogInfo("    ViewDimension = TEXTURE2DMSARRAY\n");
+		LogInfo("      Texture2DMSArray.FirstArraySlice = %u\n", desc->Texture2DMSArray.FirstArraySlice);
+		LogInfo("      Texture2DMSArray.ArraySize = %u\n", desc->Texture2DMSArray.ArraySize);
+		break;
+	case D3D11_RTV_DIMENSION_TEXTURE3D:
+		LogInfo("    ViewDimension = TEXTURE3D\n");
+		LogInfo("      Texture3D.MipSlice = %u\n", desc->Texture3D.MipSlice);
+		LogInfo("      Texture3D.FirstWSlice = %u\n", desc->Texture3D.FirstWSlice);
+		LogInfo("      Texture3D.WSize = %u\n", desc->Texture3D.WSize);
+		break;
 	}
 }
 
@@ -314,38 +315,39 @@ void LogViewDesc(const D3D11_DEPTH_STENCIL_VIEW_DESC *desc)
 	LogInfo("  View Type = Depth Stencil\n");
 	LogInfo("    Format = %s (%d)\n", TexFormatStr(desc->Format), desc->Format);
 	LogInfo("    Flags = 0x%x\n", desc->Flags);
-	switch (desc->ViewDimension) {
-		case D3D11_DSV_DIMENSION_UNKNOWN:
-			LogInfo("    ViewDimension = UNKNOWN\n");
-			break;
-		case D3D11_DSV_DIMENSION_TEXTURE1D:
-			LogInfo("    ViewDimension = TEXTURE1D\n");
-			LogInfo("      Texture1D.MipSlice = %u\n", desc->Texture1D.MipSlice);
-			break;
-		case D3D11_DSV_DIMENSION_TEXTURE1DARRAY:
-			LogInfo("    ViewDimension = TEXTURE1DARRAY\n");
-			LogInfo("      Texture1DArray.MipSlice = %u\n", desc->Texture1DArray.MipSlice);
-			LogInfo("      Texture1DArray.FirstArraySlice = %u\n", desc->Texture1DArray.FirstArraySlice);
-			LogInfo("      Texture1DArray.ArraySize = %u\n", desc->Texture1DArray.ArraySize);
-			break;
-		case D3D11_DSV_DIMENSION_TEXTURE2D:
-			LogInfo("    ViewDimension = TEXTURE2D\n");
-			LogInfo("      Texture2D.MipSlice = %u\n", desc->Texture2D.MipSlice);
-			break;
-		case D3D11_DSV_DIMENSION_TEXTURE2DARRAY:
-			LogInfo("    ViewDimension = TEXTURE2DARRAY\n");
-			LogInfo("      Texture2DArray.MipSlice = %u\n", desc->Texture2DArray.MipSlice);
-			LogInfo("      Texture2DArray.FirstArraySlice = %u\n", desc->Texture2DArray.FirstArraySlice);
-			LogInfo("      Texture2DArray.ArraySize = %u\n", desc->Texture2DArray.ArraySize);
-			break;
-		case D3D11_DSV_DIMENSION_TEXTURE2DMS:
-			LogInfo("    ViewDimension = TEXTURE2DMS\n");
-			break;
-		case D3D11_DSV_DIMENSION_TEXTURE2DMSARRAY:
-			LogInfo("    ViewDimension = TEXTURE2DMSARRAY\n");
-			LogInfo("      Texture2DMSArray.FirstArraySlice = %u\n", desc->Texture2DMSArray.FirstArraySlice);
-			LogInfo("      Texture2DMSArray.ArraySize = %u\n", desc->Texture2DMSArray.ArraySize);
-			break;
+	switch (desc->ViewDimension)
+	{
+	case D3D11_DSV_DIMENSION_UNKNOWN:
+		LogInfo("    ViewDimension = UNKNOWN\n");
+		break;
+	case D3D11_DSV_DIMENSION_TEXTURE1D:
+		LogInfo("    ViewDimension = TEXTURE1D\n");
+		LogInfo("      Texture1D.MipSlice = %u\n", desc->Texture1D.MipSlice);
+		break;
+	case D3D11_DSV_DIMENSION_TEXTURE1DARRAY:
+		LogInfo("    ViewDimension = TEXTURE1DARRAY\n");
+		LogInfo("      Texture1DArray.MipSlice = %u\n", desc->Texture1DArray.MipSlice);
+		LogInfo("      Texture1DArray.FirstArraySlice = %u\n", desc->Texture1DArray.FirstArraySlice);
+		LogInfo("      Texture1DArray.ArraySize = %u\n", desc->Texture1DArray.ArraySize);
+		break;
+	case D3D11_DSV_DIMENSION_TEXTURE2D:
+		LogInfo("    ViewDimension = TEXTURE2D\n");
+		LogInfo("      Texture2D.MipSlice = %u\n", desc->Texture2D.MipSlice);
+		break;
+	case D3D11_DSV_DIMENSION_TEXTURE2DARRAY:
+		LogInfo("    ViewDimension = TEXTURE2DARRAY\n");
+		LogInfo("      Texture2DArray.MipSlice = %u\n", desc->Texture2DArray.MipSlice);
+		LogInfo("      Texture2DArray.FirstArraySlice = %u\n", desc->Texture2DArray.FirstArraySlice);
+		LogInfo("      Texture2DArray.ArraySize = %u\n", desc->Texture2DArray.ArraySize);
+		break;
+	case D3D11_DSV_DIMENSION_TEXTURE2DMS:
+		LogInfo("    ViewDimension = TEXTURE2DMS\n");
+		break;
+	case D3D11_DSV_DIMENSION_TEXTURE2DMSARRAY:
+		LogInfo("    ViewDimension = TEXTURE2DMSARRAY\n");
+		LogInfo("      Texture2DMSArray.FirstArraySlice = %u\n", desc->Texture2DMSArray.FirstArraySlice);
+		LogInfo("      Texture2DMSArray.ArraySize = %u\n", desc->Texture2DMSArray.ArraySize);
+		break;
 	}
 }
 
@@ -353,67 +355,67 @@ void LogViewDesc(const D3D11_UNORDERED_ACCESS_VIEW_DESC *desc)
 {
 	LogInfo("  View Type = Unordered Access\n");
 	LogInfo("    Format = %s (%d)\n", TexFormatStr(desc->Format), desc->Format);
-	switch (desc->ViewDimension) {
-		case D3D11_UAV_DIMENSION_UNKNOWN:
-			LogInfo("    ViewDimension = UNKNOWN\n");
-			break;
-		case D3D11_UAV_DIMENSION_BUFFER:
-			LogInfo("    ViewDimension = BUFFER\n");
-			LogInfo("      Buffer.FirstElement = %u\n", desc->Buffer.FirstElement);
-			LogInfo("      Buffer.NumElements = %u\n", desc->Buffer.NumElements);
-			LogInfo("      Buffer.Flags = 0x%x\n", desc->Buffer.Flags);
-			break;
-		case D3D11_UAV_DIMENSION_TEXTURE1D:
-			LogInfo("    ViewDimension = TEXTURE1D\n");
-			LogInfo("      Texture1D.MipSlice = %u\n", desc->Texture1D.MipSlice);
-			break;
-		case D3D11_UAV_DIMENSION_TEXTURE1DARRAY:
-			LogInfo("    ViewDimension = TEXTURE1DARRAY\n");
-			LogInfo("      Texture1DArray.MipSlice = %u\n", desc->Texture1DArray.MipSlice);
-			LogInfo("      Texture1DArray.FirstArraySlice = %u\n", desc->Texture1DArray.FirstArraySlice);
-			LogInfo("      Texture1DArray.ArraySize = %u\n", desc->Texture1DArray.ArraySize);
-			break;
-		case D3D11_UAV_DIMENSION_TEXTURE2D:
-			LogInfo("    ViewDimension = TEXTURE2D\n");
-			LogInfo("      Texture2D.MipSlice = %u\n", desc->Texture2D.MipSlice);
-			break;
-		case D3D11_UAV_DIMENSION_TEXTURE2DARRAY:
-			LogInfo("    ViewDimension = TEXTURE2DARRAY\n");
-			LogInfo("      Texture2DArray.MipSlice = %u\n", desc->Texture2DArray.MipSlice);
-			LogInfo("      Texture2DArray.FirstArraySlice = %u\n", desc->Texture2DArray.FirstArraySlice);
-			LogInfo("      Texture2DArray.ArraySize = %u\n", desc->Texture2DArray.ArraySize);
-			break;
-		case D3D11_UAV_DIMENSION_TEXTURE3D:
-			LogInfo("    ViewDimension = TEXTURE3D\n");
-			LogInfo("      Texture3D.MipSlice = %u\n", desc->Texture3D.MipSlice);
-			LogInfo("      Texture3D.FirstWSlice = %u\n", desc->Texture3D.FirstWSlice);
-			LogInfo("      Texture3D.WSize = %u\n", desc->Texture3D.WSize);
-			break;
+	switch (desc->ViewDimension)
+	{
+	case D3D11_UAV_DIMENSION_UNKNOWN:
+		LogInfo("    ViewDimension = UNKNOWN\n");
+		break;
+	case D3D11_UAV_DIMENSION_BUFFER:
+		LogInfo("    ViewDimension = BUFFER\n");
+		LogInfo("      Buffer.FirstElement = %u\n", desc->Buffer.FirstElement);
+		LogInfo("      Buffer.NumElements = %u\n", desc->Buffer.NumElements);
+		LogInfo("      Buffer.Flags = 0x%x\n", desc->Buffer.Flags);
+		break;
+	case D3D11_UAV_DIMENSION_TEXTURE1D:
+		LogInfo("    ViewDimension = TEXTURE1D\n");
+		LogInfo("      Texture1D.MipSlice = %u\n", desc->Texture1D.MipSlice);
+		break;
+	case D3D11_UAV_DIMENSION_TEXTURE1DARRAY:
+		LogInfo("    ViewDimension = TEXTURE1DARRAY\n");
+		LogInfo("      Texture1DArray.MipSlice = %u\n", desc->Texture1DArray.MipSlice);
+		LogInfo("      Texture1DArray.FirstArraySlice = %u\n", desc->Texture1DArray.FirstArraySlice);
+		LogInfo("      Texture1DArray.ArraySize = %u\n", desc->Texture1DArray.ArraySize);
+		break;
+	case D3D11_UAV_DIMENSION_TEXTURE2D:
+		LogInfo("    ViewDimension = TEXTURE2D\n");
+		LogInfo("      Texture2D.MipSlice = %u\n", desc->Texture2D.MipSlice);
+		break;
+	case D3D11_UAV_DIMENSION_TEXTURE2DARRAY:
+		LogInfo("    ViewDimension = TEXTURE2DARRAY\n");
+		LogInfo("      Texture2DArray.MipSlice = %u\n", desc->Texture2DArray.MipSlice);
+		LogInfo("      Texture2DArray.FirstArraySlice = %u\n", desc->Texture2DArray.FirstArraySlice);
+		LogInfo("      Texture2DArray.ArraySize = %u\n", desc->Texture2DArray.ArraySize);
+		break;
+	case D3D11_UAV_DIMENSION_TEXTURE3D:
+		LogInfo("    ViewDimension = TEXTURE3D\n");
+		LogInfo("      Texture3D.MipSlice = %u\n", desc->Texture3D.MipSlice);
+		LogInfo("      Texture3D.FirstWSlice = %u\n", desc->Texture3D.FirstWSlice);
+		LogInfo("      Texture3D.WSize = %u\n", desc->Texture3D.WSize);
+		break;
 	}
 }
 
-
-// This special case of texture resolution is to improve the behavior of special 
+// This special case of texture resolution is to improve the behavior of special
 // full-screen textures.  Textures can be created dynamically of course, and some
 // are set to full screen resolution.  Full screen resolution can vary between
 // users and we want a way to have a stable texture hash, even while the screen
-// resolution is varying.  
+// resolution is varying.
 //
 // This function will modify the hashWidth and hashHeight values actually used
-// in the hash calculation to be magic numbers, really just constants.  That 
+// in the hash calculation to be magic numbers, really just constants.  That
 // will make the hash predictable and match, even if the screen resolution changes.
 //
 // The other variants are for *2, *4, *8, /2, as other textures seen with specific
 // resolutions, but are also dynamic based on screen resolution, like 2x or 1/2 the
-// resolution.  
+// resolution.
 //
 // ToDo: It might make more sense to avoid this altogether, and have the shaderhacker
 // specify their desired texture in the d3dx.ini file by parameters, not by a single
 // hash.  That would be a sequence found via the ShaderUsages that would specify all
 // the parameters in something like the D3D11_TEXTURE2D_DESC.
 // The only drawback here is to make it more complicated for the shaderhacker, having
-// to specify the little niggly bits, and requiring them to understand and look for 
-// the alternate sizes. 
+// to specify the little niggly bits, and requiring them to understand and look for
+// the alternate sizes.
 //
 // If this seems like an OK way to go, what about other interesting magic combos like
 // 1.5x (720p->1080p), maybe 1080p specifically. 720/1080=2/3.
@@ -427,23 +429,28 @@ static void AdjustForConstResolution(UINT *hashWidth, UINT *hashHeight)
 	if (G->mResolutionInfo.from == GetResolutionFrom::INVALID)
 		return;
 
-	if (width == G->mResolutionInfo.width && height == G->mResolutionInfo.height) {
+	if (width == G->mResolutionInfo.width && height == G->mResolutionInfo.height)
+	{
 		*hashWidth = 'SRES';
 		*hashHeight = 'SRES';
 	}
-	else if (width == G->mResolutionInfo.width * 2 && height == G->mResolutionInfo.height * 2) {
+	else if (width == G->mResolutionInfo.width * 2 && height == G->mResolutionInfo.height * 2)
+	{
 		*hashWidth = 'SR*2';
 		*hashHeight = 'SR*2';
 	}
-	else if (width == G->mResolutionInfo.width * 4 && height == G->mResolutionInfo.height * 4) {
+	else if (width == G->mResolutionInfo.width * 4 && height == G->mResolutionInfo.height * 4)
+	{
 		*hashWidth = 'SR*4';
 		*hashHeight = 'SR*4';
 	}
-	else if (width == G->mResolutionInfo.width * 8 && height == G->mResolutionInfo.height * 8) {
+	else if (width == G->mResolutionInfo.width * 8 && height == G->mResolutionInfo.height * 8)
+	{
 		*hashWidth = 'SR*8';
 		*hashHeight = 'SR*8';
 	}
-	else if (width == G->mResolutionInfo.width / 2 && height == G->mResolutionInfo.height / 2) {
+	else if (width == G->mResolutionInfo.width / 2 && height == G->mResolutionInfo.height / 2)
+	{
 		*hashWidth = 'SR/2';
 		*hashHeight = 'SR/2';
 	}
@@ -462,11 +469,11 @@ uint32_t CalcTexture2DDescHash(uint32_t initial_hash, const D3D11_TEXTURE2D_DESC
 	// to know if this is an issue, but it might be worth using the screen
 	// resolution override in all cases. -DarkStarSword
 
-	// Based on that concern, and the need to have a pointer to the 
+	// Based on that concern, and the need to have a pointer to the
 	// D3D11_TEXTURE2D_DESC struct for hash calculation, let's go ahead
 	// and use the resolution override always.
 
-	D3D11_TEXTURE2D_DESC* desc = const_cast<D3D11_TEXTURE2D_DESC*>(const_desc);
+	auto *desc = const_cast<D3D11_TEXTURE2D_DESC *>(const_desc);
 
 	UINT saveWidth = desc->Width;
 	UINT saveHeight = desc->Height;
@@ -485,7 +492,7 @@ uint32_t CalcTexture3DDescHash(uint32_t initial_hash, const D3D11_TEXTURE3D_DESC
 	// Same comment as in CalcTexture2DDescHash above - concerned about
 	// inconsistent use of these resolution overrides
 
-	D3D11_TEXTURE3D_DESC* desc = const_cast<D3D11_TEXTURE3D_DESC*>(const_desc);
+	auto *desc = const_cast<D3D11_TEXTURE3D_DESC *>(const_desc);
 
 	UINT saveWidth = desc->Width;
 	UINT saveHeight = desc->Height;
@@ -503,40 +510,39 @@ uint32_t CalcTexture3DDescHash(uint32_t initial_hash, const D3D11_TEXTURE3D_DESC
 
 static UINT CompressedFormatBlockSize(DXGI_FORMAT Format)
 {
-	switch (Format) {
-		case DXGI_FORMAT_BC1_TYPELESS:
-		case DXGI_FORMAT_BC1_UNORM:
-		case DXGI_FORMAT_BC1_UNORM_SRGB:
-		case DXGI_FORMAT_BC4_TYPELESS:
-		case DXGI_FORMAT_BC4_UNORM:
-		case DXGI_FORMAT_BC4_SNORM:
-			return 8;
+	switch (Format)
+	{
+	case DXGI_FORMAT_BC1_TYPELESS:
+	case DXGI_FORMAT_BC1_UNORM:
+	case DXGI_FORMAT_BC1_UNORM_SRGB:
+	case DXGI_FORMAT_BC4_TYPELESS:
+	case DXGI_FORMAT_BC4_UNORM:
+	case DXGI_FORMAT_BC4_SNORM:
+		return 8;
 
-		case DXGI_FORMAT_BC2_TYPELESS:
-		case DXGI_FORMAT_BC2_UNORM:
-		case DXGI_FORMAT_BC2_UNORM_SRGB:
-		case DXGI_FORMAT_BC3_TYPELESS:
-		case DXGI_FORMAT_BC3_UNORM:
-		case DXGI_FORMAT_BC3_UNORM_SRGB:
-		case DXGI_FORMAT_BC5_TYPELESS:
-		case DXGI_FORMAT_BC5_UNORM:
-		case DXGI_FORMAT_BC5_SNORM:
-		case DXGI_FORMAT_BC6H_TYPELESS:
-		case DXGI_FORMAT_BC6H_UF16:
-		case DXGI_FORMAT_BC6H_SF16:
-		case DXGI_FORMAT_BC7_TYPELESS:
-		case DXGI_FORMAT_BC7_UNORM:
-		case DXGI_FORMAT_BC7_UNORM_SRGB:
-			return 16;
+	case DXGI_FORMAT_BC2_TYPELESS:
+	case DXGI_FORMAT_BC2_UNORM:
+	case DXGI_FORMAT_BC2_UNORM_SRGB:
+	case DXGI_FORMAT_BC3_TYPELESS:
+	case DXGI_FORMAT_BC3_UNORM:
+	case DXGI_FORMAT_BC3_UNORM_SRGB:
+	case DXGI_FORMAT_BC5_TYPELESS:
+	case DXGI_FORMAT_BC5_UNORM:
+	case DXGI_FORMAT_BC5_SNORM:
+	case DXGI_FORMAT_BC6H_TYPELESS:
+	case DXGI_FORMAT_BC6H_UF16:
+	case DXGI_FORMAT_BC6H_SF16:
+	case DXGI_FORMAT_BC7_TYPELESS:
+	case DXGI_FORMAT_BC7_UNORM:
+	case DXGI_FORMAT_BC7_UNORM_SRGB:
+		return 16;
 	}
 
 	return 0;
 }
 
-static size_t Texture1DLength(
-	const D3D11_TEXTURE1D_DESC *pDesc,
-	const D3D11_SUBRESOURCE_DATA *pInitialData [[maybe_unused]],
-	UINT level)
+static size_t Texture1DLength(const D3D11_TEXTURE1D_DESC *pDesc,
+                              const D3D11_SUBRESOURCE_DATA *pInitialData [[maybe_unused]], UINT level)
 {
 	// At the moment we are only using the first mip-map level, but this
 	// should work if we wanted to use another:
@@ -550,12 +556,11 @@ static size_t Texture1DLength(
 	return dxgi_format_size(pDesc->Format) * mip_width;
 }
 
-static size_t Texture2DLength(
-	const D3D11_TEXTURE2D_DESC *pDesc,
-	const D3D11_SUBRESOURCE_DATA *pInitialData,
-	UINT level)
+static size_t Texture2DLength(const D3D11_TEXTURE2D_DESC *pDesc, const D3D11_SUBRESOURCE_DATA *pInitialData, UINT level)
 {
-	UINT block_size, padded_width, padded_height;
+	UINT block_size;
+	UINT padded_width;
+	UINT padded_height;
 
 	// We might simply be able to use SysMemSlicePitch. The documentation
 	// indicates that it has "no meaning" for a 2D texture, but then in the
@@ -571,7 +576,8 @@ static size_t Texture2DLength(
 
 	block_size = CompressedFormatBlockSize(pDesc->Format);
 
-	if (!block_size) {
+	if (!block_size)
+	{
 		// Uncompressed texture - use the SysMemPitch to get
 		// the width (including any padding) in bytes.
 		return pInitialData->SysMemPitch * mip_height;
@@ -588,12 +594,11 @@ static size_t Texture2DLength(
 	return padded_width * padded_height / 16 * block_size;
 }
 
-static size_t Texture3DLength(
-	const D3D11_TEXTURE3D_DESC *pDesc,
-	const D3D11_SUBRESOURCE_DATA *pInitialData,
-	UINT level)
+static size_t Texture3DLength(const D3D11_TEXTURE3D_DESC *pDesc, const D3D11_SUBRESOURCE_DATA *pInitialData, UINT level)
 {
-	UINT block_size, padded_width, padded_height;
+	UINT block_size;
+	UINT padded_width;
+	UINT padded_height;
 
 	// At the moment we are only using the first mip-map level, but this
 	// should work if we wanted to use another:
@@ -603,7 +608,8 @@ static size_t Texture3DLength(
 
 	block_size = CompressedFormatBlockSize(pDesc->Format);
 
-	if (!block_size) {
+	if (!block_size)
+	{
 		// Uncompressed texture - use the SysMemSlicePitch to get the
 		// width*height (including any padding) in bytes.
 		return pInitialData->SysMemSlicePitch * mip_depth;
@@ -619,11 +625,12 @@ static size_t Texture3DLength(
 	return padded_width * padded_height * mip_depth / 16 * block_size;
 }
 
-static uint32_t hash_tex2d_data(uint32_t hash, const void *data, size_t length,
-		const D3D11_TEXTURE2D_DESC *pDesc, bool zero_padding,
-		bool skip_padding, UINT mapped_row_pitch)
+static uint32_t hash_tex2d_data(uint32_t hash, const void *data, size_t length, const D3D11_TEXTURE2D_DESC *pDesc,
+                                bool zero_padding, bool skip_padding, UINT mapped_row_pitch)
 {
-	size_t row_pitch, slice_pitch, row_count;
+	size_t row_pitch;
+	size_t slice_pitch;
+	size_t row_count;
 
 	// Each row in a 2D texture has some alignment constraint, and the
 	// unused bytes at the end of each row can be garbage, interfering with
@@ -658,38 +665,40 @@ static uint32_t hash_tex2d_data(uint32_t hash, const void *data, size_t length,
 	if (!zero_padding && !skip_padding)
 		return crc32c_hw(hash, data, length);
 
-	DirectX::LoaderHelpers::GetSurfaceInfo(pDesc->Width, pDesc->Height, pDesc->Format, &slice_pitch, &row_pitch, &row_count);
+	DirectX::LoaderHelpers::GetSurfaceInfo(pDesc->Width, pDesc->Height, pDesc->Format, &slice_pitch, &row_pitch,
+	                                       &row_count);
 
-	uint8_t *sptr = (uint8_t*)data;
+	auto *sptr = (uint8_t *)data;
 	size_t msize = min(row_pitch, mapped_row_pitch);
 
 	signed padding = (signed)mapped_row_pitch - (signed)row_pitch;
 	uint8_t *zeroes = nullptr;
-	if (zero_padding && padding > 0) {
+	if (zero_padding && padding > 0)
+	{
 		zeroes = new uint8_t[padding];
 		memset(zeroes, 0, padding);
 	}
 
-	signed remaining = (signed)length;
-	for (size_t h = 0; h < row_count && remaining > 0; h++) {
+	auto remaining = (signed)length;
+	for (size_t h = 0; h < row_count && remaining > 0; h++)
+	{
 		hash = crc32c_hw(hash, sptr, min(msize, (unsigned)remaining));
 		sptr += mapped_row_pitch;
 		remaining -= (signed)msize;
 
-		if (zeroes && remaining > 0) {
+		if (zeroes && remaining > 0)
+		{
 			hash = crc32c_hw(hash, zeroes, min(padding, remaining));
 			remaining -= padding;
 		}
 	}
 
-	delete [] zeroes;
+	delete[] zeroes;
 	return hash;
 }
 
-uint32_t CalcTexture2DDataHash(
-	const D3D11_TEXTURE2D_DESC *pDesc,
-	const D3D11_SUBRESOURCE_DATA *pInitialData,
-	bool zero_padding)
+uint32_t CalcTexture2DDataHash(const D3D11_TEXTURE2D_DESC *pDesc, const D3D11_SUBRESOURCE_DATA *pInitialData,
+                               bool zero_padding)
 {
 	uint32_t hash = 0;
 	size_t length_v12;
@@ -723,16 +732,18 @@ uint32_t CalcTexture2DDataHash(
 	// will minimise the pain of changing the texture hash so soon after
 	// the last time.
 	//
-	// TODO: We might consider an ini setting to disable this fallback for
+	// Future work: We might consider an ini setting to disable this fallback for
 	// new games, or possibly to force it for old games.
 	length = Texture2DLength(pDesc, &pInitialData[0], 0);
 	LogDebug("  Texture2D length: %Iu bad v1.2.1 length: %Iu\n", length, length_v12);
-	if (length_v12 <= length) {
-		if (length_v12 < length || pDesc->ArraySize > 1) {
+	if (length_v12 <= length)
+	{
+		if (length_v12 < length || pDesc->ArraySize > 1)
+		{
 			LogDebug("  Using 3DMigoto v1.2.1 compatible Texture2D CRC calculation\n");
 		}
-		return hash_tex2d_data(hash, pInitialData[0].pSysMem, length_v12,
-				pDesc, zero_padding, false, pInitialData[0].SysMemPitch);
+		return hash_tex2d_data(hash, pInitialData[0].pSysMem, length_v12, pDesc, zero_padding, false,
+		                       pInitialData[0].SysMemPitch);
 	}
 
 	// If we are here it means the old length had overflowed the buffer,
@@ -777,15 +788,12 @@ uint32_t CalcTexture2DDataHash(
 	// analysis de-duplication.
 
 	length = Texture2DLength(pDesc, &pInitialData[0], 0);
-	hash = hash_tex2d_data(hash, pInitialData[0].pSysMem, length,
-			pDesc, false, true, pInitialData[0].SysMemPitch);
+	hash = hash_tex2d_data(hash, pInitialData[0].pSysMem, length, pDesc, false, true, pInitialData[0].SysMemPitch);
 
 	return hash;
 }
 
-uint32_t CalcTexture2DDataHashAccurate(
-	const D3D11_TEXTURE2D_DESC *pDesc,
-	const D3D11_SUBRESOURCE_DATA *pInitialData)
+uint32_t CalcTexture2DDataHashAccurate(const D3D11_TEXTURE2D_DESC *pDesc, const D3D11_SUBRESOURCE_DATA *pInitialData)
 {
 	uint32_t hash = 0;
 
@@ -807,8 +815,7 @@ uint32_t CalcTexture2DDataHashAccurate(
 
 	// Passing length=INT_MAX, since that is an upper bound and
 	// hash_tex2d_data will work it out from DirectXTK
-	hash = hash_tex2d_data(hash, pInitialData[0].pSysMem, INT_MAX,
-			pDesc, false, true, pInitialData[0].SysMemPitch);
+	hash = hash_tex2d_data(hash, pInitialData[0].pSysMem, INT_MAX, pDesc, false, true, pInitialData[0].SysMemPitch);
 
 	return hash;
 }
@@ -817,10 +824,10 @@ uint32_t CalcTexture2DDataHashAccurate(
 // simultaneous reads & modifications (hmm, tempted to implement a lock free
 // map given that it's add only, or use RCU). Is there anything on Windows like
 // lockdep to statically prove this is called with the lock held?
-ResourceHandleInfo* GetResourceHandleInfo(ID3D11Resource *resource)
+ResourceHandleInfo *GetResourceHandleInfo(ID3D11Resource *resource)
 {
 	std::unordered_map<ID3D11Resource *, ResourceHandleInfo>::iterator j;
-	ResourceHandleInfo* ret = nullptr;
+	ResourceHandleInfo *ret = nullptr;
 
 	EnterCriticalSectionPretty(&G->mResourcesLock);
 
@@ -865,9 +872,7 @@ uint32_t GetResourceHash(ID3D11Resource *resource)
 	return 0;
 }
 
-uint32_t CalcTexture1DDataHash(
-	const D3D11_TEXTURE1D_DESC *pDesc,
-	const D3D11_SUBRESOURCE_DATA *pInitialData)
+uint32_t CalcTexture1DDataHash(const D3D11_TEXTURE1D_DESC *pDesc, const D3D11_SUBRESOURCE_DATA *pInitialData)
 {
 	size_t length;
 
@@ -878,9 +883,7 @@ uint32_t CalcTexture1DDataHash(
 	return crc32c_hw(0, pInitialData[0].pSysMem, length);
 }
 
-uint32_t CalcTexture3DDataHash(
-	const D3D11_TEXTURE3D_DESC *pDesc,
-	const D3D11_SUBRESOURCE_DATA *pInitialData)
+uint32_t CalcTexture3DDataHash(const D3D11_TEXTURE3D_DESC *pDesc, const D3D11_SUBRESOURCE_DATA *pInitialData)
 {
 	uint32_t hash = 0;
 	size_t length_v12;
@@ -908,12 +911,14 @@ uint32_t CalcTexture3DDataHash(
 	// minimise the pain of changing the texture hash so soon after the
 	// last time.
 	//
-	// TODO: We might consider an ini setting to disable this fallback for
+	// Future work: We might consider an ini setting to disable this fallback for
 	// new games, or possibly to force it for old games.
 	length = Texture3DLength(pDesc, &pInitialData[0], 0);
 	LogDebug("  Texture3D length: %Iu bad v1.2.1 length: %Iu\n", length, length_v12);
-	if (length_v12 <= length) {
-		if (length_v12 < length) {
+	if (length_v12 <= length)
+	{
+		if (length_v12 < length)
+		{
 			LogDebug("  Using 3DMigoto v1.2.1 compatible Texture3D CRC calculation\n");
 		}
 		return crc32c_hw(hash, pInitialData[0].pSysMem, length_v12);
@@ -944,46 +949,57 @@ static bool supports_hash_tracking(ResourceHandleInfo *handle_info)
 	// support for them later, we should add a means to turn off the
 	// contamination detection on a per-resource type basis:
 	return (handle_info->type == D3D11_RESOURCE_DIMENSION_TEXTURE2D ||
-		handle_info->type == D3D11_RESOURCE_DIMENSION_TEXTURE3D);
+	        handle_info->type == D3D11_RESOURCE_DIMENSION_TEXTURE3D);
 }
 
-static bool GetResourceInfoFields(struct ResourceHashInfo *info, UINT subresource,
-		UINT *width, UINT *height, UINT *depth,
-		UINT *idx, UINT *mip, UINT *array_size)
+static bool GetResourceInfoFields(struct ResourceHashInfo *info, UINT subresource, UINT *width, UINT *height,
+                                  UINT *depth, UINT *idx, UINT *mip, UINT *array_size)
 {
 	UINT mips;
-	switch (info->type) {
-		case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
-			mips = max(info->tex2d_desc.MipLevels, 1);
-			*idx = subresource / mips;
-			*mip = subresource % mips;
-			*width = max(info->tex2d_desc.Width >> *mip, 1);
-			*height = max(info->tex2d_desc.Height >> *mip, 1);
-			*depth = 1;
-			*array_size = info->tex2d_desc.ArraySize;
-			return true;
-		case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
-			mips = max(info->tex3d_desc.MipLevels, 1);
-			*idx = subresource / mips;
-			*mip = subresource % mips;
-			*width = max(info->tex3d_desc.Width >> *mip, 1);
-			*height = max(info->tex3d_desc.Height >> *mip, 1);
-			*depth = max(info->tex3d_desc.Depth >> *mip, 1);
-			*array_size = 1;
-			return true;
+	switch (info->type)
+	{
+	case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
+		mips = max(info->tex2d_desc.MipLevels, 1);
+		*idx = subresource / mips;
+		*mip = subresource % mips;
+		*width = max(info->tex2d_desc.Width >> *mip, 1);
+		*height = max(info->tex2d_desc.Height >> *mip, 1);
+		*depth = 1;
+		*array_size = info->tex2d_desc.ArraySize;
+		return true;
+	case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
+		mips = max(info->tex3d_desc.MipLevels, 1);
+		*idx = subresource / mips;
+		*mip = subresource % mips;
+		*width = max(info->tex3d_desc.Width >> *mip, 1);
+		*height = max(info->tex3d_desc.Height >> *mip, 1);
+		*depth = max(info->tex3d_desc.Depth >> *mip, 1);
+		*array_size = 1;
+		return true;
 	}
 	return false;
 }
 
-void MarkResourceHashContaminated(ID3D11Resource *dest, UINT DstSubresource,
-		ID3D11Resource *src, UINT srcSubresource, char type,
-		UINT DstX, UINT DstY, UINT DstZ, const D3D11_BOX *SrcBox)
+void MarkResourceHashContaminated(ID3D11Resource *dest, UINT DstSubresource, ID3D11Resource *src, UINT srcSubresource,
+                                  char type, UINT DstX, UINT DstY, UINT DstZ, const D3D11_BOX *SrcBox)
 {
 	ResourceHandleInfo *dst_handle_info;
-	struct ResourceHashInfo *dstInfo, *srcInfo = nullptr;
-	uint32_t srcHash = 0, dstHash = 0;
-	UINT srcWidth = 1, srcHeight = 1, srcDepth = 1, srcMip = 0, srcIdx = 0, srcArraySize = 1;
-	UINT dstWidth = 1, dstHeight = 1, dstDepth = 1, dstMip = 0, dstIdx = 0, dstArraySize = 1;
+	struct ResourceHashInfo *dstInfo;
+	struct ResourceHashInfo *srcInfo = nullptr;
+	uint32_t srcHash = 0;
+	uint32_t dstHash = 0;
+	UINT srcWidth = 1;
+	UINT srcHeight = 1;
+	UINT srcDepth = 1;
+	UINT srcMip = 0;
+	UINT srcIdx = 0;
+	UINT srcArraySize = 1;
+	UINT dstWidth = 1;
+	UINT dstHeight = 1;
+	UINT dstDepth = 1;
+	UINT dstMip = 0;
+	UINT dstIdx = 0;
+	UINT dstArraySize = 1;
 	bool partial = false;
 	ResourceInfoMap::iterator info_i;
 	Profiling::State profiling_state{};
@@ -1013,9 +1029,7 @@ void MarkResourceHashContaminated(ID3D11Resource *dest, UINT DstSubresource,
 		goto out_unlock;
 	dstInfo = &info_i->second;
 
-	GetResourceInfoFields(dstInfo, DstSubresource,
-			&dstWidth, &dstHeight, &dstDepth,
-			&dstIdx, &dstMip, &dstArraySize);
+	GetResourceInfoFields(dstInfo, DstSubresource, &dstWidth, &dstHeight, &dstDepth, &dstIdx, &dstMip, &dstArraySize);
 
 	// We don't care if a mip-map has been updated since we don't hash those.
 	// We could collect info about the copy anyway (below code will work to
@@ -1023,19 +1037,21 @@ void MarkResourceHashContaminated(ID3D11Resource *dest, UINT DstSubresource,
 	if (dstMip)
 		goto out_unlock;
 
-	if (src) {
+	if (src)
+	{
 		srcHash = GetOrigResourceHash(src);
 		G->mCopiedResourceInfo.insert(srcHash);
 
 		// Faster than catching an out_of_range exception from .at():
 		info_i = G->mResourceInfo.find(srcHash);
-		if (info_i != G->mResourceInfo.end()) {
+		if (info_i != G->mResourceInfo.end())
+		{
 			srcInfo = &info_i->second;
-			GetResourceInfoFields(srcInfo, srcSubresource,
-					&srcWidth, &srcHeight, &srcDepth,
-					&srcIdx, &srcMip, &srcArraySize);
+			GetResourceInfoFields(srcInfo, srcSubresource, &srcWidth, &srcHeight, &srcDepth, &srcIdx, &srcMip,
+			                      &srcArraySize);
 
-			if (dstHash != srcHash && srcInfo->initial_data_used_in_hash) {
+			if (dstHash != srcHash && srcInfo->initial_data_used_in_hash)
+			{
 				dstInfo->initial_data_used_in_hash = true;
 				if (G->track_texture_updates == 0)
 					dstInfo->hash_contaminated = true;
@@ -1043,54 +1059,53 @@ void MarkResourceHashContaminated(ID3D11Resource *dest, UINT DstSubresource,
 		}
 	}
 
-	switch (type) {
-		case 'U':
-			dstInfo->update_contamination.insert(DstSubresource);
-			dstInfo->initial_data_used_in_hash = true;
-			if (G->track_texture_updates == 0)
-				dstInfo->hash_contaminated = true;
-			break;
-		case 'M':
-			dstInfo->map_contamination.insert(DstSubresource);
-			dstInfo->initial_data_used_in_hash = true;
-			if (G->track_texture_updates == 0)
-				dstInfo->hash_contaminated = true;
-			break;
-		case 'C':
-			dstInfo->copy_contamination.insert(srcHash);
-			break;
-		case 'S':
+	switch (type)
+	{
+	case 'U':
+		dstInfo->update_contamination.insert(DstSubresource);
+		dstInfo->initial_data_used_in_hash = true;
+		if (G->track_texture_updates == 0)
+			dstInfo->hash_contaminated = true;
+		break;
+	case 'M':
+		dstInfo->map_contamination.insert(DstSubresource);
+		dstInfo->initial_data_used_in_hash = true;
+		if (G->track_texture_updates == 0)
+			dstInfo->hash_contaminated = true;
+		break;
+	case 'C':
+		dstInfo->copy_contamination.insert(srcHash);
+		break;
+	case 'S':
 
-			// We especially want to know if a region copy copied
-			// the entire texture, or only part of it. This may be
-			// important if we end up changing the hash due to a
-			// copy operation - if it copied the whole resource, we
-			// can just use the hash of the source. If it only
-			// copied a partial resource there's no good answer.
+		// We especially want to know if a region copy copied
+		// the entire texture, or only part of it. This may be
+		// important if we end up changing the hash due to a
+		// copy operation - if it copied the whole resource, we
+		// can just use the hash of the source. If it only
+		// copied a partial resource there's no good answer.
 
-			partial = partial || dstWidth != srcWidth;
-			partial = partial || dstHeight != srcHeight;
-			partial = partial || dstDepth != srcDepth;
+		partial = partial || dstWidth != srcWidth;
+		partial = partial || dstHeight != srcHeight;
+		partial = partial || dstDepth != srcDepth;
 
-			partial = partial || DstX || DstY || DstZ;
-			if (SrcBox) {
-				partial = partial ||
-					(SrcBox->right - SrcBox->left != dstWidth) ||
-					(SrcBox->bottom - SrcBox->top != dstHeight) ||
-					(SrcBox->back - SrcBox->front != dstDepth);
-			}
+		partial = partial || DstX || DstY || DstZ;
+		if (SrcBox)
+		{
+			partial = partial || (SrcBox->right - SrcBox->left != dstWidth) ||
+			          (SrcBox->bottom - SrcBox->top != dstHeight) || (SrcBox->back - SrcBox->front != dstDepth);
+		}
 
-			// TODO: Need to think about the implications of
-			// copying between textures with > 1 array element.
-			// Might want to reconsider how these are hashed (e.g.
-			// hash each non-mipmap subresource separately and xor
-			// the hashes together so we can efficiently change a
-			// single subhash)
-			partial = partial || dstArraySize > 1 || srcArraySize > 1;
+		// Future work: Need to think about the implications of
+		// copying between textures with > 1 array element.
+		// Might want to reconsider how these are hashed (e.g.
+		// hash each non-mipmap subresource separately and xor
+		// the hashes together so we can efficiently change a
+		// single subhash)
+		partial = partial || dstArraySize > 1 || srcArraySize > 1;
 
-			dstInfo->region_contamination[
-					std::make_tuple(srcHash, dstIdx, dstMip, srcIdx, srcMip)
-				].Update(partial, DstX, DstY, DstZ, SrcBox);
+		dstInfo->region_contamination[std::make_tuple(srcHash, dstIdx, dstMip, srcIdx, srcMip)].Update(
+		    partial, DstX, DstY, DstZ, SrcBox);
 	}
 
 out_unlock:
@@ -1100,8 +1115,7 @@ out_unlock:
 		Profiling::end(&profiling_state, &Profiling::hash_tracking_overhead);
 }
 
-void UpdateResourceHashFromCPU(ID3D11Resource *resource,
-	const void *data, UINT rowPitch, UINT depthPitch)
+void UpdateResourceHashFromCPU(ID3D11Resource *resource, const void *data, UINT rowPitch, UINT depthPitch)
 {
 	D3D11_RESOURCE_DIMENSION dim;
 	D3D11_SUBRESOURCE_DATA initialData;
@@ -1109,7 +1123,8 @@ void UpdateResourceHashFromCPU(ID3D11Resource *resource,
 	ID3D11Texture3D *tex3D;
 	D3D11_TEXTURE2D_DESC *desc2D;
 	D3D11_TEXTURE3D_DESC *desc3D;
-	uint32_t old_data_hash, old_hash;
+	uint32_t old_data_hash;
+	uint32_t old_hash;
 	ResourceHandleInfo *info = nullptr;
 	Profiling::State profiling_state{};
 
@@ -1134,7 +1149,7 @@ void UpdateResourceHashFromCPU(ID3D11Resource *resource,
 	initialData.SysMemPitch = rowPitch;
 	initialData.SysMemSlicePitch = depthPitch;
 
-	// TODO: We currently store the desc structure that was originally used
+	// Future work: We currently store the desc structure that was originally used
 	// when the resource was created. We can query the desc from the
 	// resource directly to save memory, but there are some potential
 	// differences between what we stored and what we get from the query.
@@ -1148,25 +1163,26 @@ void UpdateResourceHashFromCPU(ID3D11Resource *resource,
 	old_hash = info->hash;
 
 	resource->GetType(&dim);
-	switch (dim) {
-		case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
-			tex2D = (ID3D11Texture2D*)resource;
+	switch (dim)
+	{
+	case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
+		tex2D = (ID3D11Texture2D *)resource;
 
-			desc2D = &info->desc2D;
-			// TODO: tex2D->GetDesc(&desc2D); then fix up mip-maps if necessary
+		desc2D = &info->desc2D;
+		// Future work: tex2D->GetDesc(&desc2D); then fix up mip-maps if necessary
 
-			info->data_hash = CalcTexture2DDataHash(desc2D, &initialData);
-			info->hash = CalcTexture2DDescHash(info->data_hash, desc2D);
-			break;
-		case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
-			tex3D = (ID3D11Texture3D*)resource;
+		info->data_hash = CalcTexture2DDataHash(desc2D, &initialData);
+		info->hash = CalcTexture2DDescHash(info->data_hash, desc2D);
+		break;
+	case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
+		tex3D = (ID3D11Texture3D *)resource;
 
-			desc3D = &info->desc3D;
-			// TODO: tex3D->GetDesc(&desc3D); then fix up mip-maps if necessary
+		desc3D = &info->desc3D;
+		// Future work: tex3D->GetDesc(&desc3D); then fix up mip-maps if necessary
 
-			info->data_hash = CalcTexture3DDataHash(desc3D, &initialData);
-			info->hash = CalcTexture3DDescHash(info->data_hash, desc3D);
-			break;
+		info->data_hash = CalcTexture3DDataHash(desc3D, &initialData);
+		info->hash = CalcTexture3DDescHash(info->data_hash, desc3D);
+		break;
 	}
 
 	LogDebug("Updated resource hash\n");
@@ -1182,11 +1198,13 @@ out_unlock:
 
 void PropagateResourceHash(ID3D11Resource *dst, ID3D11Resource *src)
 {
-	ResourceHandleInfo *dst_info, *src_info;
+	ResourceHandleInfo *dst_info;
+	ResourceHandleInfo *src_info;
 	D3D11_RESOURCE_DIMENSION dim;
 	D3D11_TEXTURE2D_DESC *desc2D;
 	D3D11_TEXTURE3D_DESC *desc3D;
-	uint32_t old_data_hash, old_hash;
+	uint32_t old_data_hash;
+	uint32_t old_hash;
 	Profiling::State profiling_state{};
 
 	if (Profiling::mode == Profiling::Mode::SUMMARY)
@@ -1227,19 +1245,20 @@ void PropagateResourceHash(ID3D11Resource *dst, ID3D11Resource *src)
 	dst_info->data_hash = src_info->data_hash;
 
 	dst->GetType(&dim);
-	switch (dim) {
-		case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
-			desc2D = &dst_info->desc2D;
-			// TODO: tex2D->GetDesc(&desc2D); then fix up mip-maps if necessary
+	switch (dim)
+	{
+	case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
+		desc2D = &dst_info->desc2D;
+		// Future work: tex2D->GetDesc(&desc2D); then fix up mip-maps if necessary
 
-			dst_info->hash = CalcTexture2DDescHash(dst_info->data_hash, desc2D);
-			break;
-		case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
-			desc3D = &dst_info->desc3D;
-			// TODO: tex3D->GetDesc(&desc3D); then fix up mip-maps if necessary
+		dst_info->hash = CalcTexture2DDescHash(dst_info->data_hash, desc2D);
+		break;
+	case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
+		desc3D = &dst_info->desc3D;
+		// Future work: tex3D->GetDesc(&desc3D); then fix up mip-maps if necessary
 
-			dst_info->hash = CalcTexture3DDescHash(dst_info->data_hash, desc3D);
-			break;
+		dst_info->hash = CalcTexture3DDescHash(dst_info->data_hash, desc3D);
+		break;
 	}
 
 	LogDebug("Propagated resource hash\n");
@@ -1255,11 +1274,12 @@ out_unlock:
 
 bool MapTrackResourceHashUpdate(ID3D11Resource *pResource, UINT Subresource)
 {
-	if (G->hunting && G->track_texture_updates != 2) { // Any hunting mode - want to catch hash contamination even while soft disabled
+	if (G->hunting && G->track_texture_updates != 2)
+	{ // Any hunting mode - want to catch hash contamination even while soft disabled
 		MarkResourceHashContaminated(pResource, Subresource, nullptr, 0, 'M', 0, 0, 0, nullptr);
 	}
 
-	// TODO: If track_texture_updated is disabled, but we are in hunting
+	// Future work: If track_texture_updated is disabled, but we are in hunting
 	// with a reloadable config, we might consider tracking the data hash
 	// updates regardless (just not the full resource hash) so the option
 	// can be turned on live and work. But there's a few pieces we would
@@ -1272,11 +1292,9 @@ bool MapTrackResourceHashUpdate(ID3D11Resource *pResource, UINT Subresource)
 // -----------------------------------------------------------------------------------------------
 
 // {4A40BF2F-6358-470F-BA0A-662E3E2D8CD3}
-DEFINE_GUID(ResourceReleaseTrackerGuid,
-0x4a40bf2f, 0x6358, 0x470f, 0xba, 0xa, 0x66, 0x2e, 0x3e, 0x2d, 0x8c, 0xd3);
+DEFINE_GUID(ResourceReleaseTrackerGuid, 0x4a40bf2f, 0x6358, 0x470f, 0xba, 0xa, 0x66, 0x2e, 0x3e, 0x2d, 0x8c, 0xd3);
 
-ResourceReleaseTracker::ResourceReleaseTracker(ID3D11Resource *resource) :
-	resource(resource)
+ResourceReleaseTracker::ResourceReleaseTracker(ID3D11Resource *resource) : resource(resource)
 {
 	ref = 1;
 }
@@ -1286,7 +1304,7 @@ HRESULT ResourceReleaseTracker::Attach(ID3D11Resource *resource)
 	if (!resource)
 		return E_INVALIDARG;
 
-	ResourceReleaseTracker *tracker = new (std::nothrow) ResourceReleaseTracker(resource);
+	auto *tracker = new (std::nothrow) ResourceReleaseTracker(resource);
 	if (!tracker)
 		return E_OUTOFMEMORY;
 
@@ -1298,14 +1316,16 @@ HRESULT ResourceReleaseTracker::Attach(ID3D11Resource *resource)
 
 HRESULT STDMETHODCALLTYPE ResourceReleaseTracker::QueryInterface(REFIID riid, _COM_Outptr_ void **ppvObject)
 {
-	LogInfo("ResourceReleaseTracker::QueryInterface(%p:%p) called with IID: %s\n", this, resource, NameFromIID(riid).c_str());
+	LogInfo("ResourceReleaseTracker::QueryInterface(%p:%p) called with IID: %s\n", this, resource,
+	        NameFromIID(riid).c_str());
 
 	if (!ppvObject)
 		return E_POINTER;
 	*ppvObject = nullptr;
 
 	// The only interface we support is IUnknown
-	if (IsEqualIID(riid, IID_IUnknown)) {
+	if (IsEqualIID(riid, IID_IUnknown))
+	{
 		AddRef();
 		*ppvObject = this;
 		return S_OK;
@@ -1325,7 +1345,8 @@ ULONG STDMETHODCALLTYPE ResourceReleaseTracker::Release(void)
 {
 	ULONG ret = --ref;
 	// LogDebug("ResourceReleaseTracker::Release(%p:%p) -> %lu\n", this, resource, ret);
-	if (ret == 0) {
+	if (ret == 0)
+	{
 		// LogDebug("Removing %p from mResources\n", resource);
 
 		////////////////////////////////////////////////////////////
@@ -1375,44 +1396,92 @@ FuzzyMatch::FuzzyMatch()
 	denominator = 1;
 }
 
-static UINT get_resource_width(const D3D11_BUFFER_DESC *desc [[maybe_unused]])    { return 0; }
-static UINT get_resource_width(const D3D11_TEXTURE1D_DESC *desc) { return desc->Width; }
-static UINT get_resource_width(const D3D11_TEXTURE2D_DESC *desc) { return desc->Width; }
-static UINT get_resource_width(const D3D11_TEXTURE3D_DESC *desc) { return desc->Width; }
-
-static UINT get_resource_height(const D3D11_BUFFER_DESC *desc [[maybe_unused]])    { return 0; }
-static UINT get_resource_height(const D3D11_TEXTURE1D_DESC *desc [[maybe_unused]]) { return 0; }
-static UINT get_resource_height(const D3D11_TEXTURE2D_DESC *desc) { return desc->Height; }
-static UINT get_resource_height(const D3D11_TEXTURE3D_DESC *desc) { return desc->Height; }
-
-static UINT get_resource_depth(const D3D11_BUFFER_DESC *desc [[maybe_unused]])    { return 0; }
-static UINT get_resource_depth(const D3D11_TEXTURE1D_DESC *desc [[maybe_unused]]) { return 0; }
-static UINT get_resource_depth(const D3D11_TEXTURE2D_DESC *desc [[maybe_unused]]) { return 0; }
-static UINT get_resource_depth(const D3D11_TEXTURE3D_DESC *desc) { return desc->Depth; }
-
-static UINT get_resource_array(const D3D11_BUFFER_DESC *desc [[maybe_unused]])    { return 0; }
-static UINT get_resource_array(const D3D11_TEXTURE1D_DESC *desc) { return desc->ArraySize; }
-static UINT get_resource_array(const D3D11_TEXTURE2D_DESC *desc) { return desc->ArraySize; }
-static UINT get_resource_array(const D3D11_TEXTURE3D_DESC *desc [[maybe_unused]]) { return 0; }
-
-template <typename DescType>
-static UINT eval_field(FuzzyMatchOperandType type, UINT val, const DescType *desc)
+static UINT get_resource_width(const D3D11_BUFFER_DESC *desc [[maybe_unused]])
 {
-	switch (type) {
-		case FuzzyMatchOperandType::VALUE:
-			return val;
-		case FuzzyMatchOperandType::WIDTH:
-			return get_resource_width(desc);
-		case FuzzyMatchOperandType::HEIGHT:
-			return get_resource_height(desc);
-		case FuzzyMatchOperandType::DEPTH:
-			return get_resource_depth(desc);
-		case FuzzyMatchOperandType::ARRAY:
-			return get_resource_array(desc);
-		case FuzzyMatchOperandType::RES_WIDTH:
-			return G->mResolutionInfo.width;
-		case FuzzyMatchOperandType::RES_HEIGHT:
-			return G->mResolutionInfo.height;
+	return 0;
+}
+static UINT get_resource_width(const D3D11_TEXTURE1D_DESC *desc)
+{
+	return desc->Width;
+}
+static UINT get_resource_width(const D3D11_TEXTURE2D_DESC *desc)
+{
+	return desc->Width;
+}
+static UINT get_resource_width(const D3D11_TEXTURE3D_DESC *desc)
+{
+	return desc->Width;
+}
+
+static UINT get_resource_height(const D3D11_BUFFER_DESC *desc [[maybe_unused]])
+{
+	return 0;
+}
+static UINT get_resource_height(const D3D11_TEXTURE1D_DESC *desc [[maybe_unused]])
+{
+	return 0;
+}
+static UINT get_resource_height(const D3D11_TEXTURE2D_DESC *desc)
+{
+	return desc->Height;
+}
+static UINT get_resource_height(const D3D11_TEXTURE3D_DESC *desc)
+{
+	return desc->Height;
+}
+
+static UINT get_resource_depth(const D3D11_BUFFER_DESC *desc [[maybe_unused]])
+{
+	return 0;
+}
+static UINT get_resource_depth(const D3D11_TEXTURE1D_DESC *desc [[maybe_unused]])
+{
+	return 0;
+}
+static UINT get_resource_depth(const D3D11_TEXTURE2D_DESC *desc [[maybe_unused]])
+{
+	return 0;
+}
+static UINT get_resource_depth(const D3D11_TEXTURE3D_DESC *desc)
+{
+	return desc->Depth;
+}
+
+static UINT get_resource_array(const D3D11_BUFFER_DESC *desc [[maybe_unused]])
+{
+	return 0;
+}
+static UINT get_resource_array(const D3D11_TEXTURE1D_DESC *desc)
+{
+	return desc->ArraySize;
+}
+static UINT get_resource_array(const D3D11_TEXTURE2D_DESC *desc)
+{
+	return desc->ArraySize;
+}
+static UINT get_resource_array(const D3D11_TEXTURE3D_DESC *desc [[maybe_unused]])
+{
+	return 0;
+}
+
+template <typename DescType> static UINT eval_field(FuzzyMatchOperandType type, UINT val, const DescType *desc)
+{
+	switch (type)
+	{
+	case FuzzyMatchOperandType::VALUE:
+		return val;
+	case FuzzyMatchOperandType::WIDTH:
+		return get_resource_width(desc);
+	case FuzzyMatchOperandType::HEIGHT:
+		return get_resource_height(desc);
+	case FuzzyMatchOperandType::DEPTH:
+		return get_resource_depth(desc);
+	case FuzzyMatchOperandType::ARRAY:
+		return get_resource_array(desc);
+	case FuzzyMatchOperandType::RES_WIDTH:
+		return G->mResolutionInfo.width;
+	case FuzzyMatchOperandType::RES_HEIGHT:
+		return G->mResolutionInfo.height;
 	};
 
 	LogOverlay(LOG_DIRE, "BUG: Invalid fuzzy field %u\n", type);
@@ -1420,8 +1489,7 @@ static UINT eval_field(FuzzyMatchOperandType type, UINT val, const DescType *des
 	return val;
 }
 
-template <typename DescType>
-bool FuzzyMatch::matches(UINT lhs, const DescType *desc) const
+template <typename DescType> bool FuzzyMatch::matches(UINT lhs, const DescType *desc) const
 {
 	UINT effective;
 
@@ -1453,37 +1521,35 @@ bool FuzzyMatch::matches_common(UINT lhs, UINT effective) const
 {
 	// For now just supporting a single integer numerator and denominator,
 	// which should be sufficient to match most aspect ratios, downsampled
-	// textures and so on. TODO: Add a full expression evaluator.
+	// textures and so on. Future work: Add a full expression evaluator.
 	if (!denominator)
 		return false;
 	effective = effective * numerator / denominator;
 
-	switch (op) {
-		case FuzzyMatchOp::EQUAL:
-			// Only case that the mask applies to, for flags fields
-			return ((lhs & mask) == effective);
-		case FuzzyMatchOp::LESS:
-			return (lhs < effective);
-		case FuzzyMatchOp::LESS_EQUAL:
-			return (lhs <= effective);
-		case FuzzyMatchOp::GREATER:
-			return (lhs > effective);
-		case FuzzyMatchOp::GREATER_EQUAL:
-			return (lhs >= effective);
-		case FuzzyMatchOp::NOT_EQUAL:
-			return (lhs != effective);
+	switch (op)
+	{
+	case FuzzyMatchOp::EQUAL:
+		// Only case that the mask applies to, for flags fields
+		return ((lhs & mask) == effective);
+	case FuzzyMatchOp::LESS:
+		return (lhs < effective);
+	case FuzzyMatchOp::LESS_EQUAL:
+		return (lhs <= effective);
+	case FuzzyMatchOp::GREATER:
+		return (lhs > effective);
+	case FuzzyMatchOp::GREATER_EQUAL:
+		return (lhs >= effective);
+	case FuzzyMatchOp::NOT_EQUAL:
+		return (lhs != effective);
 	};
 
 	return false;
 }
 
-FuzzyMatchResourceDesc::FuzzyMatchResourceDesc(std::wstring section) :
-	matches_buffer(true),
-	matches_tex1d(true),
-	matches_tex2d(true),
-	matches_tex3d(true)
+FuzzyMatchResourceDesc::FuzzyMatchResourceDesc(std::wstring section)
+    : matches_buffer(true), matches_tex1d(true), matches_tex2d(true), matches_tex3d(true)
 {
-	// TODO: Statically contain this once we sort out our header files:
+	// Future work: Statically contain this once we sort out our header files:
 	texture_override = new TextureOverride();
 	texture_override->ini_section = section;
 }
@@ -1493,8 +1559,7 @@ FuzzyMatchResourceDesc::~FuzzyMatchResourceDesc()
 	delete texture_override;
 }
 
-template <typename DescType>
-bool FuzzyMatchResourceDesc::check_common_resource_fields(const DescType *desc) const
+template <typename DescType> bool FuzzyMatchResourceDesc::check_common_resource_fields(const DescType *desc) const
 {
 	if (!Usage.matches(desc->Usage, desc))
 		return false;
@@ -1507,8 +1572,7 @@ bool FuzzyMatchResourceDesc::check_common_resource_fields(const DescType *desc) 
 	return true;
 }
 
-template <typename DescType>
-bool FuzzyMatchResourceDesc::check_common_texture_fields(const DescType *desc) const
+template <typename DescType> bool FuzzyMatchResourceDesc::check_common_texture_fields(const DescType *desc) const
 {
 	if (!MipLevels.matches(desc->MipLevels, desc))
 		return false;
@@ -1589,19 +1653,20 @@ bool FuzzyMatchResourceDesc::matches(const D3D11_TEXTURE3D_DESC *desc) const
 
 void FuzzyMatchResourceDesc::set_resource_type(D3D11_RESOURCE_DIMENSION type)
 {
-	switch(type) {
-		case D3D11_RESOURCE_DIMENSION_BUFFER:
-			matches_tex1d = matches_tex2d = matches_tex3d = false;
-			return;
-		case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
-			matches_buffer = matches_tex2d = matches_tex3d = false;
-			return;
-		case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
-			matches_buffer = matches_tex1d = matches_tex3d = false;
-			return;
-		case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
-			matches_buffer = matches_tex1d = matches_tex2d = false;
-			return;
+	switch (type)
+	{
+	case D3D11_RESOURCE_DIMENSION_BUFFER:
+		matches_tex1d = matches_tex2d = matches_tex3d = false;
+		return;
+	case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
+		matches_buffer = matches_tex2d = matches_tex3d = false;
+		return;
+	case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
+		matches_buffer = matches_tex1d = matches_tex3d = false;
+		return;
+	case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
+		matches_buffer = matches_tex1d = matches_tex2d = false;
+		return;
 	}
 }
 
@@ -1614,13 +1679,10 @@ bool FuzzyMatchResourceDesc::update_types_matched()
 	// left with no possible resource types we can match we will return
 	// false so that the caller knows this is invalid.
 
-	if (FuzzyMatchOp::ALWAYS != ByteWidth.op
-	 || FuzzyMatchOp::ALWAYS != StructureByteStride.op)
+	if (FuzzyMatchOp::ALWAYS != ByteWidth.op || FuzzyMatchOp::ALWAYS != StructureByteStride.op)
 		matches_tex1d = matches_tex2d = matches_tex3d = false;
 
-	if (FuzzyMatchOp::ALWAYS != MipLevels.op
-	 || FuzzyMatchOp::ALWAYS != Format.op
-	 || FuzzyMatchOp::ALWAYS != Width.op)
+	if (FuzzyMatchOp::ALWAYS != MipLevels.op || FuzzyMatchOp::ALWAYS != Format.op || FuzzyMatchOp::ALWAYS != Width.op)
 		matches_buffer = false;
 
 	if (FuzzyMatchOp::ALWAYS != Height.op)
@@ -1632,8 +1694,7 @@ bool FuzzyMatchResourceDesc::update_types_matched()
 	if (FuzzyMatchOp::ALWAYS != ArraySize.op)
 		matches_buffer = matches_tex3d = false;
 
-	if (FuzzyMatchOp::ALWAYS != SampleDesc_Count.op
-	 || FuzzyMatchOp::ALWAYS != SampleDesc_Quality.op)
+	if (FuzzyMatchOp::ALWAYS != SampleDesc_Count.op || FuzzyMatchOp::ALWAYS != SampleDesc_Quality.op)
 		matches_buffer = matches_tex1d = matches_tex3d = false;
 
 	return matches_buffer || matches_tex1d || matches_tex2d || matches_tex3d;
@@ -1672,13 +1733,14 @@ void find_texture_override_for_hash(uint32_t hash, TextureOverrideMatches *match
 	if (i == G->mTextureOverrideMap.end())
 		return;
 
-	for (j = i->second.begin(); j != i->second.end(); j++) {
+	for (j = i->second.begin(); j != i->second.end(); j++)
+	{
 		if (matches_draw_info(&(*j), call_info))
 			matches->push_back(&(*j));
 	}
 }
 
-static uint32_t get_hash_for_resource(ID3D11Resource* resource)
+static uint32_t get_hash_for_resource(ID3D11Resource *resource)
 {
 	if (!resource)
 		return 0;
@@ -1690,7 +1752,8 @@ static uint32_t get_hash_for_resource(ID3D11Resource* resource)
 	return hash;
 }
 
-void find_texture_overrides_for_resource_by_hash(ID3D11Resource *resource, TextureOverrideMatches *matches, DrawCallInfo *call_info)
+void find_texture_overrides_for_resource_by_hash(ID3D11Resource *resource, TextureOverrideMatches *matches,
+                                                 DrawCallInfo *call_info)
 {
 	if (G->mTextureOverrideMap.empty())
 		return;
@@ -1702,37 +1765,45 @@ void find_texture_overrides_for_resource_by_hash(ID3D11Resource *resource, Textu
 	find_texture_override_for_hash(hash, matches, call_info);
 }
 
-TextureOverrideFuzzyMatches* get_fuzzy_matches_by_draw_info(DrawCallInfo* call_info)
+TextureOverrideFuzzyMatches *get_fuzzy_matches_by_draw_info(DrawCallInfo *call_info)
 {
 	if (call_info->IndexCount)
 	{
 		auto it = G->mTextureOverrideDrawIndexMap.find(call_info->IndexCount);
-		if (it != G->mTextureOverrideDrawIndexMap.end()) {
+		if (it != G->mTextureOverrideDrawIndexMap.end())
+		{
 			return &it->second;
 		}
 	}
 	else if (call_info->VertexCount)
 	{
 		auto it = G->mTextureOverrideDrawVertexMap.find(call_info->VertexCount);
-		if (it != G->mTextureOverrideDrawVertexMap.end()){
+		if (it != G->mTextureOverrideDrawVertexMap.end())
+		{
 			return &it->second;
 		}
 	}
 	return nullptr;
 }
 
-void find_texture_overrides_by_hash_from_fuzzy_matches(uint32_t hash, TextureOverrideFuzzyMatches* fuzzy_matches, TextureOverrideMatches* matches, DrawCallInfo* call_info)
+void find_texture_overrides_by_hash_from_fuzzy_matches(uint32_t hash, TextureOverrideFuzzyMatches *fuzzy_matches,
+                                                       TextureOverrideMatches *matches, DrawCallInfo *call_info)
 {
 	TextureOverrideFuzzyMatches::iterator it;
 
-	for (it = fuzzy_matches->begin(); it != fuzzy_matches->end(); ++it) {
-		if (it->hash == hash && matches_draw_info(it->texture_override, call_info)) {
+	for (it = fuzzy_matches->begin(); it != fuzzy_matches->end(); ++it)
+	{
+		if (it->hash == hash && matches_draw_info(it->texture_override, call_info))
+		{
 			matches->push_back(it->texture_override);
 		}
 	}
 }
 
-void find_texture_overrides_for_resource_by_hash_from_fuzzy_matches(ID3D11Resource* resource, TextureOverrideFuzzyMatches* fuzzy_matches, TextureOverrideMatches* matches, DrawCallInfo* call_info)
+void find_texture_overrides_for_resource_by_hash_from_fuzzy_matches(ID3D11Resource *resource,
+                                                                    TextureOverrideFuzzyMatches *fuzzy_matches,
+                                                                    TextureOverrideMatches *matches,
+                                                                    DrawCallInfo *call_info)
 {
 	uint32_t hash = get_hash_for_resource(resource);
 	if (!hash)
@@ -1742,21 +1813,25 @@ void find_texture_overrides_for_resource_by_hash_from_fuzzy_matches(ID3D11Resour
 }
 
 template <typename DescType>
-static void find_texture_overrides_for_desc(const DescType *desc, TextureOverrideMatches *matches, DrawCallInfo *call_info)
+static void find_texture_overrides_for_desc(const DescType *desc, TextureOverrideMatches *matches,
+                                            DrawCallInfo *call_info)
 {
 	FuzzyTextureOverrides::iterator i;
 
-	for (i = G->mFuzzyTextureOverrides.begin(); i != G->mFuzzyTextureOverrides.end(); i++) {
+	for (i = G->mFuzzyTextureOverrides.begin(); i != G->mFuzzyTextureOverrides.end(); i++)
+	{
 		if ((*i)->matches(desc) && matches_draw_info((*i)->texture_override, call_info))
 			matches->push_back((*i)->texture_override);
 	}
 }
 
 template <typename DescType>
-void find_texture_overrides(uint32_t hash, const DescType *desc, TextureOverrideMatches *matches, DrawCallInfo *call_info)
+void find_texture_overrides(uint32_t hash, const DescType *desc, TextureOverrideMatches *matches,
+                            DrawCallInfo *call_info)
 {
 	find_texture_override_for_hash(hash, matches, call_info);
-	if (!matches->empty()) {
+	if (!matches->empty())
+	{
 		// If we got a result it was matched by hash - that's an exact
 		// match and we don't process any fuzzy matches
 		return;
@@ -1766,48 +1841,55 @@ void find_texture_overrides(uint32_t hash, const DescType *desc, TextureOverride
 }
 // Explicit template expansion is necessary to generate these functions for
 // the compiler to generate them so they can be used from other source files:
-template void find_texture_overrides<D3D11_BUFFER_DESC>(uint32_t hash, const D3D11_BUFFER_DESC *desc, TextureOverrideMatches *matches, DrawCallInfo *call_info);
-template void find_texture_overrides<D3D11_TEXTURE1D_DESC>(uint32_t hash, const D3D11_TEXTURE1D_DESC *desc, TextureOverrideMatches *matches, DrawCallInfo *call_info);
-template void find_texture_overrides<D3D11_TEXTURE2D_DESC>(uint32_t hash, const D3D11_TEXTURE2D_DESC *desc, TextureOverrideMatches *matches, DrawCallInfo *call_info);
-template void find_texture_overrides<D3D11_TEXTURE3D_DESC>(uint32_t hash, const D3D11_TEXTURE3D_DESC *desc, TextureOverrideMatches *matches, DrawCallInfo *call_info);
+template void find_texture_overrides<D3D11_BUFFER_DESC>(uint32_t hash, const D3D11_BUFFER_DESC *desc,
+                                                        TextureOverrideMatches *matches, DrawCallInfo *call_info);
+template void find_texture_overrides<D3D11_TEXTURE1D_DESC>(uint32_t hash, const D3D11_TEXTURE1D_DESC *desc,
+                                                           TextureOverrideMatches *matches, DrawCallInfo *call_info);
+template void find_texture_overrides<D3D11_TEXTURE2D_DESC>(uint32_t hash, const D3D11_TEXTURE2D_DESC *desc,
+                                                           TextureOverrideMatches *matches, DrawCallInfo *call_info);
+template void find_texture_overrides<D3D11_TEXTURE3D_DESC>(uint32_t hash, const D3D11_TEXTURE3D_DESC *desc,
+                                                           TextureOverrideMatches *matches, DrawCallInfo *call_info);
 
-void find_texture_overrides_for_resource_desc(ID3D11Resource* resource, TextureOverrideMatches* matches, DrawCallInfo* call_info)
+void find_texture_overrides_for_resource_desc(ID3D11Resource *resource, TextureOverrideMatches *matches,
+                                              DrawCallInfo *call_info)
 {
 	D3D11_RESOURCE_DIMENSION dimension;
 	resource->GetType(&dimension);
-	switch (dimension) {
-		case D3D11_RESOURCE_DIMENSION_BUFFER:
-		{
-			ID3D11Buffer* buf = (ID3D11Buffer*)resource;
-			D3D11_BUFFER_DESC buf_desc;
-			buf->GetDesc(&buf_desc);
-			return find_texture_overrides_for_desc(&buf_desc, matches, call_info);
-		}
-		case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
-		{
-			ID3D11Texture1D* tex1d = (ID3D11Texture1D*)resource;
-			D3D11_TEXTURE1D_DESC tex1d_desc;
-			tex1d->GetDesc(&tex1d_desc);
-			return find_texture_overrides_for_desc(&tex1d_desc, matches, call_info);
-		}
-		case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
-		{
-			ID3D11Texture2D* tex2d = (ID3D11Texture2D*)resource;
-			D3D11_TEXTURE2D_DESC tex2d_desc;
-			tex2d->GetDesc(&tex2d_desc);
-			return find_texture_overrides_for_desc(&tex2d_desc, matches, call_info);
-		}
-		case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
-		{
-			ID3D11Texture3D* tex3d = (ID3D11Texture3D*)resource;
-			D3D11_TEXTURE3D_DESC tex3d_desc;
-			tex3d->GetDesc(&tex3d_desc);
-			return find_texture_overrides_for_desc(&tex3d_desc, matches, call_info);
-		}
+	switch (dimension)
+	{
+	case D3D11_RESOURCE_DIMENSION_BUFFER:
+	{
+		auto *buf = (ID3D11Buffer *)resource;
+		D3D11_BUFFER_DESC buf_desc;
+		buf->GetDesc(&buf_desc);
+		return find_texture_overrides_for_desc(&buf_desc, matches, call_info);
+	}
+	case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
+	{
+		auto *tex1d = (ID3D11Texture1D *)resource;
+		D3D11_TEXTURE1D_DESC tex1d_desc;
+		tex1d->GetDesc(&tex1d_desc);
+		return find_texture_overrides_for_desc(&tex1d_desc, matches, call_info);
+	}
+	case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
+	{
+		auto *tex2d = (ID3D11Texture2D *)resource;
+		D3D11_TEXTURE2D_DESC tex2d_desc;
+		tex2d->GetDesc(&tex2d_desc);
+		return find_texture_overrides_for_desc(&tex2d_desc, matches, call_info);
+	}
+	case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
+	{
+		auto *tex3d = (ID3D11Texture3D *)resource;
+		D3D11_TEXTURE3D_DESC tex3d_desc;
+		tex3d->GetDesc(&tex3d_desc);
+		return find_texture_overrides_for_desc(&tex3d_desc, matches, call_info);
+	}
 	}
 }
 
-void find_texture_overrides_for_resource(ID3D11Resource *resource, TextureOverrideMatches *matches, DrawCallInfo *call_info)
+void find_texture_overrides_for_resource(ID3D11Resource *resource, TextureOverrideMatches *matches,
+                                         DrawCallInfo *call_info)
 {
 	find_texture_overrides_for_resource_by_hash(resource, matches, call_info);
 
@@ -1816,7 +1898,8 @@ void find_texture_overrides_for_resource(ID3D11Resource *resource, TextureOverri
 	// existed (for AGMG-style mods). That can change which filter_index wins
 	// when a hashed texture also matches a fuzzy RT size rule - which breaks
 	// EDHM HUD colour selection. Keep dual-match opt-in for XXMI use cases.
-	if (!matches->empty() && !G->fuzzy_match_alongside_hash) {
+	if (!matches->empty() && !G->fuzzy_match_alongside_hash)
+	{
 		// Exact hash match(es) only - do not process fuzzy matches
 		return;
 	}
@@ -1837,7 +1920,8 @@ bool TextureOverrideLess(const struct TextureOverride &lhs, const struct Texture
 	return lhs.ini_section < rhs.ini_section;
 }
 
-bool FuzzyMatchResourceDescLess::operator() (const std::shared_ptr<FuzzyMatchResourceDesc> &lhs, const std::shared_ptr<FuzzyMatchResourceDesc> &rhs) const
+bool FuzzyMatchResourceDescLess::operator()(const std::shared_ptr<FuzzyMatchResourceDesc> &lhs,
+                                            const std::shared_ptr<FuzzyMatchResourceDesc> &rhs) const
 {
 	return TextureOverrideLess(*lhs->texture_override, *rhs->texture_override);
 }
@@ -1848,7 +1932,8 @@ bool FuzzyMatchResourceDescLess::operator() (const std::shared_ptr<FuzzyMatchRes
 // NOTE: Pages do NOT store hashes; they only invalidate offset-based entries.
 void RegionHashesCache::Initialize(size_t buffer_size)
 {
-	if (data_size != buffer_size) {
+	if (data_size != buffer_size)
+	{
 		//LogInfo("RegionHashesCache::Initialize buffer_size=%d \n", buffer_size);
 		size_t num_pages = buffer_size / PAGE_SIZE + !!(buffer_size % PAGE_SIZE);
 		size_t num_blocks = num_pages / PAGES_PER_VERSION_BLOCK + !!(num_pages % PAGES_PER_VERSION_BLOCK);
@@ -1865,7 +1950,7 @@ void RegionHashesCache::Initialize(size_t buffer_size)
 	}
 }
 
-bool RegionHashesCache::GetRegionVersion(const RegionHashKeyL2& key, uint64_t *version) const
+bool RegionHashesCache::GetRegionVersion(const RegionHashKeyL2 &key, uint64_t *version) const
 {
 	size_t offset = key.offset;
 	size_t size = key.size;
@@ -1879,18 +1964,21 @@ bool RegionHashesCache::GetRegionVersion(const RegionHashKeyL2& key, uint64_t *v
 	page = offset / PAGE_SIZE;
 	end_page = (offset + size - 1) / PAGE_SIZE;
 
-	while (page <= end_page && page % PAGES_PER_VERSION_BLOCK) {
+	while (page <= end_page && page % PAGES_PER_VERSION_BLOCK)
+	{
 		if (page_versions[page] > region_version)
 			region_version = page_versions[page];
 		++page;
 	}
-	while (page <= end_page && end_page - page + 1 >= PAGES_PER_VERSION_BLOCK) {
+	while (page <= end_page && end_page - page + 1 >= PAGES_PER_VERSION_BLOCK)
+	{
 		uint64_t block_version = block_versions[page / PAGES_PER_VERSION_BLOCK];
 		if (block_version > region_version)
 			region_version = block_version;
 		page += PAGES_PER_VERSION_BLOCK;
 	}
-	while (page <= end_page) {
+	while (page <= end_page)
+	{
 		if (page_versions[page] > region_version)
 			region_version = page_versions[page];
 		++page;
@@ -1902,7 +1990,7 @@ bool RegionHashesCache::GetRegionVersion(const RegionHashKeyL2& key, uint64_t *v
 
 // Store the hash together with the latest invalidation affecting any page in
 // the region.
-void RegionHashesCache::Add(const RegionHashKeyL2& key, uint32_t hash)
+void RegionHashesCache::Add(const RegionHashKeyL2 &key, uint32_t hash)
 {
 	uint64_t version;
 
@@ -1910,7 +1998,8 @@ void RegionHashesCache::Add(const RegionHashKeyL2& key, uint32_t hash)
 		return;
 
 	if (!cache)
-		cache = std::make_unique<FlatHashMap<RegionHashKeyL2, RegionCacheEntry, RegionHashKeyHasherL2>>(page_versions.size() / (PAGE_SIZE / HASHES_PER_PAGE));
+		cache = std::make_unique<FlatHashMap<RegionHashKeyL2, RegionCacheEntry, RegionHashKeyHasherL2>>(
+		    page_versions.size() / (PAGE_SIZE / HASHES_PER_PAGE));
 
 	RegionCacheEntry entry{};
 	entry.hash = hash;
@@ -1919,7 +2008,7 @@ void RegionHashesCache::Add(const RegionHashKeyL2& key, uint32_t hash)
 	cache->insert(key, entry);
 }
 
-uint32_t RegionHashesCache::Get(const RegionHashKeyL2& key)
+uint32_t RegionHashesCache::Get(const RegionHashKeyL2 &key)
 {
 	uint64_t version;
 
@@ -1927,7 +2016,7 @@ uint32_t RegionHashesCache::Get(const RegionHashKeyL2& key)
 		return 0;
 
 	// Lookup exact offset (hot path, performance critical).
-	const RegionCacheEntry* entry = cache->find_ptr(key);
+	const RegionCacheEntry *entry = cache->find_ptr(key);
 	if (!entry)
 		return 0;
 
@@ -1966,7 +2055,8 @@ void RegionHashesCache::Invalidate(size_t start, size_t end)
 	if (start_page > end_page)
 		return;
 
-	if (++next_version == 0) {
+	if (++next_version == 0)
+	{
 		Clear();
 		next_version = 1;
 	}
@@ -2017,7 +2107,7 @@ void ResourceHandleInfo::InitializeDataCache(size_t size, size_t offset)
 // until this function returns. We must never adopt or free such a pointer:
 // mapped memory belongs to the runtime, is only valid until Unmap, and was
 // never allocated with malloc.
-void ResourceHandleInfo::SetDataCache(const void* src, size_t size)
+void ResourceHandleInfo::SetDataCache(const void *src, size_t size)
 {
 	if (!src || !size)
 		return;
@@ -2032,35 +2122,40 @@ void ResourceHandleInfo::SetDataCache(const void* src, size_t size)
 	//LogInfo("SetDataCache size=%d, data_hash=%08lx\n", size, cached_data_hash);
 }
 
-void ResourceHandleInfo::SetDataCacheRegion(const void* src, size_t region_size, UINT offset)
+void ResourceHandleInfo::SetDataCacheRegion(const void *src, size_t region_size, UINT offset)
 {
 	if (!src || !region_size)
 		return;
 
 	// Cannot write partial region if cache not initialized.
-	if (!cached_data_size) {
+	if (!cached_data_size)
+	{
 		LogInfo("SetDataCacheRegion Failed (not initialized): offset=%u, region_size=%zu!\n", offset, region_size);
 		return;
 	}
 
-	if (offset > cached_data_size || region_size > cached_data_size - offset){
-		LogInfo("SetDataCacheRegion Failed (out of bounds): offset=%u, region_size=%zu, dst_size=%zu!\n", offset, region_size, cached_data_size);
+	if (offset > cached_data_size || region_size > cached_data_size - offset)
+	{
+		LogInfo("SetDataCacheRegion Failed (out of bounds): offset=%u, region_size=%zu, dst_size=%zu!\n", offset,
+		        region_size, cached_data_size);
 		return;
 	}
 
 	//LogInfo("SetDataCacheRegion: offset=%d, region_size=%d!\n", offset, region_size);
 
 	// Recreate cache if it was invalidated but size is still known.
-	if (!cached_data) {
+	if (!cached_data)
+	{
 		cached_data = std::shared_ptr<uint8_t[]>(new uint8_t[cached_data_size]);
 		cached_data_offset = 0;
 	}
-		
+
 	// Update only the affected region.
 	memcpy(GetCachedData() + offset, src, region_size);
 
 	// Invalidate only affected pages (cheap, avoids clearing the whole cache).
-	if (region_hashes_cache) {
+	if (region_hashes_cache)
+	{
 		size_t invalidation_end = static_cast<size_t>(offset) + region_size;
 		region_hashes_cache->Invalidate(offset, invalidation_end);
 	}
@@ -2068,7 +2163,8 @@ void ResourceHandleInfo::SetDataCacheRegion(const void* src, size_t region_size,
 	//cached_data_hash = crc32c_hw(0, cached_data, cached_data_size);
 }
 
-uint8_t* ResourceHandleInfo::GetCachedData() {
+uint8_t *ResourceHandleInfo::GetCachedData()
+{
 	return cached_data ? cached_data.get() + cached_data_offset : nullptr;
 }
 
@@ -2090,13 +2186,13 @@ void ResourceHandleInfo::ClearDataCache()
 		region_hashes_cache->Clear();
 }
 
-void ResourceHandleInfo::CacheRegionHash(const RegionHashKeyL2& key, uint32_t hash)
+void ResourceHandleInfo::CacheRegionHash(const RegionHashKeyL2 &key, uint32_t hash) const
 {
 	if (region_hashes_cache)
 		region_hashes_cache->Add(key, hash);
 }
 
-uint32_t ResourceHandleInfo::GetCachedRegionHash(const RegionHashKeyL2& key)
+uint32_t ResourceHandleInfo::GetCachedRegionHash(const RegionHashKeyL2 &key) const
 {
 	if (!region_hashes_cache)
 		return 0;
@@ -2105,11 +2201,12 @@ uint32_t ResourceHandleInfo::GetCachedRegionHash(const RegionHashKeyL2& key)
 
 // Helper function that clears region hash cache for a specific D3D resource.
 // Used when the underlying resource contents may have changed.
-void ClearResourceRegionHashCache(ID3D11Resource* resource)
+void ClearResourceRegionHashCache(ID3D11Resource *resource)
 {
 	EnterCriticalSectionPretty(&G->mCriticalSection);
-	ResourceHandleInfo* info = GetResourceHandleInfo(resource);
-	if (!info) {
+	ResourceHandleInfo *info = GetResourceHandleInfo(resource);
+	if (!info)
+	{
 		LeaveCriticalSection(&G->mCriticalSection);
 		return;
 	}
@@ -2126,12 +2223,12 @@ void ClearResourceRegionHashCache(ID3D11Resource* resource)
 // Creates a CPU-readable snapshot of the buffer contents and stores it
 // in handle_info->cached_data. The snapshot is taken through a staging
 // resource so the GPU buffer can be safely read by the CPU.
-static bool CacheBufferData(HackerContext* context, ID3D11Buffer* buffer, ResourceHandleInfo* handle_info)
+static bool CacheBufferData(HackerContext *context, ID3D11Buffer *buffer, ResourceHandleInfo *handle_info)
 {
 	// WARNING: Everything below may cause GPU/CPU sync and stall.
 	// This is the slow path and should be rare.
 
-	ID3D11DeviceContext* mOrigContext1 = context->GetPassThroughOrigContext1();
+	ID3D11DeviceContext *mOrigContext1 = context->GetPassThroughOrigContext1();
 	if (!mOrigContext1)
 		return false;
 
@@ -2141,9 +2238,10 @@ static bool CacheBufferData(HackerContext* context, ID3D11Buffer* buffer, Resour
 
 	// Acquire a cached staging buffer. Buffers are pooled by size and reused
 	// across calls to avoid repeated CreateBuffer() overhead.
-	ID3D11Buffer* staging = context->GetReadbackBuffer(desc.ByteWidth);
+	ID3D11Buffer *staging = context->GetReadbackBuffer(desc.ByteWidth);
 
-	if (!staging) {
+	if (!staging)
+	{
 		LogInfo("CacheBufferData: Failed to acquire staging buffer\n");
 		return false;
 	}
@@ -2152,7 +2250,8 @@ static bool CacheBufferData(HackerContext* context, ID3D11Buffer* buffer, Resour
 	// after Unmap(), so the contents must be copied before releasing it.
 	// SetDataCache copies these bytes; this buffer is only a temporary.
 	std::unique_ptr<void, decltype(&free)> copy(malloc(desc.ByteWidth), free);
-	if (!copy) {
+	if (!copy)
+	{
 		LogInfo("CacheBufferData: Out of memory\n");
 		return false;
 	}
@@ -2173,7 +2272,8 @@ static bool CacheBufferData(HackerContext* context, ID3D11Buffer* buffer, Resour
 	D3D11_MAPPED_SUBRESOURCE mapped;
 	HRESULT hr = context->Map(staging, 0, D3D11_MAP_READ, 0, &mapped);
 
-	if (FAILED(hr)) {
+	if (FAILED(hr))
+	{
 		LogInfo("CacheBufferData: Map(D3D11_MAP_READ) failed (hr=0x%08X)\n", hr);
 		return false;
 	}
@@ -2203,13 +2303,13 @@ static UINT SaturateRegionValue(uint64_t value)
 	return value > UINT_MAX ? UINT_MAX : (UINT)value;
 }
 
-UINT GetVertexBufferRegionOffset(UINT stride, DrawCallInfo* call_info, UINT byte_offset)
+UINT GetVertexBufferRegionOffset(UINT stride, DrawCallInfo *call_info, UINT byte_offset)
 {
 	uint64_t byte_size = (uint64_t)stride * call_info->FirstVertex;
 	return SaturateRegionValue((uint64_t)byte_offset + byte_size);
 }
 
-UINT GetIndexBufferRegionOffset(DXGI_FORMAT format, DrawCallInfo* call_info, UINT byte_offset)
+UINT GetIndexBufferRegionOffset(DXGI_FORMAT format, DrawCallInfo *call_info, UINT byte_offset)
 {
 	UINT index_stride = (format == DXGI_FORMAT_R32_UINT) ? 4 : 2;
 	uint64_t byte_size = (uint64_t)index_stride * call_info->FirstIndex;
@@ -2218,18 +2318,19 @@ UINT GetIndexBufferRegionOffset(DXGI_FORMAT format, DrawCallInfo* call_info, UIN
 
 // Computes the byte size of the vertex buffer region used by a draw call.
 // Used to determine how much data should be hashed for change detection.
-UINT GetVertexBufferRegionSize(UINT stride, DrawCallInfo* call_info)
+UINT GetVertexBufferRegionSize(UINT stride, DrawCallInfo *call_info)
 {
 	// If VertexCount is not provided, estimate it from the index count.
 	// 0.15 * x + 3
-	uint64_t vertex_count = call_info->VertexCount > 0 ? call_info->VertexCount : (3ull * call_info->IndexCount + 10) / 20 + 3;
+	uint64_t vertex_count =
+	    call_info->VertexCount > 0 ? call_info->VertexCount : (3ull * call_info->IndexCount + 10) / 20 + 3;
 	uint64_t region_size = (uint64_t)stride * vertex_count;
 	//LogInfo("GetVertexBufferRegionSize region_size=%llu, stride=%d, VertexCount=%d, IndexCount=%d \n", region_size, stride, call_info->VertexCount, call_info->IndexCount);
 	return SaturateRegionValue(region_size);
 }
 
 // Computes the byte size of the index buffer region referenced by a draw call.
-UINT GetIndexBufferRegionSize(DXGI_FORMAT format, DrawCallInfo* call_info)
+UINT GetIndexBufferRegionSize(DXGI_FORMAT format, DrawCallInfo *call_info)
 {
 	UINT index_stride = (format == DXGI_FORMAT_R32_UINT) ? 4 : 2;
 	uint64_t region_size = (uint64_t)index_stride * call_info->IndexCount;
@@ -2277,14 +2378,16 @@ static void RegionHashesGlobalCacheInsert(const RegionHashKeyL3 &key, uint32_t h
 // Returns a CRC32 hash for a specific region of the buffer.
 // The hash is cached per offset to avoid recomputing it for repeated draw calls.
 // When `custom_resource` is supplied, it's used instead of a `buffer` as input.
-uint32_t GetRegionHash(HackerContext* context, ID3D11Buffer* buffer, UINT offset, UINT size, CustomResource* custom_resource)
+uint32_t GetRegionHash(HackerContext *context, ID3D11Buffer *buffer, UINT offset, UINT size,
+                       CustomResource *custom_resource)
 {
-	if (!context || !buffer || !size) {
+	if (!context || !buffer || !size)
+	{
 		return 0;
 	}
 
 	// Lookup offset in fast L3 cache under a shared reader lock.
-	RegionHashKeyL3 level_3_cache_key{ (uint64_t)buffer, offset, size };
+	RegionHashKeyL3 level_3_cache_key{(uint64_t)buffer, offset, size};
 	uint32_t level_3_hash = 0;
 	if (RegionHashesGlobalCacheGet(level_3_cache_key, &level_3_hash))
 	{
@@ -2294,9 +2397,11 @@ uint32_t GetRegionHash(HackerContext* context, ID3D11Buffer* buffer, UINT offset
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
 
-	// Acquire HandleInfo. For dozens of thousands of handles in unordered_map, usually it's more expensive than L3 cache lookup. 
-	ResourceHandleInfo* handle_info = (custom_resource == nullptr) ? GetResourceHandleInfo(buffer) : custom_resource->GetHandleInfo();
-	if (!handle_info) {
+	// Acquire HandleInfo. For dozens of thousands of handles in unordered_map, usually it's more expensive than L3 cache lookup.
+	ResourceHandleInfo *handle_info =
+	    (custom_resource == nullptr) ? GetResourceHandleInfo(buffer) : custom_resource->GetHandleInfo();
+	if (!handle_info)
+	{
 		LeaveCriticalSection(&G->mCriticalSection);
 		return 0;
 	}
@@ -2304,9 +2409,10 @@ uint32_t GetRegionHash(HackerContext* context, ID3D11Buffer* buffer, UINT offset
 	uint32_t hash;
 
 	// Lookup offset in L2 cache. This one is slower and requires `handle_info` lookup.
-	RegionHashKeyL2 level_2_cache_key{ offset, size };
+	RegionHashKeyL2 level_2_cache_key{offset, size};
 	hash = handle_info->GetCachedRegionHash(level_2_cache_key);
-	if (hash) {
+	if (hash)
+	{
 		RegionHashesGlobalCacheInsert(level_3_cache_key, hash);
 		LeaveCriticalSection(&G->mCriticalSection);
 		//LogInfo("GetRegionHash: From L2 cache: hash=%08lx, offset=%d, size=%d, full_hash=%08lx, pResource=0x%p, cache_size=%d \n", hash, offset, size, handle_info->hash, buffer, handle_info->region_hashes_cache->GetSize());
@@ -2314,14 +2420,19 @@ uint32_t GetRegionHash(HackerContext* context, ID3D11Buffer* buffer, UINT offset
 	}
 
 	// Check if cached buffer snapshot exists in RAM
-	if (!handle_info->cached_data || !handle_info->cached_data_size) {
+	if (!handle_info->cached_data || !handle_info->cached_data_size)
+	{
 		LeaveCriticalSection(&G->mCriticalSection);
-		if (custom_resource == nullptr) {
+		if (custom_resource == nullptr)
+		{
 			// Stall GPU to fetch buffer data from VRAM.
-			if (!CacheBufferData(context, buffer, handle_info)) {
+			if (!CacheBufferData(context, buffer, handle_info))
+			{
 				return 0;
 			}
-		} else {
+		}
+		else
+		{
 			// Region hashing of custom resources is allowed only for lightweight "views" to cached pipeline data (ref or full copies).
 			// Avoid stalling GPU for custom resources if data is not available.
 			return 0;
@@ -2330,19 +2441,21 @@ uint32_t GetRegionHash(HackerContext* context, ID3D11Buffer* buffer, UINT offset
 	}
 
 	// Pointer to the start of the requested region within the cached buffer cannot be outside of upper bound.
-	if (offset >= handle_info->cached_data_size) {
+	if (offset >= handle_info->cached_data_size)
+	{
 		LeaveCriticalSection(&G->mCriticalSection);
 		return 0;
 	}
 
 	// Upper bound of requested region must stay within the buffer size.
 	size_t max_region_size = handle_info->cached_data_size - offset;
-	if (size > max_region_size) {
+	if (size > max_region_size)
+	{
 		size = static_cast<UINT>(max_region_size);
 	}
 
 	// Make pointer for given offset in L1 cache (raw data).
-	const uint8_t* ptr = handle_info->GetCachedData() + offset;
+	const uint8_t *ptr = handle_info->GetCachedData() + offset;
 
 	// Compute CRC32 hash for the region.
 	hash = crc32c_hw(0, ptr, size);
@@ -2402,16 +2515,16 @@ float EncodeFloat30(const uint32_t hash)
 	// Construct the final IEEE-754 bit pattern.
 	uint32_t float_bits = (exponent << 23) | mantissa;
 
-	// TODO: Replace with std::bit_cast<float> after C++20 upgrade
+	// Future work: Replace with std::bit_cast<float> after C++20 upgrade
 	return BitCastToFloat(float_bits);
 }
 
-uint64_t HashPointer(const void* p)
+uint64_t HashPointer(const void *p)
 {
-	uint64_t x = reinterpret_cast<uint64_t>(p);
+	auto x = reinterpret_cast<uint64_t>(p);
 
 	x ^= x >> 33;
-	x *= 0xff51afd7ed558ccdULL;  // Murmur finalizer for better bit-mixing
+	x *= 0xff51afd7ed558ccdULL; // Murmur finalizer for better bit-mixing
 	x ^= x >> 33;
 
 	return x;
@@ -2449,11 +2562,11 @@ inline int32_t WorldToCell(float v, float cell_size)
 	return (int32_t)std::floor(v / cell_size);
 }
 
-// Wraps coordinate into the representable range for a given axis, forcing it to stay within 4096x256x4096 cells grid. 
+// Wraps coordinate into the representable range for a given axis, forcing it to stay within 4096x256x4096 cells grid.
 // Coordinates are stored modulo the axis size, effectively treating the grid as a torus along each dimension.
 inline uint32_t WrapCellCoord(int32_t c, uint32_t mask)
 {
-    return static_cast<uint32_t>(c) & mask;
+	return static_cast<uint32_t>(c) & mask;
 }
 
 // Converts world position to grid cell coordinates and packs them into a 32-bit unsigned integer.
@@ -2461,25 +2574,20 @@ inline uint32_t WrapCellCoord(int32_t c, uint32_t mask)
 // Layout: [ X:12 bits ][ Y:8 bits ][ Z:12 bits ]
 uint32_t PackCellCoords(float x, float y, float z, float cell_size)
 {
-    return (WrapCellCoord(WorldToCell(x, cell_size), X_MASK) << X_SHIFT) |
-           (WrapCellCoord(WorldToCell(y, cell_size), Y_MASK) << Y_SHIFT) |
-            WrapCellCoord(WorldToCell(z, cell_size), Z_MASK);
+	return (WrapCellCoord(WorldToCell(x, cell_size), X_MASK) << X_SHIFT) |
+	       (WrapCellCoord(WorldToCell(y, cell_size), Y_MASK) << Y_SHIFT) |
+	       WrapCellCoord(WorldToCell(z, cell_size), Z_MASK);
 }
 
 // Unpacks packed grid coordinates back into their wrapped integer ranges:
 //   X: 0..4095, Y: 0..255, Z: 0..4095
 GridPos UnpackCellCoords(uint32_t packed)
 {
-	return {
-		(packed >> (Y_BITS + Z_BITS)) & X_MASK,
-		(packed >> Z_BITS) & Y_MASK,
-		 packed & Z_MASK
-	};
+	return {(packed >> (Y_BITS + Z_BITS)) & X_MASK, (packed >> Z_BITS) & Y_MASK, packed & Z_MASK};
 }
 
 // Computes the shortest wrapped distance between two coordinates along a single axis.
-template <uint32_t Size>
-inline uint32_t AxisDistance(uint32_t a, uint32_t b)
+template <uint32_t Size> inline uint32_t AxisDistance(uint32_t a, uint32_t b)
 {
 	uint32_t d = (a > b) ? (a - b) : (b - a);
 
@@ -2493,7 +2601,7 @@ inline uint32_t AxisDistance(uint32_t a, uint32_t b)
 //   0 0      0 1
 //   1 0  ->  0 0
 //         ^- Chebyshev Distance == 1.
-uint32_t SpatialDistanceChebyshev(const GridPos& a, const GridPos& b)
+uint32_t SpatialDistanceChebyshev(const GridPos &a, const GridPos &b)
 {
 	uint32_t dx = AxisDistance<X_SIZE>(a.x, b.x);
 	uint32_t dy = AxisDistance<Y_SIZE>(a.y, b.y);
@@ -2505,9 +2613,11 @@ uint32_t SpatialDistanceChebyshev(const GridPos& a, const GridPos& b)
 // Returns the packed 4096x256x4096 cell grid coordinates corresponding to the world position.
 // The packed value can be compared directly for cell equality and stored in single 32-bit container.
 // When `custom_resource` is supplied, it's used instead of a `buffer` as input.
-uint32_t GetSpatialHash(HackerContext* context, ID3D11Buffer* buffer, UINT offset_x, UINT offset_y, UINT offset_z, float cell_size, CustomResource* custom_resource)
+uint32_t GetSpatialHash(HackerContext *context, ID3D11Buffer *buffer, UINT offset_x, UINT offset_y, UINT offset_z,
+                        float cell_size, CustomResource *custom_resource)
 {
-	if (!context || !buffer) {
+	if (!context || !buffer)
+	{
 		return 0;
 	}
 
@@ -2524,9 +2634,11 @@ uint32_t GetSpatialHash(HackerContext* context, ID3D11Buffer* buffer, UINT offse
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
 
-	// Acquire HandleInfo. For dozens of thousands of handles in unordered_map, usually it's more expensive than L3 cache lookup. 
-	ResourceHandleInfo* handle_info = (custom_resource == nullptr) ? GetResourceHandleInfo(buffer) : custom_resource->GetHandleInfo();
-	if (!handle_info) {
+	// Acquire HandleInfo. For dozens of thousands of handles in unordered_map, usually it's more expensive than L3 cache lookup.
+	ResourceHandleInfo *handle_info =
+	    (custom_resource == nullptr) ? GetResourceHandleInfo(buffer) : custom_resource->GetHandleInfo();
+	if (!handle_info)
+	{
 		LeaveCriticalSection(&G->mCriticalSection);
 		return 0;
 	}
@@ -2534,12 +2646,11 @@ uint32_t GetSpatialHash(HackerContext* context, ID3D11Buffer* buffer, UINT offse
 	uint32_t hash;
 
 	// Lookup offset in L2 cache. This one is slower and requires `handle_info` lookup.
-	RegionHashKeyL2 level_2_cache_key{
-		offset_x ^ (offset_y * 0x9e3779b9u) ^ (offset_z * 0x85ebca6bu),
-		BitCastToUint(cell_size)
-	};
+	RegionHashKeyL2 level_2_cache_key{offset_x ^ (offset_y * 0x9e3779b9u) ^ (offset_z * 0x85ebca6bu),
+	                                  BitCastToUint(cell_size)};
 	hash = handle_info->GetCachedRegionHash(level_2_cache_key);
-	if (hash) {
+	if (hash)
+	{
 		//region_hashes_global_cache.insert(level_3_cache_key, hash);
 		LeaveCriticalSection(&G->mCriticalSection);
 		//LogInfo("GetSpatialHash: From L2 cache: hash=%08lx, full_hash=%08lx, pResource=0x%p, cache_size=%d \n", hash, handle_info->hash, buffer, handle_info->region_hashes_cache->GetSize());
@@ -2547,15 +2658,19 @@ uint32_t GetSpatialHash(HackerContext* context, ID3D11Buffer* buffer, UINT offse
 	}
 
 	// Check if cached buffer snapshot exists in RAM
-	if (!handle_info->cached_data_size) {
+	if (!handle_info->cached_data_size)
+	{
 		LeaveCriticalSection(&G->mCriticalSection);
-		if (custom_resource == nullptr) {
+		if (custom_resource == nullptr)
+		{
 			// Stall GPU to fetch buffer data from VRAM.
-			if (!CacheBufferData(context, buffer, handle_info)) {
+			if (!CacheBufferData(context, buffer, handle_info))
+			{
 				return 0;
 			}
 		}
-		else {
+		else
+		{
 			// Region hashing of custom resources is allowed only for lightweight "views" to cached pipeline data (ref or full copies).
 			// Avoid stalling GPU for custom resources if data is not available.
 			return 0;
@@ -2573,15 +2688,16 @@ uint32_t GetSpatialHash(HackerContext* context, ID3D11Buffer* buffer, UINT offse
 	const size_t min_buffer_size = max_offset * 4 + 4;
 
 	// Exact-fit buffers are valid (last float occupies the final 4 bytes).
-	if (min_buffer_size > handle_info->cached_data_size) {
+	if (min_buffer_size > handle_info->cached_data_size)
+	{
 		LeaveCriticalSection(&G->mCriticalSection);
 		return 0;
 	}
 
 	// Make pointer for given offset in L1 cache (raw data).
-	const uint8_t* ptr = handle_info->GetCachedData();
+	const uint8_t *ptr = handle_info->GetCachedData();
 
-	const float* data = reinterpret_cast<const float*>(ptr);
+	const auto *data = reinterpret_cast<const float *>(ptr);
 
 	// Compute spatial hash for the 3D coordinates.
 	hash = PackCellCoords(data[offset_x], data[offset_y], data[offset_z], cell_size);

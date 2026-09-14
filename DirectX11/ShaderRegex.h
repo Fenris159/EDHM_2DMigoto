@@ -9,25 +9,30 @@
 
 #include <pcre2.h>
 
-enum class ShaderRegexCache {
+enum class ShaderRegexCache
+{
 	NO_CACHE,
 	NO_MATCH,
 	MATCH,
 	PATCH
 };
 
-bool get_shader_model_from_bytecode(const void* data, size_t size, std::string* out_model);
-void link_shader_regex_groups_without_patterns(const wchar_t* shader_type, std::string* shader_model, UINT64 hash, bool* decompilation_required);
-bool apply_shader_regex_groups(std::string *asm_text, const wchar_t *shader_type, std::string *shader_model, UINT64 hash, std::wstring *tagline);
-ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type, vector<byte> *bytecode, std::wstring *tagline);
+bool get_shader_model_from_bytecode(const void *data, size_t size, std::string *out_model);
+void link_shader_regex_groups_without_patterns(const wchar_t *shader_type, std::string *shader_model, UINT64 hash,
+                                               bool *decompilation_required);
+bool apply_shader_regex_groups(std::string *asm_text, const wchar_t *shader_type, std::string *shader_model,
+                               UINT64 hash, std::wstring *tagline);
+ShaderRegexCache load_shader_regex_cache(UINT64 hash, const wchar_t *shader_type, vector<byte> *bytecode,
+                                         std::wstring *tagline);
 void save_shader_regex_cache_bin(UINT64 hash, const wchar_t *shader_type, vector<byte> *bytecode);
 bool unlink_shader_regex_command_lists_and_filter_index(UINT64 shader_hash);
 
 typedef std::set<std::string> ShaderRegexTemps;
 typedef std::set<std::string> ShaderRegexModels;
 
-class ShaderRegexPattern {
-public:
+class ShaderRegexPattern
+{
+  public:
 	pcre2_code *regex;
 	std::string replace;
 
@@ -44,8 +49,8 @@ public:
 
 	bool compile(std::string *pattern);
 	bool named_group_overlaps(ShaderRegexTemps &other_set);
-	bool matches(std::string *asm_text);
-	bool patch(std::string *asm_text, ShaderRegexTemps *temp_regs, unsigned dcl_temps);
+	bool matches(std::string *asm_text) const;
+	bool patch(std::string *asm_text, ShaderRegexTemps *temp_regs, unsigned dcl_temps) const;
 };
 
 // These are sorted to make sure we get consistent results between runs
@@ -53,8 +58,9 @@ public:
 typedef std::map<std::wstring, ShaderRegexPattern> ShaderRegexPatterns;
 typedef std::vector<std::string> ShaderRegexDeclarations;
 
-class ShaderRegexGroup {
-public:
+class ShaderRegexGroup
+{
+  public:
 	std::wstring ini_section;
 
 	ShaderRegexPatterns patterns;
@@ -72,16 +78,14 @@ public:
 	void apply_regex_patterns(std::string *asm_text, bool *match, bool *patch);
 	void link_command_lists_and_filter_index(UINT64 shader_hash);
 
-	ShaderRegexGroup() :
-		filter_index(FLT_MAX)
-	{}
+	ShaderRegexGroup() : filter_index(FLT_MAX) {}
 };
 
 // Sorted to make sure that we always apply the regex patterns in a consistent
 // order, in case the user writes multiple patterns that depend on each other:
 typedef std::map<std::wstring, ShaderRegexGroup> ShaderRegexGroups;
 extern ShaderRegexGroups shader_regex_groups;
-extern std::vector<ShaderRegexGroup*> shader_regex_group_index;
+extern std::vector<ShaderRegexGroup *> shader_regex_group_index;
 
 // This hash is of all ShaderRegex sections and is used to determine if a
 // cached shader is still valid and to avoid discarding regex patched shaders:

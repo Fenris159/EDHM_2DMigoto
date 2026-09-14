@@ -31,15 +31,11 @@ struct DecompilerSettings
 	std::string ObjectPos_ID1, ObjectPos_ID2, ObjectPos_MUL1, ObjectPos_MUL2;
 	std::string MatrixPos_ID1, MatrixPos_MUL1;
 
-	DecompilerSettings() :
-		StereoParamsReg(-1),
-		IniParamsReg(-1),
-		fixSvPosition(false),
-		recompileVs(false),
-		ZRepair_DepthTextureReg1('\0'),
-		ZRepair_DepthTextureReg2('\0'),
-		ZRepair_DepthBuffer(false)
-	{}
+	DecompilerSettings()
+	    : StereoParamsReg(-1), IniParamsReg(-1), fixSvPosition(false), recompileVs(false),
+	      ZRepair_DepthTextureReg1('\0'), ZRepair_DepthTextureReg2('\0'), ZRepair_DepthBuffer(false)
+	{
+	}
 };
 
 struct ParseParameters
@@ -57,4 +53,5 @@ struct ParseParameters
 	DecompilerSettings *G;
 };
 
-const std::string DecompileBinaryHLSL(ParseParameters &params, bool &patched, std::string &shaderModel, bool &errorOccurred);
+const std::string DecompileBinaryHLSL(ParseParameters &params, bool &patched, std::string &shaderModel,
+                                      bool &errorOccurred);

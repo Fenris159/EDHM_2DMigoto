@@ -74,7 +74,8 @@ jobs:
       - name: Analyze changed native source with clang-tidy
         shell: pwsh
         run: >-
-          ./scripts/quality.ps1 -Mode ClangTidy -Scope Changed
+          ./scripts/quality.ps1 -Mode ClangTidy
+          -Scope "${{ github.event_name == 'workflow_dispatch' && 'All' || 'Changed' }}"
           -BaseRef "${{ github.event.pull_request.base.sha || github.event.before }}"
           -CompileDatabase 'bw-output/compile_commands.json'
 

@@ -5,8 +5,7 @@
 
 // This version of EnterCriticalSection will use the function and line number
 // in any lock stacks dumped when potential deadlock hazards are detected:
-#define EnterCriticalSectionPretty(lock) \
-	_EnterCriticalSectionPretty(lock, __FUNCTION__, __LINE__)
+#define EnterCriticalSectionPretty(lock) _EnterCriticalSectionPretty(lock, __FUNCTION__, __LINE__)
 void _EnterCriticalSectionPretty(CRITICAL_SECTION *lock, const char *function, int line);
 
 // Use this when initialising a critical section in 3DMigoto to give it a nice
@@ -14,12 +13,12 @@ void _EnterCriticalSectionPretty(CRITICAL_SECTION *lock, const char *function, i
 //
 // **AVOID CALLING THIS FROM GLOBAL CONSTRUCTORS**
 // https://yosefk.com/c++fqa/ctors.html#fqa-10.12
-#define InitializeCriticalSectionPretty(lock) \
-	_InitializeCriticalSectionPretty(lock, #lock)
+#define InitializeCriticalSectionPretty(lock) _InitializeCriticalSectionPretty(lock, #lock)
 void _InitializeCriticalSectionPretty(CRITICAL_SECTION *lock, const char *lock_name);
 
 void enable_lock_dependency_checks();
-struct held_lock_info {
+struct held_lock_info
+{
 	CRITICAL_SECTION *lock;
 	uintptr_t ret;
 	size_t stack_hash;

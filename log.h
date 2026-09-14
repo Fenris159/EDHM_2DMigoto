@@ -16,23 +16,55 @@ extern bool gLogDebug;
 // probably not worth doing so unless we were switching to use a central
 // logging framework.
 
-#define LogInfo(fmt, ...) \
-	do { if (LogFile) fprintf(LogFile, fmt, __VA_ARGS__); } while (0)
-#define vLogInfo(fmt, va_args) \
-	do { if (LogFile) vfprintf(LogFile, fmt, va_args); } while (0)
-#define LogInfoW(fmt, ...) \
-	do { if (LogFile) fwprintf(LogFile, fmt, __VA_ARGS__); } while (0)
-#define vLogInfoW(fmt, va_args) \
-	do { if (LogFile) vfwprintf(LogFile, fmt, va_args); } while (0)
+#define LogInfo(fmt, ...)                                                                                              \
+	do                                                                                                                 \
+	{                                                                                                                  \
+		if (LogFile)                                                                                                   \
+			fprintf(LogFile, fmt, __VA_ARGS__);                                                                        \
+	} while (0)
+#define vLogInfo(fmt, va_args)                                                                                         \
+	do                                                                                                                 \
+	{                                                                                                                  \
+		if (LogFile)                                                                                                   \
+			vfprintf(LogFile, fmt, va_args);                                                                           \
+	} while (0)
+#define LogInfoW(fmt, ...)                                                                                             \
+	do                                                                                                                 \
+	{                                                                                                                  \
+		if (LogFile)                                                                                                   \
+			fwprintf(LogFile, fmt, __VA_ARGS__);                                                                       \
+	} while (0)
+#define vLogInfoW(fmt, va_args)                                                                                        \
+	do                                                                                                                 \
+	{                                                                                                                  \
+		if (LogFile)                                                                                                   \
+			vfwprintf(LogFile, fmt, va_args);                                                                          \
+	} while (0)
 
-#define LogDebug(fmt, ...) \
-	do { if (gLogDebug) LogInfo(fmt, __VA_ARGS__); } while (0)
-#define vLogDebug(fmt, va_args) \
-	do { if (gLogDebug) vLogInfo(fmt, va_args); } while (0)
-#define LogDebugW(fmt, ...) \
-	do { if (gLogDebug) LogInfoW(fmt, __VA_ARGS__); } while (0)
-#define vLogDebugW(fmt, va_args) \
-	do { if (gLogDebug) vLogInfoW(fmt, va_args); } while (0)
+#define LogDebug(fmt, ...)                                                                                             \
+	do                                                                                                                 \
+	{                                                                                                                  \
+		if (gLogDebug)                                                                                                 \
+			LogInfo(fmt, __VA_ARGS__);                                                                                 \
+	} while (0)
+#define vLogDebug(fmt, va_args)                                                                                        \
+	do                                                                                                                 \
+	{                                                                                                                  \
+		if (gLogDebug)                                                                                                 \
+			vLogInfo(fmt, va_args);                                                                                    \
+	} while (0)
+#define LogDebugW(fmt, ...)                                                                                            \
+	do                                                                                                                 \
+	{                                                                                                                  \
+		if (gLogDebug)                                                                                                 \
+			LogInfoW(fmt, __VA_ARGS__);                                                                                \
+	} while (0)
+#define vLogDebugW(fmt, va_args)                                                                                       \
+	do                                                                                                                 \
+	{                                                                                                                  \
+		if (gLogDebug)                                                                                                 \
+			vLogInfoW(fmt, va_args);                                                                                   \
+	} while (0)
 
 // Aliases for the above functions that we use to denote that omitting the
 // newline was done intentionally. For now this is just for our reference, but
@@ -55,4 +87,3 @@ extern bool gLogDebug;
 	timeStr = cTime;
 	return timeStr;
 }
-

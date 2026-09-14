@@ -10,17 +10,23 @@
 // queried setting, which will help minimise the time we stall newly spawned
 // processes we may have been injected into that are not our intended target.
 
-static const char* skip_space(const char *buf)
+static const char *skip_space(const char *buf)
 {
-	for (; *buf == ' ' || *buf == '\t'; buf++) {}
+	for (; *buf == ' ' || *buf == '\t'; buf++)
+	{
+	}
 	return buf;
 }
 
 // Returns a pointer to the next non-whitespace character on a following line
-static const char* next_line(const char *buf)
+static const char *next_line(const char *buf)
 {
-	for (; *buf != '\0' && *buf != '\n' && *buf != '\r'; buf++) {}
-	for (; *buf == '\n' || *buf == '\r' || *buf == ' ' || *buf == '\t'; buf++) {}
+	for (; *buf != '\0' && *buf != '\n' && *buf != '\r'; buf++)
+	{
+	}
+	for (; *buf == '\n' || *buf == '\r' || *buf == ' ' || *buf == '\t'; buf++)
+	{
+	}
 	return buf;
 }
 
@@ -28,13 +34,17 @@ static const char* next_line(const char *buf)
 // following [section_name] (which may be a pointer to the zero terminator if
 // EOF is encountered), or nullptr if the section is not found. section_name must
 // be lower case.
-const char* find_ini_section_lite(const char *buf, const char *section_name)
+const char *find_ini_section_lite(const char *buf, const char *section_name)
 {
 	const char *p;
 
-	for (buf = skip_space(buf); *buf; buf = next_line(buf)) {
-		if (*buf == '[') {
-			for (buf++, p = section_name; *p && (tolower((unsigned char)*buf) == *p); buf++, p++) {}
+	for (buf = skip_space(buf); *buf; buf = next_line(buf))
+	{
+		if (*buf == '[')
+		{
+			for (buf++, p = section_name; *p && (tolower((unsigned char)*buf) == *p); buf++, p++)
+			{
+			}
 			if (*buf == ']' && *p == '\0')
 				return next_line(buf);
 		}
@@ -52,22 +62,27 @@ bool find_ini_setting_lite(const char *buf, const char *setting, char *ret, size
 	char *r;
 	size_t i;
 
-	for (buf = skip_space(buf); *buf; buf = next_line(buf)) {
+	for (buf = skip_space(buf); *buf; buf = next_line(buf))
+	{
 		// Check for end of section
 		if (*buf == '[')
 			return false;
 
 		// Check if line matches setting
-		for (p = setting; *p && tolower((unsigned char)*buf) == *p; buf++, p++) {}
+		for (p = setting; *p && tolower((unsigned char)*buf) == *p; buf++, p++)
+		{
+		}
 		buf = skip_space(buf);
 		if (*buf != '=' || *p != '\0')
 			continue;
 
 		// Copy setting until EOL/EOF to ret buffer
 		buf = skip_space(buf + 1);
-		for (i = 0, r = ret; i < n; i++, buf++, r++) {
+		for (i = 0, r = ret; i < n; i++, buf++, r++)
+		{
 			*r = *buf;
-			if (*buf == '\n' || *buf == '\r' || *buf == '\0') {
+			if (*buf == '\n' || *buf == '\r' || *buf == '\0')
+			{
 				// Null terminate return buffer and strip any whitespace from EOL:
 				for (; r >= ret && (*r == '\0' || *r == '\n' || *r == '\r' || *r == ' ' || *r == '\t'); r--)
 					*r = '\0';
