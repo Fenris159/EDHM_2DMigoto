@@ -31,7 +31,7 @@ template <size_t Size>
 void SanitizeForLog(std::array<char, Size>& value)
 {
 	for (char& character : value) {
-		const unsigned char byte = static_cast<unsigned char>(character);
+		const auto byte = static_cast<unsigned char>(character);
 		if (character == '\0')
 			break;
 		if (!std::isprint(byte))
@@ -119,8 +119,7 @@ void LogDllOverrides()
 		LogInfo("  WINEDLLOVERRIDES: present but too long to print safely\n");
 		return;
 	}
-	SanitizeForLog(value);
-	LogInfo("  WINEDLLOVERRIDES: %s\n", value.data());
+	LogInfo("  WINEDLLOVERRIDES: present\n");
 }
 
 void LogFlatpakEnvironment()
@@ -136,8 +135,7 @@ void LogFlatpakEnvironment()
 		LogInfo("  Flatpak sandbox: detected (FLATPAK_ID too long to print safely)\n");
 		return;
 	}
-	SanitizeForLog(flatpak_id);
-	LogInfo("  Flatpak sandbox: detected (%s)\n", flatpak_id.data());
+	LogInfo("  Flatpak sandbox: detected\n");
 }
 
 } // namespace
