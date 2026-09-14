@@ -4,10 +4,10 @@
 #include <cstring>
 #include <vector>
 
-#include "Globals.h"
+#include "globals.h"
 #include "Hunting.h"
 #include "IniHandler.h"
-#include "Input.h"
+#include "input.h"
 #include "Overlay.h"
 #include "log.h"
 
@@ -62,8 +62,7 @@ static std::vector<AdvancedHuntingContextEntry>::iterator FindContext(const Adva
 	AdvancedHuntingContextEntry key;
 	key.context = context;
 
-	std::vector<AdvancedHuntingContextEntry>::iterator it =
-	    std::lower_bound(advanced_hunting.contexts.begin(), advanced_hunting.contexts.end(), key, ContextLess);
+	auto it = std::lower_bound(advanced_hunting.contexts.begin(), advanced_hunting.contexts.end(), key, ContextLess);
 	if (it != advanced_hunting.contexts.end() && ContextEquals(it->context, context))
 		return it;
 	return advanced_hunting.contexts.end();
@@ -283,7 +282,7 @@ bool GetAdvancedHuntingOverlayInfo(AdvancedHuntingOverlayInfo *info)
 
 	if (advanced_hunting.selected)
 	{
-		std::vector<AdvancedHuntingContextEntry>::iterator it = FindContext(advanced_hunting.selected_context);
+		auto it = FindContext(advanced_hunting.selected_context);
 		if (it != advanced_hunting.contexts.end())
 		{
 			info->context_position = std::distance(advanced_hunting.contexts.begin(), it) + 1;
