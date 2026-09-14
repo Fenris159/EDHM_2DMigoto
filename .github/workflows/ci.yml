@@ -31,7 +31,9 @@ jobs:
 
       - name: Install pinned PSScriptAnalyzer
         shell: pwsh
-        run: Save-Module -Name PSScriptAnalyzer -RequiredVersion 1.25.0 -Path .quality/modules -Repository PSGallery
+        run: |
+          New-Item -ItemType Directory -Path .quality/modules -Force | Out-Null
+          Save-Module -Name PSScriptAnalyzer -RequiredVersion 1.25.0 -Path .quality/modules -Repository PSGallery
 
       - name: Check changed native formatting
         shell: pwsh
