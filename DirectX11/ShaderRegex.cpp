@@ -144,6 +144,27 @@ ShaderRegexPattern::~ShaderRegexPattern()
 	pcre2_code_free(regex);
 }
 
+ShaderRegexPattern::ShaderRegexPattern(ShaderRegexPattern &&other) noexcept
+    : regex(other.regex), replace(std::move(other.replace)), do_replace(other.do_replace),
+      named_capture_groups(std::move(other.named_capture_groups))
+{
+	other.regex = nullptr;
+}
+
+ShaderRegexPattern &ShaderRegexPattern::operator=(ShaderRegexPattern &&other) noexcept
+{
+	if (this != &other)
+	{
+		pcre2_code_free(regex);
+		regex = other.regex;
+		replace = std::move(other.replace);
+		do_replace = other.do_replace;
+		named_capture_groups = std::move(other.named_capture_groups);
+		other.regex = nullptr;
+	}
+	return *this;
+}
+
 bool ShaderRegexPattern::compile(std::string *pattern)
 {
 	uint32_t name_table_entry_size;

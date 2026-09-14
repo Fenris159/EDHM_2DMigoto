@@ -3287,13 +3287,13 @@ HRESULT disassemblerDX9(vector<byte> *buffer, vector<byte> *ret, const char *com
 // and the presence of a usable SHEX/SHDR code chunk. All arithmetic is
 // done in 64-bit so it cannot wrap. Matches the historical behaviour of
 // selecting the last SHEX/SHDR chunk when several are present.
-static bool find_dxbc_code_chunk(const void *data, size_t size, DWORD *out_num_chunks, DWORD *out_code_chunk_index,
+static bool find_dxbc_code_chunk(void *data, size_t size, DWORD *out_num_chunks, DWORD *out_code_chunk_index,
                                  DWORD *out_code_chunk_offset, DWORD *out_code_chunk_size, byte **out_code_start)
 {
 	if (!data || size < 32)
 		return false;
 
-	const byte *base = static_cast<const byte *>(data);
+	byte *base = static_cast<byte *>(data);
 	DWORD file_size;
 	DWORD num_chunks;
 	memcpy(&file_size, base + 24, 4);
@@ -3330,7 +3330,7 @@ static bool find_dxbc_code_chunk(const void *data, size_t size, DWORD *out_num_c
 	for (DWORD i = num_chunks; i-- > 0;)
 	{
 		DWORD chunk_offset = chunk_offsets[i];
-		const byte *chunk = base + chunk_offset;
+		byte *chunk = base + chunk_offset;
 		if (memcmp(chunk, "SHEX", 4) != 0 && memcmp(chunk, "SHDR", 4) != 0)
 			continue;
 
@@ -3346,7 +3346,7 @@ static bool find_dxbc_code_chunk(const void *data, size_t size, DWORD *out_num_c
 		if (out_code_chunk_size)
 			*out_code_chunk_size = chunk_size;
 		if (out_code_start)
-			*out_code_start = const_cast<byte *>(chunk);
+			*out_code_start = chunk;
 		return true;
 	}
 
@@ -3571,7 +3571,7 @@ static vector<DWORD> ComputeHash(byte const *input, DWORD size)
 	DWORD Data[] = {0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 	DWORD loopSize2 = loopSize - (sizeHash56 ? 2 : 1);
 	DWORD start_0 [[maybe_unused]] = 0;
-	auto *pSrc = (DWORD *)input;
+	const auto *pSrc = reinterpret_cast<const DWORD *>(input);
 	DWORD h[] = {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476};
 	if (loopSize > 0)
 	{

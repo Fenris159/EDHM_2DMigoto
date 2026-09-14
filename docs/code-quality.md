@@ -39,6 +39,12 @@ Run clean, strict Release builds for both architectures:
 .\scripts\quality.ps1 -Mode Build -Scope All
 ```
 
+Run the complete local gate with a captured compilation database:
+
+```powershell
+.\scripts\quality.ps1 -Mode All -Scope All -CompileDatabase .quality\compile_commands\compile_commands.json
+```
+
 ## SonarQube for Visual Studio
 
 Install SonarQube for Visual Studio and bind the solution to:
@@ -65,32 +71,40 @@ The script downloads the current project Build Wrapper and the pinned scanner,
 performs a clean MSVC `Release|x64` build, optionally runs clang-tidy against the
 captured compilation database, and uploads a real SonarCloud branch analysis.
 
-## Scope policy
+## Scope and quality-profile policy
 
 Formatting applies to maintained C and C++ source, including inherited
 3Dmigoto/XXMI and DirectXTK code. Generated shader includes and source snapshots
 maintained by separate upstream projects (`pcre2`, `Nektra`, and `crc32c-hw`)
-are not reformatted locally. They remain subject to Sonar correctness analysis
-and are refreshed from authoritative upstream releases instead of being
-restyled by this repository.
+are not reformatted locally. They are refreshed from authoritative upstream
+releases instead of being restyled in this repository.
 
-No analyzer warning may be hidden solely to make a check pass. False positives
-must be reviewed individually and documented in SonarCloud.
+The quality contract is correctness-first. Strict MSVC builds, the pinned
+clang-tidy checks, and Sonar bug, vulnerability, bounds, reachability,
+fallthrough, const-safety, polymorphic-destruction, and rule-of-five rules remain
+blocking. Sonar rules that only prescribe a competing C++ style or demand broad
+legacy redesign are disabled in `sonar-project.properties`; formatting and safe
+mechanical modernization are owned by the local tools instead. This avoids
+unsafe rewrites of hook macros, COM wrappers, binary parsers, and imported
+DirectX interfaces while keeping real defects visible.
 
-The only repository-level Sonar exception is `cppsecurity:S2083` in
-`DirectX11/HackerDevice.cpp` and `DirectX11/Hunting.cpp`. Sonar reports shader
-byte buffers passed to `fwrite` as filesystem paths. Those values are file
-contents rather than path components, so path traversal is impossible at the
-reported sinks.
+Path-scoped exceptions are limited to reviewed compatibility boundaries:
 
-`cppsecurity:S5145` is excluded for C++ implementation files because this
-project writes only local developer diagnostics, not security or audit logs.
-The logging macros retain fixed format strings, so attacker-controlled format
-execution is still prevented; embedded line breaks cannot affect authorization,
-monitoring, or another trust boundary.
+- `cppsecurity:S2083`: shader byte buffers are file contents, not path inputs.
+- `cppsecurity:S5145`: C++ logs are local developer diagnostics, not audit logs;
+  all format strings remain fixed.
+- `cpp:S936`: hook function designators feed token-pasting registration macros.
+- `cpp:S3471`: COM method declarations use Windows calling-convention macros.
+- `cpp:S3624`, `cpp:S4962`, `cpp:S7119`: the DirectXTK code already implements
+  the required ownership semantics or follows Windows SDK constant conventions.
+- `cpp:S5025`: raw allocations at listed files are C/COM ownership transfers,
+  returned ABI objects, or buffers whose lifetime is released at the matching
+  boundary; ordinary local ownership uses RAII.
+- `cpp:S5276`: listed conversions are explicit rendering and timing projections.
+- `cpp:S1181` and `cpp:S2738`: listed catch-all handlers are process/driver
+  boundaries that must prevent exceptions from crossing a C or COM ABI.
+- `cpp:S108`, `cpp:S1186`, and `cpp:S1144`: listed no-op and conditionally used
+  functions implement callback, template, platform, or interface contracts.
 
-`cpp:S936` is excluded only in the four hook-registration implementation files.
-The reported function designators are arguments to token-pasting hook macros;
-adding `&` would prevent those macros from deriving the paired trampoline and
-original-function symbols. The macro expansion already uses them as function
-pointers.
+A new exception requires the same narrow resource scope and a rationale here.
+Do not broaden an exception when the underlying code can be corrected safely.

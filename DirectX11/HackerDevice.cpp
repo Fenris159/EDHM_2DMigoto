@@ -2603,7 +2603,7 @@ static constexpr auto hash_whitelisted_sections = std::array{
     "OSGN", "OSG5", "OSG1", // Output signature
 };
 
-static uint32_t hash_shader_bytecode(struct dxbc_header *header, SIZE_T BytecodeLength)
+static uint32_t hash_shader_bytecode(const struct dxbc_header *header, SIZE_T BytecodeLength)
 {
 	uint32_t *offsets;
 	struct section_header *section;
@@ -2650,7 +2650,7 @@ static uint32_t hash_shader_bytecode(struct dxbc_header *header, SIZE_T Bytecode
 static UINT64 hash_shader(const void *pShaderBytecode, SIZE_T BytecodeLength)
 {
 	UINT64 hash = 0;
-	auto *header = (struct dxbc_header *)pShaderBytecode;
+	const auto *header = static_cast<const struct dxbc_header *>(pShaderBytecode);
 	bool use_fnv = (BytecodeLength < sizeof(struct dxbc_header)) || (G->shader_hash_type == ShaderHashType::FNV);
 
 	if (!use_fnv)

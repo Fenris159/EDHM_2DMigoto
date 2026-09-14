@@ -746,7 +746,7 @@ static LONG WINAPI migoto_exception_filter(_In_ struct _EXCEPTION_POINTERS *Exce
 			LogInfo("\n");
 			fflush(LogFile);
 		}
-		while (1)
+		while (true)
 		{
 			Beep(500, 100);
 			for (int i = 0; i < 50; i++)

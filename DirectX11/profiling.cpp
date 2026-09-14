@@ -53,11 +53,6 @@ unsigned iniparams_updates;
 static LARGE_INTEGER profiling_start_time;
 static unsigned start_frame_no;
 
-static const struct D3D11_QUERY_DESC query_timestamp = {
-    D3D11_QUERY_TIMESTAMP,
-    0,
-};
-
 static std::unordered_set<CommandList *> warned_cto_command_lists;
 
 static void cto_warn_post_commands(CommandList *command_list)

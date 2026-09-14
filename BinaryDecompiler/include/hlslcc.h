@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <memory>
 #include <utility>
 
 #if defined(_WIN32) && defined(HLSLCC_DYNLIB)
@@ -274,8 +275,29 @@ struct ShaderVarType
 
 	ShaderVarType() = default;
 
-	ShaderVarType(const ShaderVarType &) = default;
-	ShaderVarType &operator=(const ShaderVarType &) = default;
+	ShaderVarType(const ShaderVarType &other)
+	    : Class(other.Class), Type(other.Type), Rows(other.Rows), Columns(other.Columns), Elements(other.Elements),
+	      MemberCount(other.MemberCount), Offset(other.Offset), Name(other.Name), ParentCount(other.ParentCount),
+	      Parent(other.Parent), FullName(other.FullName)
+	{
+		if (other.Members && MemberCount)
+		{
+			auto members = std::make_unique<ShaderVarType[]>(MemberCount);
+			for (uint32_t i = 0; i < MemberCount; ++i)
+				members[i] = other.Members[i];
+			Members = members.release();
+		}
+	}
+
+	ShaderVarType &operator=(const ShaderVarType &other)
+	{
+		if (this != &other)
+		{
+			ShaderVarType copy(other);
+			*this = std::move(copy);
+		}
+		return *this;
+	}
 
 	ShaderVarType(ShaderVarType &&other) noexcept
 	    : Class(other.Class), Type(other.Type), Rows(other.Rows), Columns(other.Columns), Elements(other.Elements),

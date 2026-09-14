@@ -96,6 +96,10 @@ class CommandListState
 
 	CommandListState();
 	~CommandListState();
+	CommandListState(const CommandListState &) = delete;
+	CommandListState &operator=(const CommandListState &) = delete;
+	CommandListState(CommandListState &&) = delete;
+	CommandListState &operator=(CommandListState &&) = delete;
 };
 
 class CommandListCommand
@@ -1090,6 +1094,7 @@ class CommandListOperandBase
 class CommandListFinalisable
 {
   public:
+	virtual ~CommandListFinalisable() = default;
 	virtual std::shared_ptr<CommandListEvaluatable> finalise() = 0;
 };
 
@@ -1101,6 +1106,7 @@ class CommandListFinalisable
 class CommandListWalkable
 {
   public:
+	virtual ~CommandListWalkable() = default;
 	typedef std::vector<std::shared_ptr<CommandListWalkable>> Walk;
 	virtual Walk walk() = 0;
 };
@@ -1167,6 +1173,7 @@ class CommandListOperator : public CommandListOperatorToken,
 class CommandListOperatorFactoryBase
 {
   public:
+	virtual ~CommandListOperatorFactoryBase() = default;
 	virtual const wchar_t *pattern() = 0;
 	virtual std::shared_ptr<CommandListOperator> create(std::shared_ptr<CommandListToken> lhs,
 	                                                    CommandListOperatorToken &t,
@@ -1555,6 +1562,10 @@ class UpscalingFlipBBCommand : public CommandListCommand
 
 	explicit UpscalingFlipBBCommand(wstring section);
 	~UpscalingFlipBBCommand() override;
+	UpscalingFlipBBCommand(const UpscalingFlipBBCommand &) = delete;
+	UpscalingFlipBBCommand &operator=(const UpscalingFlipBBCommand &) = delete;
+	UpscalingFlipBBCommand(UpscalingFlipBBCommand &&) = delete;
+	UpscalingFlipBBCommand &operator=(UpscalingFlipBBCommand &&) = delete;
 
 	void run(CommandListState *) override;
 };

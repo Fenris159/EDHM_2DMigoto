@@ -473,18 +473,9 @@ uint32_t CalcTexture2DDescHash(uint32_t initial_hash, const D3D11_TEXTURE2D_DESC
 	// D3D11_TEXTURE2D_DESC struct for hash calculation, let's go ahead
 	// and use the resolution override always.
 
-	auto *desc = const_cast<D3D11_TEXTURE2D_DESC *>(const_desc);
-
-	UINT saveWidth = desc->Width;
-	UINT saveHeight = desc->Height;
-	AdjustForConstResolution(&desc->Width, &desc->Height);
-
-	uint32_t hash = crc32c_hw(initial_hash, desc, sizeof(D3D11_TEXTURE2D_DESC));
-
-	desc->Width = saveWidth;
-	desc->Height = saveHeight;
-
-	return hash;
+	auto desc = *const_desc;
+	AdjustForConstResolution(&desc.Width, &desc.Height);
+	return crc32c_hw(initial_hash, &desc, sizeof(desc));
 }
 
 uint32_t CalcTexture3DDescHash(uint32_t initial_hash, const D3D11_TEXTURE3D_DESC *const_desc)
@@ -492,18 +483,9 @@ uint32_t CalcTexture3DDescHash(uint32_t initial_hash, const D3D11_TEXTURE3D_DESC
 	// Same comment as in CalcTexture2DDescHash above - concerned about
 	// inconsistent use of these resolution overrides
 
-	auto *desc = const_cast<D3D11_TEXTURE3D_DESC *>(const_desc);
-
-	UINT saveWidth = desc->Width;
-	UINT saveHeight = desc->Height;
-	AdjustForConstResolution(&desc->Width, &desc->Height);
-
-	uint32_t hash = crc32c_hw(initial_hash, desc, sizeof(D3D11_TEXTURE3D_DESC));
-
-	desc->Width = saveWidth;
-	desc->Height = saveHeight;
-
-	return hash;
+	auto desc = *const_desc;
+	AdjustForConstResolution(&desc.Width, &desc.Height);
+	return crc32c_hw(initial_hash, &desc, sizeof(desc));
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -668,7 +650,7 @@ static uint32_t hash_tex2d_data(uint32_t hash, const void *data, size_t length, 
 	DirectX::LoaderHelpers::GetSurfaceInfo(pDesc->Width, pDesc->Height, pDesc->Format, &slice_pitch, &row_pitch,
 	                                       &row_count);
 
-	auto *sptr = (uint8_t *)data;
+	const auto *sptr = static_cast<const uint8_t *>(data);
 	size_t msize = min(row_pitch, mapped_row_pitch);
 
 	signed padding = (signed)mapped_row_pitch - (signed)row_pitch;

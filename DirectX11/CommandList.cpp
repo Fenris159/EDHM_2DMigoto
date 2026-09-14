@@ -957,7 +957,7 @@ bool ParseCopyCommandListCommand(const wchar_t *section, const wchar_t *key, wst
 	{
 		const wchar_t *name_pos = nullptr;
 		ResourceCopyOptions options = parse_enum_option_string_prefix<const wchar_t *, ResourceCopyOptions>(
-		    ResourceCopyOptionNames, const_cast<wchar_t *>(val->c_str()), &name_pos);
+		    ResourceCopyOptionNames, val->c_str(), &name_pos);
 
 		if (options != ResourceCopyOptions::INVALID && options != ResourceCopyOptions::REFERENCE)
 		{
@@ -3074,12 +3074,12 @@ float CommandListOperand::process_shader_filter(CommandListState *state)
 		return 0.0;
 
 	// Positive zero means shader bound with no ShaderOverride
-	auto override = lookup_shaderoverride(shader_it->second);
-	if (override == G->mShaderOverrideMap.end())
+	auto override_it = lookup_shaderoverride(shader_it->second);
+	if (override_it == G->mShaderOverrideMap.end())
 		return 0.0;
 
-	if (override->second.filter_index != FLT_MAX)
-		return override->second.filter_index;
+	if (override_it->second.filter_index != FLT_MAX)
+		return override_it->second.filter_index;
 
 	// Matched ShaderOverride / ShaderRegex, but no filter_index:
 	return 1.0;
@@ -3239,6 +3239,7 @@ static void _CreateTextureFromBitmap(HDC dc, BITMAP *bitmap_obj, HBITMAP hbitmap
 	D3D11_SUBRESOURCE_DATA data;
 	D3D11_TEXTURE2D_DESC desc;
 	HRESULT hr;
+	std::vector<char> bitmap_data;
 
 	bmp_info.biSize = sizeof(BITMAPINFOHEADER);
 	bmp_info.biWidth = bitmap_obj->bmWidth;
@@ -3264,9 +3265,11 @@ static void _CreateTextureFromBitmap(HDC dc, BITMAP *bitmap_obj, HBITMAP hbitmap
 	// to be. Since we're using 32bpp, this shouldn't matter anyway:
 	data.SysMemPitch = ((bitmap_obj->bmWidth * bmp_info.biBitCount + 31) / 32) * 4;
 
-	data.pSysMem = new char[static_cast<size_t>(data.SysMemPitch) * bitmap_obj->bmHeight];
+	bitmap_data.resize(static_cast<size_t>(data.SysMemPitch) * bitmap_obj->bmHeight);
+	data.pSysMem = bitmap_data.data();
 
-	if (!GetDIBits(dc, hbitmap, 0, bmp_info.biHeight, (LPVOID)data.pSysMem, (BITMAPINFO *)&bmp_info, DIB_RGB_COLORS))
+	if (!GetDIBits(dc, hbitmap, 0, bmp_info.biHeight, bitmap_data.data(), reinterpret_cast<BITMAPINFO *>(&bmp_info),
+	               DIB_RGB_COLORS))
 	{
 		LogInfo("Software Mouse: GetDIBits() failed\n");
 		goto err_free;
@@ -3306,14 +3309,12 @@ static void _CreateTextureFromBitmap(HDC dc, BITMAP *bitmap_obj, HBITMAP hbitmap
 		goto err_release_tex;
 	}
 
-	delete[] data.pSysMem;
-
 	return;
 err_release_tex:
 	(*tex)->Release();
 	*tex = nullptr;
 err_free:
-	delete[] data.pSysMem;
+	return;
 }
 
 static void CreateTextureFromBitmap(HDC dc, HBITMAP hbitmap, CommandListState *state, ID3D11Texture2D **tex,

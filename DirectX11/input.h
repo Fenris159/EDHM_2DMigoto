@@ -22,6 +22,7 @@
 class InputListener
 {
   public:
+	virtual ~InputListener() = default;
 	virtual void DownEvent(HackerDevice *device) = 0;
 	virtual void UpEvent(HackerDevice *device);
 };
@@ -109,6 +110,10 @@ class InputButtonList : public InputButton
   public:
 	explicit InputButtonList(const wchar_t *keyName);
 	~InputButtonList();
+	InputButtonList(const InputButtonList &) = delete;
+	InputButtonList &operator=(const InputButtonList &) = delete;
+	InputButtonList(InputButtonList &&) = delete;
+	InputButtonList &operator=(InputButtonList &&) = delete;
 	bool CheckState() override;
 };
 
@@ -125,6 +130,10 @@ class InputAction
 
 	InputAction(InputButton *button, shared_ptr<InputListener> listener);
 	virtual ~InputAction();
+	InputAction(const InputAction &) = delete;
+	InputAction &operator=(const InputAction &) = delete;
+	InputAction(InputAction &&) = delete;
+	InputAction &operator=(InputAction &&) = delete;
 
 	virtual bool Dispatch(HackerDevice *device);
 };

@@ -46,6 +46,10 @@ class ShaderRegexPattern
 
 	ShaderRegexPattern();
 	~ShaderRegexPattern();
+	ShaderRegexPattern(const ShaderRegexPattern &) = delete;
+	ShaderRegexPattern &operator=(const ShaderRegexPattern &) = delete;
+	ShaderRegexPattern(ShaderRegexPattern &&other) noexcept;
+	ShaderRegexPattern &operator=(ShaderRegexPattern &&other) noexcept;
 
 	bool compile(std::string *pattern);
 	bool named_group_overlaps(ShaderRegexTemps &other_set);

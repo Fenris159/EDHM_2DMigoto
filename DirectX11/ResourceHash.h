@@ -846,6 +846,10 @@ class FuzzyMatchResourceDesc
 
 	explicit FuzzyMatchResourceDesc(std::wstring section);
 	~FuzzyMatchResourceDesc();
+	FuzzyMatchResourceDesc(const FuzzyMatchResourceDesc &) = delete;
+	FuzzyMatchResourceDesc &operator=(const FuzzyMatchResourceDesc &) = delete;
+	FuzzyMatchResourceDesc(FuzzyMatchResourceDesc &&) = delete;
+	FuzzyMatchResourceDesc &operator=(FuzzyMatchResourceDesc &&) = delete;
 	bool matches(const D3D11_BUFFER_DESC *desc) const;
 	bool matches(const D3D11_TEXTURE1D_DESC *desc) const;
 	bool matches(const D3D11_TEXTURE2D_DESC *desc) const;

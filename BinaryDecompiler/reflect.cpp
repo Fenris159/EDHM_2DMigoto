@@ -985,7 +985,7 @@ void LoadD3D9ConstantTable(const char *data, ShaderInfo *psInfo)
 
 	for (constNum = 0; constNum < ctab->constants; ++constNum)
 	{
-		auto *typeInfo = (TypeInfoD3D9 *)(data + cinfos[constNum].typeInfo);
+		const auto *typeInfo = reinterpret_cast<const TypeInfoD3D9 *>(data + cinfos[constNum].typeInfo);
 		ShaderVar var;
 
 		if (cinfos[constNum].registerSet != RS_SAMPLER)
