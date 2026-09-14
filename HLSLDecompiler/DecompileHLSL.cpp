@@ -614,12 +614,12 @@ class Decompiler
 			else if (strlen(mask) > 1)
 				sprintf_s(format2, sizeof(format2), "%s%d", format, (int)strlen(mask)); // e.g. float2
 			else
-				strcpy(format2, format);
+				strcpy_s(format2, format);
 			// Already used?
 			char registerName[32];
 			sprintf_s(registerName, sizeof(registerName), "v%d", slot);
 			string regNameStr = registerName;
-			map<string, DataType>::iterator i = usedInputRegisters.find(regNameStr);
+			auto i = usedInputRegisters.find(regNameStr);
 			if (i != usedInputRegisters.end())
 			{
 				sprintf_s(registerName, sizeof(registerName), "w%d.", slot);
@@ -709,12 +709,12 @@ class Decompiler
 				else if (strlen(mask) > 1)
 					sprintf_s(format2, sizeof(format2), "%s%d", format, (int)strlen(mask)); // e.g. float2
 				else
-					strcpy(format2, format);
+					strcpy_s(format2, format);
 				// Already used?
 				char registerName[32];
 				sprintf_s(registerName, sizeof(registerName), "o%d", slot);
 				string regNameStr = registerName;
-				map<string, DataType>::iterator i = mOutputRegisterType.find(regNameStr);
+				auto i = mOutputRegisterType.find(regNameStr);
 				if (i != mOutputRegisterType.end())
 				{
 					sprintf_s(registerName, sizeof(registerName), "p%d.", slot);
@@ -814,7 +814,7 @@ class Decompiler
 				char registerName[32];
 				sprintf_s(registerName, sizeof(registerName), "o%d", slot);
 				string regNameStr = registerName;
-				set<string>::iterator i = outputRegister.find(regNameStr);
+				auto i = outputRegister.find(regNameStr);
 				if (i != outputRegister.end())
 				{
 					sprintf_s(registerName, sizeof(registerName), "p%d", slot);
@@ -868,14 +868,12 @@ class Decompiler
 					foundLineEnd = true;
 					pos += 2;
 					return pos - lineStart - 2;
-					break;
 				}
 				else if (c[pos] == 0x0a)
 				{
 					foundLineEnd = true;
 					pos += 1;
 					return pos - lineStart - 1;
-					break;
 				}
 			}
 			pos++;
@@ -1162,7 +1160,7 @@ class Decompiler
 		_snprintf_s(buffer, 256, 256, "\n");
 		mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 
-		for (map<int, string>::iterator i = mSamplerNames.begin(); i != mSamplerNames.end(); ++i)
+		for (auto i = mSamplerNames.begin(); i != mSamplerNames.end(); ++i)
 		{
 			if (mSamplerNamesArraySize[i->first] == 1)
 			{
@@ -1189,7 +1187,7 @@ class Decompiler
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 			}
 		}
-		for (map<int, string>::iterator i = mSamplerComparisonNames.begin(); i != mSamplerComparisonNames.end(); ++i)
+		for (auto i = mSamplerComparisonNames.begin(); i != mSamplerComparisonNames.end(); ++i)
 		{
 			if (mSamplerComparisonNamesArraySize[i->first] == 1)
 			{
@@ -1217,7 +1215,7 @@ class Decompiler
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 			}
 		}
-		for (map<int, string>::iterator i = mTextureNames.begin(); i != mTextureNames.end(); ++i)
+		for (auto i = mTextureNames.begin(); i != mTextureNames.end(); ++i)
 		{
 			if (mTextureNamesArraySize[i->first] == 1)
 			{
@@ -1233,7 +1231,7 @@ class Decompiler
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 			}
 		}
-		for (map<int, string>::iterator i = mUAVNames.begin(); i != mUAVNames.end(); ++i)
+		for (auto i = mUAVNames.begin(); i != mUAVNames.end(); ++i)
 		{
 			if (mUAVNamesArraySize[i->first] == 1)
 			{
@@ -1329,7 +1327,7 @@ class Decompiler
 			NextLine(c, pos, size);
 			NextLine(c, pos, size);
 			// Map buffer name to register.
-			map<string, int>::iterator i = mCBufferNames.find(name);
+			auto i = mCBufferNames.find(name);
 			if (i == mCBufferNames.end())
 			{
 				logDecompileError("Buffer not found in resource declaration: " + string(name));
@@ -1431,7 +1429,7 @@ class Decompiler
 					size_t arrayPos = structName.find('[');
 					if (arrayPos == string::npos)
 					{
-						for (vector<int>::iterator i = pendingStructAttributes[structLevel].begin();
+						for (auto i = pendingStructAttributes[structLevel].begin();
 						     i != pendingStructAttributes[structLevel].end(); ++i)
 						{
 							mCBufferData[*i].Name = structName + mCBufferData[*i].Name;
@@ -1450,13 +1448,13 @@ class Decompiler
 						structName = structName.substr(0, arrayPos);
 						// Calculate struct size.
 						int structSize = 0;
-						for (vector<int>::iterator j = pendingStructAttributes[structLevel].begin();
+						for (auto j = pendingStructAttributes[structLevel].begin();
 						     j != pendingStructAttributes[structLevel].end(); ++j)
 							structSize += getDataTypeSize(mCBufferData[*j].bt);
 						for (int i = arraySize - 1; i >= 0; --i)
 						{
 							sprintf_s(buffer, sizeof(buffer), "%s[%d].", structName.c_str(), i);
-							for (vector<int>::iterator j = pendingStructAttributes[structLevel].begin();
+							for (auto j = pendingStructAttributes[structLevel].begin();
 							     j != pendingStructAttributes[structLevel].end(); ++j)
 							{
 								mCBufferData[*j + i * structSize].Name = buffer + mCBufferData[*j].Name;
@@ -2200,7 +2198,7 @@ class Decompiler
 
 			int index = parse_int_or_zero(&buff[1]);
 
-			std::map<int, string>::iterator it = mUniformNames.find(index);
+			auto it = mUniformNames.find(index);
 			if (it != mUniformNames.end())
 			{
 				string temp = right;
@@ -2208,7 +2206,7 @@ class Decompiler
 				strcpy_s(buff, opcodeSize, temp.c_str());
 			}
 
-			std::map<int, ConstantValue>::iterator cit = mConstantValues.find(index);
+			auto cit = mConstantValues.find(index);
 			if (cit != mConstantValues.end())
 			{
 
@@ -2300,7 +2298,7 @@ class Decompiler
 				{
 					// Some constant buffers no longer have variable names, giving us generic names like cb0[23].
 					// The syntax doesn't work to use those names, so in this scenario, we want to just use the strPos name, unchanged.
-					CBufferData::iterator it = mCBufferData.find((bufIndex << 16) + bufOffset * 16);
+					auto it = mCBufferData.find((bufIndex << 16) + bufOffset * 16);
 					if (it == mCBufferData.end())
 					{
 						logDecompileError("Missing constant buffer name: " + string(right2));
@@ -2367,7 +2365,7 @@ class Decompiler
 
 				// mCBufferData includes the actual named variable, as the way to convert numeric offsets
 				// back into proper names.  -cb2[r12.w + 63].xyzx -> _SpotLightDirection[r12.w].xyz
-				CBufferData::iterator i = mCBufferData.find((bufIndex << 16) + bufOffset * 16);
+				auto i = mCBufferData.find((bufIndex << 16) + bufOffset * 16);
 				if (i == mCBufferData.end() && strrchr(right2, '.')[1] == 'y')
 					i = mCBufferData.find((bufIndex << 16) + bufOffset * 16 + 4);
 				if (i == mCBufferData.end() && strrchr(right2, '.')[1] == 'z')
@@ -2437,7 +2435,7 @@ class Decompiler
 				}
 				char right3[opcodeSize];
 				right3[0] = 0;
-				strcat(right3, i->second.Name.c_str());
+				strcat_s(right3, i->second.Name.c_str());
 				strPos = strchr(strPos, ']');
 				if (!strPos)
 				{
@@ -2451,7 +2449,7 @@ class Decompiler
 					if (indexPos)
 						*indexPos = 0;
 					string indexRegisterName(regAndSwiz, strchr(regAndSwiz, '.'));
-					StringStringMap::iterator isCorrected = mCorrectedIndexRegisters.find(indexRegisterName);
+					auto isCorrected = mCorrectedIndexRegisters.find(indexRegisterName);
 					if (isCorrected != mCorrectedIndexRegisters.end())
 					{
 						char newOperand[opcodeSize];
@@ -2518,7 +2516,7 @@ class Decompiler
 				if (i->second.bt != DT_float && i->second.bt != DT_bool && i->second.bt != DT_uint &&
 				    i->second.bt != DT_int)
 				{
-					strcat(right3, ".");
+					strcat_s(right3, ".");
 					if (i->second.bt == DT_float4x4 || i->second.bt == DT_float4x3 || i->second.bt == DT_float4x2 ||
 					    i->second.bt == DT_float2x4 || i->second.bt == DT_float3x4 || i->second.bt == DT_float3x3)
 					{
@@ -2551,7 +2549,7 @@ class Decompiler
 					else
 					{
 						strPos = strrchr(right2, '.');
-						strcat(right3, strPos + 1);
+						strcat_s(right3, strPos + 1);
 					}
 				}
 				strcpy_s(right2, sizeof(right2), right3);
@@ -2576,8 +2574,7 @@ class Decompiler
 	{
 		// Kill newline.
 		char lineBuffer[256];
-		strncpy(lineBuffer, pos, 255);
-		lineBuffer[255] = 0;
+		strncpy_s(lineBuffer, sizeof(lineBuffer), pos, _TRUNCATE);
 		char *newlinePos = strchr(lineBuffer, '\n');
 		if (newlinePos)
 			*newlinePos = 0;
@@ -2609,17 +2606,17 @@ class Decompiler
 		// to   mov r1.xy, v1.xyxx
 		if (!strncmp(op1, "[precise", strlen("[precise")))
 		{
-			strcpy(op1, op2);
-			strcpy(op2, op3);
-			strcpy(op3, op4);
-			strcpy(op4, op5);
-			strcpy(op5, op6);
-			strcpy(op6, op7);
-			strcpy(op7, op8);
-			strcpy(op8, op9);
-			strcpy(op9, op10);
-			strcpy(op10, op11);
-			strcpy(op11, op12);
+			strcpy_s(op1, op2);
+			strcpy_s(op2, op3);
+			strcpy_s(op3, op4);
+			strcpy_s(op4, op5);
+			strcpy_s(op5, op6);
+			strcpy_s(op6, op7);
+			strcpy_s(op7, op8);
+			strcpy_s(op8, op9);
+			strcpy_s(op9, op10);
+			strcpy_s(op10, op11);
+			strcpy_s(op11, op12);
 		}
 
 		// Was previously a subroutine to CollectBrackets, but generated a lot of warnings, so putting it inline allows
@@ -2628,226 +2625,226 @@ class Decompiler
 		{
 			if (!strncmp(op1, "l(", 2) && op1[strlen(op1) - 1] != ')' && op1[strlen(op1) - 2] != ')')
 			{
-				strcat(op1, " ");
-				strcat(op1, op2);
-				strcat(op1, " ");
-				strcat(op1, op3);
-				strcat(op1, " ");
-				strcat(op1, op4);
-				strcpy(op2, op5);
-				strcpy(op3, op6);
-				strcpy(op4, op7);
-				strcpy(op5, op8);
-				strcpy(op6, op9);
-				strcpy(op7, op10);
-				strcpy(op8, op11);
-				strcpy(op9, op12);
-				strcpy(op10, op13);
-				strcpy(op11, op14);
-				strcpy(op12, op15);
+				strcat_s(op1, " ");
+				strcat_s(op1, op2);
+				strcat_s(op1, " ");
+				strcat_s(op1, op3);
+				strcat_s(op1, " ");
+				strcat_s(op1, op4);
+				strcpy_s(op2, op5);
+				strcpy_s(op3, op6);
+				strcpy_s(op4, op7);
+				strcpy_s(op5, op8);
+				strcpy_s(op6, op9);
+				strcpy_s(op7, op10);
+				strcpy_s(op8, op11);
+				strcpy_s(op9, op12);
+				strcpy_s(op10, op13);
+				strcpy_s(op11, op14);
+				strcpy_s(op12, op15);
 				op13[0] = 0;
 				op14[0] = 0;
 				op15[0] = 0;
 			}
 			if (!strncmp(op2, "l(", 2) && op2[strlen(op2) - 1] != ')' && op2[strlen(op2) - 2] != ')')
 			{
-				strcat(op2, " ");
-				strcat(op2, op3);
-				strcat(op2, " ");
-				strcat(op2, op4);
-				strcat(op2, " ");
-				strcat(op2, op5);
-				strcpy(op3, op6);
-				strcpy(op4, op7);
-				strcpy(op5, op8);
-				strcpy(op6, op9);
-				strcpy(op7, op10);
-				strcpy(op8, op11);
-				strcpy(op9, op12);
-				strcpy(op10, op13);
-				strcpy(op11, op14);
-				strcpy(op12, op15);
+				strcat_s(op2, " ");
+				strcat_s(op2, op3);
+				strcat_s(op2, " ");
+				strcat_s(op2, op4);
+				strcat_s(op2, " ");
+				strcat_s(op2, op5);
+				strcpy_s(op3, op6);
+				strcpy_s(op4, op7);
+				strcpy_s(op5, op8);
+				strcpy_s(op6, op9);
+				strcpy_s(op7, op10);
+				strcpy_s(op8, op11);
+				strcpy_s(op9, op12);
+				strcpy_s(op10, op13);
+				strcpy_s(op11, op14);
+				strcpy_s(op12, op15);
 				op13[0] = 0;
 				op14[0] = 0;
 				op15[0] = 0;
 			}
 			if (!strncmp(op3, "l(", 2) && op3[strlen(op3) - 1] != ')' && op3[strlen(op3) - 2] != ')')
 			{
-				strcat(op3, " ");
-				strcat(op3, op4);
-				strcat(op3, " ");
-				strcat(op3, op5);
-				strcat(op3, " ");
-				strcat(op3, op6);
-				strcpy(op4, op7);
-				strcpy(op5, op8);
-				strcpy(op6, op9);
-				strcpy(op7, op10);
-				strcpy(op8, op11);
-				strcpy(op9, op12);
-				strcpy(op10, op13);
-				strcpy(op11, op14);
-				strcpy(op12, op15);
+				strcat_s(op3, " ");
+				strcat_s(op3, op4);
+				strcat_s(op3, " ");
+				strcat_s(op3, op5);
+				strcat_s(op3, " ");
+				strcat_s(op3, op6);
+				strcpy_s(op4, op7);
+				strcpy_s(op5, op8);
+				strcpy_s(op6, op9);
+				strcpy_s(op7, op10);
+				strcpy_s(op8, op11);
+				strcpy_s(op9, op12);
+				strcpy_s(op10, op13);
+				strcpy_s(op11, op14);
+				strcpy_s(op12, op15);
 				op13[0] = 0;
 				op14[0] = 0;
 				op15[0] = 0;
 			}
 			if (!strncmp(op4, "l(", 2) && op4[strlen(op4) - 1] != ')' && op4[strlen(op4) - 2] != ')')
 			{
-				strcat(op4, " ");
-				strcat(op4, op5);
-				strcat(op4, " ");
-				strcat(op4, op6);
-				strcat(op4, " ");
-				strcat(op4, op7);
-				strcpy(op5, op8);
-				strcpy(op6, op9);
-				strcpy(op7, op10);
-				strcpy(op8, op11);
-				strcpy(op9, op12);
-				strcpy(op10, op13);
-				strcpy(op11, op14);
-				strcpy(op12, op15);
+				strcat_s(op4, " ");
+				strcat_s(op4, op5);
+				strcat_s(op4, " ");
+				strcat_s(op4, op6);
+				strcat_s(op4, " ");
+				strcat_s(op4, op7);
+				strcpy_s(op5, op8);
+				strcpy_s(op6, op9);
+				strcpy_s(op7, op10);
+				strcpy_s(op8, op11);
+				strcpy_s(op9, op12);
+				strcpy_s(op10, op13);
+				strcpy_s(op11, op14);
+				strcpy_s(op12, op15);
 				op13[0] = 0;
 				op14[0] = 0;
 				op15[0] = 0;
 			}
 			if (!strncmp(op5, "l(", 2) && op5[strlen(op5) - 1] != ')' && op5[strlen(op5) - 2] != ')')
 			{
-				strcat(op5, " ");
-				strcat(op5, op6);
-				strcat(op5, " ");
-				strcat(op5, op7);
-				strcat(op5, " ");
-				strcat(op5, op8);
-				strcpy(op6, op9);
-				strcpy(op7, op10);
-				strcpy(op8, op11);
-				strcpy(op9, op12);
-				strcpy(op10, op13);
-				strcpy(op11, op14);
-				strcpy(op12, op15);
+				strcat_s(op5, " ");
+				strcat_s(op5, op6);
+				strcat_s(op5, " ");
+				strcat_s(op5, op7);
+				strcat_s(op5, " ");
+				strcat_s(op5, op8);
+				strcpy_s(op6, op9);
+				strcpy_s(op7, op10);
+				strcpy_s(op8, op11);
+				strcpy_s(op9, op12);
+				strcpy_s(op10, op13);
+				strcpy_s(op11, op14);
+				strcpy_s(op12, op15);
 				op13[0] = 0;
 				op14[0] = 0;
 				op15[0] = 0;
 			}
 			if (!strncmp(op6, "l(", 2) && op6[strlen(op6) - 1] != ')' && op6[strlen(op6) - 2] != ')')
 			{
-				strcat(op6, " ");
-				strcat(op6, op7);
-				strcat(op6, " ");
-				strcat(op6, op8);
-				strcat(op6, " ");
-				strcat(op6, op9);
-				strcpy(op7, op10);
-				strcpy(op8, op11);
-				strcpy(op9, op12);
-				strcpy(op10, op13);
-				strcpy(op11, op14);
-				strcpy(op12, op15);
+				strcat_s(op6, " ");
+				strcat_s(op6, op7);
+				strcat_s(op6, " ");
+				strcat_s(op6, op8);
+				strcat_s(op6, " ");
+				strcat_s(op6, op9);
+				strcpy_s(op7, op10);
+				strcpy_s(op8, op11);
+				strcpy_s(op9, op12);
+				strcpy_s(op10, op13);
+				strcpy_s(op11, op14);
+				strcpy_s(op12, op15);
 				op13[0] = 0;
 				op14[0] = 0;
 				op15[0] = 0;
 			}
 			if (!strncmp(op7, "l(", 2) && op7[strlen(op7) - 1] != ')' && op7[strlen(op7) - 2] != ')')
 			{
-				strcat(op7, " ");
-				strcat(op7, op8);
-				strcat(op7, " ");
-				strcat(op7, op9);
-				strcat(op7, " ");
-				strcat(op7, op10);
-				strcpy(op8, op11);
-				strcpy(op9, op12);
-				strcpy(op10, op13);
-				strcpy(op11, op14);
-				strcpy(op12, op15);
+				strcat_s(op7, " ");
+				strcat_s(op7, op8);
+				strcat_s(op7, " ");
+				strcat_s(op7, op9);
+				strcat_s(op7, " ");
+				strcat_s(op7, op10);
+				strcpy_s(op8, op11);
+				strcpy_s(op9, op12);
+				strcpy_s(op10, op13);
+				strcpy_s(op11, op14);
+				strcpy_s(op12, op15);
 				op13[0] = 0;
 				op14[0] = 0;
 				op15[0] = 0;
 			}
 			while (!strcmp(op2, "+"))
 			{
-				strcat(op1, op2);
-				strcat(op1, op3);
-				strcpy(op2, op4);
-				strcpy(op3, op5);
-				strcpy(op4, op6);
-				strcpy(op5, op7);
-				strcpy(op6, op8);
-				strcpy(op7, op9);
-				strcpy(op8, op10);
-				strcpy(op9, op11);
-				strcpy(op10, op12);
-				strcpy(op11, op13);
-				strcpy(op12, op14);
-				strcpy(op13, op15);
+				strcat_s(op1, op2);
+				strcat_s(op1, op3);
+				strcpy_s(op2, op4);
+				strcpy_s(op3, op5);
+				strcpy_s(op4, op6);
+				strcpy_s(op5, op7);
+				strcpy_s(op6, op8);
+				strcpy_s(op7, op9);
+				strcpy_s(op8, op10);
+				strcpy_s(op9, op11);
+				strcpy_s(op10, op12);
+				strcpy_s(op11, op13);
+				strcpy_s(op12, op14);
+				strcpy_s(op13, op15);
 				op14[0] = 0;
 				op15[0] = 0;
 			}
 			while (!strcmp(op3, "+"))
 			{
-				strcat(op2, op3);
-				strcat(op2, op4);
-				strcpy(op3, op5);
-				strcpy(op4, op6);
-				strcpy(op5, op7);
-				strcpy(op6, op8);
-				strcpy(op7, op9);
-				strcpy(op8, op10);
-				strcpy(op9, op11);
-				strcpy(op10, op12);
-				strcpy(op11, op13);
-				strcpy(op12, op14);
-				strcpy(op13, op15);
+				strcat_s(op2, op3);
+				strcat_s(op2, op4);
+				strcpy_s(op3, op5);
+				strcpy_s(op4, op6);
+				strcpy_s(op5, op7);
+				strcpy_s(op6, op8);
+				strcpy_s(op7, op9);
+				strcpy_s(op8, op10);
+				strcpy_s(op9, op11);
+				strcpy_s(op10, op12);
+				strcpy_s(op11, op13);
+				strcpy_s(op12, op14);
+				strcpy_s(op13, op15);
 				op14[0] = 0;
 				op15[0] = 0;
 			}
 			while (!strcmp(op4, "+"))
 			{
-				strcat(op3, op4);
-				strcat(op3, op5);
-				strcpy(op4, op6);
-				strcpy(op5, op7);
-				strcpy(op6, op8);
-				strcpy(op7, op9);
-				strcpy(op8, op10);
-				strcpy(op9, op11);
-				strcpy(op10, op12);
-				strcpy(op11, op13);
-				strcpy(op12, op14);
-				strcpy(op13, op15);
+				strcat_s(op3, op4);
+				strcat_s(op3, op5);
+				strcpy_s(op4, op6);
+				strcpy_s(op5, op7);
+				strcpy_s(op6, op8);
+				strcpy_s(op7, op9);
+				strcpy_s(op8, op10);
+				strcpy_s(op9, op11);
+				strcpy_s(op10, op12);
+				strcpy_s(op11, op13);
+				strcpy_s(op12, op14);
+				strcpy_s(op13, op15);
 				op14[0] = 0;
 				op15[0] = 0;
 			}
 			while (!strcmp(op5, "+"))
 			{
-				strcat(op4, op5);
-				strcat(op4, op6);
-				strcpy(op5, op7);
-				strcpy(op6, op8);
-				strcpy(op7, op9);
-				strcpy(op8, op10);
-				strcpy(op9, op11);
-				strcpy(op10, op12);
-				strcpy(op11, op13);
-				strcpy(op12, op14);
-				strcpy(op13, op15);
+				strcat_s(op4, op5);
+				strcat_s(op4, op6);
+				strcpy_s(op5, op7);
+				strcpy_s(op6, op8);
+				strcpy_s(op7, op9);
+				strcpy_s(op8, op10);
+				strcpy_s(op9, op11);
+				strcpy_s(op10, op12);
+				strcpy_s(op11, op13);
+				strcpy_s(op12, op14);
+				strcpy_s(op13, op15);
 				op14[0] = 0;
 				op15[0] = 0;
 			}
 			while (!strcmp(op6, "+"))
 			{
-				strcat(op5, op6);
-				strcat(op5, op7);
-				strcpy(op6, op8);
-				strcpy(op7, op9);
-				strcpy(op8, op10);
-				strcpy(op9, op11);
-				strcpy(op10, op12);
-				strcpy(op11, op13);
-				strcpy(op12, op14);
-				strcpy(op13, op15);
+				strcat_s(op5, op6);
+				strcat_s(op5, op7);
+				strcpy_s(op6, op8);
+				strcpy_s(op7, op9);
+				strcpy_s(op8, op10);
+				strcpy_s(op9, op11);
+				strcpy_s(op10, op12);
+				strcpy_s(op11, op13);
+				strcpy_s(op12, op14);
+				strcpy_s(op13, op15);
 				op14[0] = 0;
 				op15[0] = 0;
 			}
@@ -3064,7 +3061,7 @@ class Decompiler
 
 	char *writeTarget(char *target)
 	{
-		StringStringMap::iterator i = mRemappedOutputRegisters.find(target);
+		auto i = mRemappedOutputRegisters.find(target);
 		if (i != mRemappedOutputRegisters.end())
 			strcpy_s(target, opcodeSize, i->second.c_str()); // only used for opcode strings.
 		return target;
@@ -3306,14 +3303,14 @@ class Decompiler
 		size_t dotspot = op.find('.');
 		if (dotspot == string::npos)
 		{
-			set<string>::iterator i = mBooleanRegisters.find(op);
+			auto i = mBooleanRegisters.find(op);
 			return i != mBooleanRegisters.end();
 		}
 
 		string reg = op.substr(0, dotspot);
 		for (size_t i = dotspot + 1; i < op.length(); i++)
 		{
-			set<string>::iterator j = mBooleanRegisters.find(reg + '.' + op[i]);
+			auto j = mBooleanRegisters.find(reg + '.' + op[i]);
 			if (j != mBooleanRegisters.end())
 				return true; // Any single component found qualifies
 		}
@@ -3382,7 +3379,7 @@ class Decompiler
 				backProjectVector1 = G->BackProject_Vector1.substr(0, G->BackProject_Vector1.find_first_of(".,"));
 			if (!G->BackProject_Vector2.empty())
 				backProjectVector2 = G->BackProject_Vector2.substr(0, G->BackProject_Vector2.find_first_of(".,"));
-			for (CBufferData::iterator i = mCBufferData.begin(); i != mCBufferData.end(); ++i)
+			for (auto i = mCBufferData.begin(); i != mCBufferData.end(); ++i)
 			{
 				if (!screenToWorldMatrix1 && i->second.Name == backProjectVector1)
 					screenToWorldMatrix1 = true;
@@ -3436,7 +3433,7 @@ class Decompiler
 					// If we have a projection, make mono.
 					if (viewProjectMatrix)
 					{
-						vector<char>::iterator writePos = mOutput.end() - 1;
+						auto writePos = mOutput.end() - 1;
 						if (*writePos != '\n')
 							--writePos;
 						mOutput.insert(writePos, StereoDecl, StereoDecl + strlen(StereoDecl));
@@ -3453,7 +3450,7 @@ class Decompiler
 			// Process copies of SV_Position.
 			if (!isMono && G->fixSvPosition && mUsesProjection && !mSV_Position.empty())
 			{
-				map<string, string>::iterator positionValue = mOutputRegisterValues.find(mSV_Position);
+				auto positionValue = mOutputRegisterValues.find(mSV_Position);
 				if (positionValue != mOutputRegisterValues.end())
 				{
 					size_t dotPos = positionValue->second.rfind('.');
@@ -3461,14 +3458,13 @@ class Decompiler
 					if (dotPos > 0)
 						rvalue = positionValue->second.substr(0, dotPos);
 					// Search for same value on other outputs.
-					for (map<string, string>::iterator i = mOutputRegisterValues.begin();
-					     i != mOutputRegisterValues.end(); ++i)
+					for (auto i = mOutputRegisterValues.begin(); i != mOutputRegisterValues.end(); ++i)
 					{
 						// Ignore main output register
 						if (!i->first.compare(mSV_Position))
 							continue;
 						// Check for float 4 type.
-						map<string, DataType>::iterator dataType = mOutputRegisterType.find(i->first);
+						auto dataType = mOutputRegisterType.find(i->first);
 						if (dataType == mOutputRegisterType.end() || dataType->second != DT_float4)
 							continue;
 						dotPos = i->second.rfind('.');
@@ -3480,7 +3476,7 @@ class Decompiler
 							// Write params before return;.
 							if (!stereoParamsWritten)
 							{
-								vector<char>::iterator writePos = mOutput.end() - 1;
+								auto writePos = mOutput.end() - 1;
 								while (*writePos != '\n')
 									--writePos;
 								--writePos;
@@ -3491,7 +3487,7 @@ class Decompiler
 							}
 
 							// Back up to before the final return statement to output.
-							vector<char>::iterator writePos = mOutput.end() - 1;
+							auto writePos = mOutput.end() - 1;
 							while (*writePos != '\n')
 								--writePos;
 							--writePos;
@@ -3527,7 +3523,7 @@ class Decompiler
 			if (depthTexture != mTextureNames.end())
 			{
 				long found = 0;
-				for (CBufferData::iterator i = mCBufferData.begin(); i != mCBufferData.end(); ++i)
+				for (auto i = mCBufferData.begin(); i != mCBufferData.end(); ++i)
 					for (unsigned int j = 0; j < G->ZRepair_Dependencies1.size(); ++j)
 						if (i->second.Name == G->ZRepair_Dependencies1[j])
 							found |= 1 << j;
@@ -3578,9 +3574,9 @@ class Decompiler
 						{
 							// Copy depth texture usage to top.
 							//mCodeStartPos = mOutput.insert(mOutput.begin() + mCodeStartPos, buf, buf + strlen(buf)) - mOutput.begin();
-							vector<char>::iterator iter = mOutput.insert(
-							    mOutput.begin() + static_cast<vector<char>::difference_type>(mCodeStartPos), buf,
-							    buf + strlen(buf));
+							auto iter = mOutput.insert(mOutput.begin() +
+							                               static_cast<vector<char>::difference_type>(mCodeStartPos),
+							                           buf, buf + strlen(buf));
 							mCodeStartPos = iter - mOutput.begin();
 							mCodeStartPos += strlen(buf);
 						}
@@ -3590,7 +3586,7 @@ class Decompiler
 							while (*pos != '\n')
 								--pos;
 							//mCodeStartPos = mOutput.insert(mOutput.begin() + (pos + 1 - mOutput.data()), buf, buf + strlen(buf)) - mOutput.begin();
-							vector<char>::iterator iter =
+							auto iter =
 							    mOutput.insert(mOutput.begin() + (pos + 1 - mOutput.data()), buf, buf + strlen(buf));
 							mCodeStartPos = iter - mOutput.begin();
 							mCodeStartPos += strlen(buf);
@@ -3618,7 +3614,7 @@ class Decompiler
 				if (depthTexture != mTextureNames.end())
 				{
 					long found = 0;
-					for (CBufferData::iterator i = mCBufferData.begin(); i != mCBufferData.end(); ++i)
+					for (auto i = mCBufferData.begin(); i != mCBufferData.end(); ++i)
 						for (unsigned int j = 0; j < G->ZRepair_Dependencies2.size(); ++j)
 							if (i->second.Name == G->ZRepair_Dependencies2[j])
 								found |= 1 << j;
@@ -3642,7 +3638,7 @@ class Decompiler
 							++endPos;
 							pos += 3;
 							string depthBufferStatement(pos, endPos);
-							vector<char>::iterator wpos = mOutput.begin();
+							auto wpos = mOutput.begin();
 							wpos = mOutput.erase(wpos + (pos - mOutput.data()), wpos + (endPos - mOutput.data()));
 							const char ZPOS_REG[] = "zpos4";
 							wpos = mOutput.insert(wpos, ZPOS_REG, ZPOS_REG + strlen(ZPOS_REG));
@@ -3671,7 +3667,7 @@ class Decompiler
 							{
 								// Copy depth texture usage to top.
 								//mCodeStartPos = mOutput.insert(mOutput.begin() + mCodeStartPos, buf, buf + strlen(buf)) - mOutput.begin();
-								vector<char>::iterator iter = mOutput.insert(
+								auto iter = mOutput.insert(
 								    mOutput.begin() + static_cast<vector<char>::difference_type>(mCodeStartPos), buf,
 								    buf + strlen(buf));
 								mCodeStartPos = iter - mOutput.begin();
@@ -3683,7 +3679,7 @@ class Decompiler
 								while (*wpos != '\n')
 									--wpos;
 								//mCodeStartPos = mOutput.insert(wpos + 1, buf, buf + strlen(buf)) - mOutput.begin();
-								vector<char>::iterator iter = mOutput.insert(wpos + 1, buf, buf + strlen(buf));
+								auto iter = mOutput.insert(wpos + 1, buf, buf + strlen(buf));
 								mCodeStartPos = iter - mOutput.begin();
 								mCodeStartPos += strlen(buf);
 							}
@@ -3720,16 +3716,15 @@ class Decompiler
 							mOutput.pop_back();
 							return;
 						}
+						const string registerName(bpos, pos);
 						char buf[512];
-						const size_t registerNameLength = static_cast<size_t>(pos - bpos);
-						if (registerNameLength >= sizeof(buf))
+						if (registerName.size() >= sizeof(buf))
 						{
 							logDecompileError("Position register name is too long");
 							mOutput.pop_back();
 							return;
 						}
-						memcpy(buf, bpos, registerNameLength);
-						buf[registerNameLength] = 0;
+						strcpy_s(buf, sizeof(buf), registerName.c_str());
 						applySwizzle(".xyz", buf);
 						char calcStatement[256];
 						sprintf_s(calcStatement, sizeof(calcStatement), G->ZRepair_WorldPosCalc.c_str(), buf);
@@ -3741,8 +3736,7 @@ class Decompiler
 						pos = strchr(pos, '\n');
 
 						//mCodeStartPos = mOutput.insert(mOutput.begin() + (pos - mOutput.data()), buf, buf + strlen(buf)) - mOutput.begin();
-						vector<char>::iterator iter =
-						    mOutput.insert(mOutput.begin() + (pos - mOutput.data()), buf, buf + strlen(buf));
+						auto iter = mOutput.insert(mOutput.begin() + (pos - mOutput.data()), buf, buf + strlen(buf));
 						mCodeStartPos = iter - mOutput.begin();
 						mCodeStartPos += strlen(buf);
 						wposAvailable = true;
@@ -3759,9 +3753,8 @@ class Decompiler
 				                            "float wpos = 1.0 / zpos;\n";
 				// Copy depth texture usage to top.
 				//mCodeStartPos = mOutput.insert(mOutput.begin() + mCodeStartPos, INJECT_HEADER, INJECT_HEADER + strlen(INJECT_HEADER)) - mOutput.begin();
-				vector<char>::iterator iter =
-				    mOutput.insert(mOutput.begin() + static_cast<vector<char>::difference_type>(mCodeStartPos),
-					               INJECT_HEADER, INJECT_HEADER + strlen(INJECT_HEADER));
+				auto iter = mOutput.insert(mOutput.begin() + static_cast<vector<char>::difference_type>(mCodeStartPos),
+				                           INJECT_HEADER, INJECT_HEADER + strlen(INJECT_HEADER));
 				mCodeStartPos = iter - mOutput.begin();
 				mCodeStartPos += strlen(INJECT_HEADER);
 
@@ -3798,7 +3791,7 @@ class Decompiler
 				for (keyFind = mCBufferData.begin(); keyFind != mCBufferData.end(); ++keyFind)
 				{
 					bool found = false;
-					for (vector<string>::iterator j = G->InvTransforms.begin(); j != G->InvTransforms.end(); ++j)
+					for (auto j = G->InvTransforms.begin(); j != G->InvTransforms.end(); ++j)
 						if (keyFind->second.Name == *j)
 							found = true;
 					if (found)
@@ -3818,15 +3811,14 @@ class Decompiler
 						if (mOutput[mCodeStartPos] != '\n')
 							--mCodeStartPos;
 						//mCodeStartPos = mOutput.insert(mOutput.begin() + mCodeStartPos, StereoDecl, StereoDecl + strlen(StereoDecl)) - mOutput.begin();
-						vector<char>::iterator iter =
+						auto iter =
 						    mOutput.insert(mOutput.begin() + static_cast<vector<char>::difference_type>(mCodeStartPos),
 							               StereoDecl, StereoDecl + strlen(StereoDecl));
 						mCodeStartPos = iter - mOutput.begin();
 						mCodeStartPos += strlen(StereoDecl);
 					}
 
-					for (vector<string>::iterator invT = G->InvTransforms.begin(); invT != G->InvTransforms.end();
-					     ++invT)
+					for (auto invT = G->InvTransforms.begin(); invT != G->InvTransforms.end(); ++invT)
 					{
 						char buf[128];
 						sprintf_s(buf, sizeof(buf), " %s._m00", invT->c_str());
@@ -3844,7 +3836,7 @@ class Decompiler
 									++bpos;
 								string regName(mpos + 2, bpos);
 								size_t dotPos = regName.rfind('.');
-								if (dotPos >= 0)
+								if (dotPos != string::npos)
 									regName = regName.substr(0, dotPos + 2);
 								while (*mpos != '\n')
 									--mpos;
@@ -3865,7 +3857,7 @@ class Decompiler
 										++bpos;
 									string regName(mpos + 1, bpos);
 									size_t dotPos = regName.rfind('.');
-									if (dotPos >= 0)
+									if (dotPos != string::npos)
 										regName = regName.substr(0, dotPos + 2);
 									while (*mpos != '\n')
 										--mpos;
@@ -3914,11 +3906,11 @@ class Decompiler
 								memcpy(op1, bpos + 3, size);
 								op1[size] = 0;
 
-								strcpy(op2, op1);
+								strcpy_s(op2, op1);
 								applySwizzle(".x", op2);
-								strcpy(op3, op1);
+								strcpy_s(op3, op1);
 								applySwizzle(".y", op3);
-								strcpy(op4, op1);
+								strcpy_s(op4, op1);
 								applySwizzle(".z", op4);
 								char buf[512];
 								if (G->ObjectPos_MUL1.empty())
@@ -3983,11 +3975,11 @@ class Decompiler
 								memcpy(op1, bpos + 3, size);
 								op1[size] = 0;
 
-								strcpy(op2, op1);
+								strcpy_s(op2, op1);
 								applySwizzle(".x", op2);
-								strcpy(op3, op1);
+								strcpy_s(op3, op1);
 								applySwizzle(".y", op3);
-								strcpy(op4, op1);
+								strcpy_s(op4, op1);
 								applySwizzle(".z", op4);
 								char buf[512];
 								if (G->ObjectPos_MUL2.empty())
@@ -4344,7 +4336,6 @@ class Decompiler
 			default:
 				return "?";
 			}
-			break;
 		case SVC_MATRIX_ROWS:
 		case SVC_MATRIX_COLUMNS:
 			switch (var->Rows)
@@ -4498,7 +4489,7 @@ class Decompiler
 	                              int swiz_offsets[4])
 	{
 		Operand dst0 = instr->asOperands[0];
-		ResourceGroup group = (ResourceGroup)-1;
+		auto group = (ResourceGroup)-1;
 		ResourceBinding *bindInfo;
 		char buffer[512];
 
@@ -4798,7 +4789,7 @@ class Decompiler
 					if (!(dst0.ui32CompMask & (1 << component)))
 						continue;
 
-					strcpy(op5, src);
+					strcpy_s(op5, src);
 					fixImm(op5, src0);
 					switch (component)
 					{
@@ -5169,7 +5160,7 @@ class Decompiler
 					}
 					if (!strcmp(op2, "mode_default"))
 					{
-						map<int, string>::iterator i = mSamplerNames.find(bufIndex);
+						auto i = mSamplerNames.find(bufIndex);
 						if (i == mSamplerNames.end())
 						{
 							sprintf_s(buffer, sizeof(buffer), "s%d_s", bufIndex);
@@ -5182,7 +5173,7 @@ class Decompiler
 					}
 					else if (!strcmp(op2, "mode_comparison"))
 					{
-						map<int, string>::iterator i = mSamplerComparisonNames.find(bufIndex);
+						auto i = mSamplerComparisonNames.find(bufIndex);
 						if (i == mSamplerComparisonNames.end())
 						{
 							sprintf_s(buffer, sizeof(buffer), "s%d_s", bufIndex);
@@ -5219,7 +5210,7 @@ class Decompiler
 						return;
 					}
 					// Create if not existing.  e.g. if no ResourceBinding section in ASM.
-					map<int, string>::iterator i = mTextureNames.find(bufIndex);
+					auto i = mTextureNames.find(bufIndex);
 					if (i == mTextureNames.end())
 					{
 						CreateRawFormat("Texture2D", bufIndex);
@@ -5238,7 +5229,7 @@ class Decompiler
 						return;
 					}
 					// Create if not existing.   e.g. if no ResourceBinding section in ASM.
-					map<int, string>::iterator i = mTextureNames.find(bufIndex);
+					auto i = mTextureNames.find(bufIndex);
 					if (i == mTextureNames.end())
 					{
 						CreateRawFormat("Texture2DArray", bufIndex);
@@ -5266,7 +5257,7 @@ class Decompiler
 						return;
 					}
 					// Create if not existing.   e.g. if no ResourceBinding section in ASM.  Might need <f,x> variant for texturetype.
-					map<int, string>::iterator i = mTextureNames.find(bufIndex);
+					auto i = mTextureNames.find(bufIndex);
 					if (i == mTextureNames.end())
 					{
 						sprintf_s(buffer, sizeof(buffer), "t%d", bufIndex);
@@ -5303,7 +5294,7 @@ class Decompiler
 						return;
 					}
 					// Create if not existing.  e.g. if no ResourceBinding section in ASM.
-					map<int, string>::iterator i = mTextureNames.find(bufIndex);
+					auto i = mTextureNames.find(bufIndex);
 					if (i == mTextureNames.end())
 					{
 						CreateRawFormat("Texture3D", bufIndex);
@@ -5321,7 +5312,7 @@ class Decompiler
 						return;
 					}
 					// Create if not existing.  e.g. if no ResourceBinding section in ASM.
-					map<int, string>::iterator i = mTextureNames.find(bufIndex);
+					auto i = mTextureNames.find(bufIndex);
 					if (i == mTextureNames.end())
 					{
 						CreateRawFormat("TextureCube", bufIndex);
@@ -5339,7 +5330,7 @@ class Decompiler
 						return;
 					}
 					// Create if not existing.  e.g. if no ResourceBinding section in ASM.
-					map<int, string>::iterator i = mTextureNames.find(bufIndex);
+					auto i = mTextureNames.find(bufIndex);
 					if (i == mTextureNames.end())
 					{
 						CreateRawFormat("TextureCubeArray", bufIndex);
@@ -5357,7 +5348,7 @@ class Decompiler
 						return;
 					}
 					// Create if not existing.  e.g. if no ResourceBinding section in ASM.
-					map<int, string>::iterator i = mTextureNames.find(bufIndex);
+					auto i = mTextureNames.find(bufIndex);
 					if (i == mTextureNames.end())
 					{
 						CreateRawFormat("Buffer", bufIndex);
@@ -5386,7 +5377,7 @@ class Decompiler
 				for (int i = 0; i < numIndex; ++i)
 					sprintf_s(buffer + strlen(buffer), sizeof(buffer) - strlen(buffer), "v%d,", i);
 				buffer[strlen(buffer) - 1] = 0;
-				strcat(buffer, " };\n");
+				strcat_s(buffer, " };\n");
 				mOutput.insert(mOutput.end(), buffer, buffer + strlen(buffer));
 			}
 			else if (!strcmp(statement, "dcl_indexableTemp"))
@@ -5737,8 +5728,8 @@ class Decompiler
 					// That applySwizzle damages constants though, so if we are boolean, we'll use the original l() value.
 				case OPCODE_AND:
 					remapTarget(op1);
-					strcpy(op12, op2);
-					strcpy(op13, op3);
+					strcpy_s(op12, op2);
+					strcpy_s(op13, op3);
 					applySwizzle(op1, op2, true);
 					applySwizzle(op1, op3, true);
 					if (isBoolean(op2) || isBoolean(op3))

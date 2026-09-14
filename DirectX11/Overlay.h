@@ -34,7 +34,7 @@ class OverlayNotice
 	std::wstring message;
 	ULONGLONG timestamp;
 
-	OverlayNotice(std::wstring message);
+	explicit OverlayNotice(std::wstring message);
 };
 
 class Overlay

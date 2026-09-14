@@ -14,28 +14,24 @@ const int stringSize = 256;
 
 struct DecompilerSettings
 {
-	int StereoParamsReg;
-	int IniParamsReg;
+	int StereoParamsReg{-1};
+	int IniParamsReg{-1};
 
-	bool fixSvPosition;
-	bool recompileVs;
-	char ZRepair_DepthTextureReg1, ZRepair_DepthTextureReg2;
+	bool fixSvPosition{false};
+	bool recompileVs{false};
+	char ZRepair_DepthTextureReg1{'\0'}, ZRepair_DepthTextureReg2{'\0'};
 	std::string ZRepair_DepthTexture1, ZRepair_DepthTexture2;
 	std::vector<std::string> ZRepair_Dependencies1, ZRepair_Dependencies2;
 	std::string ZRepair_ZPosCalc1, ZRepair_ZPosCalc2;
 	std::string ZRepair_PositionTexture;
-	bool ZRepair_DepthBuffer;
+	bool ZRepair_DepthBuffer{false};
 	std::vector<std::string> InvTransforms;
 	std::string ZRepair_WorldPosCalc;
 	std::string BackProject_Vector1, BackProject_Vector2;
 	std::string ObjectPos_ID1, ObjectPos_ID2, ObjectPos_MUL1, ObjectPos_MUL2;
 	std::string MatrixPos_ID1, MatrixPos_MUL1;
 
-	DecompilerSettings()
-	    : StereoParamsReg(-1), IniParamsReg(-1), fixSvPosition(false), recompileVs(false),
-	      ZRepair_DepthTextureReg1('\0'), ZRepair_DepthTextureReg2('\0'), ZRepair_DepthBuffer(false)
-	{
-	}
+	DecompilerSettings() = default;
 };
 
 struct ParseParameters

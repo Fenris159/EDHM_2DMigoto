@@ -76,7 +76,7 @@ class VKInputButton : public InputButton
 	int vkey;
 	bool invert;
 
-	VKInputButton(const wchar_t *keyName);
+	explicit VKInputButton(const wchar_t *keyName);
 	bool CheckState() override;
 };
 
@@ -95,7 +95,7 @@ class XInputButton : public InputButton
 	bool _CheckState(int controller) const;
 
   public:
-	XInputButton(const wchar_t *keyName);
+	explicit XInputButton(const wchar_t *keyName);
 	bool CheckState() override;
 };
 
@@ -107,7 +107,7 @@ class InputButtonList : public InputButton
 	void clear();
 
   public:
-	InputButtonList(const wchar_t *keyName);
+	explicit InputButtonList(const wchar_t *keyName);
 	~InputButtonList();
 	bool CheckState() override;
 };

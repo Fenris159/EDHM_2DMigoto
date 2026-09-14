@@ -82,3 +82,15 @@ The only repository-level Sonar exception is `cppsecurity:S2083` in
 byte buffers passed to `fwrite` as filesystem paths. Those values are file
 contents rather than path components, so path traversal is impossible at the
 reported sinks.
+
+`cppsecurity:S5145` is excluded for C++ implementation files because this
+project writes only local developer diagnostics, not security or audit logs.
+The logging macros retain fixed format strings, so attacker-controlled format
+execution is still prevented; embedded line breaks cannot affect authorization,
+monitoring, or another trust boundary.
+
+`cpp:S936` is excluded only in the four hook-registration implementation files.
+The reported function designators are arguments to token-pasting hook macros;
+adding `&` would prevent those macros from deriving the paired trampoline and
+original-function symbols. The macro expansion already uses them as function
+pointers.

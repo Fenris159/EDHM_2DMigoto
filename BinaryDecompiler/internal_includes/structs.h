@@ -163,13 +163,13 @@ enum
 struct ShaderPhase
 {
 	//How many instances of this phase type are there?
-	uint32_t ui32InstanceCount;
+	uint32_t ui32InstanceCount{0};
 
 	std::vector<std::vector<Declaration>> ppsDecl;
 
 	std::vector<std::vector<Instruction>> ppsInst;
 
-	ShaderPhase() : ui32InstanceCount(0)
+	ShaderPhase()
 	{
 		// 3DMigoto backport: Ensure we always have at least one "instance"
 		ppsDecl.resize(1);
@@ -179,8 +179,8 @@ struct ShaderPhase
 
 struct Shader
 {
-	uint32_t ui32MajorVersion;
-	uint32_t ui32MinorVersion;
+	uint32_t ui32MajorVersion{0};
+	uint32_t ui32MinorVersion{0};
 	SHADER_TYPE eShaderType;
 
 	GLLang eTargetLanguage;
@@ -188,7 +188,7 @@ struct Shader
 	int fp64;
 
 	//DWORDs in program code, including version and length tokens.
-	uint32_t ui32ShaderLength;
+	uint32_t ui32ShaderLength{0};
 
 	//Instruction* functions;//non-main subroutines
 
@@ -210,7 +210,7 @@ struct Shader
 
 	std::vector<uint32_t> ui32NextClassFuncName;
 
-	const uint32_t *pui32FirstToken; //Reference for calculating current position in token stream.
+	const uint32_t *pui32FirstToken{nullptr}; //Reference for calculating current position in token stream.
 
 	ShaderPhase asPhase[NUM_PHASES];
 
@@ -234,15 +234,10 @@ struct Shader
 
 	//int aiOpcodeUsed[NUM_OPCODES];
 
-	bool dx9Shader; // 3DMIGOTO ADDITION
+	bool dx9Shader{false}; // 3DMIGOTO ADDITION
 	uint32_t ui32CurrentVertexOutputStream;
 
 	Shader()
-	    : ui32MajorVersion(0), ui32MinorVersion(0), ui32ShaderLength(0), pui32FirstToken(0), asPhase(),
-	      aui32FuncTableToFuncPointer(), aui32FuncBodyToFuncTable(), funcTable(), funcPointer(),
-	      ui32NextClassFuncName(), abScalarInput(), aIndexedOutput(), aIndexedInput(), aIndexedInputParents(),
-	      aeResourceDims(), aiInputDeclaredSize(), aiOutputDeclared(), abInputReferencedByInstruction(),
-	      dx9Shader(false)
 	{
 		sInfo = new ShaderInfo();
 	}
@@ -250,6 +245,6 @@ struct Shader
 	~Shader()
 	{
 		delete sInfo;
-		sInfo = 0;
+		sInfo = nullptr;
 	}
 };

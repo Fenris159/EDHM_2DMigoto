@@ -1498,10 +1498,10 @@ void HackerContext::TrackAndDivertMap(HRESULT map_hr, ID3D11Resource *pResource,
 	{
 	case D3D11_MAP_READ_WRITE:
 		read = true;
-		// Fall through
+		[[fallthrough]];
 	case D3D11_MAP_WRITE_DISCARD:
 		divertable = true;
-		// Fall through
+		[[fallthrough]];
 	case D3D11_MAP_WRITE:
 	case D3D11_MAP_WRITE_NO_OVERWRITE:
 		write = true;

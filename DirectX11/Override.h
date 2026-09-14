@@ -137,7 +137,7 @@ class KeyOverride : public KeyOverrideBase, public Override
 	KeyOverrideType type;
 
   public:
-	KeyOverride(KeyOverrideType type) : Override(), type(type) {}
+	explicit KeyOverride(KeyOverrideType type) : Override(), type(type) {}
 	KeyOverride(KeyOverrideType type, OverrideParams *params, OverrideVars *vars, int transition,
 	            int release_transition, TransitionType transition_type, TransitionType release_transition_type,
 	            bool is_conditional, CommandListExpression condition, CommandList activate_command_list,
@@ -175,7 +175,7 @@ class KeyOverrideCycleBack : public InputListener
 	shared_ptr<KeyOverrideCycle> cycle;
 
   public:
-	KeyOverrideCycleBack(shared_ptr<KeyOverrideCycle> cycle) : cycle(cycle) {}
+	explicit KeyOverrideCycleBack(shared_ptr<KeyOverrideCycle> cycle) : cycle(cycle) {}
 
 	void DownEvent(HackerDevice *device);
 };

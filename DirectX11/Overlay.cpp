@@ -18,6 +18,7 @@
 #include "HackerDevice.h"
 #include "HackerContext.h"
 
+#include <memory>
 #include <stdexcept>
 
 #define MAX_SIMULTANEOUS_NOTICES 10
@@ -144,7 +145,7 @@ Overlay::Overlay(HackerDevice *pDevice, HackerContext *pContext, IDXGISwapChain 
 	// We want to use the original device and original context here, because
 	// these will be used by DirectXTK to generate VertexShaders and PixelShaders
 	// to draw the text, and we don't want to intercept those.
-	mFont.reset(new DirectX::SpriteFont(mOrigDevice, fontBlob, fontSize));
+	mFont = std::make_unique<DirectX::SpriteFont>(mOrigDevice, fontBlob, fontSize);
 	mFont->SetDefaultCharacter(L'?');
 
 	// Courier is a nice choice for hunting status lines, and showing the
@@ -153,20 +154,20 @@ Overlay::Overlay(HackerDevice *pDevice, HackerContext *pContext, IDXGISwapChain 
 	// Sans has essentially the same metrics as Arial,
 	// but is not encumbered.
 	fontBlob = LoadEmbeddedFont(handle, IDR_ARIAL, &fontSize);
-	mFontNotifications.reset(new DirectX::SpriteFont(mOrigDevice, fontBlob, fontSize));
+	mFontNotifications = std::make_unique<DirectX::SpriteFont>(mOrigDevice, fontBlob, fontSize);
 	mFontNotifications->SetDefaultCharacter(L'?');
 
 	// Smaller monospaced font for profiling text
 	fontBlob = LoadEmbeddedFont(handle, IDR_COURIERSMALL, &fontSize);
-	mFontProfiling.reset(new DirectX::SpriteFont(mOrigDevice, fontBlob, fontSize));
+	mFontProfiling = std::make_unique<DirectX::SpriteFont>(mOrigDevice, fontBlob, fontSize);
 	mFontProfiling->SetDefaultCharacter(L'?');
 
-	mSpriteBatch.reset(new DirectX::SpriteBatch(mOrigContext));
+	mSpriteBatch = std::make_unique<DirectX::SpriteBatch>(mOrigContext);
 
 	// For dark background behind notification text, following
 	// https://github.com/Microsoft/DirectXTK/wiki/Simple-rendering
-	mStates.reset(new DirectX::CommonStates(mOrigDevice));
-	mEffect.reset(new DirectX::BasicEffect(mOrigDevice));
+	mStates = std::make_unique<DirectX::CommonStates>(mOrigDevice);
+	mEffect = std::make_unique<DirectX::BasicEffect>(mOrigDevice);
 
 	void const *shaderByteCode;
 	size_t byteCodeLength;
@@ -180,7 +181,7 @@ Overlay::Overlay(HackerDevice *pDevice, HackerContext *pContext, IDXGISwapChain 
 	if (FAILED(hr))
 		throw std::runtime_error("CreateInputLayout failed");
 
-	mPrimitiveBatch.reset(new DirectX::PrimitiveBatch<DirectX::VertexPositionColor>(mOrigContext));
+	mPrimitiveBatch = std::make_unique<DirectX::PrimitiveBatch<DirectX::VertexPositionColor>>(mOrigContext);
 
 	// Take references after setup so a failed resource allocation cannot leak them.
 	mHackerDevice->AddRef();

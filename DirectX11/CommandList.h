@@ -109,7 +109,7 @@ class CommandListCommand
 	unsigned pre_executions{};
 	unsigned post_executions{};
 
-	virtual ~CommandListCommand() {};
+	virtual ~CommandListCommand() = default;
 
 	virtual void run(CommandListState *) = 0;
 	virtual bool optimise(HackerDevice *device [[maybe_unused]])
@@ -256,7 +256,7 @@ class RunLinkedCommandList : public CommandListCommand
   public:
 	CommandList *link;
 
-	RunLinkedCommandList(CommandList *link) : link(link) {}
+	explicit RunLinkedCommandList(CommandList *link) : link(link) {}
 
 	void run(CommandListState *) override;
 	bool noop(bool post, bool ignore_cto_pre, bool ignore_cto_post) override;
@@ -397,7 +397,7 @@ class SkipCommand : public CommandListCommand
   public:
 	wstring ini_section;
 
-	SkipCommand(wstring section) : ini_section(section) {}
+	explicit SkipCommand(wstring section) : ini_section(section) {}
 
 	void run(CommandListState *) override;
 };
@@ -410,7 +410,7 @@ class AbortCommand : public CommandListCommand
   public:
 	wstring ini_section;
 
-	AbortCommand(wstring section) : ini_section(section) {}
+	explicit AbortCommand(wstring section) : ini_section(section) {}
 
 	void run(CommandListState *) override;
 };
@@ -1004,7 +1004,7 @@ class ResourceCopyOperation : public CommandListCommand
 	ID3D11View *cached_view;
 
 	ResourceCopyOperation();
-	~ResourceCopyOperation();
+	~ResourceCopyOperation() override;
 
 	void CopyResourceToResource(CommandListState *state, ID3D11Resource *src_resource, ID3D11View *src_view,
 	                            UINT stride, UINT offset, DXGI_FORMAT format, UINT buf_src_size);
@@ -1035,8 +1035,8 @@ class LayoutElementOperation : public CommandListCommand
 	ResourceCopyTarget dst;
 	InputLayoutElementOverride override;
 
-	LayoutElementOperation() {};
-	~LayoutElementOperation() {};
+	LayoutElementOperation() = default;
+	~LayoutElementOperation() override = default;
 
 	void run(CommandListState *) override;
 };
@@ -1058,8 +1058,8 @@ class CommandListToken
 	wstring token;
 	size_t token_pos;
 
-	CommandListToken(size_t token_pos, wstring token = L"") : token_pos(token_pos), token(token) {}
-	virtual ~CommandListToken() {}; // Because C++
+	explicit CommandListToken(size_t token_pos, wstring token = L"") : token_pos(token_pos), token(token) {}
+	virtual ~CommandListToken() = default; // Because C++
 };
 
 // Expression nodes that are evaluatable - nodes start off as non-evaluatable
@@ -1068,7 +1068,7 @@ class CommandListToken
 class CommandListEvaluatable
 {
   public:
-	virtual ~CommandListEvaluatable() {}; // Because C++
+	virtual ~CommandListEvaluatable() = default; // Because C++
 
 	virtual float evaluate(CommandListState *state, HackerDevice *device = nullptr) = 0;
 	virtual bool static_evaluate(float *ret, HackerDevice *device = nullptr, bool evaluate_variables = false) = 0;
@@ -1114,7 +1114,7 @@ class CommandListSyntaxTree : public CommandListToken,
 	typedef std::vector<std::shared_ptr<CommandListToken>> Tokens;
 	Tokens tokens;
 
-	CommandListSyntaxTree(size_t token_pos) : CommandListToken(token_pos) {}
+	explicit CommandListSyntaxTree(size_t token_pos) : CommandListToken(token_pos) {}
 	std::shared_ptr<CommandListEvaluatable> finalise() override;
 	Walk walk() override;
 };
@@ -1125,7 +1125,7 @@ class CommandListSyntaxTree : public CommandListToken,
 class CommandListOperatorToken : public CommandListToken
 {
   public:
-	CommandListOperatorToken(size_t token_pos, wstring token = L"") : CommandListToken(token_pos, token) {}
+	explicit CommandListOperatorToken(size_t token_pos, wstring token = L"") : CommandListToken(token_pos, token) {}
 };
 
 // Base class for operators. Subclass this and provide a static pattern and
@@ -1311,7 +1311,7 @@ class CommandListOperand : public CommandListToken, public CommandListOperandBas
 	// For scissor rectangle:
 	unsigned scissor;
 
-	CommandListOperand(size_t pos, wstring token = L"")
+	explicit CommandListOperand(size_t pos, wstring token = L"")
 	    : CommandListToken(pos, token), type(ParamOverrideType::INVALID), val(FLT_MAX), param_component(nullptr),
 	      param_idx(0), var_ftarget(nullptr), scissor(0)
 	{
@@ -1401,7 +1401,7 @@ class IfCommand : public CommandListCommand
 	std::shared_ptr<CommandList> false_commands_pre;
 	std::shared_ptr<CommandList> false_commands_post;
 
-	IfCommand(const wchar_t *section);
+	explicit IfCommand(const wchar_t *section);
 
 	void run(CommandListState *) override;
 	bool optimise(HackerDevice *device) override;
@@ -1411,7 +1411,7 @@ class IfCommand : public CommandListCommand
 class ElseIfCommand : public IfCommand
 {
   public:
-	ElseIfCommand(const wchar_t *section) : IfCommand(section) {}
+	explicit ElseIfCommand(const wchar_t *section) : IfCommand(section) {}
 };
 
 class CommandPlaceholder : public CommandListCommand
@@ -1531,7 +1531,7 @@ class FrameAnalysisChangeOptionsCommand : public CommandListCommand
   public:
 	FrameAnalysisOptions analyse_options;
 
-	FrameAnalysisChangeOptionsCommand(wstring *val);
+	explicit FrameAnalysisChangeOptionsCommand(wstring *val);
 
 	void run(CommandListState *) override;
 	bool noop(bool post, bool ignore_cto_pre, bool ignore_cto_post) override;
@@ -1553,8 +1553,8 @@ class UpscalingFlipBBCommand : public CommandListCommand
   public:
 	wstring ini_section;
 
-	UpscalingFlipBBCommand(wstring section);
-	~UpscalingFlipBBCommand();
+	explicit UpscalingFlipBBCommand(wstring section);
+	~UpscalingFlipBBCommand() override;
 
 	void run(CommandListState *) override;
 };
@@ -1564,7 +1564,7 @@ class Draw3DMigotoOverlayCommand : public CommandListCommand
   public:
 	wstring ini_section;
 
-	Draw3DMigotoOverlayCommand(const wchar_t *section) : ini_section(section) {}
+	explicit Draw3DMigotoOverlayCommand(const wchar_t *section) : ini_section(section) {}
 
 	void run(CommandListState *) override;
 };
@@ -1575,7 +1575,7 @@ class CopyCommandListCommand : public CommandListCommand
 	ExplicitCommandListSection *dst = nullptr;
 	ExplicitCommandListSection *src = nullptr;
 
-	virtual void run(CommandListState *state) override;
+	void run(CommandListState *state) override;
 
   private:
 	CommandList *failed_root = nullptr;

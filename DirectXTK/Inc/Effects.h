@@ -29,7 +29,7 @@ namespace DirectX
 class IEffect
 {
   public:
-	virtual ~IEffect() {}
+	virtual ~IEffect() = default;
 
 	virtual void __cdecl Apply(_In_ ID3D11DeviceContext *deviceContext) = 0;
 
@@ -40,7 +40,7 @@ class IEffect
 class IEffectMatrices
 {
   public:
-	virtual ~IEffectMatrices() {}
+	virtual ~IEffectMatrices() = default;
 
 	virtual void XM_CALLCONV SetWorld(FXMMATRIX value) = 0;
 	virtual void XM_CALLCONV SetView(FXMMATRIX value) = 0;
@@ -52,7 +52,7 @@ class IEffectMatrices
 class IEffectLights
 {
   public:
-	virtual ~IEffectLights() {}
+	virtual ~IEffectLights() = default;
 
 	virtual void __cdecl SetLightingEnabled(bool value) = 0;
 	virtual void __cdecl SetPerPixelLighting(bool value) = 0;
@@ -72,7 +72,7 @@ class IEffectLights
 class IEffectFog
 {
   public:
-	virtual ~IEffectFog() {}
+	virtual ~IEffectFog() = default;
 
 	virtual void __cdecl SetFogEnabled(bool value) = 0;
 	virtual void __cdecl SetFogStart(float value) = 0;
@@ -84,7 +84,7 @@ class IEffectFog
 class IEffectSkinning
 {
   public:
-	virtual ~IEffectSkinning() {}
+	virtual ~IEffectSkinning() = default;
 
 	virtual void __cdecl SetWeightsPerVertex(int value) = 0;
 	virtual void __cdecl SetBoneTransforms(_In_reads_(count) XMMATRIX const *value, size_t count) = 0;
@@ -105,7 +105,7 @@ class BasicEffect : public IEffect, public IEffectMatrices, public IEffectLights
 	BasicEffect(BasicEffect const &) = delete;
 	BasicEffect &operator=(BasicEffect const &) = delete;
 
-	virtual ~BasicEffect();
+	~BasicEffect() override;
 
 	// IEffect methods.
 	void __cdecl Apply(_In_ ID3D11DeviceContext *deviceContext) override;
@@ -173,7 +173,7 @@ class AlphaTestEffect : public IEffect, public IEffectMatrices, public IEffectFo
 	AlphaTestEffect(AlphaTestEffect const &) = delete;
 	AlphaTestEffect &operator=(AlphaTestEffect const &) = delete;
 
-	virtual ~AlphaTestEffect();
+	~AlphaTestEffect() override;
 
 	// IEffect methods.
 	void __cdecl Apply(_In_ ID3D11DeviceContext *deviceContext) override;
@@ -225,7 +225,7 @@ class DualTextureEffect : public IEffect, public IEffectMatrices, public IEffect
 	DualTextureEffect(DualTextureEffect const &) = delete;
 	DualTextureEffect &operator=(DualTextureEffect const &) = delete;
 
-	~DualTextureEffect();
+	~DualTextureEffect() override;
 
 	// IEffect methods.
 	void __cdecl Apply(_In_ ID3D11DeviceContext *deviceContext) override;
@@ -274,7 +274,7 @@ class EnvironmentMapEffect : public IEffect, public IEffectMatrices, public IEff
 	EnvironmentMapEffect(EnvironmentMapEffect const &) = delete;
 	EnvironmentMapEffect &operator=(EnvironmentMapEffect const &) = delete;
 
-	virtual ~EnvironmentMapEffect();
+	~EnvironmentMapEffect() override;
 
 	// IEffect methods.
 	void __cdecl Apply(_In_ ID3D11DeviceContext *deviceContext) override;
@@ -347,7 +347,7 @@ class SkinnedEffect : public IEffect,
 	SkinnedEffect(SkinnedEffect const &) = delete;
 	SkinnedEffect &operator=(SkinnedEffect const &) = delete;
 
-	virtual ~SkinnedEffect();
+	~SkinnedEffect() override;
 
 	// IEffect methods.
 	void __cdecl Apply(_In_ ID3D11DeviceContext *deviceContext) override;
@@ -420,7 +420,7 @@ class DGSLEffect : public IEffect, public IEffectMatrices, public IEffectLights,
 	DGSLEffect(DGSLEffect const &) = delete;
 	DGSLEffect &operator=(DGSLEffect const &) = delete;
 
-	virtual ~DGSLEffect();
+	~DGSLEffect() override;
 
 	// IEffect methods.
 	void __cdecl Apply(_In_ ID3D11DeviceContext *deviceContext) override;
@@ -499,7 +499,7 @@ class NormalMapEffect : public IEffect, public IEffectMatrices, public IEffectLi
 	NormalMapEffect(NormalMapEffect const &) = delete;
 	NormalMapEffect &operator=(NormalMapEffect const &) = delete;
 
-	virtual ~NormalMapEffect();
+	~NormalMapEffect() override;
 
 	// IEffect methods.
 	void __cdecl Apply(_In_ ID3D11DeviceContext *deviceContext) override;
@@ -571,7 +571,7 @@ class PBREffect : public IEffect, public IEffectMatrices, public IEffectLights
 	PBREffect(PBREffect const &) = delete;
 	PBREffect &operator=(PBREffect const &) = delete;
 
-	virtual ~PBREffect();
+	~PBREffect() override;
 
 	// IEffect methods.
 	void __cdecl Apply(_In_ ID3D11DeviceContext *deviceContext) override;
@@ -649,7 +649,7 @@ class DebugEffect : public IEffect, public IEffectMatrices
 	DebugEffect(DebugEffect const &) = delete;
 	DebugEffect &operator=(DebugEffect const &) = delete;
 
-	virtual ~DebugEffect();
+	~DebugEffect() override;
 
 	// IEffect methods.
 	void __cdecl Apply(_In_ ID3D11DeviceContext *deviceContext) override;
@@ -685,7 +685,7 @@ class DebugEffect : public IEffect, public IEffectMatrices
 class IEffectFactory
 {
   public:
-	virtual ~IEffectFactory() {}
+	virtual ~IEffectFactory() = default;
 
 	struct EffectInfo
 	{
@@ -729,13 +729,13 @@ class EffectFactory : public IEffectFactory
 	EffectFactory(EffectFactory const &) = delete;
 	EffectFactory &operator=(EffectFactory const &) = delete;
 
-	virtual ~EffectFactory();
+	~EffectFactory() override;
 
 	// IEffectFactory methods.
-	virtual std::shared_ptr<IEffect> __cdecl CreateEffect(_In_ const EffectInfo &info,
-	                                                      _In_opt_ ID3D11DeviceContext *deviceContext) override;
-	virtual void __cdecl CreateTexture(_In_z_ const wchar_t *name, _In_opt_ ID3D11DeviceContext *deviceContext,
-	                                   _Outptr_ ID3D11ShaderResourceView **textureView) override;
+	std::shared_ptr<IEffect> __cdecl CreateEffect(_In_ const EffectInfo &info,
+	                                              _In_opt_ ID3D11DeviceContext *deviceContext) override;
+	void __cdecl CreateTexture(_In_z_ const wchar_t *name, _In_opt_ ID3D11DeviceContext *deviceContext,
+	                           _Outptr_ ID3D11ShaderResourceView **textureView) override;
 
 	// Settings.
 	void __cdecl ReleaseCache();
@@ -765,13 +765,13 @@ class DGSLEffectFactory : public IEffectFactory
 	DGSLEffectFactory(DGSLEffectFactory const &) = delete;
 	DGSLEffectFactory &operator=(DGSLEffectFactory const &) = delete;
 
-	virtual ~DGSLEffectFactory();
+	~DGSLEffectFactory() override;
 
 	// IEffectFactory methods.
-	virtual std::shared_ptr<IEffect> __cdecl CreateEffect(_In_ const EffectInfo &info,
-	                                                      _In_opt_ ID3D11DeviceContext *deviceContext) override;
-	virtual void __cdecl CreateTexture(_In_z_ const wchar_t *name, _In_opt_ ID3D11DeviceContext *deviceContext,
-	                                   _Outptr_ ID3D11ShaderResourceView **textureView) override;
+	std::shared_ptr<IEffect> __cdecl CreateEffect(_In_ const EffectInfo &info,
+	                                              _In_opt_ ID3D11DeviceContext *deviceContext) override;
+	void __cdecl CreateTexture(_In_z_ const wchar_t *name, _In_opt_ ID3D11DeviceContext *deviceContext,
+	                           _Outptr_ ID3D11ShaderResourceView **textureView) override;
 
 	// DGSL methods.
 	struct DGSLEffectInfo : public EffectInfo

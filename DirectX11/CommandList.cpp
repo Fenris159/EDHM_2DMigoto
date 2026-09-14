@@ -694,7 +694,7 @@ static bool ParseCheckTextureOverride(const wchar_t *section, const wchar_t *key
 {
 	int ret;
 
-	CheckTextureOverrideCommand *operation = new CheckTextureOverrideCommand();
+	auto *operation = new CheckTextureOverrideCommand();
 
 	// Parse value as consistent with texture filtering and resource copying
 	ret = operation->target.ParseTarget(val->c_str(), true, ini_namespace, pre_command_list->scope);
@@ -723,7 +723,7 @@ static bool ParseResetPerFrameLimits(const wchar_t *section, const wchar_t *key,
 	CustomShaders::iterator shader;
 	wstring namespaced_section;
 
-	ResetPerFrameLimitsCommand *operation = new ResetPerFrameLimitsCommand();
+	auto *operation = new ResetPerFrameLimitsCommand();
 
 	if (!wcsncmp(val->c_str(), L"resource", 8))
 	{
@@ -775,7 +775,7 @@ static bool ParseClearView(const wchar_t *section, const wchar_t *key, wstring *
 	unsigned uval;
 	float fval;
 
-	ClearViewCommand *operation = new ClearViewCommand();
+	auto *operation = new ClearViewCommand();
 
 	while (getline(token_stream, token, L' '))
 	{
@@ -869,7 +869,7 @@ static bool ParseRunShader(const wchar_t *section, const wchar_t *key, wstring *
                            CommandList *pre_command_list, CommandList *post_command_list [[maybe_unused]],
                            const wstring *ini_namespace)
 {
-	RunCustomShaderCommand *operation = new RunCustomShaderCommand();
+	auto *operation = new RunCustomShaderCommand();
 	CustomShaders::iterator shader;
 	wstring namespaced_section;
 
@@ -922,7 +922,7 @@ bool ParseRunExplicitCommandList(const wchar_t *section, const wchar_t *key, wst
                                  CommandList *explicit_command_list, CommandList *pre_command_list,
                                  CommandList *post_command_list, const wstring *ini_namespace)
 {
-	RunExplicitCommandList *operation = new RunExplicitCommandList();
+	auto *operation = new RunExplicitCommandList();
 
 	operation->command_list_section = FindExplicitCommandListSection(val->c_str(), ini_namespace);
 
@@ -947,7 +947,7 @@ bool ParseCopyCommandListCommand(const wchar_t *section, const wchar_t *key, wst
                                  CommandList *explicit_command_list, CommandList *pre_command_list,
                                  CommandList *post_command_list, const wstring *ini_namespace)
 {
-	CopyCommandListCommand *operation = new CopyCommandListCommand();
+	auto *operation = new CopyCommandListCommand();
 
 	if (!wcsncmp(val->c_str(), L"null", 4))
 	{
@@ -996,7 +996,7 @@ static bool ParsePreset(const wchar_t *section, const wchar_t *key, wstring *val
                         CommandList *pre_command_list, CommandList *post_command_list [[maybe_unused]], bool exclude,
                         const wstring *ini_namespace)
 {
-	PresetCommand *operation = new PresetCommand();
+	auto *operation = new PresetCommand();
 	wstring prefixed_section, namespaced_section;
 
 	PresetOverrideMap::iterator i;
@@ -1100,7 +1100,7 @@ static bool ParseDrawCommand(const wchar_t *section, const wchar_t *key, wstring
                              CommandList *explicit_command_list, CommandList *pre_command_list,
                              CommandList *post_command_list [[maybe_unused]], const wstring *ini_namespace)
 {
-	DrawCommand *operation = new DrawCommand();
+	auto *operation = new DrawCommand();
 	bool ok = true;
 
 	if (!wcscmp(key, L"draw"))
@@ -1188,7 +1188,7 @@ static bool ParseFrameAnalysisDump(const wchar_t *section, const wchar_t *key, w
                                    CommandList *explicit_command_list, CommandList *pre_command_list,
                                    CommandList *post_command_list [[maybe_unused]], const wstring *ini_namespace)
 {
-	FrameAnalysisDumpCommand *operation = new FrameAnalysisDumpCommand();
+	auto *operation = new FrameAnalysisDumpCommand();
 	wchar_t *buf;
 	size_t size = val->size() + 1;
 	wchar_t *target = nullptr;
@@ -2858,7 +2858,7 @@ bool RunExplicitCommandList::noop(bool post, bool ignore_cto_pre [[maybe_unused]
 
 std::shared_ptr<RunLinkedCommandList> LinkCommandLists(CommandList *dst, CommandList *link, const wstring *ini_line)
 {
-	RunLinkedCommandList *operation = new RunLinkedCommandList(link);
+	auto *operation = new RunLinkedCommandList(link);
 	operation->ini_line = *ini_line;
 	std::shared_ptr<RunLinkedCommandList> p(operation);
 	dst->commands.push_back(p);
@@ -3068,13 +3068,13 @@ float CommandListOperand::process_shader_filter(CommandListState *state)
 	if (!shader)
 		return -0.0;
 
-	ShaderMap::iterator shader_it = lookup_shader_hash(shader);
+	auto shader_it = lookup_shader_hash(shader);
 
 	if (shader_it == G->mShaders.end())
 		return 0.0;
 
 	// Positive zero means shader bound with no ShaderOverride
-	ShaderOverrideMap::iterator override = lookup_shaderoverride(shader_it->second);
+	auto override = lookup_shaderoverride(shader_it->second);
 	if (override == G->mShaderOverrideMap.end())
 		return 0.0;
 
@@ -5147,7 +5147,7 @@ static void log_syntax_tree(CommandListSyntaxTree *tree, const char *msg)
 	if (!gLogDebug)
 		return;
 
-	LogInfo(msg);
+	LogInfo("%s", msg);
 	_log_syntax_tree(tree);
 	LogInfo("\n");
 }
@@ -5157,7 +5157,7 @@ template <class T> static void log_syntax_tree(T token, const char *msg)
 	if (!gLogDebug)
 		return;
 
-	LogInfo(msg);
+	LogInfo("%s", msg);
 	_log_token(dynamic_cast<CommandListToken *>(token.get()));
 	LogInfo("\n");
 }
@@ -5502,7 +5502,7 @@ bool valid_variable_name(const wstring &name)
 
 bool parse_command_list_var_name(const wstring &name, const wstring *ini_namespace, CommandListVariable **target)
 {
-	CommandListVariables::iterator var = command_list_globals.end();
+	auto var = command_list_globals.end();
 
 	if (name.length() < 2 || name[0] != L'$')
 		return false;
@@ -5659,7 +5659,7 @@ bool CommandListOperand::parse_ini_keywords(const wstring *operand, const wstrin
 bool ParseCommandListIniParamOverride(const wchar_t *section, const wchar_t *key, wstring *val,
                                       CommandList *command_list, const wstring *ini_namespace)
 {
-	ParamOverride *param = new ParamOverride();
+	auto *param = new ParamOverride();
 
 	if (!ParseIniParamName(key, &param->param_idx, &param->param_component))
 		goto bail;
@@ -5739,7 +5739,7 @@ bool ParseCommandListVariableAssignment(const wchar_t *section, const wchar_t *k
 			return false;
 	}
 
-	VariableAssignment *command = new VariableAssignment();
+	auto *command = new VariableAssignment();
 
 	command->var = var;
 
@@ -6569,7 +6569,7 @@ static ID3D11Resource *inter_device_resource_transfer(ID3D11Device *dst_dev, ID3
 	{
 	case D3D11_RESOURCE_DIMENSION_BUFFER:
 	{
-		ID3D11Buffer *buf = (ID3D11Buffer *)src_res;
+		auto *buf = (ID3D11Buffer *)src_res;
 		D3D11_BUFFER_DESC buf_desc;
 		buf->GetDesc(&buf_desc);
 
@@ -6610,7 +6610,7 @@ static ID3D11Resource *inter_device_resource_transfer(ID3D11Device *dst_dev, ID3
 	}
 	case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
 	{
-		ID3D11Texture1D *tex1d = (ID3D11Texture1D *)src_res;
+		auto *tex1d = (ID3D11Texture1D *)src_res;
 		D3D11_TEXTURE1D_DESC tex1d_desc;
 		tex1d->GetDesc(&tex1d_desc);
 
@@ -6675,7 +6675,7 @@ static ID3D11Resource *inter_device_resource_transfer(ID3D11Device *dst_dev, ID3
 	}
 	case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
 	{
-		ID3D11Texture2D *tex2d = (ID3D11Texture2D *)src_res;
+		auto *tex2d = (ID3D11Texture2D *)src_res;
 		D3D11_TEXTURE2D_DESC tex2d_desc;
 		tex2d->GetDesc(&tex2d_desc);
 
@@ -6749,7 +6749,7 @@ static ID3D11Resource *inter_device_resource_transfer(ID3D11Device *dst_dev, ID3
 	}
 	case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
 	{
-		ID3D11Texture3D *tex3d = (ID3D11Texture3D *)src_res;
+		auto *tex3d = (ID3D11Texture3D *)src_res;
 		D3D11_TEXTURE3D_DESC tex3d_desc;
 		tex3d->GetDesc(&tex3d_desc);
 
@@ -7447,6 +7447,7 @@ IniParserResult ResourceCopyTarget::ParseTargetPrefix(const wchar_t *&target, si
 			length--;
 			return IniParserResult::TOKEN_FOUND;
 		}
+		[[fallthrough]];
 	case L'@':
 		evaluation_mode = ResourceCopyTargetEvaluationMode::RESOURCE_IDENTITY;
 		target++;
@@ -7676,7 +7677,7 @@ IniParserResult ResourceCopyTarget::ParseTargetCustomResource(const wchar_t *&ta
 	wstring resource_id(target);
 	wstring namespaced_section;
 
-	CustomResources::iterator res = customResources.end();
+	auto res = customResources.end();
 	if (get_namespaced_section_name_lower(&resource_id, ini_namespace, &namespaced_section))
 		res = customResources.find(namespaced_section);
 	if (res == customResources.end())
@@ -7739,7 +7740,7 @@ IniParserResult ResourceCopyTarget::ParseTargetPool(const wchar_t *&target, size
 	if (!pool_id.empty())
 	{
 		wstring namespaced_section;
-		CustomResourcePools::iterator con = customResourcePools.end();
+		auto con = customResourcePools.end();
 		if (get_namespaced_section_name_lower(&pool_id, ini_namespace, &namespaced_section))
 			con = customResourcePools.find(namespaced_section);
 		if (con == customResourcePools.end())
@@ -7817,8 +7818,6 @@ IniParserResult ResourceCopyTarget::ParseTargetPool(const wchar_t *&target, size
 			return IniParserResult::TOKEN_FOUND;
 		}
 	}
-
-	return IniParserResult::SYNTAX_ERROR;
 }
 
 static constexpr bool is_shader_resource(wchar_t shader_type)
@@ -8103,7 +8102,7 @@ static CommandListCommand *parse_pool_copy_operation(const wchar_t *section, Res
 		return nullptr;
 	}
 
-	PoolCopyOperation *operation = new PoolCopyOperation();
+	auto *operation = new PoolCopyOperation();
 
 	operation->src = std::move(src);
 	operation->dst = std::move(dst);
@@ -8231,7 +8230,7 @@ static CommandListCommand *parse_resource_copy_operation(const wchar_t *section,
 	if (src.type == ResourceCopyTargetType::CUSTOM_RESOURCE && (options & ResourceCopyOptions::REFERENCE))
 	{
 		CustomResource *src_custom_resource = src.GetCustomResource(nullptr, true);
-		D3D11_RESOURCE_MISC_FLAG misc_flags = (D3D11_RESOURCE_MISC_FLAG)0;
+		auto misc_flags = (D3D11_RESOURCE_MISC_FLAG)0;
 		const D3D11_BIND_FLAG bind_flags = dst.BindFlags(nullptr, &misc_flags);
 		if (!src_custom_resource || !src_custom_resource->AddFlags(bind_flags, misc_flags, true))
 		{
@@ -8243,7 +8242,7 @@ static CommandListCommand *parse_resource_copy_operation(const wchar_t *section,
 		}
 	}
 
-	ResourceCopyOperation *operation = new ResourceCopyOperation();
+	auto *operation = new ResourceCopyOperation();
 
 	operation->src = std::move(src);
 	operation->dst = std::move(dst);
@@ -8263,7 +8262,7 @@ static CommandListCommand *parse_layout_operation(const wchar_t *section, Resour
 	if (dst.type != ResourceCopyTargetType::VERTEX_BUFFER)
 		return nullptr;
 
-	LayoutElementOperation *operation = new LayoutElementOperation();
+	auto *operation = new LayoutElementOperation();
 
 	std::wstring arg0;
 
@@ -8373,7 +8372,7 @@ CommandListCommand *parse_pool_variable_operation(const wchar_t *section [[maybe
 	if (val->empty())
 		return nullptr;
 
-	PoolVariableOperation *command = new PoolVariableOperation();
+	auto *command = new PoolVariableOperation();
 
 	if (!command->expression.parse(val, ini_namespace, command_list->scope))
 		goto bail;
@@ -8580,7 +8579,7 @@ bool ParseCommandListResourceCopyTargetDirective(const wchar_t *section, const w
 static bool ParseIfCommand(const wchar_t *section, const wstring *line, CommandList *pre_command_list,
                            CommandList *post_command_list, const wstring *ini_namespace)
 {
-	IfCommand *operation = new IfCommand(section);
+	auto *operation = new IfCommand(section);
 	wstring expression = line->substr(line->find_first_not_of(L" \t", 3));
 
 	if (!operation->expression.parse(&expression, ini_namespace, pre_command_list->scope))
@@ -8599,7 +8598,7 @@ bail:
 static bool ParseElseIfCommand(const wchar_t *section, const wstring *line, int prefix, CommandList *pre_command_list,
                                CommandList *post_command_list, const wstring *ini_namespace)
 {
-	ElseIfCommand *operation = new ElseIfCommand(section);
+	auto *operation = new ElseIfCommand(section);
 	wstring expression = line->substr(line->find_first_not_of(L" \t", prefix));
 
 	if (!operation->expression.parse(&expression, ini_namespace, pre_command_list->scope))
@@ -8637,7 +8636,7 @@ static bool _ParseEndIfCommand(const wchar_t *section, CommandList *command_list
 	IfCommand *if_command;
 	ElseIfCommand *else_if_command;
 	ElsePlaceholder *else_command = nullptr;
-	CommandList::Commands::iterator else_pos = command_list->commands.end();
+	auto else_pos = command_list->commands.end();
 
 	for (rit = command_list->commands.rbegin(); rit != command_list->commands.rend(); rit++)
 	{
@@ -8922,8 +8921,8 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 	ID3D11RenderTargetView *render_view[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
 	ID3D11DepthStencilView *depth_view = nullptr;
 	ID3D11UnorderedAccessView *unordered_view = nullptr;
-	D3D11_BIND_FLAG bind_flags = (D3D11_BIND_FLAG)0;
-	D3D11_RESOURCE_MISC_FLAG misc_flags = (D3D11_RESOURCE_MISC_FLAG)0;
+	auto bind_flags = (D3D11_BIND_FLAG)0;
+	auto misc_flags = (D3D11_RESOURCE_MISC_FLAG)0;
 	unsigned i;
 
 	switch (type)
@@ -9320,8 +9319,6 @@ void ResourceCopyTarget::SetResource(CommandListState *state, ID3D11Resource *re
 				return;
 			}
 		}
-		break;
-
 	case ResourceCopyTargetType::SHADER_RESOURCE:
 		resource_view = (ID3D11ShaderResourceView *)view;
 		switch (shader_type)
@@ -9437,8 +9434,6 @@ void ResourceCopyTarget::SetResource(CommandListState *state, ID3D11Resource *re
 			// Should not happen
 			return;
 		}
-		break;
-
 	case ResourceCopyTargetType::CUSTOM_RESOURCE:
 	{
 		CustomResource *custom_resource = GetCustomResource(state, true);
@@ -9742,6 +9737,7 @@ float ResourceCopyTarget::GetResourceStride(CommandListState *state)
 				return ResourcePropertyResult::RESOURCE_NOT_FOUND;
 			}
 		}
+		break;
 	}
 	case ResourceCopyTargetType::CONSTANT_BUFFER:
 	{
@@ -10470,8 +10466,8 @@ static void RecreateCompatibleResource(wstring *ini_line,
                                        DXGI_FORMAT format, UINT *buf_src_size, UINT *buf_dst_size)
 {
 	D3D11_RESOURCE_DIMENSION src_dimension;
-	D3D11_BIND_FLAG bind_flags = (D3D11_BIND_FLAG)0;
-	D3D11_RESOURCE_MISC_FLAG misc_flags = (D3D11_RESOURCE_MISC_FLAG)0;
+	auto bind_flags = (D3D11_BIND_FLAG)0;
+	auto misc_flags = (D3D11_RESOURCE_MISC_FLAG)0;
 	ID3D11Resource *res = nullptr;
 	bool restore_create_mode [[maybe_unused]] = false;
 
@@ -11311,7 +11307,7 @@ void ClearViewCommand::clear_unknown_view(ID3D11View *view, CommandListState *st
 	}
 	if (dsv)
 	{
-		D3D11_CLEAR_FLAG flags = (D3D11_CLEAR_FLAG)0;
+		auto flags = (D3D11_CLEAR_FLAG)0;
 		COMMAND_LIST_LOG(state, "  clearing DSV\n");
 		Profiling::views_cleared++;
 

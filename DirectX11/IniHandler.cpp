@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <iterator>
+#include <memory>
 #include <string>
 #include <strsafe.h>
 #include <fstream>
@@ -777,8 +778,8 @@ static void ParseNamespacedIniFile(const wchar_t *ini, const wstring *ini_namesp
 		LogOverlay(LOG_WARNING, "  Error opening %S (Win32 error %lu)\n", ini, error);
 		return;
 	}
-	std::unique_ptr<std::codecvt_utf8<wchar_t, 0x10ffff, std::consume_header>> utf8_facet(
-	    new std::codecvt_utf8<wchar_t, 0x10ffff, std::consume_header>());
+	std::unique_ptr<std::codecvt_utf8<wchar_t, 0x10ffff, std::consume_header>> utf8_facet =
+	    std::make_unique<std::codecvt_utf8<wchar_t, 0x10ffff, std::consume_header>>();
 	f.imbue(std::locale(f.getloc(), utf8_facet.get()));
 	[[maybe_unused]] auto *transferred_utf8_facet = utf8_facet.release();
 	ParseIniStream(&f, ini_namespace);
@@ -2079,7 +2080,7 @@ static void ConstructInitialDataString(CustomResource *custom_resource, std::str
 	{
 	case (DXGI_FORMAT)-1:
 		custom_resource->format = DXGI_FORMAT_R8_UINT;
-		// Fall through
+		[[fallthrough]];
 	case DXGI_FORMAT_R8_UINT:
 	case DXGI_FORMAT_R8_SINT:
 		custom_resource->initial_data_size = data->length() - 2;

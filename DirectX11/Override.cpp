@@ -385,7 +385,7 @@ bool Override::MatchesCurrent(HackerDevice *device [[maybe_unused]])
 
 	for (i = begin(mOverrideParams); i != end(mOverrideParams); i++)
 	{
-		std::map<OverrideParam, OverrideTransitionParam>::iterator transition = CurrentTransition.params.find(i->first);
+		auto transition = CurrentTransition.params.find(i->first);
 		if (transition != CurrentTransition.params.end() && transition->second.time != -1)
 			val = transition->second.target;
 		else
@@ -397,8 +397,7 @@ bool Override::MatchesCurrent(HackerDevice *device [[maybe_unused]])
 
 	for (j = begin(mOverrideVars); j != end(mOverrideVars); j++)
 	{
-		std::map<CommandListVariable *, OverrideTransitionParam>::iterator transition =
-		    CurrentTransition.vars.find(j->first);
+		auto transition = CurrentTransition.vars.find(j->first);
 		if (transition != CurrentTransition.vars.end() && transition->second.time != -1)
 			val = transition->second.target;
 		else
@@ -807,7 +806,7 @@ void OverrideGlobalSave::Save(HackerDevice *wrapper [[maybe_unused]], Override *
 
 	for (i = preset->mOverrideParams.begin(); i != preset->mOverrideParams.end(); i++)
 	{
-		std::map<OverrideParam, OverrideTransitionParam>::iterator transition = CurrentTransition.params.find(i->first);
+		auto transition = CurrentTransition.params.find(i->first);
 		if (transition != CurrentTransition.params.end() && transition->second.time != -1)
 			val = transition->second.target;
 		else
@@ -819,8 +818,7 @@ void OverrideGlobalSave::Save(HackerDevice *wrapper [[maybe_unused]], Override *
 
 	for (j = preset->mOverrideVars.begin(); j != preset->mOverrideVars.end(); j++)
 	{
-		std::map<CommandListVariable *, OverrideTransitionParam>::iterator transition =
-		    CurrentTransition.vars.find(j->first);
+		auto transition = CurrentTransition.vars.find(j->first);
 		if (transition != CurrentTransition.vars.end() && transition->second.time != -1)
 			val = transition->second.target;
 		else

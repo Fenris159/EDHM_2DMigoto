@@ -270,9 +270,9 @@ struct ShaderVarType
 	//Includes all parent names.
 	std::string FullName;
 
-	ShaderVarType *Members;
+	ShaderVarType *Members{nullptr};
 
-	ShaderVarType() : Members(nullptr) {}
+	ShaderVarType() = default;
 
 	ShaderVarType(const ShaderVarType &) = default;
 	ShaderVarType &operator=(const ShaderVarType &) = default;
@@ -384,48 +384,40 @@ typedef enum TESSELLATOR_OUTPUT_PRIMITIVE
 
 struct ShaderInfo
 {
-	uint32_t ui32MajorVersion;
-	uint32_t ui32MinorVersion;
+	uint32_t ui32MajorVersion{0};
+	uint32_t ui32MinorVersion{0};
 
-	uint32_t ui32NumInputSignatures;
-	InOutSignature *psInputSignatures;
+	uint32_t ui32NumInputSignatures{0};
+	InOutSignature *psInputSignatures{nullptr};
 
-	uint32_t ui32NumOutputSignatures;
-	InOutSignature *psOutputSignatures;
+	uint32_t ui32NumOutputSignatures{0};
+	InOutSignature *psOutputSignatures{nullptr};
 
-	uint32_t ui32NumPatchConstantSignatures;
-	InOutSignature *psPatchConstantSignatures;
+	uint32_t ui32NumPatchConstantSignatures{0};
+	InOutSignature *psPatchConstantSignatures{nullptr};
 
-	uint32_t ui32NumResourceBindings;
-	ResourceBinding *psResourceBindings;
+	uint32_t ui32NumResourceBindings{0};
+	ResourceBinding *psResourceBindings{nullptr};
 
-	uint32_t ui32NumConstantBuffers;
-	ConstantBuffer *psConstantBuffers;
-	ConstantBuffer *psThisPointerConstBuffer;
+	uint32_t ui32NumConstantBuffers{0};
+	ConstantBuffer *psConstantBuffers{nullptr};
+	ConstantBuffer *psThisPointerConstBuffer{nullptr};
 
-	uint32_t ui32NumClassTypes;
-	ClassType *psClassTypes;
+	uint32_t ui32NumClassTypes{0};
+	ClassType *psClassTypes{nullptr};
 
-	uint32_t ui32NumClassInstances;
-	ClassInstance *psClassInstances;
+	uint32_t ui32NumClassInstances{0};
+	ClassInstance *psClassInstances{nullptr};
 
 	//Func table ID to class name ID.
 	std::map<int, uint32_t> aui32TableIDToTypeID;
 
 	std::map<int, uint32_t> aui32ResourceMap[RGROUP_COUNT];
 
-	TESSELLATOR_PARTITIONING eTessPartitioning;
-	TESSELLATOR_OUTPUT_PRIMITIVE eTessOutPrim;
+	TESSELLATOR_PARTITIONING eTessPartitioning{TESSELLATOR_PARTITIONING_UNDEFINED};
+	TESSELLATOR_OUTPUT_PRIMITIVE eTessOutPrim{TESSELLATOR_OUTPUT_UNDEFINED};
 
-	ShaderInfo()
-	    : ui32MajorVersion(0), ui32MinorVersion(0), ui32NumInputSignatures(0), psInputSignatures(0),
-	      ui32NumOutputSignatures(0), psOutputSignatures(0), ui32NumPatchConstantSignatures(0),
-	      psPatchConstantSignatures(0), ui32NumResourceBindings(0), psResourceBindings(0), ui32NumConstantBuffers(0),
-	      psConstantBuffers(0), psThisPointerConstBuffer(0), ui32NumClassTypes(0), psClassTypes(0),
-	      ui32NumClassInstances(0), psClassInstances(0), aui32TableIDToTypeID(), aui32ResourceMap(),
-	      eTessPartitioning(TESSELLATOR_PARTITIONING_UNDEFINED), eTessOutPrim(TESSELLATOR_OUTPUT_UNDEFINED)
-	{
-	}
+	ShaderInfo() = default;
 };
 
 typedef enum INTERPOLATION_MODE

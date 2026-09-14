@@ -1282,8 +1282,8 @@ const uint32_t *DecodeShaderPhase(const uint32_t *pui32Tokens, Shader *psShader,
 	return pui32CurrentToken;
 }
 
-const void AllocateHullPhaseArrays(const uint32_t *pui32Tokens, Shader *psShader, uint32_t ui32Phase,
-                                   OPCODE_TYPE ePhaseOpcode)
+void AllocateHullPhaseArrays(const uint32_t *pui32Tokens, Shader *psShader, uint32_t ui32Phase,
+                             OPCODE_TYPE ePhaseOpcode)
 {
 	const uint32_t *pui32CurrentToken = pui32Tokens;
 	const uint32_t ui32ShaderLength = psShader->ui32ShaderLength;

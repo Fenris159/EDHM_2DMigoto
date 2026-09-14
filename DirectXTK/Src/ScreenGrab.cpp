@@ -330,8 +330,7 @@ _Use_decl_annotations_ HRESULT DirectX::SaveDDSTextureToFile(ID3D11DeviceContext
 		memcpy_s(&header->ddspf, sizeof(header->ddspf), &DDSPF_DX10, sizeof(DDS_PIXELFORMAT));
 
 		headerSize += sizeof(DDS_HEADER_DXT10);
-		extHeader = reinterpret_cast<DDS_HEADER_DXT10 *>(reinterpret_cast<uint8_t *>(&fileHeader[0]) +
-		                                                 sizeof(uint32_t) + sizeof(DDS_HEADER));
+		extHeader = reinterpret_cast<DDS_HEADER_DXT10 *>(&fileHeader[0] + sizeof(uint32_t) + sizeof(DDS_HEADER));
 		memset(extHeader, 0, sizeof(DDS_HEADER_DXT10));
 		extHeader->dxgiFormat = desc.Format;
 		extHeader->resourceDimension = D3D11_RESOURCE_DIMENSION_TEXTURE2D;

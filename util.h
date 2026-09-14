@@ -214,7 +214,7 @@ static void BeepFailure2()
 	{
 		// Make sure the log is written out so we see the failure message
 		fclose(LogFile);
-		LogFile = 0;
+		LogFile = nullptr;
 	}
 	ExitProcess(0xc0000135);
 }

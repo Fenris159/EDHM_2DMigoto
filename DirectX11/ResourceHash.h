@@ -64,7 +64,7 @@ template <typename K, typename V, typename Hasher = std::hash<K>> class FlatHash
 	// Constructs the hash map with an initial capacity.
 	// - Capacity should ideally be a power of two for optimal performance
 	// - Larger initial capacity reduces need for rehashing
-	FlatHashMap(size_t initial_capacity = 1024)
+	explicit FlatHashMap(size_t initial_capacity = 1024)
 	{
 		// Keep at least one empty slot so a missing-key lookup always
 		// terminates, including caches initialized with capacity zero.
@@ -598,7 +598,7 @@ class ResourceReleaseTracker : public IUnknown
 {
 	std::atomic_ulong ref;
 	ID3D11Resource *resource;
-	ResourceReleaseTracker(ID3D11Resource *resource);
+	explicit ResourceReleaseTracker(ID3D11Resource *resource);
 
   public:
 	static HRESULT Attach(ID3D11Resource *resource);
@@ -844,7 +844,7 @@ class FuzzyMatchResourceDesc
 	FuzzyMatch SampleDesc_Count;   //    2D
 	FuzzyMatch SampleDesc_Quality; //    2D    XXX Can anything change here if count=1?
 
-	FuzzyMatchResourceDesc(std::wstring section);
+	explicit FuzzyMatchResourceDesc(std::wstring section);
 	~FuzzyMatchResourceDesc();
 	bool matches(const D3D11_BUFFER_DESC *desc) const;
 	bool matches(const D3D11_TEXTURE1D_DESC *desc) const;

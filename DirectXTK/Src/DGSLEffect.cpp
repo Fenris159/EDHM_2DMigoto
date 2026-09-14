@@ -748,8 +748,8 @@ void DGSLEffect::SetLightEnabled(int whichLight, bool value)
 	}
 	else
 	{
-		pImpl->constants.light.LightColor[whichLight] = pImpl->constants.light.LightSpecularIntensity[whichLight] =
-		    g_XMZero;
+		pImpl->constants.light.LightColor[whichLight] = g_XMZero;
+		pImpl->constants.light.LightSpecularIntensity[whichLight] = g_XMZero;
 	}
 
 	pImpl->dirtyFlags |= EffectDirtyFlags::ConstantBufferLight;

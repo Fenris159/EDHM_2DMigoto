@@ -662,13 +662,13 @@ struct Globals
 	Globals()
 	    :
 
-	      mSelectedRenderTargetSnapshot(0), mSelectedRenderTargetPos(-1), mSelectedRenderTarget((ID3D11Resource *)-1),
-	      mSelectedPixelShader(UINT64_MAX), mSelectedPixelShaderPos(-1), mSelectedVertexShader(UINT64_MAX),
-	      mSelectedVertexShaderPos(-1), mSelectedIndexBuffer(UINT32_MAX), mSelectedIndexBufferPos(-1),
-	      mSelectedVertexBuffer(UINT32_MAX), mSelectedVertexBufferPos(-1), mSelectedComputeShader(UINT64_MAX),
-	      mSelectedComputeShaderPos(-1), mSelectedGeometryShader(UINT64_MAX), mSelectedGeometryShaderPos(-1),
-	      mSelectedDomainShader(UINT64_MAX), mSelectedDomainShaderPos(-1), mSelectedHullShader(UINT64_MAX),
-	      mSelectedHullShaderPos(-1), mPinkingShader(0),
+	      mSelectedRenderTargetSnapshot(nullptr), mSelectedRenderTargetPos(-1),
+	      mSelectedRenderTarget((ID3D11Resource *)-1), mSelectedPixelShader(UINT64_MAX), mSelectedPixelShaderPos(-1),
+	      mSelectedVertexShader(UINT64_MAX), mSelectedVertexShaderPos(-1), mSelectedIndexBuffer(UINT32_MAX),
+	      mSelectedIndexBufferPos(-1), mSelectedVertexBuffer(UINT32_MAX), mSelectedVertexBufferPos(-1),
+	      mSelectedComputeShader(UINT64_MAX), mSelectedComputeShaderPos(-1), mSelectedGeometryShader(UINT64_MAX),
+	      mSelectedGeometryShaderPos(-1), mSelectedDomainShader(UINT64_MAX), mSelectedDomainShaderPos(-1),
+	      mSelectedHullShader(UINT64_MAX), mSelectedHullShaderPos(-1), mPinkingShader(nullptr),
 
 	      hunting(HUNTING_MODE_DISABLED), overlay_buffer_hash_lifetime(-1), fix_enabled(true), config_reloadable(false),
 	      show_original_enabled(false), huntTime(0), verbose_overlay(false), suppress_overlay(false),

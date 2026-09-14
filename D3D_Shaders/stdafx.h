@@ -22,9 +22,9 @@ class AssemblerParseError : public exception
 {
   public:
 	string context, desc, msg;
-	int line_no;
+	int line_no{0};
 
-	AssemblerParseError(string context, string desc) : context(context), desc(desc), line_no(0)
+	AssemblerParseError(string context, string desc) : context(std::move(context)), desc(std::move(desc))
 	{
 		update_msg();
 	}
@@ -37,7 +37,7 @@ class AssemblerParseError : public exception
 		msg += ", " + desc + ":\n\"" + context + "\"";
 	}
 
-	const char *what() const
+	const char *what() const override
 	{
 		return msg.c_str();
 	}
