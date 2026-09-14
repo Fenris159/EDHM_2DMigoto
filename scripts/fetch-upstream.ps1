@@ -38,7 +38,7 @@ function Ensure-Remote {
     )
     $existing = git remote get-url $Name 2>$null
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($existing)) {
-        Write-Host "Adding remote '$Name' -> $Url"
+        Write-Output "Adding remote '$Name' -> $Url"
         git remote add $Name $Url
         git remote set-url --push $Name no_push
     }

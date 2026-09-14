@@ -72,6 +72,34 @@ function Write-Version {
     Set-Content -Path $versionFile -Value ($Value.Trim() + "`n") -NoNewline
 }
 
+function Find-ChangelogSectionStart {
+    param(
+        [Parameter(Mandatory)] [string[]] $Lines,
+        [Parameter(Mandatory)] [string] $VersionCore
+    )
+    $versionHeading = "^## \[$([regex]::Escape($VersionCore))\]"
+    for ($i = 0; $i -lt $Lines.Count; $i++) {
+        if ($Lines[$i] -match $versionHeading) { return $i }
+    }
+    for ($i = 0; $i -lt $Lines.Count; $i++) {
+        if ($Lines[$i] -match '^## \[Unreleased\]') { return $i }
+    }
+    return -1
+}
+
+function Find-ChangelogSectionEnd {
+    param(
+        [Parameter(Mandatory)] [string[]] $Lines,
+        [Parameter(Mandatory)] [int] $Start
+    )
+    for ($i = $Start + 1; $i -lt $Lines.Count; $i++) {
+        if ($Lines[$i] -match '^## \[' -or $Lines[$i] -match '^\[[^\]]+\]:\s*https?://') {
+            return $i
+        }
+    }
+    return $Lines.Count
+}
+
 function Sync-ReleaseNotes {
     param([string] $VersionCore)
     if (-not (Test-Path $changelogFile)) {
@@ -79,30 +107,13 @@ function Sync-ReleaseNotes {
         return
     }
     $lines = Get-Content $changelogFile
-    $start = -1
-    $pattern = [regex]::Escape("## [$VersionCore]")
-    for ($i = 0; $i -lt $lines.Count; $i++) {
-        if ($lines[$i] -match "^## \[$([regex]::Escape($VersionCore))\]") {
-            $start = $i
-            break
-        }
-    }
-    if ($start -lt 0) {
-        # Fall back to Unreleased section body if version heading not present yet
-        for ($i = 0; $i -lt $lines.Count; $i++) {
-            if ($lines[$i] -match '^## \[Unreleased\]') { $start = $i; break }
-        }
-    }
+    $start = Find-ChangelogSectionStart -Lines $lines -VersionCore $VersionCore
     if ($start -lt 0) {
         Write-Warning "Could not find changelog section for $VersionCore"
         return
     }
-    $end = $lines.Count
-    for ($j = $start + 1; $j -lt $lines.Count; $j++) {
-        if ($lines[$j] -match '^## \[') { $end = $j; break }
-        if ($lines[$j] -match '^\[[^\]]+\]:\s*https?://') { $end = $j; break }
-    }
-    $body = ($lines[$start..($end - 1)] | Where-Object { $_ -notmatch '^\s*$' -or $true }) -join "`n"
+    $end = Find-ChangelogSectionEnd -Lines $lines -Start $start
+    $body = $lines[$start..($end - 1)] -join "`n"
     $header = @"
 ## EDHM_2DMigoto $VersionCore
 
@@ -116,7 +127,7 @@ Built from this repository's automated release workflow.
 Full project history: [CHANGELOG.md](https://github.com/Fenris159/EDHM_2DMigoto/blob/HEAD/CHANGELOG.md)
 "@
     Set-Content -Path $notesFile -Value ($header + $body.Trim() + "`n" + $footer.Trim() + "`n") -NoNewline
-    Write-Host "Updated CURRENT_RELEASE_NOTES.md from CHANGELOG section [$VersionCore]"
+    Write-Output "Updated CURRENT_RELEASE_NOTES.md from CHANGELOG section [$VersionCore]"
 }
 
 $raw = Read-VersionRaw
