@@ -1,10 +1,12 @@
 #include "WineCompat.h"
 
 #include "log.h"
-#include "Globals.h"
+#include "globals.h"
 
-#include <windows.h>
+#include <Windows.h>
 
+#include <array>
+#include <cctype>
 #include <stdio.h>
 #include <string.h>
 
@@ -12,10 +14,30 @@ namespace {
 
 typedef const char* (__cdecl *wine_get_version_fn)(void);
 
-bool g_wine_detected = false;
-char g_wine_version[128] = {};
-char g_platform_label[160] = {};
-INIT_ONCE g_wine_detection_once = INIT_ONCE_STATIC_INIT;
+struct WineDetectionState {
+	bool detected = false;
+	std::array<char, 128> version = {};
+	std::array<char, 160> platform_label = {};
+	INIT_ONCE initialization_once = INIT_ONCE_STATIC_INIT;
+};
+
+WineDetectionState& GetWineDetectionState()
+{
+	static WineDetectionState state;
+	return state;
+}
+
+template <size_t Size>
+void SanitizeForLog(std::array<char, Size>& value)
+{
+	for (char& character : value) {
+		const auto byte = static_cast<unsigned char>(character);
+		if (character == '\0')
+			break;
+		if (!std::isprint(byte))
+			character = '?';
+	}
+}
 
 bool HasEnvironmentVariable(const char* name)
 {
@@ -35,17 +57,19 @@ wine_get_version_fn ResolveWineGetVersion()
 
 BOOL CALLBACK InitializeWineDetection(PINIT_ONCE, PVOID, PVOID*)
 {
+	WineDetectionState& state = GetWineDetectionState();
 	wine_get_version_fn wine_get_version = ResolveWineGetVersion();
 	if (wine_get_version) {
-		g_wine_detected = true;
+		state.detected = true;
 		const char* ver = wine_get_version();
 		const bool proton = HasEnvironmentVariable("STEAM_COMPAT_DATA_PATH");
 		if (ver && ver[0]) {
-			strncpy_s(g_wine_version, ver, _TRUNCATE);
-			_snprintf_s(g_platform_label, _TRUNCATE, proton ? "Proton (Wine %s)" : "Wine %s",
-				g_wine_version);
+			strncpy_s(state.version.data(), state.version.size(), ver, _TRUNCATE);
+			SanitizeForLog(state.version);
+			_snprintf_s(state.platform_label.data(), state.platform_label.size(), _TRUNCATE,
+				proton ? "Proton (Wine %s)" : "Wine %s", state.version.data());
 		} else {
-			strcpy_s(g_platform_label,
+			strcpy_s(state.platform_label.data(), state.platform_label.size(),
 				proton ? "Proton/Wine (version unknown)" : "Wine (version unknown)");
 		}
 		return TRUE;
@@ -55,60 +79,63 @@ BOOL CALLBACK InitializeWineDetection(PINIT_ONCE, PVOID, PVOID*)
 	if (HasEnvironmentVariable("WINEPREFIX") ||
 	    HasEnvironmentVariable("WINELOADER") ||
 	    HasEnvironmentVariable("WINEDEBUG")) {
-		g_wine_detected = true;
-		strcpy_s(g_platform_label, "Wine (env heuristic)");
+		state.detected = true;
+		strcpy_s(state.platform_label.data(), state.platform_label.size(), "Wine (env heuristic)");
 		return TRUE;
 	}
 
-	strcpy_s(g_platform_label, "Windows");
+	strcpy_s(state.platform_label.data(), state.platform_label.size(), "Windows");
 	return TRUE;
 }
 
 void EnsureWineDetection()
 {
-	InitOnceExecuteOnce(&g_wine_detection_once, InitializeWineDetection, nullptr, nullptr);
+	WineDetectionState& state = GetWineDetectionState();
+	InitOnceExecuteOnce(&state.initialization_once, InitializeWineDetection, nullptr, nullptr);
 }
 
 bool EnvironmentOptionEnabled(const char* name)
 {
-	char value[32] = {};
-	DWORD length = GetEnvironmentVariableA(name, value, ARRAYSIZE(value));
+	std::array<char, 32> value = {};
+	DWORD length = GetEnvironmentVariableA(name, value.data(), static_cast<DWORD>(value.size()));
 	if (!length)
 		return false;
-	if (length >= ARRAYSIZE(value))
+	if (length >= value.size())
 		return true;
-	return strcmp(value, "0") != 0;
+	return strcmp(value.data(), "0") != 0;
 }
 
 void LogDllOverrides()
 {
-	char value[1024] = {};
-	DWORD length = GetEnvironmentVariableA("WINEDLLOVERRIDES", value, ARRAYSIZE(value));
+	std::array<char, 1024> value = {};
+	DWORD length = GetEnvironmentVariableA(
+		"WINEDLLOVERRIDES", value.data(), static_cast<DWORD>(value.size()));
 	if (!length) {
 		LogInfo("  WINEDLLOVERRIDES: not present in process environment "
 			"(a winecfg override may still be active)\n");
 		return;
 	}
-	if (length >= ARRAYSIZE(value)) {
+	if (length >= value.size()) {
 		LogInfo("  WINEDLLOVERRIDES: present but too long to print safely\n");
 		return;
 	}
-	LogInfo("  WINEDLLOVERRIDES: %s\n", value);
+	LogInfo("  WINEDLLOVERRIDES: present\n");
 }
 
 void LogFlatpakEnvironment()
 {
-	char flatpak_id[256] = {};
-	DWORD length = GetEnvironmentVariableA("FLATPAK_ID", flatpak_id, ARRAYSIZE(flatpak_id));
+	std::array<char, 256> flatpak_id = {};
+	DWORD length = GetEnvironmentVariableA(
+		"FLATPAK_ID", flatpak_id.data(), static_cast<DWORD>(flatpak_id.size()));
 	if (!length) {
 		LogInfo("  Flatpak sandbox: not detected in process environment\n");
 		return;
 	}
-	if (length >= ARRAYSIZE(flatpak_id)) {
+	if (length >= flatpak_id.size()) {
 		LogInfo("  Flatpak sandbox: detected (FLATPAK_ID too long to print safely)\n");
 		return;
 	}
-	LogInfo("  Flatpak sandbox: detected (%s)\n", flatpak_id);
+	LogInfo("  Flatpak sandbox: detected\n");
 }
 
 } // namespace
@@ -116,19 +143,19 @@ void LogFlatpakEnvironment()
 bool DetectWineEnvironment()
 {
 	EnsureWineDetection();
-	return g_wine_detected;
+	return GetWineDetectionState().detected;
 }
 
 const char* GetWineVersionString()
 {
 	EnsureWineDetection();
-	return g_wine_version;
+	return GetWineDetectionState().version.data();
 }
 
 const char* GetHostPlatformLabel()
 {
 	EnsureWineDetection();
-	return g_platform_label;
+	return GetWineDetectionState().platform_label.data();
 }
 
 bool ApplyWineCompatProfile(
@@ -168,15 +195,15 @@ bool ApplyWineCompatProfile(
 
 void LogHostCompatReport()
 {
-	wchar_t migoto_path[MAX_PATH] = {};
-	wchar_t exe_path[MAX_PATH] = {};
+	std::array<wchar_t, MAX_PATH> migoto_path = {};
+	std::array<wchar_t, MAX_PATH> exe_path = {};
 
-	DWORD migoto_path_len = GetModuleFileNameW(migoto_handle, migoto_path, MAX_PATH);
-	DWORD exe_path_len = GetModuleFileNameW(nullptr, exe_path, MAX_PATH);
+	DWORD migoto_path_len = GetModuleFileNameW(migoto_handle, migoto_path.data(), migoto_path.size());
+	DWORD exe_path_len = GetModuleFileNameW(nullptr, exe_path.data(), exe_path.size());
 	if (!migoto_path_len || migoto_path_len >= MAX_PATH)
-		wcscpy_s(migoto_path, L"(unknown)");
+		wcscpy_s(migoto_path.data(), migoto_path.size(), L"(unknown)");
 	if (!exe_path_len || exe_path_len >= MAX_PATH)
-		wcscpy_s(exe_path, L"(unknown)");
+		wcscpy_s(exe_path.data(), exe_path.size(), L"(unknown)");
 
 	LogInfo("\n=== 3Dmigoto host compatibility report (EDHM profile) ===\n");
 	LogInfo("  Platform: %s\n", GetHostPlatformLabel());
@@ -195,8 +222,8 @@ void LogHostCompatReport()
 		LogInfo("  WARNING: PROTON_USE_WINED3D is enabled; Proton will use OpenGL wined3d instead of DXVK.\n");
 	if (EnvironmentOptionEnabled("PROTON_NO_D3D11"))
 		LogInfo("  WARNING: PROTON_NO_D3D11 is enabled; remove it because Elite and EDHM require D3D11.\n");
-	LogInfoW(L"  3Dmigoto d3d11.dll (EDHM build): %ls\n", migoto_path);
-	LogInfoW(L"  Process: %ls\n", exe_path);
+	LogInfoW(L"  3Dmigoto d3d11.dll (EDHM build): %ls\n", migoto_path.data());
+	LogInfoW(L"  Process: %ls\n", exe_path.data());
 	LogInfo("  If this log file never appears under Wine/Proton:\n");
 	LogInfo("    1) Place the EDHM configuration and 3Dmigoto d3d11.dll next to EliteDangerous64.exe (not only the launcher)\n");
 	LogInfo("    2) Set WINEDLLOVERRIDES=d3d11=n,b (and d3dcompiler_47=n,b if needed)\n");
