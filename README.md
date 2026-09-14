@@ -1,6 +1,11 @@
 # EDHM_2DMigoto
 
 [![CI](https://github.com/Fenris159/EDHM_2DMigoto/actions/workflows/ci.yml/badge.svg)](https://github.com/Fenris159/EDHM_2DMigoto/actions/workflows/ci.yml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Fenris159_EDHM_2DMigoto&metric=alert_status)](https://sonarcloud.io/project/overview?id=Fenris159_EDHM_2DMigoto)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=Fenris159_EDHM_2DMigoto&metric=reliability_rating)](https://sonarcloud.io/project/overview?id=Fenris159_EDHM_2DMigoto)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=Fenris159_EDHM_2DMigoto&metric=security_rating)](https://sonarcloud.io/project/overview?id=Fenris159_EDHM_2DMigoto)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=Fenris159_EDHM_2DMigoto&metric=sqale_rating)](https://sonarcloud.io/project/overview?id=Fenris159_EDHM_2DMigoto)
+[![Duplicated Lines](https://sonarcloud.io/api/project_badges/measure?project=Fenris159_EDHM_2DMigoto&metric=duplicated_lines_density)](https://sonarcloud.io/project/overview?id=Fenris159_EDHM_2DMigoto)
 [![Release](https://github.com/Fenris159/EDHM_2DMigoto/actions/workflows/release.yml/badge.svg)](https://github.com/Fenris159/EDHM_2DMigoto/actions/workflows/release.yml)
 [![Update xxmi-base](https://github.com/Fenris159/EDHM_2DMigoto/actions/workflows/update-xxmi-base.yml/badge.svg)](https://github.com/Fenris159/EDHM_2DMigoto/actions/workflows/update-xxmi-base.yml)
 [![GitHub release](https://img.shields.io/github/v/release/Fenris159/EDHM_2DMigoto?include_prereleases&sort=semver)](https://github.com/Fenris159/EDHM_2DMigoto/releases)
