@@ -1,0 +1,41 @@
+name: Reconcile accepted Sonar issues
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Reopen accepted main-branch issues and run a fresh analysis
+        required: true
+        type: choice
+        options:
+          - "no"
+          - "yes"
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  reconcile:
+    name: Reconcile accepted issue history
+    if: ${{ inputs.confirm == 'yes' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reopen accepted issues
+        shell: pwsh
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: >-
+          ./scripts/sonar-reconcile.ps1
+          -ProjectKey Fenris159_EDHM_2DMigoto
+          -Branch main
+
+      - name: Dispatch fresh main analysis
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run sonar-pr-check.yml --ref main
