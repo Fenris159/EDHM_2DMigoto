@@ -963,9 +963,16 @@ void HackerContext::BeforeDraw(DrawContext &data)
 		UINT64 advanced_hunting_hash = 0;
 		bool advanced_parent_match = false;
 		if (AdvancedHuntingConfigured())
+		{
 			advanced_hunting_active =
 			    GetAdvancedHuntingStateForDraw(mCurrentVertexShader, mCurrentPixelShader, &advanced_hunting_stage,
 				                               &advanced_hunting_hash, &advanced_parent_match);
+			if (advanced_hunting_active && !AdvancedHuntingSupportsContextType(mOrigContext1->GetType()))
+			{
+				advanced_parent_match = false;
+				NoteAdvancedHuntingDeferredContext();
+			}
+		}
 
 		// Register currently set index and vertex buffers for browsing in Shader Hunting Mode overlay.
 		if (G->track_region_hashes)
@@ -3452,67 +3459,85 @@ void HackerContext::SetShaderResources(UINT StartSlot, UINT NumViews,
 	}
 }
 
-void HackerContext::UpdateAdvancedHuntingPixelShaderResources(UINT StartSlot, UINT NumViews,
-                                                              ID3D11ShaderResourceView *const *ppShaderResourceViews)
+static uint32_t GetAdvancedHuntingViewHash(ID3D11View *view)
 {
-	if (!AdvancedHuntingConfigured() || StartSlot >= D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT)
-		return;
+	if (!view)
+		return 0;
+	ID3D11Resource *resource = nullptr;
+	view->GetResource(&resource);
+	if (!resource)
+		return 0;
+	const uint32_t hash = GetResourceHash(resource);
+	resource->Release();
+	return hash;
+}
 
-	UINT end_slot = StartSlot + min(NumViews, (UINT)D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT - StartSlot);
+void HackerContext::RefreshAdvancedHuntingPixelShaderResources(UINT StartSlot, UINT NumViews)
+{
+	if (!AdvancedHuntingConfigured() || !AdvancedHuntingSupportsContextType(mOrigContext1->GetType()) ||
+	    StartSlot >= D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT)
+		return;
+	const UINT count = min(NumViews, (UINT)D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT - StartSlot);
+	ID3D11ShaderResourceView *views[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT]{};
+	mOrigContext1->PSGetShaderResources(StartSlot, count, views);
+	const UINT end_slot = StartSlot + count;
 	for (UINT slot = StartSlot; slot < end_slot; ++slot)
 	{
-		uint32_t hash = 0;
-		UINT source = slot - StartSlot;
-
-		if (ppShaderResourceViews && ppShaderResourceViews[source])
-		{
-			ID3D11Resource *resource = nullptr;
-			ppShaderResourceViews[source]->GetResource(&resource);
-			if (resource)
-			{
-				hash = GetResourceHash(resource);
-				resource->Release();
-			}
-		}
-
+		const UINT source = slot - StartSlot;
+		uint32_t hash = GetAdvancedHuntingViewHash(views[source]);
 		// IniParams is an injected implementation resource, not game draw context.
 		if ((int)slot == G->IniParamsReg)
 			hash = 0;
 		mCurrentPixelShaderResources[slot] = hash;
+		if (views[source])
+			views[source]->Release();
 	}
 }
 
-void HackerContext::UpdateAdvancedHuntingRenderTargets(UINT NumViews,
-                                                       ID3D11RenderTargetView *const *ppRenderTargetViews,
-                                                       ID3D11DepthStencilView *pDepthStencilView)
+void HackerContext::RefreshAdvancedHuntingRenderTargets()
 {
+	if (!AdvancedHuntingConfigured() || !AdvancedHuntingSupportsContextType(mOrigContext1->GetType()))
+		return;
+	ID3D11RenderTargetView *views[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
+	ID3D11DepthStencilView *depth = nullptr;
+	mOrigContext1->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, views, &depth);
 	memset(mCurrentRenderTargetHashes, 0, sizeof(mCurrentRenderTargetHashes));
-	UINT view_count = min(NumViews, (UINT)D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT);
-	for (UINT slot = 0; slot < view_count; ++slot)
+	for (UINT slot = 0; slot < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; ++slot)
 	{
-		if (!ppRenderTargetViews || !ppRenderTargetViews[slot])
-			continue;
-
-		ID3D11Resource *resource = nullptr;
-		ppRenderTargetViews[slot]->GetResource(&resource);
-		if (resource)
-		{
-			mCurrentRenderTargetHashes[slot] = GetResourceHash(resource);
-			resource->Release();
-		}
+		mCurrentRenderTargetHashes[slot] = GetAdvancedHuntingViewHash(views[slot]);
+		if (views[slot])
+			views[slot]->Release();
 	}
+	mCurrentDepthTargetHash = GetAdvancedHuntingViewHash(depth);
+	if (depth)
+		depth->Release();
+}
 
-	mCurrentDepthTargetHash = 0;
-	if (pDepthStencilView)
+bool HackerContext::SnapshotAdvancedHuntingState()
+{
+	if (!AdvancedHuntingConfigured() || !AdvancedHuntingSupportsContextType(mOrigContext1->GetType()))
+		return false;
+	ID3D11Buffer *vertex_buffers[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT]{};
+	UINT strides[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT]{};
+	UINT offsets[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT]{};
+	mOrigContext1->IAGetVertexBuffers(0, D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT, vertex_buffers, strides, offsets);
+	for (UINT slot = 0; slot < D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT; ++slot)
 	{
-		ID3D11Resource *resource = nullptr;
-		pDepthStencilView->GetResource(&resource);
-		if (resource)
-		{
-			mCurrentDepthTargetHash = GetResourceHash(resource);
-			resource->Release();
-		}
+		mCurrentVertexBuffers[slot] = vertex_buffers[slot] ? GetResourceHash(vertex_buffers[slot]) : 0;
+		if (vertex_buffers[slot])
+			vertex_buffers[slot]->Release();
 	}
+	ID3D11Buffer *index_buffer = nullptr;
+	DXGI_FORMAT index_format = DXGI_FORMAT_UNKNOWN;
+	UINT index_offset = 0;
+	mOrigContext1->IAGetIndexBuffer(&index_buffer, &index_format, &index_offset);
+	mCurrentIndexBuffer = index_buffer ? GetResourceHash(index_buffer) : 0;
+	if (index_buffer)
+		index_buffer->Release();
+	mOrigContext1->IAGetPrimitiveTopology(&mCurrentPrimitiveTopology);
+	RefreshAdvancedHuntingPixelShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT);
+	RefreshAdvancedHuntingRenderTargets();
+	return true;
 }
 
 // The rest of these methods are all the primary code for the tool, Direct3D calls that we override
@@ -3541,9 +3566,8 @@ HackerContext::PSSetShaderResources(THIS_
                                     /* [annotation] */
                                     __in_ecount(NumViews) ID3D11ShaderResourceView *const *ppShaderResourceViews)
 {
-	if (G->advanced_hunting_enabled)
-		UpdateAdvancedHuntingPixelShaderResources(StartSlot, NumViews, ppShaderResourceViews);
 	SetShaderResources<&ID3D11DeviceContext::PSSetShaderResources>(StartSlot, NumViews, ppShaderResourceViews);
+	RefreshAdvancedHuntingPixelShaderResources(StartSlot, NumViews);
 }
 
 STDMETHODIMP_(void)
@@ -3709,8 +3733,6 @@ HackerContext::OMSetRenderTargets(THIS_
                                   __in_opt ID3D11DepthStencilView *pDepthStencilView)
 {
 	Profiling::State profiling_state{};
-	if (G->advanced_hunting_enabled)
-		UpdateAdvancedHuntingRenderTargets(NumViews, ppRenderTargetViews, pDepthStencilView);
 
 	if (G->hunting == HUNTING_MODE_ENABLED)
 	{
@@ -3743,6 +3765,8 @@ HackerContext::OMSetRenderTargets(THIS_
 	}
 
 	mOrigContext1->OMSetRenderTargets(NumViews, ppRenderTargetViews, pDepthStencilView);
+	RefreshAdvancedHuntingRenderTargets();
+	RefreshAdvancedHuntingPixelShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT);
 }
 
 STDMETHODIMP_(void)
@@ -3766,8 +3790,6 @@ HackerContext::OMSetRenderTargetsAndUnorderedAccessViews(THIS_
                                                          __in_ecount_opt(NumUAVs) const UINT *pUAVInitialCounts)
 {
 	Profiling::State profiling_state{};
-	if (G->advanced_hunting_enabled && NumRTVs != D3D11_KEEP_RENDER_TARGETS_AND_DEPTH_STENCIL)
-		UpdateAdvancedHuntingRenderTargets(NumRTVs, ppRenderTargetViews, pDepthStencilView);
 
 	if (G->hunting == HUNTING_MODE_ENABLED)
 	{
@@ -3810,6 +3832,8 @@ HackerContext::OMSetRenderTargetsAndUnorderedAccessViews(THIS_
 	mOrigContext1->OMSetRenderTargetsAndUnorderedAccessViews(NumRTVs, ppRenderTargetViews, pDepthStencilView,
 	                                                         UAVStartSlot, NumUAVs, ppUnorderedAccessViews,
 	                                                         pUAVInitialCounts);
+	RefreshAdvancedHuntingRenderTargets();
+	RefreshAdvancedHuntingPixelShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT);
 }
 
 STDMETHODIMP_(void) HackerContext::DrawAuto(THIS)

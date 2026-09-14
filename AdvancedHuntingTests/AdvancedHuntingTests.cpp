@@ -93,7 +93,75 @@ void TestReportIsConservative()
 	Expect(report.find("Candidate only") != std::string::npos, "report labels the INI candidate as inexact");
 	Expect(report.find("[ShaderOverride-ContextParent-") != std::string::npos,
 	       "report pairs the resource candidate with its parent shader");
-	Expect(report.find("match_first_index = 4") != std::string::npos, "draw scope reports zero-safe offsets");
+	Expect(report.find("match_first_index = 4") != std::string::npos, "draw scope reports offsets");
+	info.context.first_vertex = 0;
+	info.context.first_index = 0;
+	info.context.first_instance = 0;
+	const std::string zero_report = BuildAdvancedHuntingContextReport(info);
+	Expect(zero_report.find("match_first_index = 0") != std::string::npos, "draw scope reports a zero first index");
+	Expect(zero_report.find("match_first_vertex = 0") != std::string::npos, "draw scope reports a zero first vertex");
+	Expect(zero_report.find("match_first_instance = 0") != std::string::npos,
+	       "draw scope reports a zero first instance");
+}
+
+void TestStateLifecycle()
+{
+	AdvancedHuntingState state;
+	state.Configure(AdvancedHuntingScope::AUTO, true, 2, 2);
+	state.Enter(AdvancedHuntingShaderStage::PIXEL, SampleContext().shader_hash, 10);
+	bool parent_matches = false;
+	Expect(state.GetStateForDraw(0, SampleContext().shader_hash, nullptr, nullptr, &parent_matches) && parent_matches,
+	       "active state recognizes its parent shader");
+	Expect(!state.Submit(SampleContext()), "an unselected context is not a selection match");
+	Expect(state.Select(true), "the first observed context can be selected");
+	Expect(state.Submit(SampleContext()), "the selected context matches subsequent draws");
+	AdvancedHuntingOverlayInfo info;
+	Expect(state.GetOverlayInfo(&info), "active state provides overlay data");
+	Expect(info.context_count == 1 && info.observations == 2 && info.observed_frames == 1,
+	       "duplicate observations update the existing entry");
+	Expect(info.matches_this_frame == 1, "selected matches are counted in the current frame");
+	state.AdvanceFrame(11);
+	Expect(state.Submit(SampleContext()), "selected context remains matched on a later frame");
+	state.GetOverlayInfo(&info);
+	Expect(info.observed_frames == 2 && info.matches_this_frame == 1, "frame transition updates frame statistics");
+	bool locked = false;
+	Expect(state.ToggleCapture(&locked) && locked, "capture can be locked");
+	AdvancedHuntingContext second = SampleContext();
+	second.pixel_shader_resources[7]++;
+	state.Submit(second);
+	state.GetOverlayInfo(&info);
+	Expect(info.context_count == 1, "capture lock rejects new contexts");
+	Expect(state.ToggleCapture(&locked) && !locked, "capture can be resumed");
+	state.Submit(second);
+	state.GetOverlayInfo(&info);
+	Expect(info.context_count == 2, "resumed capture accepts new contexts");
+	AdvancedHuntingScope scope = AdvancedHuntingScope::AUTO;
+	Expect(state.ChangeScope(true, &scope) && scope == AdvancedHuntingScope::RESOURCE,
+	       "scope navigation advances from auto to resource");
+	state.GetOverlayInfo(&info);
+	Expect(info.context_count == 0 && !info.selected, "scope changes clear incompatible captured state");
+	state.Submit(SampleContext());
+	state.AdvanceFrame(14);
+	state.GetOverlayInfo(&info);
+	Expect(info.context_count == 0, "frame advancement prunes stale contexts without a parent draw");
+	state.NoteDeferredContext();
+	state.GetOverlayInfo(&info);
+	Expect(info.deferred_context_seen, "deferred-context activity is exposed to the overlay");
+	state.Reset();
+	Expect(!state.GetOverlayInfo(&info), "reset disables and clears the state");
+	state.Configure(AdvancedHuntingScope::RESOURCE, false, 1, 0);
+	state.Enter(AdvancedHuntingShaderStage::PIXEL, SampleContext().shader_hash, 20);
+	state.GetOverlayInfo(&info);
+	Expect(info.scope == AdvancedHuntingScope::RESOURCE && info.context_count == 0,
+	       "reconfiguration starts with a clean registry and updated defaults");
+}
+
+void TestContextTypePolicy()
+{
+	Expect(AdvancedHuntingSupportsContextType(D3D11_DEVICE_CONTEXT_IMMEDIATE),
+	       "immediate contexts support advanced hunting");
+	Expect(!AdvancedHuntingSupportsContextType(D3D11_DEVICE_CONTEXT_DEFERRED),
+	       "deferred contexts are rejected instead of captured at record time");
 }
 } // namespace
 
@@ -102,6 +170,8 @@ int main()
 	TestScopeIdentity();
 	TestFingerprintUsesIdentity();
 	TestReportIsConservative();
+	TestStateLifecycle();
+	TestContextTypePolicy();
 	if (failures)
 		return 1;
 	std::cout << "Advanced hunting tests passed\n";

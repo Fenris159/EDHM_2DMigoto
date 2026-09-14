@@ -1,5 +1,6 @@
 #include "AdvancedHunting.h"
 
+#include <algorithm>
 #include <cstring>
 #include <iomanip>
 #include <sstream>
@@ -74,9 +75,250 @@ AdvancedHuntingContext::AdvancedHuntingContext()
 
 AdvancedHuntingOverlayInfo::AdvancedHuntingOverlayInfo()
     : active(false), capture_locked(false), verbose(false), selected(false), context_limit_reached(false),
-      shader_stage(AdvancedHuntingShaderStage::NONE), scope(AdvancedHuntingScope::AUTO), shader_hash(0),
-      context_position(0), context_count(0), matches_this_frame(0), observed_frames(0), observations(0), fingerprint(0)
+      deferred_context_seen(false), shader_stage(AdvancedHuntingShaderStage::NONE), scope(AdvancedHuntingScope::AUTO),
+      shader_hash(0), context_position(0), context_count(0), matches_this_frame(0), observed_frames(0), observations(0),
+      fingerprint(0)
 {
+}
+
+bool AdvancedHuntingState::ContextLess(const ContextEntry &lhs, const ContextEntry &rhs) const
+{
+	return CompareAdvancedHuntingContexts(lhs.context, rhs.context, scope_) < 0;
+}
+
+bool AdvancedHuntingState::ContextEquals(const AdvancedHuntingContext &lhs, const AdvancedHuntingContext &rhs) const
+{
+	return CompareAdvancedHuntingContexts(lhs, rhs, scope_) == 0;
+}
+
+std::vector<AdvancedHuntingState::ContextEntry>::iterator AdvancedHuntingState::FindContext(
+    const AdvancedHuntingContext &context)
+{
+	ContextEntry key;
+	key.context = context;
+	auto less = [this](const ContextEntry &lhs, const ContextEntry &rhs) { return ContextLess(lhs, rhs); };
+	auto it = std::lower_bound(contexts_.begin(), contexts_.end(), key, less);
+	return it != contexts_.end() && ContextEquals(it->context, context) ? it : contexts_.end();
+}
+
+std::vector<AdvancedHuntingState::ContextEntry>::const_iterator AdvancedHuntingState::FindContext(
+    const AdvancedHuntingContext &context) const
+{
+	ContextEntry key;
+	key.context = context;
+	auto less = [this](const ContextEntry &lhs, const ContextEntry &rhs) { return ContextLess(lhs, rhs); };
+	auto it = std::lower_bound(contexts_.begin(), contexts_.end(), key, less);
+	return it != contexts_.end() && ContextEquals(it->context, context) ? it : contexts_.end();
+}
+
+void AdvancedHuntingState::Configure(AdvancedHuntingScope default_scope, bool verbose, size_t max_contexts,
+                                     unsigned lifetime_frames)
+{
+	default_scope_ = default_scope;
+	scope_ = default_scope;
+	verbose_ = verbose;
+	max_contexts_ = std::max<size_t>(1, max_contexts);
+	lifetime_frames_ = lifetime_frames;
+}
+
+void AdvancedHuntingState::Reset()
+{
+	active_ = false;
+	capture_locked_ = false;
+	selected_ = false;
+	context_limit_reached_ = false;
+	deferred_context_seen_ = false;
+	shader_stage_ = AdvancedHuntingShaderStage::NONE;
+	shader_hash_ = 0;
+	current_frame_ = 0;
+	selected_match_frame_ = 0;
+	selected_matches_this_frame_ = 0;
+	selected_context_ = AdvancedHuntingContext();
+	contexts_.clear();
+}
+
+void AdvancedHuntingState::Enter(AdvancedHuntingShaderStage stage, UINT64 hash, unsigned frame_no)
+{
+	Reset();
+	active_ = true;
+	shader_stage_ = stage;
+	shader_hash_ = hash;
+	scope_ = default_scope_;
+	current_frame_ = frame_no;
+}
+
+bool AdvancedHuntingState::Active() const
+{
+	return active_;
+}
+
+bool AdvancedHuntingState::GetStateForDraw(UINT64 vertex_shader, UINT64 pixel_shader, AdvancedHuntingShaderStage *stage,
+                                           UINT64 *hash, bool *parent_matches) const
+{
+	bool matches = false;
+	if (active_)
+	{
+		matches = shader_stage_ == AdvancedHuntingShaderStage::PIXEL ? pixel_shader == shader_hash_
+		                                                             : vertex_shader == shader_hash_;
+		if (stage)
+			*stage = shader_stage_;
+		if (hash)
+			*hash = shader_hash_;
+	}
+	if (parent_matches)
+		*parent_matches = matches;
+	return active_;
+}
+
+void AdvancedHuntingState::PruneStaleContexts()
+{
+	if (capture_locked_ || !lifetime_frames_)
+		return;
+	contexts_.erase(std::remove_if(contexts_.begin(), contexts_.end(), [this](const ContextEntry &entry)
+	                               { return current_frame_ - entry.last_seen_frame > lifetime_frames_; }),
+	                contexts_.end());
+	if (selected_ && FindContext(selected_context_) == contexts_.end())
+		selected_ = false;
+	if (contexts_.size() < max_contexts_)
+		context_limit_reached_ = false;
+}
+
+void AdvancedHuntingState::AdvanceFrame(unsigned frame_no)
+{
+	current_frame_ = frame_no;
+	PruneStaleContexts();
+}
+
+bool AdvancedHuntingState::Submit(const AdvancedHuntingContext &context)
+{
+	if (!active_ || context.shader_stage != shader_stage_ || context.shader_hash != shader_hash_)
+		return false;
+	auto it = FindContext(context);
+	if (it != contexts_.end())
+	{
+		it->observations++;
+		if (it->last_seen_frame != current_frame_)
+		{
+			it->last_seen_frame = current_frame_;
+			it->observed_frames++;
+		}
+	}
+	else if (!capture_locked_)
+	{
+		if (contexts_.size() >= max_contexts_)
+			context_limit_reached_ = true;
+		else
+		{
+			ContextEntry entry;
+			entry.context = context;
+			entry.last_seen_frame = current_frame_;
+			entry.observed_frames = 1;
+			entry.observations = 1;
+			auto less = [this](const ContextEntry &lhs, const ContextEntry &rhs) { return ContextLess(lhs, rhs); };
+			auto insert_at = std::lower_bound(contexts_.begin(), contexts_.end(), entry, less);
+			contexts_.insert(insert_at, entry);
+		}
+	}
+	const bool selected = selected_ && ContextEquals(context, selected_context_);
+	if (selected)
+	{
+		if (selected_match_frame_ != current_frame_)
+		{
+			selected_match_frame_ = current_frame_;
+			selected_matches_this_frame_ = 0;
+		}
+		selected_matches_this_frame_++;
+	}
+	return selected;
+}
+
+bool AdvancedHuntingState::Select(bool next)
+{
+	if (!active_ || contexts_.empty())
+		return false;
+	size_t pos = next ? 0 : contexts_.size() - 1;
+	if (selected_)
+	{
+		auto it = FindContext(selected_context_);
+		if (it != contexts_.end())
+		{
+			pos = static_cast<size_t>(std::distance(contexts_.begin(), it));
+			pos = next ? (pos + 1) % contexts_.size() : (pos ? pos - 1 : contexts_.size() - 1);
+		}
+	}
+	selected_context_ = contexts_[pos].context;
+	selected_ = true;
+	selected_match_frame_ = 0;
+	selected_matches_this_frame_ = 0;
+	return true;
+}
+
+bool AdvancedHuntingState::ChangeScope(bool next, AdvancedHuntingScope *scope)
+{
+	if (!active_)
+		return false;
+	int value = static_cast<int>(scope_);
+	const int count = static_cast<int>(AdvancedHuntingScope::DRAW) + 1;
+	value = next ? (value + 1) % count : (value + count - 1) % count;
+	scope_ = static_cast<AdvancedHuntingScope>(value);
+	selected_ = false;
+	context_limit_reached_ = false;
+	contexts_.clear();
+	if (scope)
+		*scope = scope_;
+	return true;
+}
+
+bool AdvancedHuntingState::ToggleCapture(bool *locked)
+{
+	if (!active_)
+		return false;
+	capture_locked_ = !capture_locked_;
+	if (locked)
+		*locked = capture_locked_;
+	return true;
+}
+
+void AdvancedHuntingState::NoteDeferredContext()
+{
+	if (active_)
+		deferred_context_seen_ = true;
+}
+
+bool AdvancedHuntingState::GetOverlayInfo(AdvancedHuntingOverlayInfo *info) const
+{
+	if (!info || !active_)
+		return false;
+	*info = AdvancedHuntingOverlayInfo();
+	info->active = true;
+	info->capture_locked = capture_locked_;
+	info->verbose = verbose_;
+	info->selected = selected_;
+	info->context_limit_reached = context_limit_reached_;
+	info->deferred_context_seen = deferred_context_seen_;
+	info->shader_stage = shader_stage_;
+	info->scope = scope_;
+	info->shader_hash = shader_hash_;
+	info->context_count = contexts_.size();
+	info->matches_this_frame = selected_match_frame_ == current_frame_ ? selected_matches_this_frame_ : 0;
+	if (selected_)
+	{
+		auto it = FindContext(selected_context_);
+		if (it != contexts_.end())
+		{
+			info->context_position = static_cast<size_t>(std::distance(contexts_.begin(), it)) + 1;
+			info->observed_frames = it->observed_frames;
+			info->observations = it->observations;
+		}
+		info->context = selected_context_;
+		info->fingerprint = FingerprintAdvancedHuntingContext(selected_context_, scope_);
+	}
+	return true;
+}
+
+bool AdvancedHuntingSupportsContextType(D3D11_DEVICE_CONTEXT_TYPE type)
+{
+	return type == D3D11_DEVICE_CONTEXT_IMMEDIATE;
 }
 
 int CompareAdvancedHuntingContexts(const AdvancedHuntingContext &lhs, const AdvancedHuntingContext &rhs,

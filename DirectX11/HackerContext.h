@@ -146,10 +146,8 @@ class HackerContext : public ID3D11DeviceContext1
 	// These private methods are utility routines for HackerContext.
 	void ClearCurrentInputLayout();
 	void ResetTrackedState();
-	void UpdateAdvancedHuntingPixelShaderResources(UINT StartSlot, UINT NumViews,
-	                                               ID3D11ShaderResourceView *const *ppShaderResourceViews);
-	void UpdateAdvancedHuntingRenderTargets(UINT NumViews, ID3D11RenderTargetView *const *ppRenderTargetViews,
-	                                        ID3D11DepthStencilView *pDepthStencilView);
+	void RefreshAdvancedHuntingPixelShaderResources(UINT StartSlot, UINT NumViews);
+	void RefreshAdvancedHuntingRenderTargets();
 	void BeforeDraw(DrawContext &data);
 	void AfterDraw(DrawContext &data);
 	bool BeforeDispatch(DispatchContext *context);
@@ -221,6 +219,7 @@ class HackerContext : public ID3D11DeviceContext1
   public:
 	HackerContext(ID3D11Device1 *pDevice1, ID3D11DeviceContext1 *pContext1);
 	~HackerContext();
+	bool SnapshotAdvancedHuntingState();
 
 	void SetHackerDevice(HackerDevice *pDevice, bool ownsReference = false);
 	HackerDevice *GetHackerDevice();

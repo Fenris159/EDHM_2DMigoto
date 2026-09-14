@@ -70,7 +70,9 @@ rebuilt with the new identity.
 The Level 2 overlay shows the parent shader, selected context position, grouping
 scope, collection state, draw signature, current-frame match count, and a stable
 context fingerprint. Set `context_overlay_verbose=1` to also show the resource
-hashes used by the selected context.
+hashes used by the selected context. Verbose output wraps across lines and lists
+every bound index, indirect, vertex-buffer, pixel-resource, render-target, and
+depth-target hash rather than truncating the binding set.
 
 Marking a context still exports the parent shader through the existing
 `marking_actions`. When clipboard marking is enabled, it also copies the full
@@ -86,6 +88,14 @@ active configuration files automatically.
   using `context_lifetime_frames`.
 - Collection is CPU-side state tracking. It does not enable frame analysis,
   perform GPU readback, or replay draw calls.
+- Level 2 snapshots the immediate context when it is enabled and queries the
+  effective Direct3D bindings after resource/output changes. Resources that
+  Direct3D automatically unbinds because of input/output conflicts are therefore
+  not retained in the context identity.
+- Deferred-context command lists are not captured or modified by Level 2 because
+  their record-time state is not equivalent to execution-time immediate-context
+  state. The overlay reports when deferred draws are encountered; those draws
+  continue unmodified.
 - Level 2 separates complete DX11 draw calls. If several icons are submitted in
   one batched draw, they will still disappear together.
 - Exact per-icon separation inside one batch would require game-specific data
