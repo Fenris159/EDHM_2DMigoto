@@ -436,9 +436,9 @@ std::string BuildAdvancedHuntingContextReport(const AdvancedHuntingOverlayInfo &
 		report << "; Keep the parent shader and observed " << resource_slot
 		       << " binding constraint when integrating.\r\n";
 		report << "[TextureOverride-ContextResource-" << std::hex << std::setw(16) << info.fingerprint << "]\r\n";
-		report << "hash = " << std::setw(8) << resource_hash << "\r\n";
+		report << "hash = " << std::setw(8) << resource_hash << std::dec << "\r\n";
 		if (context.index_count)
-			report << "match_index_count = " << std::dec << context.index_count << "\r\n";
+			report << "match_index_count = " << context.index_count << "\r\n";
 		if (context.vertex_count)
 			report << "match_vertex_count = " << context.vertex_count << "\r\n";
 		if (context.instance_count)

@@ -3567,7 +3567,8 @@ HackerContext::PSSetShaderResources(THIS_
                                     __in_ecount(NumViews) ID3D11ShaderResourceView *const *ppShaderResourceViews)
 {
 	SetShaderResources<&ID3D11DeviceContext::PSSetShaderResources>(StartSlot, NumViews, ppShaderResourceViews);
-	RefreshAdvancedHuntingPixelShaderResources(StartSlot, NumViews);
+	if (AdvancedHuntingActive())
+		RefreshAdvancedHuntingPixelShaderResources(StartSlot, NumViews);
 }
 
 STDMETHODIMP_(void)
@@ -3765,8 +3766,11 @@ HackerContext::OMSetRenderTargets(THIS_
 	}
 
 	mOrigContext1->OMSetRenderTargets(NumViews, ppRenderTargetViews, pDepthStencilView);
-	RefreshAdvancedHuntingRenderTargets();
-	RefreshAdvancedHuntingPixelShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT);
+	if (AdvancedHuntingActive())
+	{
+		RefreshAdvancedHuntingRenderTargets();
+		RefreshAdvancedHuntingPixelShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT);
+	}
 }
 
 STDMETHODIMP_(void)
@@ -3832,8 +3836,11 @@ HackerContext::OMSetRenderTargetsAndUnorderedAccessViews(THIS_
 	mOrigContext1->OMSetRenderTargetsAndUnorderedAccessViews(NumRTVs, ppRenderTargetViews, pDepthStencilView,
 	                                                         UAVStartSlot, NumUAVs, ppUnorderedAccessViews,
 	                                                         pUAVInitialCounts);
-	RefreshAdvancedHuntingRenderTargets();
-	RefreshAdvancedHuntingPixelShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT);
+	if (AdvancedHuntingActive())
+	{
+		RefreshAdvancedHuntingRenderTargets();
+		RefreshAdvancedHuntingPixelShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT);
+	}
 }
 
 STDMETHODIMP_(void) HackerContext::DrawAuto(THIS)
