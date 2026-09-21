@@ -75,7 +75,9 @@ function Write-Version {
 
 function Find-ChangelogSectionStart {
     param(
-        [Parameter(Mandatory)] [string[]] $Lines,
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string[]] $Lines,
         [Parameter(Mandatory)] [string] $VersionCore
     )
     $versionHeading = "^## \[$([regex]::Escape($VersionCore))\]"
@@ -90,7 +92,9 @@ function Find-ChangelogSectionStart {
 
 function Find-ChangelogSectionEnd {
     param(
-        [Parameter(Mandatory)] [string[]] $Lines,
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string[]] $Lines,
         [Parameter(Mandatory)] [int] $Start
     )
     for ($i = $Start + 1; $i -lt $Lines.Count; $i++) {
