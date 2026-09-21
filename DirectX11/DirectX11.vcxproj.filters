@@ -6,6 +6,8 @@
     <ClCompile Include="HackerContext.cpp" />
     <ClCompile Include="HackerDevice.cpp" />
     <ClCompile Include="Hunting.cpp" />
+    <ClCompile Include="AdvancedHunting.cpp" />
+    <ClCompile Include="AdvancedHuntingContext.cpp" />
     <ClCompile Include="IniHandler.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="Overlay.cpp" />
@@ -41,6 +43,7 @@
     <ClInclude Include="HackerContext.h" />
     <ClInclude Include="HackerDevice.h" />
     <ClInclude Include="Hunting.h" />
+    <ClInclude Include="AdvancedHunting.h" />
     <ClInclude Include="IniHandler.h" />
     <ClInclude Include="Input.h" />
     <ClInclude Include="Overlay.h" />

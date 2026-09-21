@@ -108,6 +108,10 @@ class HackerContext : public ID3D11DeviceContext1
 	// These are per-context, moved from globals.h:
 	uint32_t mCurrentVertexBuffers[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT]{};
 	uint32_t mCurrentIndexBuffer{}; // Only valid while hunting=1
+	uint32_t mCurrentPixelShaderResources[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT]{};
+	uint32_t mCurrentRenderTargetHashes[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
+	uint32_t mCurrentDepthTargetHash{};
+	D3D11_PRIMITIVE_TOPOLOGY mCurrentPrimitiveTopology{D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED};
 	struct VertexBufferBinding
 	{
 		ID3D11Buffer *buffer;
@@ -142,6 +146,8 @@ class HackerContext : public ID3D11DeviceContext1
 	// These private methods are utility routines for HackerContext.
 	void ClearCurrentInputLayout();
 	void ResetTrackedState();
+	void RefreshAdvancedHuntingPixelShaderResources(UINT StartSlot, UINT NumViews);
+	void RefreshAdvancedHuntingRenderTargets();
 	void BeforeDraw(DrawContext &data);
 	void AfterDraw(DrawContext &data);
 	bool BeforeDispatch(DispatchContext *context);
@@ -213,6 +219,7 @@ class HackerContext : public ID3D11DeviceContext1
   public:
 	HackerContext(ID3D11Device1 *pDevice1, ID3D11DeviceContext1 *pContext1);
 	~HackerContext();
+	bool SnapshotAdvancedHuntingState();
 
 	void SetHackerDevice(HackerDevice *pDevice, bool ownsReference = false);
 	HackerDevice *GetHackerDevice();
