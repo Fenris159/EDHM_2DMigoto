@@ -200,6 +200,7 @@ jobs:
           msbuild EDHM_2DMigoto.sln `
             -property:Configuration="Zip Release" `
             -property:Platform=x64 `
+            -property:EdhmStrictBuild=true `
             -target:Rebuild `
             -verbosity:minimal `
             -restore:false
