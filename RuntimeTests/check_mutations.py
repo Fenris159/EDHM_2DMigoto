@@ -62,8 +62,8 @@ def main():
         (
             "constant-stride",
             command_list,
-            "\t\t\tnew_desc.StructureByteStride = 0;",
-            "\t\t\tnew_desc.StructureByteStride = 8;",
+            "new_desc.StructureByteStride = 0;",
+            "new_desc.StructureByteStride = 8;",
         ),
     ]
     originals = {path: path.read_bytes() for _, path, _, _ in mutations}
@@ -74,7 +74,7 @@ def main():
             if baseline_exit:
                 raise RuntimeError(f"Baseline must pass before mutation: {case}")
         for case, path, old, new in mutations:
-            original = originals[path].decode("utf-8")
+            original = originals[path].decode("utf-8").replace("\r\n", "\n")
             if original.count(old) != 1:
                 raise RuntimeError(f"Mutation must match exactly one source location: {case}")
             mutated = original.replace(old, new, 1).encode("utf-8")
