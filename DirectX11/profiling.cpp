@@ -278,17 +278,18 @@ static void update_txt_summary(LARGE_INTEGER collection_duration, LARGE_INTEGER 
 	             L"      View creation: %7.2fus/frame (%u/%u successful creates/window)\n"
 	             L"  Source view reuse: %u/window\n"
 	             L"  Cached view reuse: %u/window\n",
-	             static_cast<double>(texture_override_match_overhead.cpu.QuadPart) * 1000000.0 /
+	             static_cast<double>(Profiling::texture_override_match_overhead.cpu.QuadPart) * 1000000.0 /
 	                 static_cast<double>(freq.QuadPart) / frames,
-	             texture_override_match_overhead.hits, texture_override_match_overhead.count,
-	             static_cast<double>(texture_override_fuzzy_match_overhead.cpu.QuadPart) * 1000000.0 /
+	             Profiling::texture_override_match_overhead.hits, Profiling::texture_override_match_overhead.count,
+	             static_cast<double>(Profiling::texture_override_fuzzy_match_overhead.cpu.QuadPart) * 1000000.0 /
 	                 static_cast<double>(freq.QuadPart) / frames,
-	             texture_override_fuzzy_match_overhead.hits, texture_override_fuzzy_match_overhead.count,
-	             static_cast<unsigned long long>(fuzzy_candidates_tested),
-	             static_cast<double>(resource_view_creation_overhead.cpu.QuadPart) * 1000000.0 /
+	             Profiling::texture_override_fuzzy_match_overhead.hits,
+	             Profiling::texture_override_fuzzy_match_overhead.count,
+	             static_cast<unsigned long long>(Profiling::fuzzy_candidates_tested),
+	             static_cast<double>(Profiling::resource_view_creation_overhead.cpu.QuadPart) * 1000000.0 /
 	                 static_cast<double>(freq.QuadPart) / frames,
-	             resource_view_creation_overhead.hits, resource_view_creation_overhead.count, source_views_reused,
-	             cached_views_reused);
+	             Profiling::resource_view_creation_overhead.hits, Profiling::resource_view_creation_overhead.count,
+	             Profiling::source_views_reused, Profiling::cached_views_reused);
 	Profiling::text += buf;
 
 	_snwprintf_s(buf, ARRAYSIZE(buf), _TRUNCATE,
