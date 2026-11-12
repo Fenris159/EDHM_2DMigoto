@@ -252,7 +252,7 @@ Final runtime source: `b14272fa74a3221092ccd6279e15a08463f864d6`.
 | Final strict Release + Zip Release | [43315053539](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43315053539): passed strict x64/Win32 Release and Zip Release, existing hunting checks, DirectXTK shaders, formatting, PowerShell and metadata checks. |
 | Final native regression + sensitivity | [43315064363](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43315064363): all 20 cases passed on both architectures; all 20 compiled mutations were detected on x64, and restored production behavior passed. |
 | Final Sonar / changed-source clang-tidy | [43316212003](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43316212003), `104646bd`: passed build-wrapper analysis, quality gate and changed-source clang-tidy; zero unresolved Sonar issues. The later script-only compiler-constant cleanup does not change runtime source. |
-| Whole-delta pinned formatting | clang-format 23.1.1 checked all eight changed native files against the integration base; passed. |
+| Pinned formatting | clang-format 23.1.1 checked all eight changed native files against the integration base; passed. |
 | Local scripts | Python compilation, mutation-anchor validation and `git diff --check` passed. Hardened benchmark arguments accepted valid inputs and rejected invalid output/ref values. |
 | Installed EDHM / real game | Pending; not replaced or launched as a benchmark by this implementation task. |
 
