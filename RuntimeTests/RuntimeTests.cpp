@@ -303,6 +303,7 @@ void accepts_pool_identifier_grammar()
 	make_pool(L"pool\u03b4", 6.0f);
 	command_list_globals.emplace(L"$pool_test", CommandListVariable(L"$pool_test", 8.0f, VariableFlags::NONE));
 	CommandListState state;
+	CommandListScope scope;
 	const struct
 	{
 		const wchar_t *text;
@@ -315,7 +316,7 @@ void accepts_pool_identifier_grammar()
 	{
 		CommandListExpression expression;
 		const std::wstring input(item.text);
-		require(expression.parse(&input, &config_namespace, nullptr), "pool identifier was rejected");
+		require(expression.parse(&input, &config_namespace, &scope), "pool identifier was rejected");
 		require(expression.evaluate(&state) == item.expected, "pool identifier resolved the wrong value");
 	}
 }
@@ -346,6 +347,7 @@ void stores_typed_and_structured_values()
 		Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
 		require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &data, &buffer)), "store source creation failed");
 		source.resource = buffer.Detach();
+		source.device = fixture.device.Get();
 		source.is_null = false;
 		CommandListVariable value(L"$result", -99.0f, VariableFlags::NONE);
 		StoreCommand command;
@@ -451,6 +453,7 @@ void releases_store_views_on_success_and_failure()
 		require(SUCCEEDED(view->SetPrivateDataInterface(key, lifetime)), "could not track view lifetime");
 		lifetime->Release();
 		source.resource = resource.Detach();
+		source.device = fixture.device.Get();
 		source.view = view.Detach();
 		source.is_null = false;
 		auto *bound = static_cast<ID3D11ShaderResourceView *>(source.view);
@@ -517,6 +520,7 @@ void copies_region_byte_counts_and_preserves_invalid_destinations()
 	require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &initial, &buffer)), "region source creation failed");
 	auto &source = customResources[L"resourcesource"];
 	source.resource = buffer.Detach();
+	source.device = fixture.device.Get();
 	source.is_null = false;
 	source.stride = 4;
 	source.format = DXGI_FORMAT_R32_FLOAT;
