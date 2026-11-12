@@ -1,0 +1,44 @@
+name: Runtime regression checks
+
+on:
+  workflow_dispatch:
+    inputs:
+      expect_regressions:
+        description: Verify the unfixed baseline rejects each regression check
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-tests:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+        with:
+          vs-version: '[17.0,18.0)'
+      - name: Build native runtime checks
+        shell: pwsh
+        run: >-
+          msbuild DirectX11/RuntimeTests.vcxproj
+          -property:Configuration=Release -property:Platform=x64
+          -property:SolutionDir="$pwd/" -property:EdhmStrictBuild=true
+          -target:Build -nodeReuse:false -verbosity:minimal -restore:false
+      - name: Exercise runtime behavior
+        shell: pwsh
+        env:
+          EXPECT_REGRESSIONS: ${{ inputs.expect_regressions }}
+        run: |
+          $exe = '.quality/runtime-tests/x64/Release/RuntimeTests.exe'
+          if ($env:EXPECT_REGRESSIONS -eq 'true') {
+            foreach ($case in @('empty-groups', 'leading-dot', 'pending-save')) {
+              & $exe $case
+              if ($LASTEXITCODE -eq 0) { throw "Regression check failed to detect the baseline defect: $case" }
+              Write-Host "Detected baseline defect: $case (exit $LASTEXITCODE)"
+            }
+            exit 0
+          }
+          & $exe
+          if ($LASTEXITCODE -ne 0) { throw "Runtime regression checks failed: $LASTEXITCODE" }
