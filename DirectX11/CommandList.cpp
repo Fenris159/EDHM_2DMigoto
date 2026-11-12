@@ -11507,6 +11507,10 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 		region_extent = desc.ByteWidth;
 		if (static_cast<UINT64>(region_offset) + region_size > region_extent)
 			return;
+		if ((desc.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED) &&
+		    (!desc.StructureByteStride || region_offset % desc.StructureByteStride ||
+		     region_size % desc.StructureByteStride))
+			return;
 	}
 
 	CustomResource *dst_custom_resource = nullptr;
@@ -11623,7 +11627,14 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 		if (G->track_region_hashes && dst_custom_resource)
 			dst_custom_resource->SetHandleInfo(src_resource, offset, buf_dst_size ? buf_dst_size : buf_src_size);
 		dst_resource = src_resource;
-		if (src_view && (EquivTarget(src.type) == EquivTarget(dst.type)))
+		// A region can change while the backing resource stays the same. Neither
+		// its full source view nor a previous region's cached view proves a match.
+		if (region_size && *pp_cached_view)
+		{
+			(*pp_cached_view)->Release();
+			*pp_cached_view = nullptr;
+		}
+		if (!region_size && src_view && (EquivTarget(src.type) == EquivTarget(dst.type)))
 		{
 			dst_view = src_view;
 		}
@@ -11649,7 +11660,12 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 
 	if (!dst_view)
 	{
-		dst_view = CreateCompatibleView(&dst, dst_resource, state, stride, offset, format, buf_src_size, options);
+		// View builders take an exclusive buffer extent; copy helpers take a
+		// byte count. A copied region starts at zero in its new buffer.
+		UINT view_extent = region_size ? region_offset + region_size : buf_src_size;
+		if ((options & ResourceCopyOptions::COPY_MASK) && buf_dst_size)
+			view_extent = buf_dst_size;
+		dst_view = CreateCompatibleView(&dst, dst_resource, state, stride, offset, format, view_extent, options);
 		// Not checking for nullptr return as view's are not applicable to
 		// all types. Legitimate failures are logged.
 		*pp_cached_view = dst_view;
