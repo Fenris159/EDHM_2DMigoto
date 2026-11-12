@@ -57,6 +57,9 @@ void resets_only_the_requested_pool_proxy()
 	auto &source = customResourcePools[L"poolsource"];
 	auto &proxy = customResourcePools[L"poolproxy"];
 	auto &unrelated = customResourcePools[L"poolunrelated"];
+	source.name = L"poolsource";
+	proxy.name = L"poolproxy";
+	unrelated.name = L"poolunrelated";
 	source.variable_template = std::make_unique<CommandListVariable>(L"$source", 9.0f, VariableFlags::NONE);
 	proxy.variable_template = std::make_unique<CommandListVariable>(L"$proxy", 3.0f, VariableFlags::NONE);
 	unrelated.variable_template = std::make_unique<CommandListVariable>(L"$other", 5.0f, VariableFlags::NONE);
