@@ -275,6 +275,7 @@ CustomResourcePool &make_pool(const wchar_t *name, float default_value)
 
 void resolves_reference_chains_in_any_order()
 {
+	D3DFixture fixture;
 	for (bool reverse : {false, true})
 	{
 		ConfigFixture resources;
@@ -298,7 +299,22 @@ void resolves_reference_chains_in_any_order()
 		for (const wchar_t *name : {L"resourcesource", L"resourcealias", L"resourceslot"})
 			require(customResources.at(name).bind_flags == D3D11_BIND_SHADER_RESOURCE,
 			        "reference chain lost the final SRV usage across order/reload");
+		auto &source = customResources.at(L"resourcesource");
+		source.override_type = CustomResourceType::BUFFER;
+		source.override_byte_width = 16;
+		source.override_format = DXGI_FORMAT_R32_FLOAT;
+		source.Substantiate(fixture.device.Get(), static_cast<D3D11_BIND_FLAG>(0),
+		                    static_cast<D3D11_RESOURCE_MISC_FLAG>(0));
+		require(source.resource != nullptr, "reference chain did not produce a usable source buffer");
+		D3D11_SHADER_RESOURCE_VIEW_DESC desc{};
+		desc.Format = DXGI_FORMAT_R32_FLOAT;
+		desc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+		desc.Buffer.NumElements = 4;
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
+		require(SUCCEEDED(fixture.device->CreateShaderResourceView(source.resource, &desc, &view)),
+		        "reference order prevented actual SRV creation");
 	}
+	fixture.require_no_errors();
 }
 
 void terminates_incompatible_reference_cycles()
@@ -338,6 +354,13 @@ void metadata_queries_do_not_extend_pool_lifetime()
 	pool.read_refreshes_expiration = false;
 	require(pool.GetVariable(0, false, true, false)->fval == 3.0f,
 	        "cancelled unless_null copy refreshed an untouched pool element");
+	auto &static_pool = make_pool(L"poolstatic", 1.0f);
+	static_pool.index_type = PoolIndexType::STATIC;
+	static_pool.GetResource(0, false, false, true)->bind_flags = D3D11_BIND_VERTEX_BUFFER;
+	ResourceCopyTarget target;
+	require(target.ParseTarget(L"poolstatic[0]", true, &config_namespace, nullptr), "static pool target was rejected");
+	require(target.BindFlags(&fixture.state) == D3D11_BIND_VERTEX_BUFFER,
+	        "metadata query replaced a statically resolved element with its template");
 	fixture.require_no_errors();
 }
 
@@ -731,6 +754,7 @@ void failed_replacement_preserves_complete_file()
 	G->user_config = path.wstring();
 	G->user_config_dirty = 3;
 	setlocale(LC_CTYPE, "C");
+	const bool failed_wipe = WipeUserConfig();
 	const bool failed_save = SavePersistentSettings();
 	const auto old_contents = file_contents(path);
 	const int dirty_after_failure = G->user_config_dirty;
@@ -742,6 +766,7 @@ void failed_replacement_preserves_complete_file()
 	persistent_variables.clear();
 	std::filesystem::remove_all(root);
 	require(!failed_save, "replacement unexpectedly succeeded while deletion was denied");
+	require(!failed_wipe, "wipe unexpectedly succeeded while deletion was denied");
 	require(old_contents == "previous complete settings\n", "failed replacement damaged the last complete file");
 	require(dirty_after_failure == 3, "failed replacement discarded pending settings");
 	require(locale_after_failure == "C", "failed replacement changed the caller locale");
@@ -803,15 +828,29 @@ void preserves_only_eligible_settings_across_reload()
 	auto saved = file_contents(files.user);
 	require(saved.find("$unknown = 9") != std::string::npos, "first load did not preserve unknown settings");
 	require(saved.find("$temporary") == std::string::npos, "nonpersistent setting was retained on disk");
-	std::ofstream(files.user) << "[Constants]\n$known = 7\n$unknown = 10\n";
+	std::ofstream(files.config, std::ios::app) << "global persist $unknown = 2\n";
+	load();
+	require(command_list_globals.at(L"$unknown").fval == 9.0f, "returning persistent variable lost its saved value");
+	require(SavePersistentSettings(), "save after returning variable failed");
+	files.write_config(true);
+	load();
+	G->user_config_dirty |= 1;
+	require(SavePersistentSettings(), "save after removing variable failed");
+	std::ofstream(files.user) << "[Constants]\n$known = 7\n$replacement = 9\n";
+	load();
+	G->user_config_dirty |= 1;
+	require(SavePersistentSettings(), "renamed-unknown save failed");
+	require(file_contents(files.user).find("$replacement = 9") != std::string::npos,
+	        "changed unknown name with the same count lost its grace period");
+	std::ofstream(files.user) << "[Constants]\n$known = 7\n$replacement = 10\n";
 	load();
 	G->user_config_dirty |= 1;
 	require(SavePersistentSettings(), "changed-unknown save failed");
-	require(file_contents(files.user).find("$unknown = 10") != std::string::npos,
+	require(file_contents(files.user).find("$replacement = 10") != std::string::npos,
 	        "changed unknown value with the same count lost its grace period");
 	load();
 	require(SavePersistentSettings(), "stale-unknown cleanup failed");
-	require(file_contents(files.user).find("$unknown") == std::string::npos,
+	require(file_contents(files.user).find("$replacement") == std::string::npos,
 	        "unchanged unknown survived its grace period");
 	files.write_config(false);
 	std::ofstream(files.user) << "[Constants]\n$known = 7\n$unknown = 11\n";
