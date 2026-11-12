@@ -1799,13 +1799,12 @@ static void find_texture_overrides_for_desc(const DescType *desc, TextureOverrid
 	if (profile)
 	{
 		++Profiling::texture_override_fuzzy_match_overhead.count;
+		Profiling::fuzzy_candidates_tested += G->mFuzzyTextureOverrides.size();
 		Profiling::start(&timing);
 	}
 
 	for (i = G->mFuzzyTextureOverrides.begin(); i != G->mFuzzyTextureOverrides.end(); i++)
 	{
-		if (profile)
-			++Profiling::fuzzy_candidates_tested;
 		if ((*i)->matches(desc) && matches_draw_info((*i)->texture_override, call_info))
 			matches->push_back((*i)->texture_override);
 	}
@@ -1883,20 +1882,26 @@ void find_texture_overrides_for_resource_desc(ID3D11Resource *resource, TextureO
 void find_texture_overrides_for_resource(ID3D11Resource *resource, TextureOverrideMatches *matches,
                                          DrawCallInfo *call_info)
 {
-	find_texture_overrides_for_resource_by_hash(resource, matches, call_info);
-
-	// Classic 3Dmigoto / EDHM behaviour: a hash match is authoritative.
-	// XXMI previously allowed fuzzy matches to also run when hash matches
-	// existed (for AGMG-style mods). That can change which filter_index wins
-	// when a hashed texture also matches a fuzzy RT size rule - which breaks
-	// EDHM HUD colour selection. Keep dual-match opt-in for XXMI use cases.
-	if (!matches->empty() && !G->fuzzy_match_alongside_hash)
+	const bool profile = Profiling::mode == Profiling::Mode::SUMMARY;
+	Profiling::State timing{};
+	const size_t matches_before = matches->size();
+	if (profile)
 	{
-		// Exact hash match(es) only - do not process fuzzy matches
-		return;
+		++Profiling::texture_override_match_overhead.count;
+		Profiling::start(&timing);
 	}
 
-	find_texture_overrides_for_resource_desc(resource, matches, call_info);
+	find_texture_overrides_for_resource_by_hash(resource, matches, call_info);
+	// Preserve classic EDHM hash-first matching and explicit opt-in dual matching.
+	if (matches->empty() || G->fuzzy_match_alongside_hash)
+		find_texture_overrides_for_resource_desc(resource, matches, call_info);
+
+	if (profile)
+	{
+		Profiling::end(&timing, &Profiling::texture_override_match_overhead);
+		if (matches->size() > matches_before)
+			++Profiling::texture_override_match_overhead.hits;
+	}
 }
 
 bool TextureOverrideLess(const struct TextureOverride &lhs, const struct TextureOverride &rhs)
