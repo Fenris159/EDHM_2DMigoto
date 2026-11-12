@@ -4623,11 +4623,22 @@ static void tokenise(const wstring *expression, CommandListSyntaxTree *tree, con
 		// Variable
 		if (has_variable_prefix)
 		{
-			size_t len = FindVariableTokenEnd(remain, 1);
+			if (remain.size() >= 6 && remain.compare(0, 5, L"$pool") == 0)
+			{
+				// Pool identifiers also allow namespace characters, hyphens and Unicode.
+				const size_t pool_length = FindResourceCopyTargetTokenEnd(remain, 1);
+				if (pool_length)
+				{
+					token = remain.substr(0, pool_length);
+					if (operand->parse_target(&token, ini_namespace, scope))
+					{
+						pos += pool_length;
+						goto import_operand;
+					}
+				}
+			}
 
-			// Skip handling variable pool (e.g. `$PoolFoo[0]`).
-			if (len && len < remain.size() && remain[len] == L'[')
-				len = 0;
+			size_t len = FindVariableTokenEnd(remain, 1);
 
 			if (len)
 			{
@@ -4639,9 +4650,8 @@ static void tokenise(const wstring *expression, CommandListSyntaxTree *tree, con
 					pos += len;
 					goto import_operand;
 				}
-
-				throw CommandListSyntaxError(L"Variable not recognized: " + remain, friendly_pos);
 			}
+			throw CommandListSyntaxError(L"Variable not recognized: " + remain, friendly_pos);
 		}
 
 		has_prefix = has_variable_prefix || remain[0] == L'@' || remain[0] == L'#';
