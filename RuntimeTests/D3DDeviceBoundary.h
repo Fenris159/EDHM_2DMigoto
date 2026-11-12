@@ -27,7 +27,8 @@ class D3DDeviceBoundary final : public ID3D11Device1
 			AddRef();
 			return S_OK;
 		}
-		return device->QueryInterface(iid, result);
+		*result = nullptr;
+		return E_NOINTERFACE;
 	}
 	ULONG STDMETHODCALLTYPE AddRef() override
 	{

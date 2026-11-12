@@ -50,8 +50,8 @@ def main():
         (
             "pending-save",
             settings,
-            '\tconst std::string previous_locale = setlocale(LC_CTYPE, nullptr);',
-            '\tG->user_config_dirty = 0;\n\tconst std::string previous_locale = setlocale(LC_CTYPE, nullptr);',
+            'bool SavePersistentSettings()\n{\n\tG->gSettingsSaveTime = G->gTime;',
+            'bool SavePersistentSettings()\n{\n\tG->gSettingsSaveTime = G->gTime;\n\tG->user_config_dirty = 0;',
         ),
         (
             "pool-reset",
