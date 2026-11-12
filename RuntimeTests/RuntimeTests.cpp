@@ -828,6 +828,26 @@ void preserves_only_eligible_settings_across_reload()
 	require(file_contents(files.user).find("$unknown") == std::string::npos, "wipe left cached unknown settings");
 	fixture.require_no_errors();
 }
+
+void preserves_constants_declaration_and_execution_order()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	SettingsConfigFixture files;
+	std::ofstream(files.config) << "[Logging]\nenabled=0\ncalls=0\nshow_warnings=0\n"
+	                               "[Include]\nuser_config=runtime-user.ini\n[Constants]\n"
+	                               "$second = $first + 1\nglobal $first = 2\nglobal $second = 0\n"
+	                               "$first = 5\n$second = $second + 10\nglobal persist $third = 3\n"
+	                               "global $first = 99\nglobal $bad-name = 4\n";
+	LoadConfigFile();
+	require(command_list_globals.at(L"$first").fval == 2.0f, "duplicate declaration replaced the first initializer");
+	require(command_list_globals.find(L"$bad-name") == command_list_globals.end(), "invalid declaration was accepted");
+	for (const auto &command : G->constants_command_list.commands)
+		command->run(&fixture.state);
+	require(command_list_globals.at(L"$first").fval == 5.0f, "declaration compaction changed assignments");
+	require(command_list_globals.at(L"$second").fval == 13.0f, "compaction changed execution/declaration ordering");
+	require(command_list_globals.at(L"$third").fval == 3.0f, "compaction discarded a trailing declaration");
+}
 }
 
 int main(int argc, char **argv)
@@ -876,7 +896,8 @@ int main(int argc, char **argv)
 	             {"region-views", region_views_follow_changing_ranges},
 	             {"region-cb", copies_cb_regions_beyond_the_bound_window},
 	             {"settings-atomic", failed_replacement_preserves_complete_file},
-	             {"settings-lifecycle", preserves_only_eligible_settings_across_reload}};
+	             {"settings-lifecycle", preserves_only_eligible_settings_across_reload},
+	             {"constants-order", preserves_constants_declaration_and_execution_order}};
 	int failures = 0;
 	int selected = 0;
 	for (const auto &test : tests)
