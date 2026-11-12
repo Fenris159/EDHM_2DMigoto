@@ -5017,6 +5017,9 @@ static void transform_operators_visit(CommandListSyntaxTree *tree, CommandListOp
 	if (!tree)
 		return;
 
+	if (tree->tokens.empty())
+		throw CommandListSyntaxError(L"Expression inside parentheses must not be empty", 0);
+
 	if (right_associative)
 	{
 		if (unary)
