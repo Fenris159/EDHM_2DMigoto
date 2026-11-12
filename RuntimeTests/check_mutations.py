@@ -104,6 +104,12 @@ def main():
             "\tif (src_view)\n\t\tsrc_view->AddRef();",
         ),
         (
+            "store-failure",
+            command_list,
+            'LogInfo("StoreCommand: Failed to acquire readback buffer\\n");',
+            'LogInfo("StoreCommand: Failed to acquire readback buffer\\n");\n\t\tvar->fval = 0;',
+        ),
+        (
             "region-copy",
             command_list,
             "UINT buf_dst_size = region_size;",
@@ -122,6 +128,22 @@ def main():
             "buf_src_size = region_extent;\n"
             "\t\tif (src.type == ResourceCopyTargetType::CONSTANT_BUFFER)\n"
             "\t\t\tbuf_dst_size = min(buf_dst_size, 256U);",
+        ),
+        (
+            "settings-lifecycle",
+            settings,
+            "persistent_settings_state.Remember(*key, value);",
+            'persistent_settings_state.Remember(L"$wrong", value);',
+        ),
+        (
+            "settings-atomic",
+            settings,
+            "if (failed)\n\t{\n\t\tDeleteFileW(temporary);",
+            "if (failed)\n\t{\n"
+            "\t\tHANDLE damaged = CreateFileW(destination, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, "
+            "nullptr, TRUNCATE_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);\n"
+            "\t\tif (damaged != INVALID_HANDLE_VALUE)\n\t\t\tCloseHandle(damaged);\n"
+            "\t\tDeleteFileW(temporary);",
         ),
     ]
     originals = {path: path.read_bytes() for _, path, _, _ in mutations}

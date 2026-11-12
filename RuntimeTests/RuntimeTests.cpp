@@ -3,7 +3,10 @@
 #include "../DirectX11/IniHandler.h"
 #include "../DirectX11/globals.h"
 #include "D3DDeviceBoundary.h"
+#include "../DirectX11/input.h"
 
+#include <atomic>
+#include <chrono>
 #include <clocale>
 #include <filesystem>
 #include <fstream>
@@ -418,10 +421,10 @@ void stores_typed_and_structured_values()
 class ViewLifetime final : public IUnknown
 {
 	LONG references = 1;
-	std::shared_ptr<bool> destroyed;
+	std::shared_ptr<std::atomic_bool> destroyed;
 
   public:
-	explicit ViewLifetime(std::shared_ptr<bool> destroyed) : destroyed(std::move(destroyed)) {}
+	explicit ViewLifetime(std::shared_ptr<std::atomic_bool> destroyed) : destroyed(std::move(destroyed)) {}
 	HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **result) override
 	{
 		if (!result)
@@ -442,7 +445,7 @@ class ViewLifetime final : public IUnknown
 		const ULONG remaining = static_cast<ULONG>(InterlockedDecrement(&references));
 		if (!remaining)
 		{
-			*destroyed = true;
+			destroyed->store(true, std::memory_order_release);
 			delete this;
 		}
 		return remaining;
@@ -490,7 +493,7 @@ void releases_store_views_on_success_and_failure()
 			require(SUCCEEDED(fixture.device->CreateShaderResourceView(resource.Get(), nullptr, &view)),
 			        "texture view creation failed");
 		}
-		auto destroyed = std::make_shared<bool>(false);
+		auto destroyed = std::make_shared<std::atomic_bool>(false);
 		auto *lifetime = new ViewLifetime(destroyed);
 		const GUID key = {0x83e75508, 0xe509, 0x4ca9, {0x81, 0xbe, 0xec, 0x6d, 0x11, 0xa4, 0x4f, 0x18}};
 		require(SUCCEEDED(view->SetPrivateDataInterface(key, lifetime)), "could not track view lifetime");
@@ -522,7 +525,7 @@ void releases_store_views_on_success_and_failure()
 		source.view = nullptr;
 		fixture.context->ClearState();
 		fixture.context->Flush();
-		require(*destroyed, "store retained an owned source view reference");
+		require(destroyed->load(std::memory_order_acquire), "store retained an owned source view reference");
 	}
 	fixture.require_no_errors();
 }
@@ -835,6 +838,24 @@ int main(int argc, char **argv)
 	InitializeCriticalSection(&G->mCriticalSection);
 	InitializeCriticalSection(&G->mResourcesLock);
 	InitializeCriticalSection(&resource_creation_mode_lock);
+	if (argc > 1 && std::string(argv[1]) == "benchmark-load")
+	{
+		const int runs = argc > 2 ? std::stoi(argv[2]) : 21;
+		if (runs < 1 || runs > 1000)
+			return 1;
+		std::cout << "sample,load_us,globals,constants_commands\n";
+		for (int sample = 0; sample < runs; ++sample)
+		{
+			ClearKeyBindings();
+			G->iniParamsReserved = 0;
+			const auto start = std::chrono::steady_clock::now();
+			LoadConfigFile();
+			const auto elapsed = std::chrono::steady_clock::now() - start;
+			std::cout << sample << ',' << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count() << ','
+			          << command_list_globals.size() << ',' << G->constants_command_list.commands.size() << '\n';
+		}
+		return 0;
+	}
 	const struct
 	{
 		const char *name;
