@@ -449,17 +449,16 @@ static bool get_namespaced_section_path(const wchar_t *section, wstring *ret)
 }
 
 static void ParseIniSectionLine(wstring *wline, wstring *section, int *warn_duplicates, bool *warn_lines_without_equals,
-                                IniSectionVector **section_vector, const wstring *ini_namespace,
-                                const wstring *ini_path)
+                                IniSection **section_entry, const wstring *ini_namespace, const wstring *ini_path)
 {
 	bool allow_duplicate_sections = false;
 	size_t first;
 	size_t last;
-	bool inserted;
 	bool namespaced_section = false;
 
 	*warn_duplicates = 1;
 	*warn_lines_without_equals = true;
+	*section_entry = nullptr;
 
 	// To match the behaviour of GetPrivateProfileString, we use up until
 	// the first ] as the section name. If there is no ] character, we use
@@ -504,25 +503,25 @@ static void ParseIniSectionLine(wstring *wline, wstring *section, int *warn_dupl
 	// key matches, which would have to be handled elsewhere.  For now,
 	// continue warning about duplicate sections and match the old
 	// behaviour.
-	inserted = ini_sections.emplace(*section, IniSection{}).second;
-	if (!inserted && !allow_duplicate_sections)
+	const auto inserted = ini_sections.emplace(*section, IniSection{});
+	if (!inserted.second && !allow_duplicate_sections)
 	{
 		IniWarningW(L"Duplicate section found\n - [%ls]\n", section->c_str());
 		section->clear();
-		*section_vector = nullptr;
 		return;
 	}
 
-	*section_vector = &ini_sections[*section].kv_vec;
+	IniSection &entry = inserted.first->second;
+	*section_entry = &entry;
 
 	// Record the namespace so we can use it later when looking up any
 	// referenced sections. Only for namespaced sections, not global
 	// sections:
 	if (namespaced_section)
 	{
-		ini_sections[*section].ini_namespace = *ini_namespace;
+		entry.ini_namespace = *ini_namespace;
 		if (*ini_path != *ini_namespace)
-			ini_sections[*section].ini_path = *ini_path;
+			entry.ini_path = *ini_path;
 	}
 
 	// Sections that utilise a command list are allowed to have duplicate
@@ -610,7 +609,7 @@ static bool ParseIniPreamble(wstring *wline, wstring *ini_namespace)
 }
 
 static void ParseIniKeyValLine(wstring *wline, wstring *section, int warn_duplicates, bool warn_lines_without_equals,
-                               IniSectionVector *section_vector, const wstring *ini_namespace)
+                               IniSection *section_entry, const wstring *ini_namespace)
 {
 	size_t first;
 	size_t last;
@@ -619,7 +618,7 @@ static void ParseIniKeyValLine(wstring *wline, wstring *section, int warn_duplic
 	wstring val;
 	bool inserted;
 
-	if (section->empty() || section_vector == nullptr)
+	if (section->empty() || section_entry == nullptr)
 	{
 		IniWarningW(L"Entry outside of section: %ls\n - [%ls]\n", wline->c_str(), ini_namespace->c_str());
 		return;
@@ -646,7 +645,7 @@ static void ParseIniKeyValLine(wstring *wline, wstring *section, int warn_duplic
 		{
 			// Recursively loaded config files are permitted to
 			// override values from the main d3dx.ini:
-			ini_sections.at(*section).kv_map[key] = val;
+			section_entry->kv_map[key] = val;
 		}
 		else
 		{
@@ -657,7 +656,7 @@ static void ParseIniKeyValLine(wstring *wline, wstring *section, int warn_duplic
 			// first item with a given key is inserted to match the
 			// behaviour of GetPrivateProfileString for duplicate
 			// keys within a single section:
-			inserted = ini_sections.at(*section).kv_map.emplace(key, val).second;
+			inserted = section_entry->kv_map.emplace(key, val).second;
 			if ((warn_duplicates == 1) && !inserted && !whitelisted_duplicate_key(section->c_str(), key.c_str()))
 			{
 				IniWarningW(L"Duplicate key found: %ls\n - [%ls] @ [%ls]\n", key.c_str(), section->c_str(),
@@ -679,7 +678,7 @@ static void ParseIniKeyValLine(wstring *wline, wstring *section, int warn_duplic
 		}
 	}
 
-	section_vector->emplace_back(key, val, *wline, *ini_namespace);
+	section_entry->kv_vec.emplace_back(key, val, *wline, *ini_namespace);
 }
 
 static void ParseIniStream(wistream *stream, const wstring *_ini_namespace)
@@ -689,7 +688,7 @@ static void ParseIniStream(wistream *stream, const wstring *_ini_namespace)
 	wstring ini_path;
 	size_t first;
 	size_t last;
-	IniSectionVector *section_vector = nullptr;
+	IniSection *section_entry = nullptr;
 	int warn_duplicates = 1;
 	bool warn_lines_without_equals = true;
 	wstring ini_namespace;
@@ -730,7 +729,7 @@ static void ParseIniStream(wistream *stream, const wstring *_ini_namespace)
 		if (wline[0] == L'[')
 		{
 			preamble = false;
-			ParseIniSectionLine(&wline, &section, &warn_duplicates, &warn_lines_without_equals, &section_vector,
+			ParseIniSectionLine(&wline, &section, &warn_duplicates, &warn_lines_without_equals, &section_entry,
 			                    &ini_namespace, &ini_path);
 			continue;
 		}
@@ -742,8 +741,7 @@ static void ParseIniStream(wistream *stream, const wstring *_ini_namespace)
 			continue;
 		}
 
-		ParseIniKeyValLine(&wline, &section, warn_duplicates, warn_lines_without_equals, section_vector,
-		                   &ini_namespace);
+		ParseIniKeyValLine(&wline, &section, warn_duplicates, warn_lines_without_equals, section_entry, &ini_namespace);
 	}
 }
 
