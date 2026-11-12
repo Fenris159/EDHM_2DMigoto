@@ -19,6 +19,8 @@ import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[1]
+CLANG_COMPILER = "clang++"
+GCC_COMPILER = "g++"
 DEFAULT_BASE = "f8e7118a1220e43546e546efa31892b8304358df"
 DEFAULT_CURRENT = "34d92f27f588bbc3f72320c0fa17b674638698c6"
 CPP = r"""
@@ -150,7 +152,7 @@ def main():
     parser.add_argument("--samples", type=int, default=15)
     parser.add_argument("--iterations", type=int, default=200000)
     parser.add_argument("--cpu", type=int, help="Pin benchmark process to one Linux logical CPU")
-    parser.add_argument("--compiler", choices=("g++", "clang++"), default="g++")
+    parser.add_argument("--compiler", choices=(GCC_COMPILER, CLANG_COMPILER), default=GCC_COMPILER)
     parser.add_argument("--output", type=Path, default=ROOT / ".quality/region-cache-results")
     args = parser.parse_args()
     if args.samples < 3 or args.iterations < 1000:
@@ -169,7 +171,7 @@ def main():
               + "}\nnamespace payload {\n" + payload + "\n}\n")
     (build / "extracted.hpp").write_text(header)
     (build / "benchmark.cpp").write_text(CPP)
-    compiler = "clang++" if args.compiler == "clang++" else "g++"
+    compiler = CLANG_COMPILER if args.compiler == CLANG_COMPILER else GCC_COMPILER
     flags = ["-std=c++17", "-O2", "-DNDEBUG", "-Wall", "-Wextra", "-Werror"]
     executable = build / "benchmark"
     subprocess.run([compiler, *flags, str(build / "benchmark.cpp"), "-o", str(executable)], check=True)
