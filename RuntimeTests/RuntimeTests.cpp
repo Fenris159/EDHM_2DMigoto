@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <d3d11sdklayers.h>
 #include <wrl/client.h>
 
 namespace
@@ -91,6 +92,7 @@ struct D3DFixture
 	HMODULE module = LoadLibraryExW(L"d3d11.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
 	Microsoft::WRL::ComPtr<ID3D11Device1> device;
 	Microsoft::WRL::ComPtr<ID3D11DeviceContext1> context;
+	Microsoft::WRL::ComPtr<ID3D11InfoQueue> messages;
 	std::unique_ptr<HackerContext> hacker_context;
 	CommandListState state;
 
@@ -104,15 +106,39 @@ struct D3DFixture
 		require(create != nullptr, "system D3D11CreateDevice is unavailable");
 		Microsoft::WRL::ComPtr<ID3D11Device> base_device;
 		Microsoft::WRL::ComPtr<ID3D11DeviceContext> base_context;
-		require(SUCCEEDED(create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, nullptr, 0, D3D11_SDK_VERSION, &base_device,
-		                         nullptr, &base_context)),
-		        "could not create WARP device");
+		HRESULT result = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, D3D11_CREATE_DEVICE_DEBUG, nullptr, 0,
+		                        D3D11_SDK_VERSION, &base_device, nullptr, &base_context);
+		if (result == DXGI_ERROR_SDK_COMPONENT_MISSING)
+		{
+			std::cout << "LIMITATION D3D debug layer is unavailable\n";
+			result = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, nullptr, 0, D3D11_SDK_VERSION, &base_device,
+			                nullptr, &base_context);
+		}
+		require(SUCCEEDED(result), "could not create WARP device");
 		require(SUCCEEDED(base_device.As(&device)), "D3D11.1 device unavailable");
 		require(SUCCEEDED(base_context.As(&context)), "D3D11.1 context unavailable");
 		state.mOrigDevice1 = device.Get();
 		state.mOrigContext1 = context.Get();
 		hacker_context = std::make_unique<HackerContext>(device.Get(), context.Get());
 		state.mHackerContext = hacker_context.get();
+		device.As(&messages);
+	}
+
+	void require_no_errors()
+	{
+		if (!messages)
+			return;
+		for (UINT64 index = 0; index < messages->GetNumStoredMessagesAllowedByRetrievalFilter(); ++index)
+		{
+			SIZE_T size = 0;
+			require(SUCCEEDED(messages->GetMessage(index, nullptr, &size)), "could not query D3D diagnostics");
+			std::vector<unsigned char> storage(size);
+			auto *message = reinterpret_cast<D3D11_MESSAGE *>(storage.data());
+			require(SUCCEEDED(messages->GetMessage(index, message, &size)), "could not read D3D diagnostic");
+			if (message->Severity == D3D11_MESSAGE_SEVERITY_ERROR ||
+			    message->Severity == D3D11_MESSAGE_SEVERITY_CORRUPTION)
+				throw std::runtime_error(message->pDescription);
+		}
 	}
 
 	~D3DFixture()
@@ -120,6 +146,7 @@ struct D3DFixture
 		if (context)
 			context->ClearState();
 		hacker_context.reset();
+		messages.Reset();
 		context.Reset();
 		device.Reset();
 		if (module)
@@ -165,6 +192,253 @@ void recreates_structured_data_as_a_constant_buffer()
 	fixture.context->Unmap(staging.Get(), 0);
 	require(result[0] == 2.0f && result[1] == 4.0f && result[2] == 6.0f && result[3] == 8.0f,
 	        "constant buffer copy changed the data");
+	fixture.require_no_errors();
+}
+
+struct ConfigFixture
+{
+	~ConfigFixture()
+	{
+		ClearDeferredBindFlags();
+		customResourcePools.clear();
+		customResources.clear();
+		persistent_variables.clear();
+		command_list_globals.clear();
+	}
+};
+
+void parse_copy(CommandList &commands, const wchar_t *destination, const wchar_t *source)
+{
+	std::wstring value(source);
+	require(ParseCommandListResourceCopyTargetDirective(L"CommandListTest", destination, &value, &commands,
+	                                                    &config_namespace),
+	        "resource command was rejected");
+}
+
+CustomResourcePool &make_pool(const wchar_t *name, float default_value)
+{
+	auto &pool = customResourcePools[name];
+	pool.name = name;
+	pool.resource_template = &customResources[pool.name + L"_template"];
+	pool.resource_template->pool = &pool;
+	pool.variable_template =
+	    std::make_unique<CommandListVariable>(L"$" + pool.name, default_value, VariableFlags::NONE);
+	pool.Initialize(2);
+	return pool;
+}
+
+void resolves_reference_chains_in_any_order()
+{
+	for (bool reverse : {false, true})
+	{
+		ConfigFixture resources;
+		CommandList commands;
+		customResources[L"resourcesource"];
+		customResources[L"resourcealias"];
+		customResources[L"resourceslot"];
+		if (reverse)
+		{
+			parse_copy(commands, L"ps-t3", L"ref resourceslot");
+			parse_copy(commands, L"resourceslot", L"ref resourcealias");
+			parse_copy(commands, L"resourcealias", L"ref resourcesource");
+		}
+		else
+		{
+			parse_copy(commands, L"resourcealias", L"ref resourcesource");
+			parse_copy(commands, L"resourceslot", L"ref resourcealias");
+			parse_copy(commands, L"ps-t3", L"ref resourceslot");
+		}
+		PropagateDeferredBindFlags();
+		for (const wchar_t *name : {L"resourcesource", L"resourcealias", L"resourceslot"})
+			require(customResources.at(name).bind_flags == D3D11_BIND_SHADER_RESOURCE,
+			        "reference chain lost the final SRV usage across order/reload");
+	}
+}
+
+void terminates_incompatible_reference_cycles()
+{
+	ConfigFixture resources;
+	CommandList commands;
+	auto &a = customResources[L"resourcea"];
+	auto &b = customResources[L"resourceb"];
+	parse_copy(commands, L"resourcea", L"ref resourceb");
+	parse_copy(commands, L"resourceb", L"ref resourcea");
+	parse_copy(commands, L"ps-t0", L"ref resourcea");
+	parse_copy(commands, L"vs-cb0", L"ref resourceb");
+	a.misc_flags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	PropagateDeferredBindFlags();
+	require(a.bind_flags == D3D11_BIND_SHADER_RESOURCE, "cycle corrupted SRV usage");
+	require(b.bind_flags == D3D11_BIND_CONSTANT_BUFFER, "cycle corrupted constant-buffer usage");
+	require(b.misc_flags == 0, "rejected incompatible reference modified constant-buffer metadata");
+}
+
+void metadata_queries_do_not_extend_pool_lifetime()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	auto &pool = make_pool(L"poolmetadata", 3.0f);
+	pool.expiration_timeout_frames = 5;
+	pool.read_refreshes_expiration = true;
+	pool.Initialize(2);
+	G->frame_no = 10;
+	pool.GetVariable(0, false, true, true)->fval = 9.0f;
+	customResources[L"resourcemissing"];
+	CommandList commands;
+	parse_copy(commands, L"poolmetadata[0]", L"ref unless_null resourcemissing");
+	G->frame_no = 14;
+	for (const auto &command : commands.commands)
+		command->run(&fixture.state);
+	G->frame_no = 17;
+	pool.read_refreshes_expiration = false;
+	require(pool.GetVariable(0, false, true, false)->fval == 3.0f,
+	        "cancelled unless_null copy refreshed an untouched pool element");
+	fixture.require_no_errors();
+}
+
+void accepts_pool_identifier_grammar()
+{
+	ConfigFixture resources;
+	make_pool(L"poolhyphen-name", 2.5f);
+	make_pool(L"pool\\test.ini\\\u03b4-name", 4.0f);
+	make_pool(L"pool\u03b4", 6.0f);
+	command_list_globals.emplace(L"$pool_test", CommandListVariable(L"$pool_test", 8.0f, VariableFlags::NONE));
+	CommandListState state;
+	const struct
+	{
+		const wchar_t *text;
+		float expected;
+	} cases[] = {{L"$poolhyphen-name[0]", 2.5f},
+	             {L"$pool\\test.ini\\\u03b4-name[0]", 4.0f},
+	             {L"$pool\u03b4[0]", 6.0f},
+	             {L"$pool_test - 1", 7.0f}};
+	for (const auto &item : cases)
+	{
+		CommandListExpression expression;
+		const std::wstring input(item.text);
+		require(expression.parse(&input, &config_namespace, nullptr), "pool identifier was rejected");
+		require(expression.evaluate(&state) == item.expected, "pool identifier resolved the wrong value");
+	}
+}
+
+void read_store(StoreCommand &command, CommandListState &state, const wchar_t *index)
+{
+	command.offset_expression = std::make_unique<CommandListExpression>();
+	const std::wstring text(index);
+	require(command.offset_expression->parse(&text, &config_namespace, nullptr), "store index was rejected");
+	command.run(&state);
+}
+
+void stores_typed_and_structured_values()
+{
+	D3DFixture fixture;
+	for (bool structured : {false, true})
+	{
+		CustomResource source;
+		const float values[] = {1.25f, 2.5f, 3.75f, 5.0f, 6.25f, 7.5f, 8.75f, 10.0f};
+		D3D11_BUFFER_DESC desc{};
+		desc.ByteWidth = sizeof(values);
+		desc.Usage = D3D11_USAGE_DEFAULT;
+		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+		desc.MiscFlags = structured ? D3D11_RESOURCE_MISC_BUFFER_STRUCTURED : 0;
+		desc.StructureByteStride = structured ? 16 : 0;
+		D3D11_SUBRESOURCE_DATA data{};
+		data.pSysMem = values;
+		Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+		require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &data, &buffer)), "store source creation failed");
+		source.resource = buffer.Detach();
+		source.is_null = false;
+		CommandListVariable value(L"$result", -99.0f, VariableFlags::NONE);
+		StoreCommand command;
+		command.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+		command.src.SetCustomResource(&source);
+		command.var = &value;
+		read_store(command, fixture.state, L"0");
+		require(value.fval == 1.25f, "store did not read the first float");
+		read_store(command, fixture.state, L"3");
+		require(value.fval == 5.0f, "store did not read the final float in a structure");
+		read_store(command, fixture.state, L"4");
+		require(value.fval == 6.25f, "store did not cross to the next structure");
+		read_store(command, fixture.state, L"7");
+		require(value.fval == 10.0f, "store did not read the exact-fit final float");
+		for (const wchar_t *invalid : {L"-1", L"8", L"4294967296", L"1e30", L"nan", L"inf"})
+		{
+			value.fval = -99.0f;
+			read_store(command, fixture.state, invalid);
+			require(value.fval == -99.0f, "invalid store index overwrote the previous value");
+		}
+	}
+	fixture.require_no_errors();
+}
+
+class ViewLifetime final : public IUnknown
+{
+	LONG references = 1;
+	std::shared_ptr<bool> destroyed;
+
+  public:
+	explicit ViewLifetime(std::shared_ptr<bool> destroyed) : destroyed(std::move(destroyed)) {}
+	HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **result) override
+	{
+		if (!result)
+			return E_POINTER;
+		*result = nullptr;
+		if (iid != __uuidof(IUnknown))
+			return E_NOINTERFACE;
+		*result = static_cast<IUnknown *>(this);
+		AddRef();
+		return S_OK;
+	}
+	ULONG STDMETHODCALLTYPE AddRef() override
+	{
+		return static_cast<ULONG>(InterlockedIncrement(&references));
+	}
+	ULONG STDMETHODCALLTYPE Release() override
+	{
+		const ULONG remaining = static_cast<ULONG>(InterlockedDecrement(&references));
+		if (!remaining)
+		{
+			*destroyed = true;
+			delete this;
+		}
+		return remaining;
+	}
+};
+
+void releases_store_views_on_success_and_failure()
+{
+	D3DFixture fixture;
+	CustomResource source;
+	D3D11_TEXTURE2D_DESC desc{};
+	desc.Width = desc.Height = desc.MipLevels = desc.ArraySize = desc.SampleDesc.Count = 1;
+	desc.Format = DXGI_FORMAT_R32_FLOAT;
+	desc.Usage = D3D11_USAGE_DEFAULT;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+	require(SUCCEEDED(fixture.device->CreateTexture2D(&desc, nullptr, &texture)), "texture source creation failed");
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
+	require(SUCCEEDED(fixture.device->CreateShaderResourceView(texture.Get(), nullptr, &view)),
+	        "store view creation failed");
+	auto destroyed = std::make_shared<bool>(false);
+	auto *lifetime = new ViewLifetime(destroyed);
+	const GUID key = {0x83e75508, 0xe509, 0x4ca9, {0x81, 0xbe, 0xec, 0x6d, 0x11, 0xa4, 0x4f, 0x18}};
+	require(SUCCEEDED(view->SetPrivateDataInterface(key, lifetime)), "could not track view lifetime");
+	lifetime->Release();
+	source.resource = texture.Detach();
+	source.view = view.Detach();
+	source.is_null = false;
+	CommandListVariable value(L"$result", 42.0f, VariableFlags::NONE);
+	StoreCommand command;
+	command.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+	command.src.SetCustomResource(&source);
+	command.var = &value;
+	for (int iteration = 0; iteration < 4; ++iteration)
+		read_store(command, fixture.state, L"0");
+	require(value.fval == 42.0f, "non-buffer store source overwrote the previous value");
+	source.view->Release();
+	source.view = nullptr;
+	fixture.context->Flush();
+	require(*destroyed, "failed store retained an owned view reference");
+	fixture.require_no_errors();
 }
 
 void preserves_pending_save()
@@ -215,7 +489,13 @@ int main(int argc, char **argv)
 	             {"leading-dot", accepts_leading_dot_numbers},
 	             {"pending-save", preserves_pending_save},
 	             {"pool-reset", resets_only_the_requested_pool_proxy},
-	             {"constant-stride", recreates_structured_data_as_a_constant_buffer}};
+	             {"constant-stride", recreates_structured_data_as_a_constant_buffer},
+	             {"reference-order", resolves_reference_chains_in_any_order},
+	             {"reference-cycles", terminates_incompatible_reference_cycles},
+	             {"pool-metadata", metadata_queries_do_not_extend_pool_lifetime},
+	             {"pool-identifiers", accepts_pool_identifier_grammar},
+	             {"store-values", stores_typed_and_structured_values},
+	             {"store-views", releases_store_views_on_success_and_failure}};
 	int failures = 0;
 	int selected = 0;
 	for (const auto &test : tests)
