@@ -4599,7 +4599,7 @@ static void tokenise(const wstring *expression, CommandListSyntaxTree *tree, con
 		size_t len_target = 0;
 
 		// Numeric Literal
-		if (std::isdigit(remain[0]))
+		if (std::isdigit(remain[0]) || remain[0] == L'.')
 		{
 			// - Supported inputs: DECIMAL 0.0001, HEX 0x0001, BIN 0b0001.
 			// - Must tokenise subtraction operation first.
