@@ -9582,7 +9582,9 @@ D3D11_BIND_FLAG ResourceCopyTarget::BindFlags(CommandListState *state, D3D11_RES
 	case ResourceCopyTargetType::CUSTOM_RESOURCE:
 	case ResourceCopyTargetType::POOL:
 	{
-		CustomResource *custom_resource = GetCustomResource(state);
+		// Metadata queries must not allocate a lazy pool element or refresh its
+		// expiration before an unless_null copy can decide to leave it alone.
+		CustomResource *custom_resource = GetCustomResource(nullptr);
 		if (misc_flags)
 			*misc_flags = custom_resource->misc_flags;
 		return custom_resource->bind_flags;
