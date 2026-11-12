@@ -622,6 +622,16 @@ void copies_region_byte_counts_and_preserves_invalid_destinations()
 	require(destination.resource != nullptr, "region copy did not create a destination");
 	require(read_buffer(fixture, destination.resource) == std::vector<float>({3.75f, 5.0f, 6.25f}),
 	        "region size was not a byte count");
+	CommandList cb_copy;
+	parse_copy(cb_copy, L"vs-cb2", L"copy resourcesource->region(8, 12)");
+	for (const auto &command : cb_copy.commands)
+		command->run(&fixture.state);
+	Microsoft::WRL::ComPtr<ID3D11Buffer> copied_cb;
+	fixture.context->VSGetConstantBuffers(2, 1, &copied_cb);
+	require(copied_cb != nullptr, "copied region incorrectly used a ranged CB binding");
+	const auto cb_values = read_buffer(fixture, copied_cb.Get());
+	require(cb_values.size() == 4 && cb_values[0] == 3.75f && cb_values[1] == 5.0f && cb_values[2] == 6.25f,
+	        "copied CB region did not preserve its requested bytes");
 	auto *previous = destination.resource;
 	for (const wchar_t *invalid : {L"resourcesource->region(-1, 4)", L"resourcesource->region(32, 1)",
 	                               L"resourcesource->region(31, 2)", L"resourcesource->region(4294967295, 8)",
@@ -710,6 +720,23 @@ void copies_cb_regions_beyond_the_bound_window()
 	require(result.size() == 128, "explicit CB region was clamped to the visible window");
 	require(result[0] == 11.0f && result[1] == 12.0f && result[127] == 77.0f,
 	        "CB region copied the wrong backing bytes");
+	CommandList reference;
+	parse_copy(reference, L"cs-cb1", L"ref vs-cb0->region(256, 256)");
+	for (const auto &command : reference.commands)
+		command->run(&fixture.state);
+	UINT actual_first = 0, actual_count = 0;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> referenced;
+	fixture.context->CSGetConstantBuffers1(1, 1, &referenced, &actual_first, &actual_count);
+	require(referenced == buffer && actual_first == 16 && actual_count == 16,
+	        "valid CB reference did not bind the requested aligned window");
+	CommandList unaligned;
+	parse_copy(unaligned, L"cs-cb1", L"ref vs-cb0->region(16, 16)");
+	for (const auto &command : unaligned.commands)
+		command->run(&fixture.state);
+	referenced.Reset();
+	fixture.context->CSGetConstantBuffers1(1, 1, &referenced, &actual_first, &actual_count);
+	require(referenced == buffer && actual_first == 16 && actual_count == 16,
+	        "unsupported CB reference alignment changed the previous binding");
 	fixture.require_no_errors();
 }
 

@@ -328,6 +328,18 @@ filename = EDHM-ini/icons/target.png
 
 Then bind it: `ps-t120 = ResourceThemeIcon`.
 
+### Persistent settings across reloads
+
+`d3dx_user.ini` stores variables that still have `persist`, including enabled
+persistent pool variables. Temporarily unavailable values receive one reload of
+grace. Set `[System] clear_unknown_settings = 0` to retain unknown values across
+reloads indefinitely. Removing persistence discards the old saved value.
+
+Saves replace the file after a complete write. A failed save keeps pending
+values and the previous file; a reload that cannot save or wipe is canceled.
+Resolve the write failure, then request the reload again. An explicit wipe clears
+the file and retained unknown values; the subsequent reload applies defaults.
+
 ### `[Pool…]` **(new)**
 
 A bank of resources and/or variables, indexed by a number (draw id, hash,
@@ -478,11 +490,11 @@ IniParams buffer to fit the highest index you use.
 
 ### `store` **(new rewrite)**
 
-Read GPU memory into a named variable (uses the shared staging-buffer pool).
+Read one float from a GPU buffer into a named variable using the shared staging-buffer pool. The optional index counts 32-bit floats in the backing buffer, including for structured sources. Invalid indices, unsupported sources and failed readbacks leave the previous variable value intact.
 
 ```ini
 store = $value ResourceFoo
-store = $value vs-cb0 16          ; optional byte offset (expression)
+store = $value vs-cb0 16          ; float index 16: byte offset 64
 ```
 
 **Use for:** driving HUD from a constant buffer the game already filled
@@ -587,7 +599,7 @@ Written `target->Member` or `target->Member(args)`. Case-insensitive.
 | `->Offset` | — | Bind offset. |
 | `->Index` | — | Pool slot index for this id. |
 | `->LastFrame` | — | Frame number when that pool slot was last written. |
-| `->Region(offset, size)` | byte offset, size | View/copy only that CB span (`cs-cb0 = ref vs-cb0->Region($o, $s)`). |
+| `->Region(offset, size)` | byte offset, size | View/copy that buffer span; `size` is a byte count, not an end offset. |
 | `->HashRegion(offset, size)` | byte offset, size | Hash of that byte span (needs `track_region_hashes`). |
 | `->SpatialHash(xOff, yOff, zOff, cell)` | 3 offsets + cell size | Spatial cell key for pool indexing. |
 | `->ElementFormat(SEMANTIC, index)` | name, semantic index | **Assign** a new DXGI format (layout override). |
@@ -597,12 +609,22 @@ Written `target->Member` or `target->Member(args)`. Case-insensitive.
 ; Scale HUD from the RT size
 x = o0->size
 
-; Copy 16 bytes starting at $off from the vertex-shader CB
-cs-cb0 = ref vs-cb0->Region($off, 16)
+; Reference 256 bytes from an aligned backing-buffer offset
+cs-cb0 = ref vs-cb0->Region($off, 256)
 
 ; Hash a constant-buffer window (hunting / matching)
 $h = vs-cb0->HashRegion(0, 64)
 ```
+
+`Region(8, 12)` covers bytes 8 through 19. Explicit regions are checked against
+the backing buffer, including when the source CB currently exposes a smaller
+window. Empty, nonfinite, negative and out-of-bounds ranges leave the destination
+unchanged. Structured-buffer regions must contain complete elements.
+
+CB-to-CB references require byte offsets and lengths divisible by 256, with a
+length no greater than 64 KiB; these are the D3D11.1 binding constraints. Copies
+create a separate buffer and use normal CB binding.
+[Microsoft's constant-buffer range documentation](https://learn.microsoft.com/en-us/windows/win32/api/d3d11_1/nf-d3d11_1-id3d11devicecontext1-pssetconstantbuffers1).
 
 Use `#PoolName` for pool size (slot count) and `->Stride` for a resource's
 structured stride.
@@ -761,11 +783,11 @@ endif
 global $zoom = 0
 
 [Present]
-store = $zoom vs-cb1 12
+store = $zoom vs-cb1 3
 x = $zoom
 ```
 
-Offset `12` is bytes into that bound VS constant buffer.
+Index `3` reads the four bytes at byte offset `12` in the backing VS constant buffer.
 
 ### Pulse using frame number **(new)**
 

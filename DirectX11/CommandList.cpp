@@ -11496,6 +11496,9 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 		region_extent = desc.ByteWidth;
 		if (static_cast<UINT64>(region_offset) + region_size > region_extent)
 			return;
+		if (dst.type == ResourceCopyTargetType::CONSTANT_BUFFER && (options & ResourceCopyOptions::REFERENCE) &&
+		    (region_offset % 256 || region_size % 256 || region_size > D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT * 16))
+			return;
 		if ((desc.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED) &&
 		    (!desc.StructureByteStride || region_offset % desc.StructureByteStride ||
 		     region_size % desc.StructureByteStride))
@@ -11667,8 +11670,8 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 	//
 	// Here we ensure that SetConstantBuffers1 is never called for non-ref copies to CB.
 	if (dst.type == ResourceCopyTargetType::CONSTANT_BUFFER &&
-	    src.evaluation_mode != ResourceCopyTargetEvaluationMode::RESOURCE_REGION &&
-	    !(options & ResourceCopyOptions::COPY_MASK))
+	    ((options & ResourceCopyOptions::COPY_MASK) ||
+	     src.evaluation_mode != ResourceCopyTargetEvaluationMode::RESOURCE_REGION))
 	{
 		offset = 0;
 		buf_dst_size = 0;
