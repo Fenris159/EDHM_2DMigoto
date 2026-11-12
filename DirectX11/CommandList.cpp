@@ -11091,9 +11091,28 @@ static D3D11_UNORDERED_ACCESS_VIEW_DESC *FillOutTex3DDesc(D3D11_UNORDERED_ACCESS
 
 #pragma endregion FillOutDesc
 
+static bool IsPlanarVideoFormat(DXGI_FORMAT format)
+{
+	switch (format)
+	{
+	case DXGI_FORMAT_NV12:
+	case DXGI_FORMAT_P010:
+	case DXGI_FORMAT_P016:
+	case DXGI_FORMAT_420_OPAQUE:
+	case DXGI_FORMAT_NV11:
+	case DXGI_FORMAT_P208:
+	case DXGI_FORMAT_V208:
+	case DXGI_FORMAT_V408:
+		return true;
+	default:
+		return false;
+	}
+}
+
 template <typename DescType>
 static DescType *FillResourceViewDesc(ID3D11Resource *resource, DescType &view_desc, UINT stride, UINT offset,
-                                      DXGI_FORMAT format, UINT buf_src_size, ResourceCopyOptions options)
+                                      DXGI_FORMAT format, UINT buf_src_size, ResourceCopyOptions options,
+                                      bool *planar = nullptr)
 {
 	D3D11_RESOURCE_DIMENSION dimension;
 	ID3D11Buffer *buf;
@@ -11144,6 +11163,8 @@ static DescType *FillResourceViewDesc(ID3D11Resource *resource, DescType &view_d
 	case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
 		tex2d = (ID3D11Texture2D *)resource;
 		tex2d->GetDesc(&tex2d_desc);
+		if (planar)
+			*planar = IsPlanarVideoFormat(tex2d_desc.Format);
 		pDesc = FillOutTex2DDesc(&view_desc, &tex2d_desc, format);
 		break;
 	case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
@@ -11651,6 +11672,135 @@ template <typename DescType> static void CanonicalizeViewDesc(DescType &desc, ID
 	}
 }
 
+template <typename T> static bool SameBufferElements(const T &a, const T &b)
+{
+	return a.FirstElement == b.FirstElement && a.NumElements == b.NumElements;
+}
+template <typename T> static bool SameMipRange(const T &a, const T &b)
+{
+	return a.MostDetailedMip == b.MostDetailedMip && a.MipLevels == b.MipLevels;
+}
+template <typename T> static bool SameArrayRange(const T &a, const T &b)
+{
+	return a.FirstArraySlice == b.FirstArraySlice && a.ArraySize == b.ArraySize;
+}
+template <typename T> static bool SameMipArray(const T &a, const T &b)
+{
+	return a.MipSlice == b.MipSlice && SameArrayRange(a, b);
+}
+template <typename T> static bool SameVolumeSlice(const T &a, const T &b)
+{
+	return a.MipSlice == b.MipSlice && a.FirstWSlice == b.FirstWSlice && a.WSize == b.WSize;
+}
+
+static bool SameViewDesc(const D3D11_SHADER_RESOURCE_VIEW_DESC &a, const D3D11_SHADER_RESOURCE_VIEW_DESC &b)
+{
+	if (a.Format != b.Format || a.ViewDimension != b.ViewDimension)
+		return false;
+	switch (a.ViewDimension)
+	{
+	case D3D11_SRV_DIMENSION_BUFFER:
+		return SameBufferElements(a.Buffer, b.Buffer);
+	case D3D11_SRV_DIMENSION_BUFFEREX:
+		return SameBufferElements(a.BufferEx, b.BufferEx) && a.BufferEx.Flags == b.BufferEx.Flags;
+	case D3D11_SRV_DIMENSION_TEXTURE1D:
+		return SameMipRange(a.Texture1D, b.Texture1D);
+	case D3D11_SRV_DIMENSION_TEXTURE1DARRAY:
+		return SameMipRange(a.Texture1DArray, b.Texture1DArray) && SameArrayRange(a.Texture1DArray, b.Texture1DArray);
+	case D3D11_SRV_DIMENSION_TEXTURE2D:
+		return SameMipRange(a.Texture2D, b.Texture2D);
+	case D3D11_SRV_DIMENSION_TEXTURE2DARRAY:
+		return SameMipRange(a.Texture2DArray, b.Texture2DArray) && SameArrayRange(a.Texture2DArray, b.Texture2DArray);
+	case D3D11_SRV_DIMENSION_TEXTURE2DMS:
+		return true;
+	case D3D11_SRV_DIMENSION_TEXTURE2DMSARRAY:
+		return SameArrayRange(a.Texture2DMSArray, b.Texture2DMSArray);
+	case D3D11_SRV_DIMENSION_TEXTURE3D:
+		return SameMipRange(a.Texture3D, b.Texture3D);
+	case D3D11_SRV_DIMENSION_TEXTURECUBE:
+		return SameMipRange(a.TextureCube, b.TextureCube);
+	case D3D11_SRV_DIMENSION_TEXTURECUBEARRAY:
+		return SameMipRange(a.TextureCubeArray, b.TextureCubeArray) &&
+		       a.TextureCubeArray.First2DArrayFace == b.TextureCubeArray.First2DArrayFace &&
+		       a.TextureCubeArray.NumCubes == b.TextureCubeArray.NumCubes;
+	default:
+		return false;
+	}
+}
+
+static bool SameViewDesc(const D3D11_RENDER_TARGET_VIEW_DESC &a, const D3D11_RENDER_TARGET_VIEW_DESC &b)
+{
+	if (a.Format != b.Format || a.ViewDimension != b.ViewDimension)
+		return false;
+	switch (a.ViewDimension)
+	{
+	case D3D11_RTV_DIMENSION_BUFFER:
+		return SameBufferElements(a.Buffer, b.Buffer);
+	case D3D11_RTV_DIMENSION_TEXTURE1D:
+		return a.Texture1D.MipSlice == b.Texture1D.MipSlice;
+	case D3D11_RTV_DIMENSION_TEXTURE1DARRAY:
+		return SameMipArray(a.Texture1DArray, b.Texture1DArray);
+	case D3D11_RTV_DIMENSION_TEXTURE2D:
+		return a.Texture2D.MipSlice == b.Texture2D.MipSlice;
+	case D3D11_RTV_DIMENSION_TEXTURE2DARRAY:
+		return SameMipArray(a.Texture2DArray, b.Texture2DArray);
+	case D3D11_RTV_DIMENSION_TEXTURE2DMS:
+		return true;
+	case D3D11_RTV_DIMENSION_TEXTURE2DMSARRAY:
+		return SameArrayRange(a.Texture2DMSArray, b.Texture2DMSArray);
+	case D3D11_RTV_DIMENSION_TEXTURE3D:
+		return SameVolumeSlice(a.Texture3D, b.Texture3D);
+	default:
+		return false;
+	}
+}
+
+static bool SameViewDesc(const D3D11_DEPTH_STENCIL_VIEW_DESC &a, const D3D11_DEPTH_STENCIL_VIEW_DESC &b)
+{
+	if (a.Format != b.Format || a.ViewDimension != b.ViewDimension || a.Flags != b.Flags)
+		return false;
+	switch (a.ViewDimension)
+	{
+	case D3D11_DSV_DIMENSION_TEXTURE1D:
+		return a.Texture1D.MipSlice == b.Texture1D.MipSlice;
+	case D3D11_DSV_DIMENSION_TEXTURE1DARRAY:
+		return SameMipArray(a.Texture1DArray, b.Texture1DArray);
+	case D3D11_DSV_DIMENSION_TEXTURE2D:
+		return a.Texture2D.MipSlice == b.Texture2D.MipSlice;
+	case D3D11_DSV_DIMENSION_TEXTURE2DARRAY:
+		return SameMipArray(a.Texture2DArray, b.Texture2DArray);
+	case D3D11_DSV_DIMENSION_TEXTURE2DMS:
+		return true;
+	case D3D11_DSV_DIMENSION_TEXTURE2DMSARRAY:
+		return SameArrayRange(a.Texture2DMSArray, b.Texture2DMSArray);
+	default:
+		return false;
+	}
+}
+
+static bool SameViewDesc(const D3D11_UNORDERED_ACCESS_VIEW_DESC &a, const D3D11_UNORDERED_ACCESS_VIEW_DESC &b)
+{
+	if (a.Format != b.Format || a.ViewDimension != b.ViewDimension)
+		return false;
+	switch (a.ViewDimension)
+	{
+	case D3D11_UAV_DIMENSION_BUFFER:
+		return SameBufferElements(a.Buffer, b.Buffer) && a.Buffer.Flags == b.Buffer.Flags;
+	case D3D11_UAV_DIMENSION_TEXTURE1D:
+		return a.Texture1D.MipSlice == b.Texture1D.MipSlice;
+	case D3D11_UAV_DIMENSION_TEXTURE1DARRAY:
+		return SameMipArray(a.Texture1DArray, b.Texture1DArray);
+	case D3D11_UAV_DIMENSION_TEXTURE2D:
+		return a.Texture2D.MipSlice == b.Texture2D.MipSlice;
+	case D3D11_UAV_DIMENSION_TEXTURE2DARRAY:
+		return SameMipArray(a.Texture2DArray, b.Texture2DArray);
+	case D3D11_UAV_DIMENSION_TEXTURE3D:
+		return SameVolumeSlice(a.Texture3D, b.Texture3D);
+	default:
+		return false;
+	}
+}
+
 template <typename ViewType, typename DescType>
 static Microsoft::WRL::ComPtr<ID3D11View> CompatibleSourceView(ID3D11View *source_view, ID3D11Resource *resource,
                                                                UINT stride, UINT offset, DXGI_FORMAT format,
@@ -11660,13 +11810,13 @@ static Microsoft::WRL::ComPtr<ID3D11View> CompatibleSourceView(ID3D11View *sourc
 	if (FAILED(source_view->QueryInterface(IID_PPV_ARGS(&typed))))
 		return {};
 	DescType expected{}, actual{};
-	if (!FillResourceViewDesc(resource, expected, stride, offset, format, extent, options))
+	bool planar = false;
+	if (!FillResourceViewDesc(resource, expected, stride, offset, format, extent, options, &planar) || planar)
 		return {};
 	CanonicalizeViewDesc(expected, resource);
 	typed->GetDesc(&actual);
-	// A conservative byte comparison can reject equivalent inactive union
-	// bytes; the fallback still creates the original requested descriptor.
-	if (memcmp(&actual, &expected, sizeof(expected)) != 0)
+	// Compare only fields belonging to the active view dimension.
+	if (!SameViewDesc(actual, expected))
 		return {};
 	return typed;
 }
