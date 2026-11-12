@@ -11,6 +11,10 @@ on:
         description: Deliberately break each repaired behavior and verify detection
         type: boolean
         default: false
+      mechanism_benchmarks:
+        description: Capture interpreter and WARP view CPU mechanism measurements
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -49,6 +53,17 @@ jobs:
       - name: Verify regression sensitivity
         if: inputs.mutation_checks && matrix.platform == 'x64'
         run: python RuntimeTests/check_mutations.py
+      - name: Measure CPU mechanisms without the debug layer
+        if: inputs.mechanism_benchmarks && matrix.platform == 'x64'
+        shell: pwsh
+        run: |
+          $output = '.quality/runtime-benchmarks'
+          New-Item -ItemType Directory -Force -Path $output | Out-Null
+          $exe = '.quality/runtime-tests/x64/Release/RuntimeTests.exe'
+          foreach ($mode in @('lists', 'views')) {
+            & $exe "benchmark-$mode" 11 | Set-Content -Encoding utf8 "$output/$mode.csv"
+            if ($LASTEXITCODE -ne 0) { throw "Benchmark failed: $mode" }
+          }
       - name: Upload native test executable and mutation evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -57,5 +72,6 @@ jobs:
           path: |
             .quality/runtime-tests/${{ matrix.platform }}/Release/RuntimeTests.exe
             .quality/runtime-mutations/
+            .quality/runtime-benchmarks/
           if-no-files-found: warn
           retention-days: 14

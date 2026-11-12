@@ -14,6 +14,7 @@ class D3DDeviceBoundary final : public ID3D11Device1
   public:
 	D3D11_BUFFER_DESC last_buffer_description{};
 	unsigned buffer_creations = 0;
+	unsigned view_creations = 0;
 	bool fail_staging = false;
 
 	explicit D3DDeviceBoundary(ID3D11Device1 *original) : device(original) {}
@@ -79,6 +80,7 @@ class D3DDeviceBoundary final : public ID3D11Device1
 	                                                   const D3D11_SHADER_RESOURCE_VIEW_DESC *pDesc,
 	                                                   ID3D11ShaderResourceView **ppSRView) override
 	{
+		++view_creations;
 		return device->CreateShaderResourceView(pResource, pDesc, ppSRView);
 	}
 
@@ -86,6 +88,7 @@ class D3DDeviceBoundary final : public ID3D11Device1
 	                                                    const D3D11_UNORDERED_ACCESS_VIEW_DESC *pDesc,
 	                                                    ID3D11UnorderedAccessView **ppUAView) override
 	{
+		++view_creations;
 		return device->CreateUnorderedAccessView(pResource, pDesc, ppUAView);
 	}
 
@@ -93,6 +96,7 @@ class D3DDeviceBoundary final : public ID3D11Device1
 	                                                 const D3D11_RENDER_TARGET_VIEW_DESC *pDesc,
 	                                                 ID3D11RenderTargetView **ppRTView) override
 	{
+		++view_creations;
 		return device->CreateRenderTargetView(pResource, pDesc, ppRTView);
 	}
 
@@ -100,6 +104,7 @@ class D3DDeviceBoundary final : public ID3D11Device1
 	                                                 const D3D11_DEPTH_STENCIL_VIEW_DESC *pDesc,
 	                                                 ID3D11DepthStencilView **ppDepthStencilView) override
 	{
+		++view_creations;
 		return device->CreateDepthStencilView(pResource, pDesc, ppDepthStencilView);
 	}
 
