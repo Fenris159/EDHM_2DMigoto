@@ -7,6 +7,8 @@
 #include <DDSTextureLoader.h>
 #include <WICTextureLoader.h>
 #include <algorithm>
+#include <cmath>
+#include <wrl/client.h>
 #include <sstream>
 #include "HackerDevice.h"
 #include "HackerContext.h"
@@ -1755,60 +1757,75 @@ void DrawCommand::run(CommandListState *state)
 
 void StoreCommand::run(CommandListState *state)
 {
-	HackerContext *mHackerContext = state->mHackerContext;
-	ID3D11DeviceContext *mOrigContext1 = state->mOrigContext1;
-
-	ID3D11View *src_view = nullptr;
-	ID3D11Resource *src_resource = src.GetResource(state, &src_view, nullptr, nullptr, nullptr, nullptr, nullptr);
-
+	Microsoft::WRL::ComPtr<ID3D11View> src_view;
+	Microsoft::WRL::ComPtr<ID3D11Resource> src_resource;
+	src_resource.Attach(src.GetResource(state, src_view.GetAddressOf(), nullptr, nullptr, nullptr, nullptr, nullptr));
 	if (!src_resource)
 	{
 		LogInfo("StoreCommand: Failed to acquire source resource\n");
 		return;
 	}
 
-	// Acquire a cached staging buffer. Buffers are pooled by size and reused
-	// across calls to avoid repeated CreateBuffer() overhead.
-	ID3D11Buffer *staging = mHackerContext->GetReadbackBuffer(sizeof(float));
+	D3D11_RESOURCE_DIMENSION dimension = D3D11_RESOURCE_DIMENSION_UNKNOWN;
+	src_resource->GetType(&dimension);
+	if (dimension != D3D11_RESOURCE_DIMENSION_BUFFER)
+	{
+		LogInfo("StoreCommand: Source is not a buffer\n");
+		return;
+	}
 
+	// The offset is a flat float index for both typed and structured buffers.
+	// Validate the floating-point value before any conversion to an integer.
+	const double index = offset_expression->evaluate(state);
+	if (!std::isfinite(index) || index < 0 || index > UINT_MAX)
+		return;
+
+	D3D11_BUFFER_DESC desc{};
+	static_cast<ID3D11Buffer *>(src_resource.Get())->GetDesc(&desc);
+	const UINT64 value_offset = static_cast<UINT64>(static_cast<UINT>(index)) * sizeof(float);
+	const UINT64 value_end = value_offset + sizeof(float);
+	UINT64 copy_offset = value_offset;
+	UINT64 copy_end = value_end;
+
+	if (desc.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED)
+	{
+		const UINT stride = desc.StructureByteStride;
+		if (!stride)
+			return;
+		// D3D11 requires complete structure elements in the source copy box.
+		copy_offset = (value_offset / stride) * stride;
+		copy_end = ((value_end + stride - 1) / stride) * stride;
+	}
+	if (copy_end > desc.ByteWidth)
+		return;
+
+	// The bounds check above also proves both UINT conversions fit.
+	const UINT copy_size = static_cast<UINT>(copy_end - copy_offset);
+	ID3D11Buffer *staging = state->mHackerContext->GetReadbackBuffer(copy_size);
 	if (!staging)
 	{
 		LogInfo("StoreCommand: Failed to acquire readback buffer\n");
-		src_resource->Release();
 		return;
 	}
 
-	UINT offset = static_cast<UINT>(offset_expression->evaluate(state));
-
-	// Copy the requested float into the staging buffer for CPU readback.
-	D3D11_BOX box = {};
-	box.left = offset * sizeof(float);
-	box.right = box.left + sizeof(float);
-	box.top = 0;
+	D3D11_BOX box{};
+	box.left = static_cast<UINT>(copy_offset);
+	box.right = static_cast<UINT>(copy_end);
 	box.bottom = 1;
-	box.front = 0;
 	box.back = 1;
+	state->mOrigContext1->CopySubresourceRegion(staging, 0, 0, 0, 0, src_resource.Get(), 0, &box);
 
-	mOrigContext1->CopySubresourceRegion(staging, 0, 0, 0, 0, src_resource, 0, &box);
-
-	// Map the staging buffer so the copied value can be read by the CPU.
-	D3D11_MAPPED_SUBRESOURCE map = {};
-
-	HRESULT hr = mOrigContext1->Map(staging, 0, D3D11_MAP_READ, 0, &map);
-
+	D3D11_MAPPED_SUBRESOURCE mapped{};
+	const HRESULT hr = state->mOrigContext1->Map(staging, 0, D3D11_MAP_READ, 0, &mapped);
 	if (FAILED(hr))
 	{
 		LogInfo("StoreCommand: Map(D3D11_MAP_READ) failed (hr=0x%08X)\n", hr);
-		src_resource->Release();
 		return;
 	}
 
-	// Read the value before unmapping, as the mapped pointer becomes invalid once Unmap() is called.
-	var->fval = *reinterpret_cast<float *>(map.pData);
-
-	mOrigContext1->Unmap(staging, 0);
-
-	src_resource->Release();
+	const auto *data = static_cast<const uint8_t *>(mapped.pData);
+	memcpy(&var->fval, data + (value_offset - copy_offset), sizeof(float));
+	state->mOrigContext1->Unmap(staging, 0);
 }
 
 void SkipCommand::run(CommandListState *state)
