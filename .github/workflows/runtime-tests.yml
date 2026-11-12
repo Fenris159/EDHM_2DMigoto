@@ -70,6 +70,7 @@ jobs:
           $candidate = (Resolve-Path '.quality/runtime-tests/x64/Release/RuntimeTests.exe').Path
           $variants = @{ B = $candidate }
           $order = @('B')
+          $run = $null
           if ($env:BENCHMARK_BASELINE_RUN) {
             if ($env:BENCHMARK_BASELINE_RUN -notmatch '^[0-9]+$') { throw 'Baseline run must be a numeric run ID' }
             $run = & gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:BENCHMARK_BASELINE_RUN" |
