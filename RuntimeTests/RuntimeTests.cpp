@@ -2,6 +2,7 @@
 #include "../DirectX11/HackerContext.h"
 #include "../DirectX11/IniHandler.h"
 #include "../DirectX11/globals.h"
+#include "D3DDeviceBoundary.h"
 
 #include <clocale>
 #include <filesystem>
@@ -157,6 +158,9 @@ struct D3DFixture
 void recreates_structured_data_as_a_constant_buffer()
 {
 	D3DFixture fixture;
+	Microsoft::WRL::ComPtr<D3DDeviceBoundary> boundary;
+	boundary.Attach(new D3DDeviceBoundary(fixture.device.Get()));
+	fixture.state.mOrigDevice1 = boundary.Get();
 	const float data[] = {2.0f, 4.0f, 6.0f, 8.0f};
 	D3D11_BUFFER_DESC desc{};
 	desc.ByteWidth = sizeof(data);
@@ -172,6 +176,9 @@ void recreates_structured_data_as_a_constant_buffer()
 	operation.options = ResourceCopyOptions::COPY;
 	require(operation.dst.ParseTarget(L"vs-cb0", false, nullptr, nullptr), "constant buffer target was rejected");
 	operation.CopyResourceToResource(&fixture.state, source.Get(), nullptr, 8, 0, DXGI_FORMAT_UNKNOWN, 16);
+	require(boundary->buffer_creations == 1, "copy did not submit exactly one buffer creation");
+	require(boundary->last_buffer_description.StructureByteStride == 0,
+	        "runtime submitted a stale structured stride to D3D");
 	Microsoft::WRL::ComPtr<ID3D11Buffer> constant;
 	fixture.context->VSGetConstantBuffers(0, 1, &constant);
 	require(constant != nullptr, "constant buffer was not bound");
@@ -192,6 +199,42 @@ void recreates_structured_data_as_a_constant_buffer()
 	fixture.context->Unmap(staging.Get(), 0);
 	require(result[0] == 2.0f && result[1] == 4.0f && result[2] == 6.0f && result[3] == 8.0f,
 	        "constant buffer copy changed the data");
+	fixture.require_no_errors();
+}
+
+void preserves_store_values_when_readback_allocation_fails()
+{
+	D3DFixture fixture;
+	Microsoft::WRL::ComPtr<D3DDeviceBoundary> boundary;
+	boundary.Attach(new D3DDeviceBoundary(fixture.device.Get()));
+	boundary->fail_staging = true;
+	HackerContext context(boundary.Get(), fixture.context.Get());
+	fixture.state.mOrigDevice1 = boundary.Get();
+	fixture.state.mHackerContext = &context;
+	const float values[] = {7, 8, 9, 10};
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = sizeof(values);
+	desc.Usage = D3D11_USAGE_DEFAULT;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	D3D11_SUBRESOURCE_DATA initial{};
+	initial.pSysMem = values;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+	require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &initial, &buffer)), "readback source creation failed");
+	CustomResource source;
+	source.resource = buffer.Detach();
+	source.device = boundary.Get();
+	source.is_null = false;
+	CommandListVariable value(L"$result", 42.0f, VariableFlags::NONE);
+	StoreCommand command;
+	command.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+	command.src.SetCustomResource(&source);
+	command.var = &value;
+	command.offset_expression = std::make_unique<CommandListExpression>();
+	const std::wstring index = L"0";
+	require(command.offset_expression->parse(&index, &config_namespace, nullptr), "store index was rejected");
+	command.run(&fixture.state);
+	require(boundary->buffer_creations == 1, "readback failure was not exercised");
+	require(value.fval == 42.0f, "failed readback allocation overwrote the previous value");
 	fixture.require_no_errors();
 }
 
@@ -679,6 +722,7 @@ int main(int argc, char **argv)
 	             {"pool-identifiers", accepts_pool_identifier_grammar},
 	             {"store-values", stores_typed_and_structured_values},
 	             {"store-views", releases_store_views_on_success_and_failure},
+	             {"store-failure", preserves_store_values_when_readback_allocation_fails},
 	             {"region-copy", copies_region_byte_counts_and_preserves_invalid_destinations},
 	             {"region-views", region_views_follow_changing_ranges},
 	             {"region-cb", copies_cb_regions_beyond_the_bound_window}};
