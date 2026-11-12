@@ -11,6 +11,10 @@ on:
         description: Verify the unfixed baseline rejects each regression check
         type: boolean
         default: false
+      mutation_checks:
+        description: Deliberately break each repaired behavior and verify detection
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -50,3 +54,16 @@ jobs:
             if ($LASTEXITCODE -ne 0) { $failures += "$case (exit $LASTEXITCODE)" }
           }
           if ($failures.Count -ne 0) { throw "Runtime regression checks failed: $($failures -join ', ')" }
+      - name: Verify regression sensitivity
+        if: inputs.mutation_checks
+        run: python RuntimeTests/check_mutations.py
+      - name: Upload native test executable and mutation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: runtime-checks-${{ github.sha }}
+          path: |
+            .quality/runtime-tests/x64/Release/RuntimeTests.exe
+            .quality/runtime-mutations/
+          if-no-files-found: warn
+          retention-days: 14
