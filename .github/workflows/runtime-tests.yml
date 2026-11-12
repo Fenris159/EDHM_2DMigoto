@@ -54,7 +54,7 @@ jobs:
             exit 0
           }
           $failures = @()
-          foreach ($case in @('empty-groups', 'leading-dot', 'pending-save', 'pool-reset', 'constant-stride', 'reference-order', 'reference-cycles', 'pool-metadata', 'pool-identifiers', 'store-values', 'store-views', 'store-failure', 'region-copy', 'region-views', 'region-cb')) {
+          foreach ($case in @('empty-groups', 'leading-dot', 'pending-save', 'pool-reset', 'constant-stride', 'reference-order', 'reference-cycles', 'pool-metadata', 'pool-identifiers', 'store-values', 'store-views', 'store-failure', 'region-copy', 'region-views', 'region-cb', 'settings-atomic', 'settings-lifecycle')) {
             & $exe $case
             if ($LASTEXITCODE -ne 0) { $failures += "$case (exit $LASTEXITCODE)" }
           }

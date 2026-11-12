@@ -697,6 +697,134 @@ void preserves_pending_save()
 	require(G->user_config_dirty == 0, "successful save left settings dirty");
 	require(G->gSettingsSaveTime == 12.0f, "save scheduling changed");
 }
+
+std::string file_contents(const std::filesystem::path &path)
+{
+	std::ifstream input(path, std::ios::binary);
+	return std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+}
+
+void failed_replacement_preserves_complete_file()
+{
+	const auto root = std::filesystem::current_path() / L".quality" / L"atomic-settings-test";
+	std::filesystem::remove_all(root);
+	std::filesystem::create_directories(root);
+	const auto path = root / L"settings.ini";
+	std::ofstream(path, std::ios::binary) << "previous complete settings\n";
+	struct FileLock
+	{
+		HANDLE handle = INVALID_HANDLE_VALUE;
+		~FileLock()
+		{
+			if (handle != INVALID_HANDLE_VALUE)
+				CloseHandle(handle);
+		}
+	} lock;
+	lock.handle = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+	                          FILE_ATTRIBUTE_NORMAL, nullptr);
+	require(lock.handle != INVALID_HANDLE_VALUE, "could not prevent destination replacement");
+	CommandListVariable variable(L"$atomic", 1.25f, VariableFlags::PERSIST);
+	persistent_variables.push_back(&variable);
+	G->user_config = path.wstring();
+	G->user_config_dirty = 3;
+	setlocale(LC_CTYPE, "C");
+	const bool failed_save = SavePersistentSettings();
+	const auto old_contents = file_contents(path);
+	const int dirty_after_failure = G->user_config_dirty;
+	const std::string locale_after_failure = setlocale(LC_CTYPE, nullptr);
+	CloseHandle(lock.handle);
+	lock.handle = INVALID_HANDLE_VALUE;
+	const bool retry = SavePersistentSettings();
+	const auto saved = file_contents(path);
+	persistent_variables.clear();
+	std::filesystem::remove_all(root);
+	require(!failed_save, "replacement unexpectedly succeeded while deletion was denied");
+	require(old_contents == "previous complete settings\n", "failed replacement damaged the last complete file");
+	require(dirty_after_failure == 3, "failed replacement discarded pending settings");
+	require(locale_after_failure == "C", "failed replacement changed the caller locale");
+	require(retry && saved.find("$atomic = 1.25") != std::string::npos, "replacement retry did not save the value");
+}
+
+struct SettingsConfigFixture
+{
+	std::filesystem::path config;
+	std::filesystem::path user;
+
+	SettingsConfigFixture()
+	{
+		wchar_t executable[MAX_PATH];
+		require(GetModuleFileNameW(nullptr, executable, ARRAYSIZE(executable)) != 0,
+		        "could not locate test executable");
+		const auto directory = std::filesystem::path(executable).parent_path();
+		config = directory / L"d3dx.ini";
+		user = directory / L"runtime-user.ini";
+		require(!std::filesystem::exists(config) && !std::filesystem::exists(user),
+		        "configuration checks require an isolated test directory");
+		write_config(true);
+	}
+
+	void write_config(bool clear_unknown)
+	{
+		std::ofstream(config) << "[Logging]\nenabled=0\ncalls=0\ndebug=0\nshow_warnings=0\n"
+		                         "[System]\nclear_unknown_settings="
+		                      << (clear_unknown ? "1" : "0")
+		                      << "\n[Include]\nuser_config=runtime-user.ini\n[Constants]\n"
+		                         "global persist $known = 1\nglobal $temporary = 5\n";
+	}
+
+	~SettingsConfigFixture()
+	{
+		std::error_code error;
+		std::filesystem::remove(config, error);
+		std::filesystem::remove(user, error);
+	}
+};
+
+void preserves_only_eligible_settings_across_reload()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	SettingsConfigFixture files;
+	std::ofstream(files.user) << "[Constants]\n$known = 7\n$unknown = 9\n$temporary = 99\n";
+	auto load = [&]()
+	{
+		LoadConfigFile();
+		for (const auto &command : G->constants_command_list.commands)
+			command->run(&fixture.state);
+	};
+	load();
+	require(command_list_globals.at(L"$known").fval == 7.0f, "known persistent value was not restored");
+	require(command_list_globals.at(L"$temporary").fval == 5.0f, "old value was restored after persist was removed");
+	G->user_config_dirty |= 1;
+	require(SavePersistentSettings(), "first settings save failed");
+	auto saved = file_contents(files.user);
+	require(saved.find("$unknown = 9") != std::string::npos, "first load did not preserve unknown settings");
+	require(saved.find("$temporary") == std::string::npos, "nonpersistent setting was retained on disk");
+	std::ofstream(files.user) << "[Constants]\n$known = 7\n$unknown = 10\n";
+	load();
+	G->user_config_dirty |= 1;
+	require(SavePersistentSettings(), "changed-unknown save failed");
+	require(file_contents(files.user).find("$unknown = 10") != std::string::npos,
+	        "changed unknown value with the same count lost its grace period");
+	load();
+	require(SavePersistentSettings(), "stale-unknown cleanup failed");
+	require(file_contents(files.user).find("$unknown") == std::string::npos,
+	        "unchanged unknown survived its grace period");
+	files.write_config(false);
+	std::ofstream(files.user) << "[Constants]\n$known = 7\n$unknown = 11\n";
+	load();
+	load();
+	G->user_config_dirty |= 1;
+	require(SavePersistentSettings(), "retained-unknown save failed");
+	require(file_contents(files.user).find("$unknown = 11") != std::string::npos,
+	        "cleanup-disabled policy lost unknown settings");
+	require(WipeUserConfig(), "explicit wipe failed");
+	require(!std::filesystem::exists(files.user), "wipe left the user configuration file");
+	G->user_config_dirty |= 1;
+	require(SavePersistentSettings(), "save after wipe failed");
+	require(file_contents(files.user).find("$unknown") == std::string::npos, "wipe left cached unknown settings");
+	fixture.require_no_errors();
+}
 }
 
 int main(int argc, char **argv)
@@ -725,7 +853,9 @@ int main(int argc, char **argv)
 	             {"store-failure", preserves_store_values_when_readback_allocation_fails},
 	             {"region-copy", copies_region_byte_counts_and_preserves_invalid_destinations},
 	             {"region-views", region_views_follow_changing_ranges},
-	             {"region-cb", copies_cb_regions_beyond_the_bound_window}};
+	             {"region-cb", copies_cb_regions_beyond_the_bound_window},
+	             {"settings-atomic", failed_replacement_preserves_complete_file},
+	             {"settings-lifecycle", preserves_only_eligible_settings_across_reload}};
 	int failures = 0;
 	int selected = 0;
 	for (const auto &test : tests)
