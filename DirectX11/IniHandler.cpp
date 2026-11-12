@@ -4881,6 +4881,9 @@ void BuildTextureOverrideDrawMaps()
 
 void LoadConfigFile()
 {
+	// Drop profiling pointers before parsing can replace command storage.
+	Profiling::clear();
+	Profiling::text.clear();
 	wchar_t iniFile[MAX_PATH];
 	wchar_t logFilename[MAX_PATH];
 	wchar_t setting[MAX_PATH];
@@ -5647,11 +5650,6 @@ void ReloadConfig(HackerDevice *device)
 	// cleared as well, but for the sake of clarity I'd rather clear as
 	// many as possible inside LoadConfigFile() where they are set.
 	ClearKeyBindings();
-
-	// Clear active command lists set, as the pointers in this set will
-	// become invalid as the config is reloaded:
-	command_lists_profiling.clear();
-	command_lists_cmd_profiling.clear();
 
 	// Reset the counters on the global parameter save area:
 	OverrideSave.Reset(device);

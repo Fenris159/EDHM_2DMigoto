@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <cstdint>
 #include <array>
 #include <unordered_map>
 #include <unordered_set>
@@ -112,6 +113,7 @@ class CommandListCommand
 	LARGE_INTEGER post_time_spent{};
 	unsigned pre_executions{};
 	unsigned post_executions{};
+	uint64_t profiling_generation = 0;
 
 	virtual ~CommandListCommand() = default;
 
@@ -193,9 +195,10 @@ class CommandList
 	// For performance metrics:
 	wstring ini_section;
 	bool post;
-	LARGE_INTEGER time_spent_inclusive;
-	LARGE_INTEGER time_spent_exclusive;
-	unsigned executions;
+	LARGE_INTEGER time_spent_inclusive{};
+	LARGE_INTEGER time_spent_exclusive{};
+	unsigned executions{};
+	uint64_t profiling_generation = 0;
 
 	bool runtime_populated = false;
 
@@ -214,6 +217,7 @@ class CommandList
 extern std::vector<CommandList *> registered_command_lists;
 extern std::unordered_set<CommandList *> command_lists_profiling;
 extern std::unordered_set<CommandListCommand *> command_lists_cmd_profiling;
+void clear_command_list_profiling();
 
 // Forward declaration to avoid circular reference since Override.h includes
 // HackerDevice.h includes HackerContext.h includes CommandList.h

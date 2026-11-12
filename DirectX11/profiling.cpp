@@ -457,8 +457,7 @@ void Profiling::update_txt()
 
 void Profiling::clear()
 {
-	command_lists_profiling.clear();
-	command_lists_cmd_profiling.clear();
+	clear_command_list_profiling();
 	present_overhead.clear();
 	overlay_overhead.clear();
 	draw_overhead.clear();
