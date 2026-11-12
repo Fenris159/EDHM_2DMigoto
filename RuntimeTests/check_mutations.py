@@ -145,6 +145,13 @@ def main():
             "\t\tif (damaged != INVALID_HANDLE_VALUE)\n\t\t\tCloseHandle(damaged);\n"
             "\t\tDeleteFileW(temporary);",
         ),
+        (
+            "constants-order",
+            settings,
+            'ParseCommandList(L"Constants", &G->constants_command_list, &G->post_constants_command_list, nullptr);',
+            'ParseCommandList(L"Constants", &G->constants_command_list, &G->post_constants_command_list, nullptr);\n'
+            '\tstd::reverse(G->constants_command_list.commands.begin(), G->constants_command_list.commands.end());',
+        ),
     ]
     originals = {path: path.read_bytes() for _, path, _, _ in mutations}
     evidence = []

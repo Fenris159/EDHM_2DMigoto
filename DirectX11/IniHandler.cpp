@@ -5580,7 +5580,8 @@ void ReloadConfig(HackerDevice *device)
 	if ((G->gWipeUserConfig && !WipeUserConfig()) || !SavePersistentSettings())
 	{
 		G->gReloadConfigPending = false;
-		LogInfo("Config reload deferred because user settings could not be saved or wiped\n");
+		LogInfo("Config reload canceled because user settings could not be saved or wiped; retry after resolving the "
+		        "write failure\n");
 		return;
 	}
 	HackerContext *mHackerContext = device->GetHackerContext();

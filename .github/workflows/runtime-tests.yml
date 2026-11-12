@@ -7,10 +7,6 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
-      expect_regressions:
-        description: Verify the unfixed baseline rejects each regression check
-        type: boolean
-        default: false
       mutation_checks:
         description: Deliberately break each repaired behavior and verify detection
         type: boolean
@@ -41,18 +37,9 @@ jobs:
       - name: Exercise runtime behavior
         shell: pwsh
         env:
-          EXPECT_REGRESSIONS: ${{ inputs.expect_regressions || contains(github.event.head_commit.message, '[regression-baseline]') }}
           TEST_PLATFORM: ${{ matrix.platform }}
         run: |
           $exe = ".quality/runtime-tests/$env:TEST_PLATFORM/Release/RuntimeTests.exe"
-          if ($env:EXPECT_REGRESSIONS -eq 'true') {
-            foreach ($case in @('empty-groups', 'leading-dot', 'pending-save')) {
-              & $exe $case
-              if ($LASTEXITCODE -eq 0) { throw "Regression check failed to detect the baseline defect: $case" }
-              Write-Host "Detected baseline defect: $case (exit $LASTEXITCODE)"
-            }
-            exit 0
-          }
           $failures = @()
           foreach ($case in @('empty-groups', 'leading-dot', 'pending-save', 'pool-reset', 'constant-stride', 'reference-order', 'reference-cycles', 'pool-metadata', 'pool-identifiers', 'store-values', 'store-views', 'store-failure', 'region-copy', 'region-views', 'region-cb', 'settings-atomic', 'settings-lifecycle', 'constants-order')) {
             & $exe $case
