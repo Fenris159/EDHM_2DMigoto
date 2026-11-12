@@ -159,6 +159,18 @@ def main():
             'ParseCommandList(L"Constants", &G->constants_command_list, &G->post_constants_command_list, nullptr);\n'
             '\tstd::reverse(G->constants_command_list.commands.begin(), G->constants_command_list.commands.end());',
         ),
+        (
+            "ini-sections",
+            settings,
+            "if (warn_duplicates == 2)",
+            "if (warn_duplicates != 2)",
+        ),
+        (
+            "if-conditions",
+            command_list,
+            "if (expression.evaluate(state))",
+            "if (!expression.evaluate(state))",
+        ),
     ]
     originals = {path: path.read_bytes() for _, path, _, _ in mutations}
     evidence = []

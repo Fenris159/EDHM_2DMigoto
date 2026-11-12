@@ -388,7 +388,7 @@ void accepts_pool_identifier_grammar()
 {
 	ConfigFixture resources;
 	make_pool(L"poolhyphen-name", 2.5f);
-	make_pool(L"pool\	est.ini\\\u03b4-name", 4.0f);
+	make_pool(L"pool\\test.ini\\\u03b4-name", 4.0f);
 	make_pool(L"pool\u03b4", 6.0f);
 	command_list_globals.emplace(L"$pool_test", CommandListVariable(L"$pool_test", 8.0f, VariableFlags::NONE));
 	CommandListState state;
@@ -398,7 +398,7 @@ void accepts_pool_identifier_grammar()
 		const wchar_t *text;
 		float expected;
 	} cases[] = {{L"$poolhyphen-name[0]", 2.5f},
-	             {L"$pool\	est.ini\\\u03b4-name[0]", 4.0f},
+	             {L"$pool\\test.ini\\\u03b4-name[0]", 4.0f},
 	             {L"$pool\u03b4[0]", 6.0f},
 	             {L"$pool_test - 1", 7.0f}};
 	for (const auto &item : cases)
