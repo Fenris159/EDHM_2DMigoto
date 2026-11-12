@@ -1030,6 +1030,12 @@ int main(int argc, char **argv)
 				const auto optimize_elapsed = std::chrono::steady_clock::now() - optimize_start;
 				std::cout << std::chrono::duration_cast<std::chrono::microseconds>(optimize_elapsed).count() << ',';
 			}
+			else
+			{
+				// Complete the normal load lifecycle so optimizer-owned lists do
+				// not accumulate across parse-only timing samples.
+				optimise_command_lists(nullptr);
+			}
 			std::cout << command_list_globals.size() << ',' << G->constants_command_list.commands.size() << '\n';
 		}
 		return 0;
