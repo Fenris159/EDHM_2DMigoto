@@ -1,0 +1,282 @@
+{
+  "verified_on": "2026-11-12",
+  "task": "Reference branch fast-forward and next-release upstream intake audit",
+  "ref_update": {
+    "local_before": "af232a90fda4e5fc8799f854f07787a3bc33bcbe",
+    "origin_before": "6bf6a746a198c82fb34dbd336cac7ad8e0f4ddc9",
+    "upstream_target": "065dc746c21c71ef48bbc93cb6b90b3dcdf766e6",
+    "classic_target": "8f329bd94fecc9bbcb9211ffd42a95dd7fe6b43e",
+    "working_branch": "chore/vendor-edhm-runtime-v0.1.3",
+    "working_head": "34d92f27f588bbc3f72320c0fa17b674638698c6",
+    "tracked_diff_sha256": "0a53f4db96abe408ebbe4400e8ede1f37363095c7c6af5ca4de56223158b65a8",
+    "local_after": "065dc746c21c71ef48bbc93cb6b90b3dcdf766e6",
+    "origin_after": "065dc746c21c71ef48bbc93cb6b90b3dcdf766e6"
+  },
+  "last_local_release": {
+    "tag": "v0.1.3",
+    "commit": "8d4272e5beb0203470afd5bdc3644e1fda4c510e",
+    "date": "2026-09-21",
+    "runtime_matches_working_head": true
+  },
+  "actual_selective_port_cutoff": "326f64cf9ab565aa7cd3d50e002270994b8d16c6",
+  "historical_performance_baseline": "f8e7118a1220e43546e546efa31892b8304358df",
+  "xxmi_intake_range": {
+    "from": "326f64cf9ab565aa7cd3d50e002270994b8d16c6",
+    "to": "065dc746c21c71ef48bbc93cb6b90b3dcdf766e6",
+    "commits": 236,
+    "nonmerge_commits": 178,
+    "changed_files": 68,
+    "insertions": 10451,
+    "deletions": 1257
+  },
+  "original_post_beta_range": {
+    "from": "4ce5f2f72b2777223d2e809dcdafec514ac98295",
+    "to": "8f329bd94fecc9bbcb9211ffd42a95dd7fe6b43e",
+    "commits": 2,
+    "nonmerge_commits": 1,
+    "changed_files": 1
+  },
+  "patch_checks": [
+    {
+      "commit": "ad264db86ee7d4870215edce95287614713f2a41",
+      "subject": "Fixed INI syntax for pool proxy mode reset being rejected by the parser",
+      "unmodified_patch_check": true,
+      "ignore_space_change_check": true,
+      "first_diagnostic": ""
+    },
+    {
+      "commit": "a9d7c89b1ba957ac8a65a8bbf72acefa86eec544",
+      "subject": "Fixed expression parser not supporting float literals without leading zero",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/CommandList.cpp:4581 | error: DirectX11/CommandList.cpp: patch does not apply"
+    },
+    {
+      "commit": "24e2cff7b2bbfde31a8882c06d178fc008152997",
+      "subject": "Fixed `store` not working with structured buffers",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/CommandList.cpp:1676 | error: DirectX11/CommandList.cpp: patch does not apply"
+    },
+    {
+      "commit": "7d2c47051f1cceb6abe4294e391bcc526d678e50",
+      "subject": "Read pool bind flags from the template instead of an element",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/CommandList.cpp:9969 | error: DirectX11/CommandList.cpp: patch does not apply"
+    },
+    {
+      "commit": "6b2d803f50892ee87685e80ce4f561bdeb12f173",
+      "subject": "Clear StructureByteStride when recreating a buffer as a constant buffer",
+      "unmodified_patch_check": true,
+      "ignore_space_change_check": true,
+      "first_diagnostic": ""
+    },
+    {
+      "commit": "4cd308a59810d983c3a1298464d49c3e96cbd8bf",
+      "subject": "Disallowed overriding non-empty CommandList from different namespace",
+      "unmodified_patch_check": true,
+      "ignore_space_change_check": true,
+      "first_diagnostic": ""
+    },
+    {
+      "commit": "7ea5e9306c51234301781d226766c01540270c32",
+      "subject": "Optimize ParseConstantsSection by replacing Vector Erasure",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/IniHandler.cpp:2349 | error: DirectX11/IniHandler.cpp: patch does not apply"
+    },
+    {
+      "commit": "06962f170a36eeaf9bfa5cd9d7ce4b748fbf56cd",
+      "subject": "During Parsing - Pass the IniSection directly instead of repeatedly looking it up",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/IniHandler.cpp:569 | error: DirectX11/IniHandler.cpp: patch does not apply"
+    },
+    {
+      "commit": "8d156caad87180bf038f0892451a6a6a91fcf264",
+      "subject": "Make use of the IniSection Pass",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/IniHandler.cpp:366 | error: DirectX11/IniHandler.cpp: patch does not apply"
+    },
+    {
+      "commit": "d89378035550033fc2949d39813ac852de1af6b6",
+      "subject": "Improved Performance of Optimize_Command_Lists",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/CommandList.cpp:8782 | error: DirectX11/CommandList.cpp: patch does not apply"
+    },
+    {
+      "commit": "1ff00d94096fffef76122bde8c0c88eb1dc1253b",
+      "subject": "Optimize CommandList Operator Parsing",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/CommandList.cpp:4591 | error: DirectX11/CommandList.cpp: patch does not apply"
+    },
+    {
+      "commit": "87fa9479cfc8e1f5c1ae9dcdcd3cb2a4d3a336d8",
+      "subject": "Optimize Transform_Operators_Recursive traversal",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/CommandList.cpp:5135 | error: DirectX11/CommandList.cpp: patch does not apply"
+    },
+    {
+      "commit": "ec9e57136d66738e6fb9ceb7501483be4e3c119d",
+      "subject": "Optimize CommandList Variable Lookup",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/CommandList.cpp:5557 | error: DirectX11/CommandList.cpp: patch does not apply"
+    },
+    {
+      "commit": "5c77f4b0907906751626bb28e831edfeb22851b6",
+      "subject": "Optimized ParseConstantsSection var name lowercasing",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/CommandList.cpp:3843 | error: DirectX11/CommandList.cpp: patch does not apply"
+    },
+    {
+      "commit": "abaed4e420f5aec115a169740db74876874ed629",
+      "subject": "Skip hash contamination tracking for buffers before taking locks",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/ResourceHash.cpp:981 | error: DirectX11/ResourceHash.cpp: patch does not apply"
+    },
+    {
+      "commit": "ace1f29f3c067dcac736a2a8932dc35d31d03d13",
+      "subject": "Reuse the source view when the destination takes its kind",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/CommandList.cpp:12320 | error: DirectX11/CommandList.cpp: patch does not apply"
+    },
+    {
+      "commit": "fb2b5b0dc3f0456a431ec0d9a8211ba7442664d5",
+      "subject": "Memoise TextureOverride lookup per resource",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/ResourceHash.cpp:1719 | error: DirectX11/ResourceHash.cpp: patch does not apply"
+    },
+    {
+      "commit": "034e2875ff7b04eefa75a312144cd5338d8c6cce",
+      "subject": "Read texture override candidates under G->mCriticalSection",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/ResourceHash.cpp:1788 | error: DirectX11/ResourceHash.cpp: patch does not apply"
+    },
+    {
+      "commit": "9f04a753391bc20f655d1e991c088718ac433896",
+      "subject": "Batch adjacent shader resource slot binds and fetches",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/CommandList.cpp:11963 | error: DirectX11/CommandList.cpp: patch does not apply"
+    },
+    {
+      "commit": "c3ae4fd5cca9a2830b4893472505e26696bf1b4b",
+      "subject": "Batch slot binds and fetches regardless of copy options",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/CommandList.cpp:12147 | error: DirectX11/CommandList.cpp: patch does not apply"
+    },
+    {
+      "commit": "7ff1fe7b1f7f1914abad0bd2644bde3cae3dfc68",
+      "subject": "Release shader compile error blob when logging is off",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/HackerDevice.cpp:771 | error: DirectX11/HackerDevice.cpp: patch does not apply"
+    },
+    {
+      "commit": "57a1b6a21d06ccfa8b24433b296eed83963ed8a9",
+      "subject": "Fix max() misuse dropping offset_y in GetSpatialHash",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/ResourceHash.cpp:2583 | error: DirectX11/ResourceHash.cpp: patch does not apply"
+    },
+    {
+      "commit": "60f2cd44b547bac50972d8c9039017f3dbcf7d92",
+      "subject": "Fixed non-modified persistent variables being able to affect scheduled d3dx_user.ini update",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/CommandList.cpp:5663 | error: DirectX11/CommandList.cpp: patch does not apply"
+    },
+    {
+      "commit": "f63fe792052059f1e58ee3d9f0f40967c430d68b",
+      "subject": "Add support for raw buffers and Texture1DArray in HLSL decompiler",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: HLSLDecompiler/DecompileHLSL.cpp:949 | error: HLSLDecompiler/DecompileHLSL.cpp: patch does not apply"
+    },
+    {
+      "commit": "32d6670d079c195cbb70a35d2dcf6c273fa36ec3",
+      "subject": "Remove unnecessary header include for HookedContext.h",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/HookedContext.h:2 | error: DirectX11/HookedContext.h: patch does not apply"
+    },
+    {
+      "commit": "c4e3a4499d05268bfef3896ff4eeee8ed18a34be",
+      "subject": "Fixed DLL crash on parsing empty parentheses in INI syntax expression",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/CommandList.cpp:5085 | error: DirectX11/CommandList.cpp: patch does not apply"
+    },
+    {
+      "commit": "f59f8e5d6a6f66884fbd82131ab971edd9028d65",
+      "subject": "Re: fixed hold logic. Any up event returns to default",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/Override.cpp:455 | error: DirectX11/Override.cpp: patch does not apply"
+    },
+    {
+      "commit": "bb2cc9e6526e2243a2b8e32cbf8ddf3a4f1718a7",
+      "subject": "Add a global toggle for XXMI inputs",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/IniHandler.cpp:4130 | error: DirectX11/IniHandler.cpp: patch does not apply"
+    },
+    {
+      "commit": "c0675d4beb7f737eac0347b6bd400d26f74c3dd9",
+      "subject": "Fixed persistent variables still getting loaded from d3dx_user.ini after `persist` flag removal",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/CommandList.cpp:5904 | error: DirectX11/CommandList.cpp: patch does not apply"
+    },
+    {
+      "commit": "7d60f507eb4302f3a274b62c3fe8cd5c8629cc49",
+      "subject": "Fix for Persist Variables getting Cleared by Auto-Save",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "<stdin>:85: trailing whitespace. | \t"
+    },
+    {
+      "commit": "13f88a7ac6195d77d59d884558ac3231cc908a99",
+      "subject": "Refactored `G->user_config_dirty` handling",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: DirectX11/CommandList.cpp:8588 | error: DirectX11/CommandList.cpp: patch does not apply"
+    },
+    {
+      "commit": "015d33945e12b2d355c2735129083cdcd5a5c1b9",
+      "subject": "Refactored unknown persistent settings handling",
+      "unmodified_patch_check": false,
+      "ignore_space_change_check": false,
+      "first_diagnostic": "error: patch failed: Dependencies/d3dx.ini:518 | error: Dependencies/d3dx.ini: patch does not apply"
+    }
+  ],
+  "patch_check_scope": "Read-only git apply --check and --ignore-space-change, not three-way cherry-pick, build, behavior or performance validation",
+  "installed_ini_scan": {
+    "path": "/home/drew/EDHM_UI/ODYSS/EDHM/EDHM-Ini",
+    "ini_files": 9,
+    "lexical_counts": {
+      "checktextureoverride": 0,
+      "store_assignment": 0,
+      "pool_spatial_radius": 0,
+      "shaderregex_section": 0,
+      "reference_assignment": 2316,
+      "resolution_fuzzy_operand": 0
+    },
+    "caveat": "Static scan excluding semicolon comments and DISABLED path components, not proof of loaded or executed commands."
+  },
+  "production_source_modified": false,
+  "candidates_cherry_picked": false,
+  "runtime_build_or_game_profile_performed": false
+}
