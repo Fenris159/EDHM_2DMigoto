@@ -65,6 +65,64 @@ def main():
             "new_desc.StructureByteStride = 0;",
             "new_desc.StructureByteStride = 8;",
         ),
+        (
+            "reference-order",
+            command_list,
+            "DeferBindFlagsPropagation(src_custom_resource, dst.GetCustomResource(nullptr));",
+            "DeferBindFlagsPropagation(nullptr, nullptr);",
+        ),
+        (
+            "reference-cycles",
+            command_list,
+            "return pool->PropagateFlags(extra_bind_flags, extra_misc_flags);",
+            "return pool->PropagateFlags(extra_bind_flags, extra_misc_flags);\n"
+            "\tmisc_flags = (D3D11_RESOURCE_MISC_FLAG)(misc_flags | extra_misc_flags);",
+        ),
+        (
+            "pool-metadata",
+            command_list,
+            "CustomResource *custom_resource = GetCustomResource(nullptr);\n\t\tif (misc_flags)",
+            "CustomResource *custom_resource = GetCustomResource(state);\n\t\tif (misc_flags)",
+        ),
+        (
+            "pool-identifiers",
+            command_list,
+            "const size_t pool_length = FindResourceCopyTargetTokenEnd(remain, 1);",
+            "const size_t pool_length = FindVariableTokenEnd(remain, 1);",
+        ),
+        (
+            "store-values",
+            command_list,
+            "copy_end = ((value_end + stride - 1) / stride) * stride;",
+            "copy_offset = value_offset;\n\t\tcopy_end = value_end;",
+        ),
+        (
+            "store-views",
+            command_list,
+            "src_resource.Attach(src.GetResource(state, src_view.GetAddressOf(), nullptr, nullptr, nullptr, nullptr, nullptr));",
+            "src_resource.Attach(src.GetResource(state, src_view.GetAddressOf(), nullptr, nullptr, nullptr, nullptr, nullptr));\n"
+            "\tif (src_view)\n\t\tsrc_view->AddRef();",
+        ),
+        (
+            "region-copy",
+            command_list,
+            "UINT buf_dst_size = region_size;",
+            "UINT buf_dst_size = 0;",
+        ),
+        (
+            "region-views",
+            command_list,
+            "!region_size && src_view && (EquivTarget(src.type) == EquivTarget(dst.type))",
+            "src_view && (EquivTarget(src.type) == EquivTarget(dst.type))",
+        ),
+        (
+            "region-cb",
+            command_list,
+            "buf_src_size = region_extent;",
+            "buf_src_size = region_extent;\n"
+            "\t\tif (src.type == ResourceCopyTargetType::CONSTANT_BUFFER)\n"
+            "\t\t\tbuf_dst_size = min(buf_dst_size, 256U);",
+        ),
     ]
     originals = {path: path.read_bytes() for _, path, _, _ in mutations}
     evidence = []

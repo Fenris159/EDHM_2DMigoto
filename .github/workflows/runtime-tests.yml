@@ -22,6 +22,10 @@ permissions:
 jobs:
   runtime-tests:
     runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [x64, Win32]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
@@ -31,15 +35,16 @@ jobs:
         shell: pwsh
         run: >-
           msbuild DirectX11/RuntimeTests.vcxproj
-          -property:Configuration=Release -property:Platform=x64
+          -property:Configuration=Release -property:Platform=${{ matrix.platform }}
           -property:SolutionDir="$pwd/" -property:EdhmStrictBuild=true
           -target:Build -nodeReuse:false -verbosity:minimal -restore:false
       - name: Exercise runtime behavior
         shell: pwsh
         env:
           EXPECT_REGRESSIONS: ${{ inputs.expect_regressions || contains(github.event.head_commit.message, '[regression-baseline]') }}
+          TEST_PLATFORM: ${{ matrix.platform }}
         run: |
-          $exe = '.quality/runtime-tests/x64/Release/RuntimeTests.exe'
+          $exe = ".quality/runtime-tests/$env:TEST_PLATFORM/Release/RuntimeTests.exe"
           if ($env:EXPECT_REGRESSIONS -eq 'true') {
             foreach ($case in @('empty-groups', 'leading-dot', 'pending-save')) {
               & $exe $case
@@ -55,15 +60,15 @@ jobs:
           }
           if ($failures.Count -ne 0) { throw "Runtime regression checks failed: $($failures -join ', ')" }
       - name: Verify regression sensitivity
-        if: inputs.mutation_checks
+        if: inputs.mutation_checks && matrix.platform == 'x64'
         run: python RuntimeTests/check_mutations.py
       - name: Upload native test executable and mutation evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: runtime-checks-${{ github.sha }}
+          name: runtime-checks-${{ matrix.platform }}-${{ github.sha }}
           path: |
-            .quality/runtime-tests/x64/Release/RuntimeTests.exe
+            .quality/runtime-tests/${{ matrix.platform }}/Release/RuntimeTests.exe
             .quality/runtime-mutations/
           if-no-files-found: warn
           retention-days: 14
