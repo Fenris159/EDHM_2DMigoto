@@ -5918,45 +5918,21 @@ bool CustomResource::AddFlags(D3D11_BIND_FLAG extra_bind_flags, D3D11_RESOURCE_M
 	if (pool && recursive)
 		return pool->PropagateFlags(extra_bind_flags, extra_misc_flags);
 
-	// Enforce uniqueness of D3D11_BIND_CONSTANT_BUFFER flag (it's incompatible with other flags).
-	if (extra_bind_flags & D3D11_BIND_CONSTANT_BUFFER)
+	const auto combined_flags = static_cast<D3D11_BIND_FLAG>(bind_flags | extra_bind_flags);
+	if ((combined_flags & D3D11_BIND_CONSTANT_BUFFER) && combined_flags != D3D11_BIND_CONSTANT_BUFFER)
 	{
-
-		// CBs are incompatible with every other bind flags.
-		if (bind_flags != static_cast<D3D11_BIND_FLAG>(0) && bind_flags != D3D11_BIND_CONSTANT_BUFFER)
-		{
-			LogOverlayW(
-			    LOG_WARNING,
-			    L"Cannot add bind flag 'constant_buffer' to resource because it has incompatible bind flags '%ls'\n - "
-			    L"[%ls]",
-			    name.c_str(),
-			    lookup_enum_bit_names(CustomResourceBindFlagNames, (CustomResourceBindFlags)bind_flags).c_str());
-			return false;
-		}
-		bind_flags = D3D11_BIND_CONSTANT_BUFFER;
-
-		// Structured/raw buffer flags are meaningless for CBs.
-		misc_flags =
-		    (D3D11_RESOURCE_MISC_FLAG)((misc_flags | extra_misc_flags) & ~(D3D11_RESOURCE_MISC_BUFFER_STRUCTURED |
-			                                                               D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS));
-
-		return true;
-	}
-
-	// Don't add non-CB flags to an existing CB resource.
-	if (bind_flags & D3D11_BIND_CONSTANT_BUFFER)
-	{
-		LogOverlayW(
-		    LOG_WARNING,
-		    L"Cannot add bind flags '%ls' to resource '%ls' because it has incompatible bind flag 'constant_buffer'",
-		    lookup_enum_bit_names(CustomResourceBindFlagNames, (CustomResourceBindFlags)extra_bind_flags).c_str(),
-		    name.c_str());
+		LogOverlayW(LOG_WARNING, L"Cannot combine constant_buffer with other bind flags for resource '%ls'\n",
+		            name.c_str());
 		return false;
 	}
 
-	bind_flags = (D3D11_BIND_FLAG)(bind_flags | extra_bind_flags);
-	misc_flags = (D3D11_RESOURCE_MISC_FLAG)(misc_flags | extra_misc_flags);
-
+	// A zero-flag destination is a compatible reference, including when the
+	// source is already a constant buffer. Rejected combinations change neither set.
+	bind_flags = combined_flags;
+	misc_flags = static_cast<D3D11_RESOURCE_MISC_FLAG>(misc_flags | extra_misc_flags);
+	if (bind_flags & D3D11_BIND_CONSTANT_BUFFER)
+		misc_flags = static_cast<D3D11_RESOURCE_MISC_FLAG>(
+		    misc_flags & ~(D3D11_RESOURCE_MISC_BUFFER_STRUCTURED | D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS));
 	return true;
 }
 

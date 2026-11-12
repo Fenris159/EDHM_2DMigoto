@@ -276,43 +276,63 @@ CustomResourcePool &make_pool(const wchar_t *name, float default_value)
 void resolves_reference_chains_in_any_order()
 {
 	D3DFixture fixture;
-	for (bool reverse : {false, true})
+	for (bool constant_buffer : {false, true})
 	{
-		ConfigFixture resources;
-		CommandList commands;
-		customResources[L"resourcesource"];
-		customResources[L"resourcealias"];
-		customResources[L"resourceslot"];
-		if (reverse)
+		for (bool reverse : {false, true})
 		{
-			parse_copy(commands, L"ps-t3", L"ref resourceslot");
-			parse_copy(commands, L"resourceslot", L"ref resourcealias");
-			parse_copy(commands, L"resourcealias", L"ref resourcesource");
+			ConfigFixture resources;
+			CommandList commands;
+			auto &source = customResources[L"resourcesource"];
+			customResources[L"resourcealias"];
+			customResources[L"resourceslot"];
+			const auto expected = constant_buffer ? D3D11_BIND_CONSTANT_BUFFER : D3D11_BIND_SHADER_RESOURCE;
+			if (constant_buffer)
+				source.bind_flags = D3D11_BIND_CONSTANT_BUFFER;
+			const wchar_t *slot = constant_buffer ? L"vs-cb3" : L"ps-t3";
+			if (reverse)
+			{
+				parse_copy(commands, slot, L"ref resourceslot");
+				parse_copy(commands, L"resourceslot", L"ref resourcealias");
+				parse_copy(commands, L"resourcealias", L"ref resourcesource");
+			}
+			else
+			{
+				parse_copy(commands, L"resourcealias", L"ref resourcesource");
+				parse_copy(commands, L"resourceslot", L"ref resourcealias");
+				parse_copy(commands, slot, L"ref resourceslot");
+			}
+			PropagateDeferredBindFlags();
+			for (const wchar_t *name : {L"resourcesource", L"resourcealias", L"resourceslot"})
+				require(customResources.at(name).bind_flags == expected,
+				        "reference chain lost the final usage across order/reload");
+			source.override_type = CustomResourceType::BUFFER;
+			source.override_byte_width = 16;
+			source.override_format = DXGI_FORMAT_R32_FLOAT;
+			source.Substantiate(fixture.device.Get(), static_cast<D3D11_BIND_FLAG>(0),
+			                    static_cast<D3D11_RESOURCE_MISC_FLAG>(0));
+			require(source.resource != nullptr, "reference chain did not produce a usable source buffer");
+			if (constant_buffer)
+			{
+				Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+				require(SUCCEEDED(source.resource->QueryInterface(IID_PPV_ARGS(&buffer))), "CB source is not a buffer");
+				auto *binding = buffer.Get();
+				fixture.context->VSSetConstantBuffers(3, 1, &binding);
+				Microsoft::WRL::ComPtr<ID3D11Buffer> bound;
+				fixture.context->VSGetConstantBuffers(3, 1, &bound);
+				require(bound == buffer, "reference metadata prevented actual CB binding");
+				fixture.context->ClearState();
+			}
+			else
+			{
+				D3D11_SHADER_RESOURCE_VIEW_DESC desc{};
+				desc.Format = DXGI_FORMAT_R32_FLOAT;
+				desc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+				desc.Buffer.NumElements = 4;
+				Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
+				require(SUCCEEDED(fixture.device->CreateShaderResourceView(source.resource, &desc, &view)),
+				        "reference order prevented actual SRV creation");
+			}
 		}
-		else
-		{
-			parse_copy(commands, L"resourcealias", L"ref resourcesource");
-			parse_copy(commands, L"resourceslot", L"ref resourcealias");
-			parse_copy(commands, L"ps-t3", L"ref resourceslot");
-		}
-		PropagateDeferredBindFlags();
-		for (const wchar_t *name : {L"resourcesource", L"resourcealias", L"resourceslot"})
-			require(customResources.at(name).bind_flags == D3D11_BIND_SHADER_RESOURCE,
-			        "reference chain lost the final SRV usage across order/reload");
-		auto &source = customResources.at(L"resourcesource");
-		source.override_type = CustomResourceType::BUFFER;
-		source.override_byte_width = 16;
-		source.override_format = DXGI_FORMAT_R32_FLOAT;
-		source.Substantiate(fixture.device.Get(), static_cast<D3D11_BIND_FLAG>(0),
-		                    static_cast<D3D11_RESOURCE_MISC_FLAG>(0));
-		require(source.resource != nullptr, "reference chain did not produce a usable source buffer");
-		D3D11_SHADER_RESOURCE_VIEW_DESC desc{};
-		desc.Format = DXGI_FORMAT_R32_FLOAT;
-		desc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
-		desc.Buffer.NumElements = 4;
-		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
-		require(SUCCEEDED(fixture.device->CreateShaderResourceView(source.resource, &desc, &view)),
-		        "reference order prevented actual SRV creation");
 	}
 	fixture.require_no_errors();
 }
