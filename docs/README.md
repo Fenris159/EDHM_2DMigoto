@@ -13,3 +13,7 @@
 | [upstream-sync.md](upstream-sync.md) | Fetch and selectively merge XXMI / 3Dmigoto updates |
 | [releasing.md](releasing.md) | SemVer, changelog, CI, Release / pre-release workflow |
 | [ini-command-reference.md](ini-command-reference.md) | INI / command-list language (including XXMI 0.9.5–0.9.8) |
+| [next-release-plan.md](next-release-plan.md) | Implementation sequence, completed items and remaining entry gates |
+| [next-release-implementation.md](next-release-implementation.md) | Implemented changes, measurements, validation and release limits |
+| [upstream-next-release.md](upstream-next-release.md) | Pinned upstream intake and cherry-pick decisions |
+| [performance-audit.md](performance-audit.md) | Historical source/performance audit and evidence |

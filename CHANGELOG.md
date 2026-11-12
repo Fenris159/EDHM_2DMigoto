@@ -14,6 +14,35 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 ## [Unreleased]
 
+### Fixed
+
+- Reject empty expression groups and accept leading-dot float literals.
+- Preserve pending settings, locale and the last complete settings file after a
+  failed save; stop a reload that cannot save or wipe its settings.
+- Retain temporarily unavailable persistent values for one reload, with optional
+  indefinite retention through `clear_unknown_settings=0`; discard values after
+  persistence is removed.
+- Resolve custom-resource reference flags after all command lists are parsed,
+  including constant-buffer aliases and incompatible cycles. Read pool metadata
+  without allocating elements or refreshing their lifetime.
+- Route pool proxy resets correctly and preserve namespaced, Unicode and
+  hyphenated pool-variable identifiers.
+- Read complete structured elements for `store`, validate buffer types and
+  indices, preserve failed-read values, and release owned source views.
+- Interpret `Region(offset,size)` as a byte count, validate backing bounds,
+  create bounded views, and distinguish copied CBs from aligned CB references.
+- Clear stale structured stride during CB recreation and guard unsupported
+  typed-buffer formats against division by zero.
+
+### Changed
+
+- Reuse the current INI section while parsing. In the isolated EDHM fixture,
+  median configuration loading fell from 73.971 ms to 71.625 ms under Wine;
+  this is a CPU load-time measurement. Constants compaction and static-condition
+  memoization were evaluated and deferred because useful gains were not established.
+- Add native runtime regression checks, deliberate-break verification and
+  optional strict Zip Release validation for both Windows architectures.
+
 ### Planned
 
 - Further EDHM smoke validation against stock 3Dmigoto / EDHM packages

@@ -1,0 +1,62 @@
+# Native runtime checks
+
+This executable compiles the engine's production source list with a console entry
+point. The normal DLL build keeps its existing entry points. Tests exercise public
+parser, command, persistence and D3D boundaries. D3D cases use WARP and request the
+debug layer; a missing SDK layer is printed as an explicit limitation.
+
+From a Visual Studio 2022 developer PowerShell at the repository root:
+
+```powershell
+msbuild DirectX11/RuntimeTests.vcxproj -target:Build `
+  -property:Configuration=Release -property:Platform=x64 `
+  "-property:SolutionDir=$pwd/" -property:EdhmStrictBuild=true `
+  -nodeReuse:false -verbosity:minimal -restore:false
+& .quality/runtime-tests/x64/Release/RuntimeTests.exe
+```
+
+Use `Platform=Win32` and the corresponding output directory for 32-bit checks.
+Pass a case name, such as `store-values` or `settings-lifecycle`, to run it in its
+own process. CI runs every case separately, including both Windows architectures.
+
+The suite covers expression syntax, settings retry/atomic replacement/retention,
+pool reset/expiry/identifiers/static metadata, resource reference chains and
+cycles, typed/structured readback and owned views, buffer region counts and
+bounds, CB ranges, and INI/optimizer ordering and reload semantics. A real device
+boundary records submitted buffer descriptors and can fail staging allocation;
+this catches errors that WARP normalizes in a completed buffer description.
+
+## Regression sensitivity
+
+The manual **Runtime regression checks** workflow accepts `mutation_checks=true`.
+Its disposable checkout builds each deliberate behavior break, requires the
+focused case to fail, restores the exact source bytes, then rebuilds and reruns
+the restored cases. Local use requires a clean isolated worktree because the
+runner temporarily rewrites `CommandList.cpp` and `IniHandler.cpp`.
+
+```powershell
+python RuntimeTests/check_mutations.py
+```
+
+Evidence is written under `.quality/runtime-mutations/` and uploaded with the
+native executable. A compile failure does not count as successful detection.
+
+## Configuration measurements
+
+Copy the native executable to a separate snapshot directory containing `d3dx.ini`
+and its resolved includes. Disable diagnostic logging and hunting consistently
+for both builds. Run from the same snapshot with the same Wine prefix:
+
+```bash
+WINEDEBUG=-all WINEPREFIX="$PWD/.quality/benchmark-prefix" \
+  wine .quality/config-snapshot/RuntimeTests.exe benchmark-load 21
+WINEDEBUG=-all WINEPREFIX="$PWD/.quality/benchmark-prefix" \
+  wine .quality/config-snapshot/RuntimeTests.exe benchmark-startup 21
+```
+
+`benchmark-load` times `LoadConfigFile` and runs the normal optimizer outside
+that timer to release optimizer-owned lists between cycles. `benchmark-startup`
+reports load and command-list optimizer time separately. These modes measure
+CPU configuration work with the real optimizer and no device. Use an isolated snapshot, alternate independent variant processes, and
+record source/binary hashes. Separate first-process observations from warm loads.
+See [the implementation report](../docs/next-release-implementation.md).

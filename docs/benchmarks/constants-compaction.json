@@ -17,5 +17,7 @@
     -11.989569397250865,
     -6.9977292489005976
   ],
-  "scope": "LoadConfigFile under Wine on an isolated installed EDHM config snapshot; logging, debug, warnings, hunting and dump_usage disabled. No game frames or GPU work measured."
+  "scope": "LoadConfigFile under Wine on an isolated installed EDHM config snapshot; logging, debug, warnings, hunting and dump_usage disabled. No game frames or GPU work measured.",
+  "status": "superseded parse-only experiment; not evidence for retaining the optimization",
+  "limitation": "Repeated LoadConfigFile calls skipped the normal optimizer cleanup and retained dynamically allocated command lists. This also used an earlier full IniHandler baseline instead of the corrected single-function baseline. Use startup-evaluations.json constants-compaction experiment for the retention decision."
 }
