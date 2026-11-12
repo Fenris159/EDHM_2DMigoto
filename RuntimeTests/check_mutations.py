@@ -37,11 +37,8 @@ def verify_baselines(mutations):
             raise RuntimeError(f"Baseline must pass before mutation: {case}")
 
 
-def main():
-    OUTPUT.mkdir(parents=True, exist_ok=True)
-    command_list = ROOT / "DirectX11" / "CommandList.cpp"
-    settings = ROOT / "DirectX11" / "IniHandler.cpp"
-    mutations = [
+def get_mutations(command_list, settings):
+    return [
         (
             "empty-groups",
             command_list,
@@ -168,10 +165,17 @@ def main():
         (
             "if-conditions",
             command_list,
-            "if (expression.evaluate(state))",
-            "if (!expression.evaluate(state))",
+            "if (expression.evaluate(state) != 0.0f)",
+            "if (expression.evaluate(state) == 0.0f)",
         ),
     ]
+
+
+def main():
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    command_list = ROOT / "DirectX11" / "CommandList.cpp"
+    settings = ROOT / "DirectX11" / "IniHandler.cpp"
+    mutations = get_mutations(command_list, settings)
     originals = {path: path.read_bytes() for _, path, _, _ in mutations}
     evidence = []
     try:
