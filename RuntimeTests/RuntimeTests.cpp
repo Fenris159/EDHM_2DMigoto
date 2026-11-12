@@ -188,6 +188,8 @@ void preserves_pending_save()
 
 int main(int argc, char **argv)
 {
+	std::cout << std::unitbuf;
+	std::cerr << std::unitbuf;
 	G->gShowWarnings = false;
 	InitializeCriticalSection(&G->mCriticalSection);
 	InitializeCriticalSection(&G->mResourcesLock);
@@ -202,12 +204,15 @@ int main(int argc, char **argv)
 	             {"pool-reset", resets_only_the_requested_pool_proxy},
 	             {"constant-stride", recreates_structured_data_as_a_constant_buffer}};
 	int failures = 0;
+	int selected = 0;
 	for (const auto &test : tests)
 	{
 		if (argc > 1 && std::string(argv[1]) != test.name)
 			continue;
 		try
 		{
+			++selected;
+			std::cout << "RUN " << test.name << '\n';
 			test.run();
 			std::cout << "PASS " << test.name << '\n';
 		}
@@ -217,5 +222,5 @@ int main(int argc, char **argv)
 			++failures;
 		}
 	}
-	return failures ? 1 : 0;
+	return failures || selected == 0 ? 1 : 0;
 }

@@ -44,5 +44,9 @@ jobs:
             }
             exit 0
           }
-          & $exe
-          if ($LASTEXITCODE -ne 0) { throw "Runtime regression checks failed: $LASTEXITCODE" }
+          $failures = @()
+          foreach ($case in @('empty-groups', 'leading-dot', 'pending-save', 'pool-reset', 'constant-stride')) {
+            & $exe $case
+            if ($LASTEXITCODE -ne 0) { $failures += "$case (exit $LASTEXITCODE)" }
+          }
+          if ($failures.Count -ne 0) { throw "Runtime regression checks failed: $($failures -join ', ')" }
