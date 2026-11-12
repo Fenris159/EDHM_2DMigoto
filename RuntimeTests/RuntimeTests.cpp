@@ -407,37 +407,216 @@ class ViewLifetime final : public IUnknown
 void releases_store_views_on_success_and_failure()
 {
 	D3DFixture fixture;
-	CustomResource source;
-	D3D11_TEXTURE2D_DESC desc{};
-	desc.Width = desc.Height = desc.MipLevels = desc.ArraySize = desc.SampleDesc.Count = 1;
-	desc.Format = DXGI_FORMAT_R32_FLOAT;
+	for (bool buffer_source : {true, false})
+	{
+		CustomResource source;
+		Microsoft::WRL::ComPtr<ID3D11Resource> resource;
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
+		if (buffer_source)
+		{
+			const float values[] = {7.0f, 8.0f, 9.0f, 10.0f};
+			D3D11_BUFFER_DESC desc{};
+			desc.ByteWidth = sizeof(values);
+			desc.Usage = D3D11_USAGE_DEFAULT;
+			desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+			D3D11_SUBRESOURCE_DATA initial{};
+			initial.pSysMem = values;
+			Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+			require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &initial, &buffer)), "viewed buffer creation failed");
+			require(SUCCEEDED(buffer.As(&resource)), "buffer resource interface unavailable");
+			D3D11_SHADER_RESOURCE_VIEW_DESC view_desc{};
+			view_desc.Format = DXGI_FORMAT_R32_FLOAT;
+			view_desc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+			view_desc.Buffer.NumElements = 4;
+			require(SUCCEEDED(fixture.device->CreateShaderResourceView(resource.Get(), &view_desc, &view)),
+			        "buffer view creation failed");
+		}
+		else
+		{
+			D3D11_TEXTURE2D_DESC desc{};
+			desc.Width = desc.Height = desc.MipLevels = desc.ArraySize = desc.SampleDesc.Count = 1;
+			desc.Format = DXGI_FORMAT_R32_FLOAT;
+			desc.Usage = D3D11_USAGE_DEFAULT;
+			desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+			Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+			require(SUCCEEDED(fixture.device->CreateTexture2D(&desc, nullptr, &texture)),
+			        "texture source creation failed");
+			require(SUCCEEDED(texture.As(&resource)), "texture resource interface unavailable");
+			require(SUCCEEDED(fixture.device->CreateShaderResourceView(resource.Get(), nullptr, &view)),
+			        "texture view creation failed");
+		}
+		auto destroyed = std::make_shared<bool>(false);
+		auto *lifetime = new ViewLifetime(destroyed);
+		const GUID key = {0x83e75508, 0xe509, 0x4ca9, {0x81, 0xbe, 0xec, 0x6d, 0x11, 0xa4, 0x4f, 0x18}};
+		require(SUCCEEDED(view->SetPrivateDataInterface(key, lifetime)), "could not track view lifetime");
+		lifetime->Release();
+		source.resource = resource.Detach();
+		source.view = view.Detach();
+		source.is_null = false;
+		auto *bound = static_cast<ID3D11ShaderResourceView *>(source.view);
+		fixture.context->PSSetShaderResources(0, 1, &bound);
+		CommandListVariable value(L"$result", 42.0f, VariableFlags::NONE);
+		StoreCommand command;
+		command.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+		command.src.SetCustomResource(&source);
+		command.var = &value;
+		for (int iteration = 0; iteration < 4; ++iteration)
+		{
+			if (iteration == 2)
+			{
+				command.src.type = ResourceCopyTargetType::SHADER_RESOURCE;
+				command.src.shader_type = L'p';
+			}
+			value.fval = 42.0f;
+			read_store(command, fixture.state, L"0");
+			require(value.fval == (buffer_source ? 7.0f : 42.0f),
+			        "store returned the wrong value or changed a failed result");
+		}
+		source.view->Release();
+		source.view = nullptr;
+		fixture.context->ClearState();
+		fixture.context->Flush();
+		require(*destroyed, "store retained an owned source view reference");
+	}
+	fixture.require_no_errors();
+}
+
+std::vector<float> read_buffer(D3DFixture &fixture, ID3D11Resource *resource)
+{
+	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+	require(SUCCEEDED(resource->QueryInterface(IID_PPV_ARGS(&buffer))), "result is not a buffer");
+	D3D11_BUFFER_DESC desc{};
+	buffer->GetDesc(&desc);
+	const UINT byte_width = desc.ByteWidth;
+	desc.Usage = D3D11_USAGE_STAGING;
+	desc.BindFlags = desc.MiscFlags = desc.StructureByteStride = 0;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> staging;
+	require(SUCCEEDED(fixture.device->CreateBuffer(&desc, nullptr, &staging)), "readback buffer creation failed");
+	fixture.context->CopyResource(staging.Get(), resource);
+	D3D11_MAPPED_SUBRESOURCE mapped{};
+	require(SUCCEEDED(fixture.context->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped)), "result readback failed");
+	std::vector<float> result(byte_width / sizeof(float));
+	memcpy(result.data(), mapped.pData, byte_width);
+	fixture.context->Unmap(staging.Get(), 0);
+	return result;
+}
+
+void copies_region_byte_counts_and_preserves_invalid_destinations()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	const float values[] = {1.25f, 2.5f, 3.75f, 5.0f, 6.25f, 7.5f, 8.75f, 10.0f};
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = sizeof(values);
 	desc.Usage = D3D11_USAGE_DEFAULT;
 	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
-	require(SUCCEEDED(fixture.device->CreateTexture2D(&desc, nullptr, &texture)), "texture source creation failed");
-	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
-	require(SUCCEEDED(fixture.device->CreateShaderResourceView(texture.Get(), nullptr, &view)),
-	        "store view creation failed");
-	auto destroyed = std::make_shared<bool>(false);
-	auto *lifetime = new ViewLifetime(destroyed);
-	const GUID key = {0x83e75508, 0xe509, 0x4ca9, {0x81, 0xbe, 0xec, 0x6d, 0x11, 0xa4, 0x4f, 0x18}};
-	require(SUCCEEDED(view->SetPrivateDataInterface(key, lifetime)), "could not track view lifetime");
-	lifetime->Release();
-	source.resource = texture.Detach();
-	source.view = view.Detach();
+	D3D11_SUBRESOURCE_DATA initial{};
+	initial.pSysMem = values;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+	require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &initial, &buffer)), "region source creation failed");
+	auto &source = customResources[L"resourcesource"];
+	source.resource = buffer.Detach();
 	source.is_null = false;
-	CommandListVariable value(L"$result", 42.0f, VariableFlags::NONE);
-	StoreCommand command;
-	command.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
-	command.src.SetCustomResource(&source);
-	command.var = &value;
-	for (int iteration = 0; iteration < 4; ++iteration)
-		read_store(command, fixture.state, L"0");
-	require(value.fval == 42.0f, "non-buffer store source overwrote the previous value");
-	source.view->Release();
-	source.view = nullptr;
-	fixture.context->Flush();
-	require(*destroyed, "failed store retained an owned view reference");
+	source.stride = 4;
+	source.format = DXGI_FORMAT_R32_FLOAT;
+	auto &destination = customResources[L"resourcedestination"];
+	destination.bind_flags = D3D11_BIND_SHADER_RESOURCE;
+	CommandList commands;
+	parse_copy(commands, L"resourcedestination", L"copy resourcesource->region(8, 12)");
+	for (const auto &command : commands.commands)
+		command->run(&fixture.state);
+	require(destination.resource != nullptr, "region copy did not create a destination");
+	require(read_buffer(fixture, destination.resource) == std::vector<float>({3.75f, 5.0f, 6.25f}),
+	        "region size was not a byte count");
+	auto *previous = destination.resource;
+	for (const wchar_t *invalid : {L"resourcesource->region(-1, 4)", L"resourcesource->region(32, 1)",
+	                               L"resourcesource->region(31, 2)", L"resourcesource->region(4294967295, 8)",
+	                               L"resourcesource->region(1e30, 4)", L"resourcesource->region(0, 0)"})
+	{
+		CommandList invalid_command;
+		parse_copy(invalid_command, L"resourcedestination", (L"copy " + std::wstring(invalid)).c_str());
+		for (const auto &command : invalid_command.commands)
+			command->run(&fixture.state);
+		require(destination.resource == previous, "invalid region replaced the destination resource");
+		require(read_buffer(fixture, destination.resource) == std::vector<float>({3.75f, 5.0f, 6.25f}),
+		        "invalid region changed destination data");
+	}
+	fixture.require_no_errors();
+}
+
+void region_views_follow_changing_ranges()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	const float values[] = {1, 2, 3, 4, 5, 6, 7, 8};
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = sizeof(values);
+	desc.Usage = D3D11_USAGE_DEFAULT;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	D3D11_SUBRESOURCE_DATA initial{};
+	initial.pSysMem = values;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+	require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &initial, &buffer)), "view source creation failed");
+	D3D11_SHADER_RESOURCE_VIEW_DESC view_desc{};
+	view_desc.Format = DXGI_FORMAT_R32_FLOAT;
+	view_desc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+	view_desc.Buffer.NumElements = 8;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> source_view;
+	require(SUCCEEDED(fixture.device->CreateShaderResourceView(buffer.Get(), &view_desc, &source_view)),
+	        "full source view creation failed");
+	auto *binding = source_view.Get();
+	fixture.context->PSSetShaderResources(0, 1, &binding);
+	auto inserted =
+	    command_list_globals.emplace(L"$offset", CommandListVariable(L"$offset", 8.0f, VariableFlags::NONE));
+	CommandList commands;
+	parse_copy(commands, L"ps-t1", L"ref ps-t0->region($offset, 8)");
+	for (float offset : {8.0f, 16.0f})
+	{
+		inserted.first->second.fval = offset;
+		for (const auto &command : commands.commands)
+			command->run(&fixture.state);
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> result;
+		fixture.context->PSGetShaderResources(1, 1, &result);
+		require(result != nullptr, "region reference did not bind a view");
+		result->GetDesc(&view_desc);
+		require(view_desc.Buffer.FirstElement == (offset == 8.0f ? 2U : 4U),
+		        "region reference reused a stale/full view");
+		require(view_desc.Buffer.NumElements == 2, "region reference exposed bytes outside its requested range");
+	}
+	fixture.require_no_errors();
+}
+
+void copies_cb_regions_beyond_the_bound_window()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	float values[256]{};
+	values[128] = 11;
+	values[129] = 12;
+	values[255] = 77;
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = sizeof(values);
+	desc.Usage = D3D11_USAGE_DEFAULT;
+	desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	D3D11_SUBRESOURCE_DATA initial{};
+	initial.pSysMem = values;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+	require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &initial, &buffer)), "CB backing buffer creation failed");
+	auto *binding = buffer.Get();
+	const UINT first = 16, count = 16;
+	fixture.context->VSSetConstantBuffers1(0, 1, &binding, &first, &count);
+	auto &destination = customResources[L"resourcedestination"];
+	destination.bind_flags = D3D11_BIND_VERTEX_BUFFER;
+	CommandList commands;
+	parse_copy(commands, L"resourcedestination", L"copy vs-cb0->region(512, 512)");
+	for (const auto &command : commands.commands)
+		command->run(&fixture.state);
+	require(destination.resource != nullptr, "CB region copy did not create a destination");
+	const auto result = read_buffer(fixture, destination.resource);
+	require(result.size() == 128, "explicit CB region was clamped to the visible window");
+	require(result[0] == 11.0f && result[1] == 12.0f && result[127] == 77.0f,
+	        "CB region copied the wrong backing bytes");
 	fixture.require_no_errors();
 }
 
@@ -495,7 +674,10 @@ int main(int argc, char **argv)
 	             {"pool-metadata", metadata_queries_do_not_extend_pool_lifetime},
 	             {"pool-identifiers", accepts_pool_identifier_grammar},
 	             {"store-values", stores_typed_and_structured_values},
-	             {"store-views", releases_store_views_on_success_and_failure}};
+	             {"store-views", releases_store_views_on_success_and_failure},
+	             {"region-copy", copies_region_byte_counts_and_preserves_invalid_destinations},
+	             {"region-views", region_views_follow_changing_ranges},
+	             {"region-cb", copies_cb_regions_beyond_the_bound_window}};
 	int failures = 0;
 	int selected = 0;
 	for (const auto &test : tests)
