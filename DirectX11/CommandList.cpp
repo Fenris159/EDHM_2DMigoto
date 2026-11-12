@@ -11090,11 +11090,9 @@ static D3D11_UNORDERED_ACCESS_VIEW_DESC *FillOutTex3DDesc(D3D11_UNORDERED_ACCESS
 
 #pragma endregion FillOutDesc
 
-template <typename ViewType, typename DescType,
-          HRESULT (__stdcall ID3D11Device::*CreateView)(THIS_ ID3D11Resource *pResource, const DescType *pDesc,
-                                                        ViewType **ppView)>
-static ID3D11View *_CreateCompatibleView(ID3D11Resource *resource, CommandListState *state, UINT stride, UINT offset,
-                                         DXGI_FORMAT format, UINT buf_src_size, ResourceCopyOptions options)
+template <typename DescType>
+static DescType *FillResourceViewDesc(ID3D11Resource *resource, DescType &view_desc, UINT stride, UINT offset,
+                                      DXGI_FORMAT format, UINT buf_src_size, ResourceCopyOptions options)
 {
 	D3D11_RESOURCE_DIMENSION dimension;
 	ID3D11Buffer *buf;
@@ -11102,10 +11100,7 @@ static ID3D11View *_CreateCompatibleView(ID3D11Resource *resource, CommandListSt
 	ID3D11Texture2D *tex2d;
 	D3D11_TEXTURE1D_DESC tex1d_desc;
 	D3D11_TEXTURE2D_DESC tex2d_desc;
-	ViewType *view = nullptr;
-	DescType view_desc{}, *pDesc = nullptr;
-	HRESULT hr;
-
+	DescType *pDesc = nullptr;
 	resource->GetType(&dimension);
 	switch (dimension)
 	{
@@ -11154,6 +11149,20 @@ static ID3D11View *_CreateCompatibleView(ID3D11Resource *resource, CommandListSt
 		pDesc = FillOutTex3DDesc(&view_desc, format);
 		break;
 	}
+
+	return pDesc;
+}
+
+template <typename ViewType, typename DescType,
+          HRESULT (__stdcall ID3D11Device::*CreateView)(THIS_ ID3D11Resource *pResource, const DescType *pDesc,
+                                                        ViewType **ppView)>
+static ID3D11View *_CreateCompatibleView(ID3D11Resource *resource, CommandListState *state, UINT stride, UINT offset,
+                                         DXGI_FORMAT format, UINT buf_src_size, ResourceCopyOptions options)
+{
+	ViewType *view = nullptr;
+	DescType view_desc{};
+	DescType *pDesc = FillResourceViewDesc(resource, view_desc, stride, offset, format, buf_src_size, options);
+	HRESULT hr;
 
 	const bool profile = Profiling::mode == Profiling::Mode::SUMMARY;
 	Profiling::State timing{};
@@ -11588,6 +11597,113 @@ static ResourceCopyTargetType EquivTarget(ResourceCopyTargetType type)
 	return type;
 }
 
+static ResourceCopyTargetType EffectiveViewTarget(ResourceCopyTarget *dst, CommandListState *state)
+{
+	if (dst->type == ResourceCopyTargetType::THIS_RESOURCE && state->this_target)
+		return EquivTarget(state->this_target->type);
+	return EquivTarget(dst->type);
+}
+
+template <typename DescType> static void CanonicalizeViewDesc(DescType &, ID3D11Resource *) {}
+
+static void CanonicalizeViewDesc(D3D11_SHADER_RESOURCE_VIEW_DESC &desc, ID3D11Resource *resource)
+{
+	if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE1D || desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE1DARRAY)
+	{
+		D3D11_TEXTURE1D_DESC texture{};
+		static_cast<ID3D11Texture1D *>(resource)->GetDesc(&texture);
+		if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE1D)
+			desc.Texture1D.MipLevels = texture.MipLevels;
+		else
+			desc.Texture1DArray.MipLevels = texture.MipLevels;
+	}
+	else if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE2D ||
+	         desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE2DARRAY ||
+	         desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURECUBE ||
+	         desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURECUBEARRAY)
+	{
+		D3D11_TEXTURE2D_DESC texture{};
+		static_cast<ID3D11Texture2D *>(resource)->GetDesc(&texture);
+		switch (desc.ViewDimension)
+		{
+		case D3D11_SRV_DIMENSION_TEXTURE2D:
+			desc.Texture2D.MipLevels = texture.MipLevels;
+			break;
+		case D3D11_SRV_DIMENSION_TEXTURE2DARRAY:
+			desc.Texture2DArray.MipLevels = texture.MipLevels;
+			break;
+		case D3D11_SRV_DIMENSION_TEXTURECUBE:
+			desc.TextureCube.MipLevels = texture.MipLevels;
+			break;
+		case D3D11_SRV_DIMENSION_TEXTURECUBEARRAY:
+			desc.TextureCubeArray.MipLevels = texture.MipLevels;
+			break;
+		}
+	}
+	else if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE3D)
+	{
+		D3D11_TEXTURE3D_DESC texture{};
+		static_cast<ID3D11Texture3D *>(resource)->GetDesc(&texture);
+		desc.Texture3D.MipLevels = texture.MipLevels;
+	}
+}
+
+template <typename ViewType, typename DescType>
+static Microsoft::WRL::ComPtr<ID3D11View> CompatibleSourceView(ID3D11View *source_view, ID3D11Resource *resource,
+                                                               UINT stride, UINT offset, DXGI_FORMAT format,
+                                                               UINT extent, ResourceCopyOptions options)
+{
+	Microsoft::WRL::ComPtr<ViewType> typed;
+	if (FAILED(source_view->QueryInterface(IID_PPV_ARGS(&typed))))
+		return {};
+	DescType expected{}, actual{};
+	if (!FillResourceViewDesc(resource, expected, stride, offset, format, extent, options))
+		return {};
+	CanonicalizeViewDesc(expected, resource);
+	typed->GetDesc(&actual);
+	// A conservative byte comparison can reject equivalent inactive union
+	// bytes; the fallback still creates the original requested descriptor.
+	if (memcmp(&actual, &expected, sizeof(expected)) != 0)
+		return {};
+	return typed;
+}
+
+static Microsoft::WRL::ComPtr<ID3D11View> CompatibleSourceView(ResourceCopyTargetType type, ID3D11View *view,
+                                                               ID3D11Resource *resource, UINT stride, UINT offset,
+                                                               DXGI_FORMAT format, UINT extent,
+                                                               ResourceCopyOptions options)
+{
+	if (!view || !ViewMatchesResource(view, resource))
+		return {};
+	switch (type)
+	{
+	case ResourceCopyTargetType::SHADER_RESOURCE:
+		return CompatibleSourceView<ID3D11ShaderResourceView, D3D11_SHADER_RESOURCE_VIEW_DESC>(
+		    view, resource, stride, offset, format, extent, options);
+	case ResourceCopyTargetType::RENDER_TARGET:
+		return CompatibleSourceView<ID3D11RenderTargetView, D3D11_RENDER_TARGET_VIEW_DESC>(
+		    view, resource, stride, offset, format, extent, options);
+	case ResourceCopyTargetType::DEPTH_STENCIL_TARGET:
+		return CompatibleSourceView<ID3D11DepthStencilView, D3D11_DEPTH_STENCIL_VIEW_DESC>(
+		    view, resource, stride, offset, format, extent, options);
+	case ResourceCopyTargetType::UNORDERED_ACCESS_VIEW:
+		return CompatibleSourceView<ID3D11UnorderedAccessView, D3D11_UNORDERED_ACCESS_VIEW_DESC>(
+		    view, resource, stride, offset, format, extent, options);
+	case ResourceCopyTargetType::CUSTOM_RESOURCE:
+		for (const auto kind :
+		     {ResourceCopyTargetType::SHADER_RESOURCE, ResourceCopyTargetType::RENDER_TARGET,
+		      ResourceCopyTargetType::DEPTH_STENCIL_TARGET, ResourceCopyTargetType::UNORDERED_ACCESS_VIEW})
+		{
+			auto compatible = CompatibleSourceView(kind, view, resource, stride, offset, format, extent, options);
+			if (compatible)
+				return compatible;
+		}
+		return {};
+	default:
+		return {};
+	}
+}
+
 void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D11Resource *src_resource,
                                                    ID3D11View *src_view, UINT stride, UINT offset, DXGI_FORMAT format,
                                                    UINT buf_src_size)
@@ -11689,6 +11805,7 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 
 	ID3D11Resource *dst_resource = nullptr;
 	ID3D11View *dst_view = nullptr;
+	Microsoft::WRL::ComPtr<ID3D11View> reused_source_view;
 	UINT buf_dst_size = region_size;
 	if (region_size)
 	{
@@ -11756,7 +11873,9 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 			(*pp_cached_view)->Release();
 			*pp_cached_view = nullptr;
 		}
-		if (!region_size && src_view && (EquivTarget(src.type) == EquivTarget(dst.type)))
+		if (!region_size && src_view && (EquivTarget(src.type) == EquivTarget(dst.type)) &&
+		    (!dst_custom_resource || (dst_custom_resource->override_format == static_cast<DXGI_FORMAT>(-1) &&
+		                              dst_custom_resource->override_stride == -1)))
 		{
 			dst_view = src_view;
 			if (Profiling::mode == Profiling::Mode::SUMMARY)
@@ -11777,11 +11896,21 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 				*pp_cached_view = nullptr;
 			}
 		}
-		// Future work: If we are referencing to/from a custom resource we
-		// currently don't reference the view, but we could so long as
-		// the bind flags from the original source are compatible with
-		// the bind flags in the final destination. If we implement
-		// this, go read the note in CustomResource::Substantiate()
+		if (!dst_view && !region_size &&
+		    (!dst_custom_resource || (dst_custom_resource->override_format == static_cast<DXGI_FORMAT>(-1) &&
+		                              dst_custom_resource->override_stride == -1)))
+		{
+			reused_source_view = CompatibleSourceView(EffectiveViewTarget(&dst, state), src_view, dst_resource, stride,
+			                                          offset, format, buf_src_size, options);
+			if (reused_source_view)
+			{
+				dst_view = reused_source_view.Get();
+				if (!dst_custom_resource)
+					*pp_cached_view = reused_source_view.Detach();
+				if (Profiling::mode == Profiling::Mode::SUMMARY)
+					++Profiling::source_views_reused;
+			}
+		}
 	}
 
 	if (!dst_view)
