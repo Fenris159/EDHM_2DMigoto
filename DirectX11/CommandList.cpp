@@ -11772,8 +11772,8 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 			*pp_cached_view = nullptr;
 		}
 		if (!region_size && !(options & ResourceCopyOptions::RAW_VIEW) && src_view &&
-		    (src.type != ResourceCopyTargetType::CUSTOM_RESOURCE || ViewMatchesResource(src_view, dst_resource)) &&
 		    (EquivTarget(src.type) == EquivTarget(dst.type)) &&
+		    (src.type != ResourceCopyTargetType::CUSTOM_RESOURCE || ViewMatchesResource(src_view, dst_resource)) &&
 		    (!dst_custom_resource || (dst_custom_resource->override_format == static_cast<DXGI_FORMAT>(-1) &&
 		                              dst_custom_resource->override_stride == -1)))
 		{
