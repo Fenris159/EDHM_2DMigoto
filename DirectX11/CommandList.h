@@ -707,6 +707,11 @@ class CustomResourcePool
 typedef std::unordered_map<std::wstring, CustomResourcePool> CustomResourcePools;
 extern CustomResourcePools customResourcePools;
 
+// Resolve resource-reference metadata after all command lists have been parsed.
+// Clear the edges before discarding the referenced configuration resources.
+void ClearDeferredBindFlags();
+void PropagateDeferredBindFlags();
+
 // Forward declaration since TextureOverride also contains a command list
 struct TextureOverride;
 

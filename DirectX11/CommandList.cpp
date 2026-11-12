@@ -5884,8 +5884,6 @@ bool CustomResource::AddFlags(D3D11_BIND_FLAG extra_bind_flags, D3D11_RESOURCE_M
 	if (pool && recursive)
 		return pool->PropagateFlags(extra_bind_flags, extra_misc_flags);
 
-	misc_flags = (D3D11_RESOURCE_MISC_FLAG)(misc_flags | extra_misc_flags);
-
 	// Enforce uniqueness of D3D11_BIND_CONSTANT_BUFFER flag (it's incompatible with other flags).
 	if (extra_bind_flags & D3D11_BIND_CONSTANT_BUFFER)
 	{
@@ -5904,8 +5902,9 @@ bool CustomResource::AddFlags(D3D11_BIND_FLAG extra_bind_flags, D3D11_RESOURCE_M
 		bind_flags = D3D11_BIND_CONSTANT_BUFFER;
 
 		// Structured/raw buffer flags are meaningless for CBs.
-		misc_flags = (D3D11_RESOURCE_MISC_FLAG)(misc_flags & ~(D3D11_RESOURCE_MISC_BUFFER_STRUCTURED |
-		                                                       D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS));
+		misc_flags =
+		    (D3D11_RESOURCE_MISC_FLAG)((misc_flags | extra_misc_flags) & ~(D3D11_RESOURCE_MISC_BUFFER_STRUCTURED |
+			                                                               D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS));
 
 		return true;
 	}
@@ -5922,6 +5921,7 @@ bool CustomResource::AddFlags(D3D11_BIND_FLAG extra_bind_flags, D3D11_RESOURCE_M
 	}
 
 	bind_flags = (D3D11_BIND_FLAG)(bind_flags | extra_bind_flags);
+	misc_flags = (D3D11_RESOURCE_MISC_FLAG)(misc_flags | extra_misc_flags);
 
 	return true;
 }
@@ -8073,6 +8073,44 @@ bool ResourceCopyTarget::ParseTarget(const wchar_t *target, bool is_source, cons
 
 #pragma endregion ParseResourceCopyTarget
 
+// Reference edges are valid only during the current configuration load.
+static std::vector<std::pair<CustomResource *, CustomResource *>> deferred_bind_flags;
+
+static void DeferBindFlagsPropagation(CustomResource *src, CustomResource *dst)
+{
+	if (src && dst && src != dst)
+		deferred_bind_flags.emplace_back(src, dst);
+}
+
+void ClearDeferredBindFlags()
+{
+	deferred_bind_flags.clear();
+}
+
+void PropagateDeferredBindFlags()
+{
+	bool changed;
+	do
+	{
+		changed = false;
+		for (const auto &edge : deferred_bind_flags)
+		{
+			CustomResource *src = edge.first;
+			CustomResource *dst = edge.second;
+			if (!(dst->bind_flags & ~src->bind_flags) && !(dst->misc_flags & ~src->misc_flags))
+				continue;
+
+			const D3D11_BIND_FLAG old_bind_flags = src->bind_flags;
+			const D3D11_RESOURCE_MISC_FLAG old_misc_flags = src->misc_flags;
+			// Rejected combinations must leave both sets unchanged to keep
+			// propagation monotonic, including cycles involving constant buffers.
+			src->AddFlags(dst->bind_flags, dst->misc_flags, true);
+			changed |= src->bind_flags != old_bind_flags || src->misc_flags != old_misc_flags;
+		}
+	} while (changed);
+	deferred_bind_flags.clear();
+}
+
 #pragma region PoolCopyOperation
 
 static CommandListCommand *parse_pool_copy_operation(const wchar_t *section, ResourceCopyTarget &dst,
@@ -8100,6 +8138,8 @@ static CommandListCommand *parse_pool_copy_operation(const wchar_t *section, Res
 		}
 		src.custom_resource_pool->PropagateFlags(dst.custom_resource_pool->resource_template->bind_flags,
 		                                         dst.custom_resource_pool->resource_template->misc_flags);
+		DeferBindFlagsPropagation(src.custom_resource_pool->resource_template,
+		                          dst.custom_resource_pool->resource_template);
 		break;
 
 	case ResourceCopyTargetType::EMPTY:
@@ -8247,6 +8287,8 @@ static CommandListCommand *parse_resource_copy_operation(const wchar_t *section,
 			            section, ini_namespace->c_str());
 			return nullptr;
 		}
+		if (dst.type == ResourceCopyTargetType::CUSTOM_RESOURCE || dst.type == ResourceCopyTargetType::POOL)
+			DeferBindFlagsPropagation(src_custom_resource, dst.GetCustomResource(nullptr));
 	}
 
 	auto *operation = new ResourceCopyOperation();

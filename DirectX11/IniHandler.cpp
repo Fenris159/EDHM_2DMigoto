@@ -2404,6 +2404,7 @@ static CustomResourcePool *ParseResourcePoolSection(const wchar_t *section_name)
 
 static void ParseResourceSections()
 {
+	ClearDeferredBindFlags();
 	customResourcePools.clear();
 	customResources.clear();
 
@@ -5439,6 +5440,7 @@ void LoadConfigFile()
 	G->post_clear_uav_float_command_list.clear();
 	ParseCommandList(L"ClearUnorderedAccessViewFloat", &G->clear_uav_float_command_list,
 	                 &G->post_clear_uav_float_command_list, nullptr);
+	PropagateDeferredBindFlags();
 
 	LogInfo("\n");
 
