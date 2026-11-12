@@ -27,6 +27,11 @@ on:
         required: false
         default: false
         type: boolean
+      clang_tidy_base_ref:
+        description: Compare manual clang-tidy checks to this revision; leave empty to analyze all files
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: sonar-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -115,8 +120,11 @@ jobs:
       - name: Analyze changed native source with clang-tidy
         if: ${{ !cancelled() }}
         shell: pwsh
+        env:
+          ANALYSIS_SCOPE: ${{ github.event_name == 'workflow_dispatch' && !inputs.clang_tidy_base_ref && 'All' || 'Changed' }}
+          ANALYSIS_BASE_REF: ${{ inputs.clang_tidy_base_ref || github.event.pull_request.base.sha || github.event.before }}
         run: >-
           ./scripts/quality.ps1 -Mode ClangTidy
-          -Scope "${{ github.event_name == 'workflow_dispatch' && 'All' || 'Changed' }}"
-          -BaseRef "${{ github.event.pull_request.base.sha || github.event.before }}"
+          -Scope $env:ANALYSIS_SCOPE
+          -BaseRef $env:ANALYSIS_BASE_REF
           -CompileDatabase 'bw-output/compile_commands.json'

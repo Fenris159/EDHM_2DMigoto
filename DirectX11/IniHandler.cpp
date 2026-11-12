@@ -5490,7 +5490,7 @@ bool SavePersistentSettings()
 	if (!length || length >= ARRAYSIZE(destination))
 		return false;
 	std::wstring directory(destination);
-	const size_t slash = directory.find_last_of(L"\\");
+	const size_t slash = directory.find_last_of(L'\\');
 	if (slash == std::wstring::npos)
 		return false;
 	directory.resize(slash + 1);
