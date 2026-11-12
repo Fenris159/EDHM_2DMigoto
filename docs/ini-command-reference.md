@@ -847,11 +847,16 @@ The existing `[Hunting]` bindings control the CPU monitor:
   top commands, applicable warnings, then off.
 - `freeze_performance_monitor` defaults to Shift+F9. It freezes the displayed
   result and writes it to `d3d11_log.txt` when logging is enabled.
-- `monitor_performance_interval` defaults to 2.0 seconds per collection window.
+- `monitor_performance_interval` sets seconds per collection window. The shipped
+  template uses 2.0; an omitted setting falls back to 1.0.
+
+These monitor bindings are registered even when hunting is disabled; keep the
+normal hunting setting for diagnostic captures.
 
 The summary includes separate resource-matching and fuzzy-scan CPU time,
 matching calls/scans, tested fuzzy candidates, successful/attempted view-creation
-API calls, and source/cached view reuse. Counts describe the complete collection
+API calls, and source/cached view reuse. Creation counts cover the command-resource
+view factory, not every application or driver view. Counts describe the complete collection
 window so infrequent work remains visible. Timings are CPU microseconds per
 frame. The fuzzy phase is nested within resource matching where that path calls
 it; direct descriptor/template matching can also contribute fuzzy scans.

@@ -34,12 +34,22 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 - Clear stale structured stride during CB recreation and guard unsupported
   typed-buffer formats against division by zero.
 
+### Added
+
+- Summary-mode CPU timing and counts for resource matching, fuzzy candidates,
+  view creation and view reuse; document how to capture the performance monitor.
+
 ### Changed
 
 - Reuse the current INI section while parsing. In the isolated EDHM fixture,
   median configuration loading fell from 73.971 ms to 71.625 ms under Wine;
   this is a CPU load-time measurement. Constants compaction and static-condition
   memoization were evaluated and deferred because useful gains were not established.
+- Register profiler command identities once per collection window, reducing
+  enabled-monitor overhead in the native interpreter fixture.
+- Reuse compatible source views after checking resource, interface and active
+  descriptor fields; retain factory fallback for regions, overrides and planar
+  video. Preserve existing pipeline bindings when required view creation fails.
 - Add native runtime regression checks, deliberate-break verification and
   optional strict Zip Release validation for both Windows architectures.
 

@@ -1,7 +1,7 @@
 # Next release implementation plan
 
-**Prepared:** 2026-11-12. **Status:** implemented and native validated on `upstream-improvements`; installed-game gate open.
-**Next work:** installed-game smoke and frame-time validation before promotion. The execution log records accepted and deferred items;
+**Prepared:** 2026-11-12. **Status:** first wave native validated; follow-up profiler/parser/view candidate implemented on `upstream-improvements`, with targeted-case confirmation and game gates open.
+**Next work:** confirm and add the new follow-up regression cases, then installed-game smoke and frame-time validation before promotion. The execution log records accepted and deferred items;
 [the implementation report](next-release-implementation.md) records the evidence.
 
 ## Objective and release boundaries
@@ -312,3 +312,33 @@ scope and remaining gates are recorded in [the implementation report](next-relea
 Independent correctness and startup evaluations proceeded while the game gate
 remained open; no checkpoint was promoted on that basis. Native validation does
 not close the installed-game smoke or FPS-attribution gate.
+
+## Follow-up profiler, parser and view work
+
+Starting point: `afe3372b`; selected candidate: `83b46492`. The user requested
+this next wave after reviewing the remaining opportunities. Measurements and
+architecture details are in the final section of the implementation report.
+
+- [x] Add summary-mode resource/fuzzy matching and view API/reuse diagnostics.
+- [x] Evaluate once-per-window profiler registration with profiling-off controls
+  and same-runner native A/B processes; retain the generation-based path.
+- [x] Evaluate operator-category masks, direct traversal, their combination and
+  namespace-key construction independently on the EDHM snapshot. Leave all
+  three parser changes out after isolated and final combined-build controls.
+- [x] Implement conservative source-view reuse with resource/interface/descriptor
+  checks, explicit-region and override protection, owned queried interfaces and
+  failed-view binding preservation. Evaluate stable and changing resources.
+- [x] Run existing native cases and approved mutation checks on the combined
+  candidate; strict Release/Zip Release and shader checks pass.
+- [ ] Receive confirmation for the newly listed profiling/view/parser regression
+  behaviors, then add focused cases and demonstrate their mutation sensitivity.
+- [x] Finish combined static analysis and record the cumulative configuration
+  result: 72.032 → 72.090 ms load, with no additional startup gain established.
+  Sonar/clang-tidy passed for `83b46492`; linked evidence is in the report.
+- [ ] Capture a repeatable Elite scene, using diagnostics separately from
+  profiling-off frame-time outcomes; leave caching/batching gates closed until
+  the workload justifies them.
+
+No new regression cases were written while the confirmation prompts remained
+unanswered. Existing behavior checks and benchmark observations are recorded
+separately from that open gate.

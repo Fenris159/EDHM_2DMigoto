@@ -1,0 +1,270 @@
+{
+  "scope": "CPU load -> optimize cycles under Wine10 in the unchanged isolated107-file EDHM snapshot. Same directory/prefix.11 cycles per fresh process; exclude sample0 from warm medians. No game frames.",
+  "snapshot_sha256": "806c6515ed3d10f4147c2982a457fad8512adaa65a617ff5ccd8c9c090435e9c",
+  "environment": {
+    "wine": "10.0 Ubuntu",
+    "platform": "Linux x86_64",
+    "kernel": "7.0.0-42-generic"
+  },
+  "experiments": [
+    {
+      "name": "pre-field-comparison",
+      "order": "ABBABAAB",
+      "variants": {
+        "A": {
+          "source": "b14272fa74a3221092ccd6279e15a08463f864d6",
+          "binary_sha256": "b5daeae534a5c012bbe71387dabfc9e7ee64b64ace644b5cf5d7d0f887c65525",
+          "processes": 4,
+          "warm_load_median_ms": 71.591,
+          "warm_optimize_median_ms": 0.7885,
+          "process_total_medians_ms": [
+            72.763,
+            72.2315,
+            73.0205,
+            72.2425
+          ]
+        },
+        "B": {
+          "source": "a2dc88a935e771b0e9d27b13e4f217e7c9010dd1",
+          "binary_sha256": "9409967a9ec419d1486f9e0768b91d8e6b22496ba0a7b94aa1b61b7b98f032e1",
+          "processes": 4,
+          "warm_load_median_ms": 66.8865,
+          "warm_optimize_median_ms": 0.8215,
+          "process_total_medians_ms": [
+            68.6515,
+            66.451,
+            67.86,
+            66.996
+          ]
+        }
+      },
+      "comparisons": {
+        "B": {
+          "baseline_process_median": 72.50275,
+          "candidate_process_median": 67.428,
+          "change_percent": -6.999389678322554,
+          "bootstrap_95_change_percent": [
+            -8.509393307311575,
+            -5.311867480888665
+          ]
+        }
+      }
+    },
+    {
+      "name": "field-compared-candidate",
+      "order": "ABBABAAB",
+      "variants": {
+        "A": {
+          "source": "b14272fa74a3221092ccd6279e15a08463f864d6",
+          "binary_sha256": "b5daeae534a5c012bbe71387dabfc9e7ee64b64ace644b5cf5d7d0f887c65525",
+          "processes": 4,
+          "warm_load_median_ms": 71.9755,
+          "warm_optimize_median_ms": 0.8105,
+          "process_total_medians_ms": [
+            71.793,
+            72.6935,
+            74.1105,
+            71.665
+          ]
+        },
+        "B": {
+          "source": "1c6e4658b51f9cb1ea549e3ebe2d646eb9bad3de",
+          "binary_sha256": "e7e684729ddd3b4c682c210c6dd019e2240dc7c5addf8e5e3a4e888cc01f440c",
+          "processes": 4,
+          "warm_load_median_ms": 72.602,
+          "warm_optimize_median_ms": 0.8365,
+          "process_total_medians_ms": [
+            71.926,
+            74.3815,
+            73.1225,
+            73.9695
+          ]
+        }
+      },
+      "comparisons": {
+        "B": {
+          "baseline_process_median": 72.24325,
+          "candidate_process_median": 73.54599999999999,
+          "change_percent": 1.8032826596256157,
+          "bootstrap_95_change_percent": [
+            -1.3331444262284053,
+            3.4107543671318297
+          ]
+        }
+      }
+    },
+    {
+      "name": "independent-binaries",
+      "order": "ABCDDCBABCDAADCB",
+      "variants": {
+        "A": {
+          "source": "b14272fa74a3221092ccd6279e15a08463f864d6",
+          "binary_sha256": "b5daeae534a5c012bbe71387dabfc9e7ee64b64ace644b5cf5d7d0f887c65525",
+          "processes": 4,
+          "warm_load_median_ms": 73.869,
+          "warm_optimize_median_ms": 0.8945,
+          "process_total_medians_ms": [
+            72.7945,
+            75.009,
+            73.568,
+            77.736
+          ]
+        },
+        "B": {
+          "source": "1c6e4658b51f9cb1ea549e3ebe2d646eb9bad3de",
+          "binary_sha256": "90996c18d6b5d5c784aeb7a6d3318c68850b76571968e0109efc45d2094b48cc",
+          "processes": 4,
+          "warm_load_median_ms": 72.908,
+          "warm_optimize_median_ms": 0.8615,
+          "process_total_medians_ms": [
+            75.3215,
+            74.266,
+            73.744,
+            72.1125
+          ]
+        },
+        "C": {
+          "source": "1c6e4658b51f9cb1ea549e3ebe2d646eb9bad3de",
+          "binary_sha256": "e7e684729ddd3b4c682c210c6dd019e2240dc7c5addf8e5e3a4e888cc01f440c",
+          "processes": 4,
+          "warm_load_median_ms": 72.862,
+          "warm_optimize_median_ms": 0.822,
+          "process_total_medians_ms": [
+            74.108,
+            72.1045,
+            73.7185,
+            74.6805
+          ]
+        },
+        "D": {
+          "source": "a2dc88a935e771b0e9d27b13e4f217e7c9010dd1",
+          "binary_sha256": "9409967a9ec419d1486f9e0768b91d8e6b22496ba0a7b94aa1b61b7b98f032e1",
+          "processes": 4,
+          "warm_load_median_ms": 67.5175,
+          "warm_optimize_median_ms": 0.8535,
+          "process_total_medians_ms": [
+            68.461,
+            68.061,
+            68.426,
+            68.394
+          ]
+        }
+      },
+      "comparisons": {
+        "B": {
+          "baseline_process_median": 74.2885,
+          "candidate_process_median": 74.005,
+          "change_percent": -0.38162030462319807,
+          "bootstrap_95_change_percent": [
+            -5.135329834311008,
+            2.3835091344062587
+          ]
+        },
+        "C": {
+          "baseline_process_median": 74.2885,
+          "candidate_process_median": 73.91325,
+          "change_percent": -0.5051252885709068,
+          "bootstrap_95_change_percent": [
+            -4.91760574251312,
+            1.804394562776035
+          ]
+        },
+        "D": {
+          "baseline_process_median": 74.2885,
+          "candidate_process_median": 68.41,
+          "change_percent": -7.913068644541221,
+          "bootstrap_95_change_percent": [
+            -11.997015539775656,
+            -6.023119878562255
+          ]
+        }
+      }
+    },
+    {
+      "name": "final-mask-control",
+      "order": "ABBABAAB",
+      "variants": {
+        "A": {
+          "source": "470ee2cb0738c9efd27cd509d0708ce71f035fdd",
+          "binary_sha256": "d358cd17f8f87a0e1026115f2d3d22db29e6dc88e5b85f6ec0e7fb842a9a707c",
+          "processes": 4,
+          "warm_load_median_ms": 73.226,
+          "warm_optimize_median_ms": 0.9705,
+          "process_total_medians_ms": [
+            73.2225,
+            75.5055,
+            75.3785,
+            73.687
+          ]
+        },
+        "B": {
+          "source": "1c6e4658b51f9cb1ea549e3ebe2d646eb9bad3de",
+          "binary_sha256": "90996c18d6b5d5c784aeb7a6d3318c68850b76571968e0109efc45d2094b48cc",
+          "processes": 4,
+          "warm_load_median_ms": 74.2985,
+          "warm_optimize_median_ms": 0.866,
+          "process_total_medians_ms": [
+            76.7755,
+            75.814,
+            73.5765,
+            75.0735
+          ]
+        }
+      },
+      "comparisons": {
+        "B": {
+          "baseline_process_median": 74.53275,
+          "candidate_process_median": 75.44375,
+          "change_percent": 1.222281480288867,
+          "bootstrap_95_change_percent": [
+            -1.4806076190981399,
+            3.866325867285636
+          ]
+        }
+      }
+    },
+    {
+      "name": "selected-candidate",
+      "order": "ABBABAAB",
+      "variants": {
+        "A": {
+          "source": "b14272fa74a3221092ccd6279e15a08463f864d6",
+          "binary_sha256": "b5daeae534a5c012bbe71387dabfc9e7ee64b64ace644b5cf5d7d0f887c65525",
+          "processes": 4,
+          "warm_load_median_ms": 72.032,
+          "warm_optimize_median_ms": 0.8375,
+          "process_total_medians_ms": [
+            73.1265,
+            72.596,
+            73.3435,
+            72.2805
+          ]
+        },
+        "B": {
+          "source": "83b4649200036ff9f8453763f14c97d0024554c8",
+          "binary_sha256": "27ccfd3822c61f3c1479a028114267122e37d6f4ba26005146bfed038bf01649",
+          "processes": 4,
+          "warm_load_median_ms": 72.0895,
+          "warm_optimize_median_ms": 0.8125,
+          "process_total_medians_ms": [
+            71.82,
+            72.436,
+            73.8475,
+            73.338
+          ]
+        }
+      },
+      "comparisons": {
+        "B": {
+          "baseline_process_median": 72.86125,
+          "candidate_process_median": 72.887,
+          "change_percent": 0.03534114498446872,
+          "bootstrap_95_change_percent": [
+            -1.5756529246708562,
+            1.593771246544451
+          ]
+        }
+      }
+    }
+  ]
+}

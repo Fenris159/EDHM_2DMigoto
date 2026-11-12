@@ -1,0 +1,168 @@
+{
+  "run_id": 43323868641,
+  "baseline_source": "82416bb15313d60d7d91c4a84c9e7bf96e74c6c6",
+  "candidate_source": "6355a235e3e8ed55f476b7f784ec7db141981353",
+  "native_metadata": {
+    "B": {
+      "sha256": "F273076F8F8DDACA002DE2AABB7FE97AFE65604A04E629B0E861F26AED8B9795"
+    },
+    "A": {
+      "sha256": "96C745A08E8E300CA3A014C7961ADFC04B177E83AD0977584345514BFBD641B6"
+    }
+  },
+  "scope": "Native MSVC Release, Windows2022, same runner, four independent processes/variant,11 samples/mode/workload. Exclude sample0. View timing uses WARP without the debug layer. CPU mechanisms, no Elite frames.",
+  "comparisons": [
+    {
+      "workload": "churn",
+      "mode": 0,
+      "process_ns_per_run": {
+        "A": [
+          1414.94,
+          1398.5549999999998,
+          1389.69,
+          1416.48
+        ],
+        "B": [
+          188.245,
+          136.595,
+          139.29,
+          135.825
+        ]
+      },
+      "comparison": {
+        "baseline_process_median": 1406.7475,
+        "candidate_process_median": 137.9425,
+        "change_percent": -90.19422462097853,
+        "bootstrap_95_change_percent": [
+          -90.37867924928128,
+          -86.61842299346543
+        ]
+      },
+      "create_calls_per_batch": {
+        "A": [
+          10000
+        ],
+        "B": [
+          0
+        ]
+      },
+      "bound_resource_results": [
+        "1"
+      ]
+    },
+    {
+      "workload": "churn",
+      "mode": 1,
+      "process_ns_per_run": {
+        "A": [
+          1381.0149999999999,
+          1370.205,
+          1532.355,
+          1397.535
+        ],
+        "B": [
+          138.31,
+          136.345,
+          139.735,
+          135.58499999999998
+        ]
+      },
+      "comparison": {
+        "baseline_process_median": 1389.275,
+        "candidate_process_median": 137.3275,
+        "change_percent": -90.11516798330065,
+        "bootstrap_95_change_percent": [
+          -91.03814063973427,
+          -89.8937562245113
+        ]
+      },
+      "create_calls_per_batch": {
+        "A": [
+          10000
+        ],
+        "B": [
+          0
+        ]
+      },
+      "bound_resource_results": [
+        "1"
+      ]
+    },
+    {
+      "workload": "stable",
+      "mode": 0,
+      "process_ns_per_run": {
+        "A": [
+          53.49,
+          52.75,
+          51.94,
+          56.065
+        ],
+        "B": [
+          79.93,
+          52.629999999999995,
+          52.345,
+          52.239999999999995
+        ]
+      },
+      "comparison": {
+        "baseline_process_median": 53.120000000000005,
+        "candidate_process_median": 52.4875,
+        "change_percent": -1.1907003012048278,
+        "bootstrap_95_change_percent": [
+          -6.380986355123519,
+          50.470632530120476
+        ]
+      },
+      "create_calls_per_batch": {
+        "A": [
+          1
+        ],
+        "B": [
+          0
+        ]
+      },
+      "bound_resource_results": [
+        "1"
+      ]
+    },
+    {
+      "workload": "stable",
+      "mode": 1,
+      "process_ns_per_run": {
+        "A": [
+          53.480000000000004,
+          52.335,
+          52.355000000000004,
+          53.28
+        ],
+        "B": [
+          53.76,
+          52.785,
+          53.565,
+          53.465
+        ]
+      },
+      "comparison": {
+        "baseline_process_median": 52.8175,
+        "candidate_process_median": 53.515,
+        "change_percent": 1.3205850333696256,
+        "bootstrap_95_change_percent": [
+          -0.4777070063694322,
+          2.516954818989392
+        ]
+      },
+      "create_calls_per_batch": {
+        "A": [
+          1
+        ],
+        "B": [
+          0
+        ]
+      },
+      "bound_resource_results": [
+        "1"
+      ]
+    }
+  ]
+}

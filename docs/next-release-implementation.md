@@ -2,7 +2,8 @@
 
 **Date:** 2026-11-12. **Branch:** `upstream-improvements`.
 **Integration base:** `34d92f27f588bbc3f72320c0fa17b674638698c6`.
-**Runtime candidate:** `b14272fa74a3221092ccd6279e15a08463f864d6`.
+**First-wave runtime:** `b14272fa74a3221092ccd6279e15a08463f864d6`.
+The follow-up section records the newer profiler, parser and view candidate separately.
 
 ## Brief
 
@@ -22,6 +23,13 @@ frame-time improvement has been measured.
 The code is prepared for review on a separate branch. The original dirty
 checkout and installed game files were preserved. Strict builds, native regressions, mutation sensitivity and static analysis pass.
 Game smoke and frame-time validation remain open.
+
+The follow-up adds resource-matching and view diagnostics, once-per-window
+profiler registration, and guarded compatible-view reuse. Native mechanism
+measurements found 16–19% less enabled-profiler cost and about 91% less CPU cost
+in a changing-buffer reference fixture. These are conditional CPU results.
+Further parser changes were evaluated and left out after cumulative controls;
+new targeted regression cases still await the required behavior confirmation.
 
 ## Scope and references
 
@@ -293,9 +301,9 @@ gates.
 | P4.1 constants compaction | Evaluated, then removed; corrected EDHM effect is within noise. | A declaration-heavy actual configuration and useful isolated/cumulative gain. |
 | P4.2 static If memoization | Evaluated on an independent branch; negligible optimizer benefit here. | A profile showing material repeated static evaluation and a useful total reduction. |
 | P4.4 buffer-contamination early exit | Defer. Normal workload has region tracking off; an added `GetType` affects the off path too. | Buffer/texture tracking-on/off total-cost comparison, including locking/profiling exits. |
-| P4.5 broader compatible-view reuse | Defer. Explicit-region view repair is included; general reuse needs resource/interface/descriptor/lifetime proof. | Actual view-creation counts and timing, with identical bindings and owned lifetimes. |
+| P4.5 broader compatible-view reuse | Deferred in the first wave; a follow-up candidate is now implemented and measured below. | New targeted behavior confirmation/coverage and installed-game evidence remain open. |
 | P4.6 duplicate ShaderRegex disassembly | Defer. Installed lexical scan found no active ShaderRegex declarations. | A real patterned-miss authoring workload, identical replacements and cold first-use measurements. |
-| Smaller parser dispatch/normalization | Defer. Section reuse is measured; broad grammar changes have a larger compatibility surface. | Remaining parser hotspot attribution and namespaced/Unicode/precedence equivalence. |
+| Smaller parser dispatch/normalization | Follow-up evaluated masks, traversal and namespace construction; all remain excluded after controls. | Reproducible incremental gain in the final combined binary and grammar compatibility. |
 | P5.3 stream-output targets | Defer. No intended EDHM SO-target workload established. | A mod using SO plus offset, append-position and reference-array ownership cases. |
 | Phase 6 TextureOverride cache | Defer. No real frame profile establishes matching as the dominant cost. Upstream has semantic/invalidation hazards for EDHM. | Ordered equivalence with hash-first/dual/untracked/region paths; resolution/config/hash generations; lifetime/concurrency design; real frame benefit. |
 | Phase 7 SRV batching | Defer. Lexical references do not establish executed eligible runs. Upstream sorting/failure behavior can reorder side effects or clear old bindings. | Conservative eligibility rules, failed-copy preservation, ordered binding/output equivalence and measured executed runs/API/frame cost before conditional expansion. |
@@ -333,3 +341,137 @@ the recorded originals. The Linux installed baseline DLL SHA-256 is
 `d1fca1312e4435634148c0e46341ac7306ac0f4e2c421d4788262631cbf214c2`.
 The Windows desktop CIFS mounts were unavailable during the audit. Native Windows
 CI supplies API/build evidence, not evidence of a Windows Elite play session.
+
+## Follow-up profiling, parser and view work
+
+**Selected integration candidate:** `83b4649200036ff9f8453763f14c97d0024554c8`, based on
+`afe3372b`. The existing 20 native cases and their 20 deliberate-break checks
+pass for `83b46492`, as do strict x64/Win32 Release and Zip Release builds.
+The selected candidate removes the unproven operator-mask optimization;
+validation evidence is recorded below. New targeted
+regression cases remain pending the behavior confirmation required by the
+user's AGENTS.md. The installed-game smoke/frame-time gate remains open.
+
+### Selected changes
+
+| Change | Source and architecture | Measurement / scope |
+|---|---|---|
+| Separate resource/fuzzy matching diagnostics | Adapt XXMI `9b3d52f2`; local `2f4fc570`, `aa185f1e`, `d99c3462`. Add resource-matching CPU time, fuzzy scan CPU/count/hits, tested candidates and command-resource view-factory creation/reuse diagnostics. Collect new metrics only in summary mode; candidate counts are accumulated once per scan. Hash-first matching and opt-in dual matching retain their old condition. | Instrumentation makes the next game capture useful; it is not a measured game-speed improvement. Counts cover whole collection windows. Creation counts cover calls through the command-resource view factory, rather than all application/driver views or necessarily distinct objects. |
+| Once-per-window profiler registration | XXMI `a6b30761`; local `be828781`. Per-command/list 64-bit generation markers avoid inserting the same identity into profiling sets on every execution. Configuration loading clears collections before replacing command storage; existing recursive timing accounting remains. | Synthetic native interpreter cost fell about 16–19% with profiling enabled; the profiling-off control was within noise. Each object gains an eight-byte generation marker, subject to alignment. Existing command-storage lifetime and synchronization assumptions remain. |
+| Compatible source-view reuse | XXMI `ace1f29f`, adapted in local `88254a3a`, `9b71e9d4`, `fd95b056`, `1c6e4658`. Separate descriptor construction from view creation; require the selected resource, queried view interface and requested descriptor to agree. Hold the actual queried interface through binding/cache ownership. Preserve the ordinary warm cache path, exclude explicit regions, and respect destination format/stride overrides. Failed creation of a required pipeline view preserves the old binding. | Native WARP buffer-SRV reference benchmark: changing resources fell from about 1,364 to 117 ns/reference, with 10,000 → 0 Create*View calls per batch. Stable-resource medians were 51.87 → 53.59 ns/reference (profiling-off interval crosses zero). These are conditional CPU mechanism results, not a general frame-rate gain. |
+
+`ComPtr` retains the queried interface instead of releasing it and casting the
+original interface pointer. The resource check balances the reference returned
+by `GetResource`. Descriptors are compared by their active dimension fields;
+padding and unused union fields cannot affect the result. Planar-video resources
+use the existing factory because a base descriptor cannot prove that the newer
+`PlaneSlice` field agrees. Full-mip SRV descriptors are canonicalized only for
+comparison; factory parameters retain their original values. See Microsoft's
+[QueryInterface rules](https://learn.microsoft.com/en-us/windows/win32/com/rules-for-implementing-queryinterface),
+[GetResource ownership contract](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11view-getresource),
+and [PlaneSlice definition](https://learn.microsoft.com/en-us/windows/win32/api/d3d11_3/ns-d3d11_3-d3d11_tex2d_srv1).
+
+The ordinary warm-cache path still keys reuse by resource identity. Dynamic
+metadata invalidation needs separate targeted coverage; the new source-view
+comparison runs when no usable cached view is present. The timing fixture uses
+buffer SRVs. It does not establish a speedup for textures, RTVs, DSVs or UAVs.
+
+### Independent evaluations and uncertainty
+
+The parser comparisons reused the same 107-file snapshot, path, Wine prefix and
+load → optimize lifecycle used above. Each process performed 11 cycles; sample
+zero was excluded from warm statistics. Source/binary identities, raw data and
+seeded process-level bootstrap results are preserved in
+[second-wave-parser.json](benchmarks/second-wave-parser.json) and
+[second-wave-parser.csv](benchmarks/second-wave-parser.csv).
+
+- Operator masks (`1ff00d94`, evaluated in `546fa856`) improved isolated
+  process-median load-plus-optimizer time by 6.15% in
+  the first screen and 7.72% in confirmation, with four processes per variant in
+  each experiment. Confirmation's 95% change interval was −9.45% to −6.84%.
+  They were then removed in `83b46492`: the gain did not survive the final
+  combination. A same-source control without masks loaded in 73.226 ms versus
+  74.299 ms with masks. Total-time change was +1.22% with a −1.48% to +3.87%
+  process-bootstrap interval. No useful incremental benefit was established.
+- Direct traversal (`87fa9479`) alone increased total time by 10.54% in this
+  fixture. With masks already enabled, eight processes per variant found only
+  a 0.29% process-median total reduction, with a −1.74% to +1.19% interval.
+  It remains excluded.
+- The conservative namespace-key construction variant, adapted from
+  `ec9e5713` / `5c77f4b0` while preserving locale-aware Unicode folding,
+  increased process-median total time by 8.16%. It remains excluded. A source
+  change that removes operations is not sufficient evidence of a faster binary.
+
+The native mechanism comparisons alternated fresh A/B processes in `ABBABAAB`
+order on the same Windows runner. Each variant had four processes and ten warm
+samples per mode/workload after excluding sample zero. Timing is not used as a
+unit-test threshold.
+
+| Profiler mode | Before → after, median process ns/command-list run | Reduction |
+|---|---:|---:|
+| Off | 20.684 → 20.735 | Within noise |
+| Summary | 93.400 → 77.947 | 16.54% |
+| Top command lists | 93.027 → 77.997 | 16.16% |
+| Top commands | 95.742 → 77.124 | 19.45% |
+
+These interpreter runs execute real assignments across 64 lists. They measure
+profiler overhead under that workload, not the cost of a full EDHM frame.
+[Raw observations](benchmarks/profiling-registration.csv) and
+[identities/statistics](benchmarks/profiling-registration.json) preserve the
+baseline that differs only in repeated-versus-generation registration.
+
+The view comparison used real WARP resources with the debug layer disabled,
+measuring stable references and round-robin changes among 32 buffers. In the
+final profiling-off comparison, changing-resource CPU cost fell by 91.44%
+(1,364.148 → 116.780 ns/reference). Stable references measured
+51.870 → 53.590 ns/reference; the 95% process-bootstrap change interval was
+−1.13% to +7.28%. With summary profiling enabled, the stable case rose
+51.928 → 53.368 ns/reference (2.77%, interval +2.21% to +4.34%). An earlier confirmation
+had similar stable medians but one candidate-process outlier. Stable batches
+are short (10,000 references), and the final summary-mode result has a small
+absolute penalty; no stable-path speedup is claimed. The saving depends on how often real commands
+would otherwise create compatible views; the new diagnostics can measure that.
+[Final view data](benchmarks/compatible-view-reuse.json),
+[raw CSV](benchmarks/compatible-view-reuse.csv),
+[the earlier confirmation](benchmarks/compatible-view-reuse-screen.json),
+[the pre-field-comparison retry](benchmarks/compatible-view-reuse-retry.json), and
+[the field-comparison candidate](benchmarks/compatible-view-reuse-field-comparison.json)
+retain earlier observations as well as the selected result. The final runner recorded Windows build 20348, four logical
+processors and AMD family 25/model 17; its exact image and executable hashes are
+in the JSON.
+
+The earlier `a2dc88a9` combination loaded in 71.591 → 66.887 ms versus
+the first-wave runtime, but that result did not survive the active-field
+descriptor correction: the `1c6e4658` comparison was 71.976 → 72.602 ms.
+A second comparison using both an independently built and a mutation-restored
+`1c6e4658` executable reproduced the absence of a useful cumulative gain, while
+`a2dc88a9` remained faster in the same interleaved run. This establishes binary
+sensitivity; the precise compiler/layout cause was not isolated. The descriptor
+correctness repair is retained, and the operator-mask change is deferred after
+the separate mask control. The selected `83b46492` build loaded in
+72.032 → 72.090 ms against the first-wave runtime. Load plus optimizer was
+within noise; no additional startup gain is claimed. [Raw controls](benchmarks/second-wave-cumulative.csv) and
+[source/binary identities with uncertainty](benchmarks/second-wave-cumulative.json)
+retain the superseded and selected observations. Isolated percentages must not
+be added to the first-wave 3% result.
+
+### Follow-up validation and remaining work
+
+| Gate | Evidence / state |
+|---|---|
+| Existing native cases, both architectures | [43330895159](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43330895159): all 20 cases passed. |
+| Existing mutation sensitivity | [43330915876](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43330915876): all 20 approved behavior mutations detected, restored production passed. |
+| Strict Release/Zip Release and shaders | [43330935594](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43330935594): passed x64/Win32, shaders and quality checks. |
+| Profiler-only analysis | [43323313875](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43323313875): passed Sonar/clang-tidy. |
+| Combined candidate analysis | [43330895111](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43330895111): Sonar quality gate and clang-tidy passed against all native source changed since `afe3372b`. Descriptor-comparison findings were fixed without suppressions; the redundant operator-mask condition was removed with that optimization. |
+| New targeted cases | Pending confirmation: mode/window/reload counters, matching outcomes, view kind/resource/descriptor/range/ownership/failure behavior, and broader expression grammar. Existing coverage does not close these cases; the selected source makes no further grammar change. |
+| Actual Elite frame outcomes | Pending. Steam was running when checked, but Elite was not; existing captures contained no usable frame-time trace. No DLL was installed or game files edited. |
+
+The [CPU monitor instructions](ini-command-reference.md#cpu-performance-monitor)
+explain Ctrl+F9/Shift+F9 captures. Those bindings work with hunting disabled.
+Keep normal-play settings for outcome captures and use a separate summary-mode
+capture to attribute wrapper work. The
+[benchmark instructions](../RuntimeTests/README.md#interpreter-and-resource-view-measurements)
+explain the synthetic native comparisons and their limits. TextureOverride
+caching and SRV batching still require real workload counts and frame profiles
+before their larger implementation gates open.
