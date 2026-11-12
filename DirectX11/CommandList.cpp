@@ -10613,6 +10613,14 @@ static void FillOutBufferDescCommon(DescType *desc, UINT stride, UINT offset, DX
 		{
 			stride = dxgi_format_size(format);
 		}
+		if (!stride)
+		{
+			// Unsupported typed formats have no element size. The view factory
+			// rejects this empty descriptor without a CPU division by zero.
+			desc->FirstElement = 0;
+			desc->NumElements = 0;
+			return;
+		}
 		desc->FirstElement = offset / stride;
 		desc->NumElements = (buf_src_size - offset) / stride;
 	}

@@ -5473,6 +5473,11 @@ bool SavePersistentSettings()
 	struct RestoreLocale
 	{
 		std::string previous = setlocale(LC_CTYPE, nullptr);
+		RestoreLocale() = default;
+		RestoreLocale(const RestoreLocale &) = delete;
+		RestoreLocale &operator=(const RestoreLocale &) = delete;
+		RestoreLocale(RestoreLocale &&) = delete;
+		RestoreLocale &operator=(RestoreLocale &&) = delete;
 		~RestoreLocale()
 		{
 			setlocale(LC_CTYPE, previous.c_str());

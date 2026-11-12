@@ -30,6 +30,13 @@ def run(command, log_name):
     return result.returncode, output.decode(errors="replace")
 
 
+def verify_baselines(mutations):
+    for case, _, _, _ in mutations:
+        baseline_exit, _ = run([str(EXE), case], f"{case}-baseline.log")
+        if baseline_exit:
+            raise RuntimeError(f"Baseline must pass before mutation: {case}")
+
+
 def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     command_list = ROOT / "DirectX11" / "CommandList.cpp"
@@ -156,10 +163,7 @@ def main():
     originals = {path: path.read_bytes() for _, path, _, _ in mutations}
     evidence = []
     try:
-        for case, path, old, new in mutations:
-            baseline_exit, _ = run([str(EXE), case], f"{case}-baseline.log")
-            if baseline_exit:
-                raise RuntimeError(f"Baseline must pass before mutation: {case}")
+        verify_baselines(mutations)
         for case, path, old, new in mutations:
             original = originals[path].decode("utf-8").replace("\r\n", "\n")
             if original.count(old) != 1:
