@@ -89,10 +89,8 @@ static inline void profile_command_list_start(CommandList *command_list, Command
 	if ((Profiling::mode != Profiling::Mode::SUMMARY) && (Profiling::mode != Profiling::Mode::TOP_COMMAND_LISTS))
 		return;
 
-	if (command_list->profiling_generation != profiling_generation)
+	if (command_lists_profiling.insert(command_list).second)
 	{
-		command_list->profiling_generation = profiling_generation;
-		command_lists_profiling.insert(command_list);
 		command_list->time_spent_inclusive.QuadPart = 0;
 		command_list->time_spent_exclusive.QuadPart = 0;
 		command_list->executions = 0;
@@ -126,10 +124,8 @@ static inline void profile_command_list_cmd_start(CommandListCommand *cmd,
 	if (Profiling::mode != Profiling::Mode::TOP_COMMANDS)
 		return;
 
-	if (cmd->profiling_generation != profiling_generation)
+	if (command_lists_cmd_profiling.insert(cmd).second)
 	{
-		cmd->profiling_generation = profiling_generation;
-		command_lists_cmd_profiling.insert(cmd);
 		cmd->pre_time_spent.QuadPart = 0;
 		cmd->post_time_spent.QuadPart = 0;
 		cmd->pre_executions = 0;
