@@ -41,7 +41,7 @@ jobs:
         run: |
           $exe = ".quality/runtime-tests/$env:TEST_PLATFORM/Release/RuntimeTests.exe"
           $failures = @()
-          foreach ($case in @('empty-groups', 'leading-dot', 'pending-save', 'pool-reset', 'constant-stride', 'reference-order', 'reference-cycles', 'pool-metadata', 'pool-identifiers', 'store-values', 'store-views', 'store-failure', 'region-copy', 'region-views', 'region-cb', 'settings-atomic', 'settings-lifecycle', 'constants-order')) {
+          foreach ($case in @('empty-groups', 'leading-dot', 'pending-save', 'pool-reset', 'constant-stride', 'reference-order', 'reference-cycles', 'pool-metadata', 'pool-identifiers', 'store-values', 'store-views', 'store-failure', 'region-copy', 'region-views', 'region-cb', 'settings-atomic', 'settings-lifecycle', 'constants-order', 'ini-sections', 'if-conditions')) {
             & $exe $case
             if ($LASTEXITCODE -ne 0) { $failures += "$case (exit $LASTEXITCODE)" }
           }

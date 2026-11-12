@@ -388,7 +388,7 @@ void accepts_pool_identifier_grammar()
 {
 	ConfigFixture resources;
 	make_pool(L"poolhyphen-name", 2.5f);
-	make_pool(L"pool\\test.ini\\\u03b4-name", 4.0f);
+	make_pool(L"pool\	est.ini\\\u03b4-name", 4.0f);
 	make_pool(L"pool\u03b4", 6.0f);
 	command_list_globals.emplace(L"$pool_test", CommandListVariable(L"$pool_test", 8.0f, VariableFlags::NONE));
 	CommandListState state;
@@ -398,7 +398,7 @@ void accepts_pool_identifier_grammar()
 		const wchar_t *text;
 		float expected;
 	} cases[] = {{L"$poolhyphen-name[0]", 2.5f},
-	             {L"$pool\\test.ini\\\u03b4-name[0]", 4.0f},
+	             {L"$pool\	est.ini\\\u03b4-name[0]", 4.0f},
 	             {L"$pool\u03b4[0]", 6.0f},
 	             {L"$pool_test - 1", 7.0f}};
 	for (const auto &item : cases)
@@ -824,6 +824,7 @@ struct SettingsConfigFixture
 {
 	std::filesystem::path config;
 	std::filesystem::path user;
+	std::vector<std::filesystem::path> includes;
 
 	SettingsConfigFixture()
 	{
@@ -852,6 +853,8 @@ struct SettingsConfigFixture
 		std::error_code error;
 		std::filesystem::remove(config, error);
 		std::filesystem::remove(user, error);
+		for (const auto &path : includes)
+			std::filesystem::remove(path, error);
 	}
 };
 
@@ -934,6 +937,67 @@ void preserves_constants_declaration_and_execution_order()
 	require(command_list_globals.at(L"$second").fval == 13.0f, "compaction changed execution/declaration ordering");
 	require(command_list_globals.at(L"$third").fval == 3.0f, "compaction discarded a trailing declaration");
 }
+
+void preserves_duplicate_sections_and_recursive_includes()
+{
+	ConfigFixture resources;
+	SettingsConfigFixture files;
+	const std::string prefix =
+	    "[Logging]\nenabled=0\ncalls=0\nshow_warnings=0\n[Include]\nuser_config=runtime-user.ini\n";
+	const std::string device = "[Device]\nwidth=100\nwidth=200\n[Device]\nheight=300\n";
+	std::ofstream(files.config) << prefix << device;
+	LoadConfigFile();
+	require(GetIniInt(L"Device", L"width", -1, nullptr) == 100, "duplicate key replaced the first value");
+	require(GetIniInt(L"Device", L"height", -1, nullptr) == -1, "duplicate section reused the previous section");
+	const auto child = files.config.parent_path() / L"runtime-child.ini";
+	const auto grandchild = files.config.parent_path() / L"runtime-grandchild.ini";
+	require(!std::filesystem::exists(child) && !std::filesystem::exists(grandchild), "include fixtures already exist");
+	files.includes = {child, grandchild};
+	std::ofstream(child) << "[Include]\ninclude=runtime-grandchild.ini\n[Device]\nwidth=400\n";
+	std::ofstream(grandchild) << "[Device]\nwidth=500\n";
+	std::ofstream(files.config) << prefix << "include=runtime-child.ini\n" << device;
+	LoadConfigFile();
+	require(GetIniInt(L"Device", L"width", -1, nullptr) == 500, "recursive override lost its final value");
+}
+
+void preserves_static_and_dynamic_conditions_across_reload()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	SettingsConfigFixture files;
+	auto write = [&](bool condition)
+	{
+		std::ofstream(files.config) << "[Logging]\nenabled=0\ncalls=0\nshow_warnings=0\n"
+		                               "[Include]\nuser_config=runtime-user.ini\n[Constants]\n"
+		                               "global $static_result=0\nglobal $dynamic_result=0\nglobal $gate=0\nif "
+		                            << (condition ? "1" : "0")
+		                            << "\n$static_result=2\nelse\n$static_result=3\nendif\n"
+		                               "if $gate\n$dynamic_result=4\nelse\n$dynamic_result=5\nendif\n";
+	};
+	auto run = [&]()
+	{
+		for (const auto &command : G->constants_command_list.commands)
+			command->run(&fixture.state);
+	};
+	write(true);
+	LoadConfigFile();
+	optimise_command_lists(nullptr);
+	run();
+	require(command_list_globals.at(L"$static_result").fval == 2.0f, "static true condition chose the wrong branch");
+	require(command_list_globals.at(L"$dynamic_result").fval == 5.0f, "dynamic false condition chose the wrong branch");
+	command_list_globals.at(L"$gate").fval = 1.0f;
+	run();
+	require(command_list_globals.at(L"$dynamic_result").fval == 4.0f, "optimizer froze a dynamic condition");
+	write(false);
+	LoadConfigFile();
+	optimise_command_lists(nullptr);
+	run();
+	require(command_list_globals.at(L"$static_result").fval == 3.0f,
+	        "new configuration reused the previous static condition");
+	require(command_list_globals.at(L"$dynamic_result").fval == 5.0f,
+	        "reload did not reset the dynamic condition state");
+}
+
 }
 
 int main(int argc, char **argv)
@@ -944,12 +1008,13 @@ int main(int argc, char **argv)
 	InitializeCriticalSection(&G->mCriticalSection);
 	InitializeCriticalSection(&G->mResourcesLock);
 	InitializeCriticalSection(&resource_creation_mode_lock);
-	if (argc > 1 && std::string(argv[1]) == "benchmark-load")
+	const bool startup_benchmark = argc > 1 && std::string(argv[1]) == "benchmark-startup";
+	if (argc > 1 && (std::string(argv[1]) == "benchmark-load" || startup_benchmark))
 	{
 		const int runs = argc > 2 ? std::stoi(argv[2]) : 21;
 		if (runs < 1 || runs > 1000)
 			return 1;
-		std::cout << "sample,load_us,globals,constants_commands\n";
+		std::cout << "sample,load_us," << (startup_benchmark ? "optimize_us," : "") << "globals,constants_commands\n";
 		for (int sample = 0; sample < runs; ++sample)
 		{
 			ClearKeyBindings();
@@ -957,8 +1022,15 @@ int main(int argc, char **argv)
 			const auto start = std::chrono::steady_clock::now();
 			LoadConfigFile();
 			const auto elapsed = std::chrono::steady_clock::now() - start;
-			std::cout << sample << ',' << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count() << ','
-			          << command_list_globals.size() << ',' << G->constants_command_list.commands.size() << '\n';
+			std::cout << sample << ',' << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count() << ',';
+			if (startup_benchmark)
+			{
+				const auto optimize_start = std::chrono::steady_clock::now();
+				optimise_command_lists(nullptr);
+				const auto optimize_elapsed = std::chrono::steady_clock::now() - optimize_start;
+				std::cout << std::chrono::duration_cast<std::chrono::microseconds>(optimize_elapsed).count() << ',';
+			}
+			std::cout << command_list_globals.size() << ',' << G->constants_command_list.commands.size() << '\n';
 		}
 		return 0;
 	}
@@ -983,7 +1055,9 @@ int main(int argc, char **argv)
 	             {"region-cb", copies_cb_regions_beyond_the_bound_window},
 	             {"settings-atomic", failed_replacement_preserves_complete_file},
 	             {"settings-lifecycle", preserves_only_eligible_settings_across_reload},
-	             {"constants-order", preserves_constants_declaration_and_execution_order}};
+	             {"constants-order", preserves_constants_declaration_and_execution_order},
+	             {"ini-sections", preserves_duplicate_sections_and_recursive_includes},
+	             {"if-conditions", preserves_static_and_dynamic_conditions_across_reload}};
 	int failures = 0;
 	int selected = 0;
 	for (const auto &test : tests)
