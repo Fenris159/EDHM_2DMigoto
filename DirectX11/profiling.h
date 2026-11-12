@@ -90,6 +90,11 @@ extern Overhead shaderoverride_lookup_overhead;
 extern Overhead texture_handle_info_lookup_overhead;
 extern Overhead textureoverride_lookup_overhead;
 extern Overhead resource_pool_lookup_overhead;
+extern Overhead texture_override_fuzzy_match_overhead;
+extern Overhead resource_view_creation_overhead;
+extern unsigned fuzzy_candidates_tested;
+extern unsigned source_views_reused;
+extern unsigned cached_views_reused;
 
 extern unsigned resource_full_copies;
 extern unsigned resource_reference_copies;

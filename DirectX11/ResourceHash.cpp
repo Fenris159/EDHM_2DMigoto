@@ -1793,11 +1793,27 @@ static void find_texture_overrides_for_desc(const DescType *desc, TextureOverrid
                                             DrawCallInfo *call_info)
 {
 	FuzzyTextureOverrides::iterator i;
+	const bool profile = Profiling::mode == Profiling::Mode::SUMMARY;
+	Profiling::State timing{};
+	const size_t matches_before = matches->size();
+	if (profile)
+	{
+		++Profiling::texture_override_fuzzy_match_overhead.count;
+		Profiling::start(&timing);
+	}
 
 	for (i = G->mFuzzyTextureOverrides.begin(); i != G->mFuzzyTextureOverrides.end(); i++)
 	{
+		if (profile)
+			++Profiling::fuzzy_candidates_tested;
 		if ((*i)->matches(desc) && matches_draw_info((*i)->texture_override, call_info))
 			matches->push_back((*i)->texture_override);
+	}
+	if (profile)
+	{
+		Profiling::end(&timing, &Profiling::texture_override_fuzzy_match_overhead);
+		if (matches->size() > matches_before)
+			++Profiling::texture_override_fuzzy_match_overhead.hits;
 	}
 }
 

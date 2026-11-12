@@ -11038,7 +11038,20 @@ static ID3D11View *_CreateCompatibleView(ID3D11Resource *resource, CommandListSt
 		break;
 	}
 
+	const bool profile = Profiling::mode == Profiling::Mode::SUMMARY;
+	Profiling::State timing{};
+	if (profile)
+	{
+		++Profiling::resource_view_creation_overhead.count;
+		Profiling::start(&timing);
+	}
 	hr = (state->mOrigDevice1->*CreateView)(resource, pDesc, &view);
+	if (profile)
+	{
+		Profiling::end(&timing, &Profiling::resource_view_creation_overhead);
+		if (SUCCEEDED(hr))
+			++Profiling::resource_view_creation_overhead.hits;
+	}
 	if (FAILED(hr))
 	{
 		LogInfo("Resource copy CreateCompatibleView failed: %x\n", hr);
@@ -11629,12 +11642,16 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 		if (!region_size && src_view && (EquivTarget(src.type) == EquivTarget(dst.type)))
 		{
 			dst_view = src_view;
+			if (Profiling::mode == Profiling::Mode::SUMMARY)
+				++Profiling::source_views_reused;
 		}
 		else if (*pp_cached_view)
 		{
 			if (ViewMatchesResource(*pp_cached_view, dst_resource))
 			{
 				dst_view = *pp_cached_view;
+				if (Profiling::mode == Profiling::Mode::SUMMARY)
+					++Profiling::cached_views_reused;
 			}
 			else
 			{

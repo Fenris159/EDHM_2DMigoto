@@ -34,6 +34,11 @@ Overhead shaderoverride_lookup_overhead;
 Overhead texture_handle_info_lookup_overhead;
 Overhead textureoverride_lookup_overhead;
 Overhead resource_pool_lookup_overhead;
+Overhead texture_override_fuzzy_match_overhead;
+Overhead resource_view_creation_overhead;
+unsigned fuzzy_candidates_tested;
+unsigned source_views_reused;
+unsigned cached_views_reused;
 
 unsigned resource_full_copies;
 unsigned resource_reference_copies;
@@ -263,6 +268,24 @@ static void update_txt_summary(LARGE_INTEGER collection_duration, LARGE_INTEGER 
 	    Profiling::resource_pool_lookup_overhead.count / frames);
 	Profiling::text += buf;
 
+	// Counts cover the whole collection window so infrequent first-use work
+	// remains visible even when its integer per-frame average would be zero.
+	_snwprintf_s(buf, ARRAYSIZE(buf), _TRUNCATE,
+	             L"\nMatching and view diagnostics (CPU):\n"
+	             L"      TO fuzzy match: %7.2fus/frame (%u/%u matched scans/window; %u candidates)\n"
+	             L"      View creation: %7.2fus/frame (%u/%u successful creates/window)\n"
+	             L"  Source view reuse: %u/window\n"
+	             L"  Cached view reuse: %u/window\n",
+	             static_cast<double>(texture_override_fuzzy_match_overhead.cpu.QuadPart) * 1000000.0 /
+	                 static_cast<double>(freq.QuadPart) / frames,
+	             texture_override_fuzzy_match_overhead.hits, texture_override_fuzzy_match_overhead.count,
+	             fuzzy_candidates_tested,
+	             static_cast<double>(resource_view_creation_overhead.cpu.QuadPart) * 1000000.0 /
+	                 static_cast<double>(freq.QuadPart) / frames,
+	             resource_view_creation_overhead.hits, resource_view_creation_overhead.count, source_views_reused,
+	             cached_views_reused);
+	Profiling::text += buf;
+
 	_snwprintf_s(buf, ARRAYSIZE(buf), _TRUNCATE,
 	             L"\n"
 	             L"GPU Performance Impacting Stats (costs are guidelines only):\n"
@@ -454,6 +477,11 @@ void Profiling::clear()
 	texture_handle_info_lookup_overhead.clear();
 	textureoverride_lookup_overhead.clear();
 	resource_pool_lookup_overhead.clear();
+	texture_override_fuzzy_match_overhead.clear();
+	resource_view_creation_overhead.clear();
+	fuzzy_candidates_tested = 0;
+	source_views_reused = 0;
+	cached_views_reused = 0;
 
 	resource_full_copies = 0;
 	resource_reference_copies = 0;
