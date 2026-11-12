@@ -2631,60 +2631,94 @@ CommandListVariable *RegisterGlobalVariable(wstring &name, float *fval, Variable
 	return &inserted.first->second;
 }
 
-static bool ParseGlobalVariableDeclaration(IniLine &entry)
-{
-	const wstring &key = entry.first;
-	const wstring &val = entry.second;
-	const wstring &ini_namespace = entry.ini_namespace;
-	wstring name = key.empty() ? entry.raw_line : key;
-	std::transform(name.begin(), name.end(), name.begin(), ::towlower);
-	const wchar_t *name_pos = nullptr;
-	const VariableFlags flags =
-	    parse_enum_option_string_prefix<const wchar_t *, VariableFlags>(VariableFlagNames, name.c_str(), &name_pos);
-	if (!(flags & VariableFlags::GLOBAL))
-		return false;
-	name = name_pos;
-	if (!valid_variable_name(name))
-	{
-		IniWarningW(L"Illegal global variable name: \"%ls\"\n - [Constants] @ [%ls]\n", name.c_str(),
-		            ini_namespace.c_str());
-		return false;
-	}
-	if (!ini_namespace.empty())
-		name = get_namespaced_var_name_lower(name, &ini_namespace);
-	float value = 0.0f;
-	if (!val.empty() && !ParseFloatValue(L"Constants", key.c_str(), val, value, true, &ini_namespace))
-		return false;
-	if (!RegisterGlobalVariable(name, &value, flags))
-	{
-		IniWarningW(L"Redeclaration of %ls\n - [Constants] @ [%ls]\n", name.c_str(), ini_namespace.c_str());
-		return false;
-	}
-	return true;
-}
-
 static void ParseConstantsSection()
 {
+	VariableFlags flags;
+	IniSectionVector *section = nullptr;
+	IniSectionVector::iterator entry;
+	IniSectionVector::iterator next;
+	wstring *key;
+	wstring *val;
+	wstring name;
+	const wchar_t *name_pos;
+	const wstring *ini_namespace;
+
+	// The naming on this one is historical - [Constants] used to define
+	// iniParams that couldn't change, then later we allowed them to be
+	// changed by key inputs and this became the initial state, and now
+	// this is implemented as a command list run on immediate context
+	// creation & config reload, which allows it to be used for any one
+	// time initialisation.
 	LogInfo("[Constants]\n");
+
+	// We pass this section in two stages - the first pass is only looking
+	// for global variable declarations, and the second pass is as any
+	// other command list (with one extra flag to tell it not to warn about
+	// the "global" keyword). The reason for this is so that a global
+	// variable defined in an included config file can be set from the
+	// [Constants] section in the main d3dx.ini or potentially another
+	// config file (d3dx_user.ini?). This covers cases such as setting the
+	// 3dvision2sbs mode, but still ensures that setting the variable will
+	// throw an error if 3dvision2sbs.ini was not included.
+
 	command_list_globals.clear();
 	persistent_variables.clear();
-	IniSectionVector *section = nullptr;
 	GetIniSection(&section, L"Constants");
-
-	// Declare every global before parsing executable assignments. Compact only
-	// successfully consumed declarations, preserving statement order and the
-	// existing second-pass handling of malformed or duplicate declarations.
-	size_t write_index = 0;
-	for (size_t read_index = 0; read_index < section->size(); ++read_index)
+	for (next = section->begin(), entry = next; entry < section->end(); entry = next)
 	{
-		IniLine &entry = (*section)[read_index];
-		if (ParseGlobalVariableDeclaration(entry))
+		next++;
+		key = &entry->first;
+		val = &entry->second;
+		ini_namespace = &entry->ini_namespace;
+
+		// The variable name will either be in the key if this line
+		// also includes an assignment, or in raw_line if it does not:
+		if (!key->empty())
+			name = *key;
+		else
+			name = entry->raw_line;
+
+		// Convert variable name to lower case since ini files are
+		// supposed to be case insensitive:
+		std::transform(name.begin(), name.end(), name.begin(), ::towlower);
+
+		// Globals do not support pre/post since they are declarations
+		// with static initialisers where pre/post doesn't make sense
+		// (and [Constants] doesn't support them as yet either)
+
+		flags =
+		    parse_enum_option_string_prefix<const wchar_t *, VariableFlags>(VariableFlagNames, name.c_str(), &name_pos);
+		if (!(flags & VariableFlags::GLOBAL))
 			continue;
-		if (write_index != read_index)
-			(*section)[write_index] = std::move(entry);
-		++write_index;
+		name = name_pos;
+
+		if (!valid_variable_name(name))
+		{
+			IniWarningW(L"Illegal global variable name: \"%ls\"\n - [Constants] @ [%ls]\n", name.c_str(),
+			            ini_namespace->c_str());
+			continue;
+		}
+
+		if (!ini_namespace->empty())
+			name = get_namespaced_var_name_lower(name, ini_namespace);
+
+		// Initialisation is optional and deferred until the command list is run.
+		// If the initialiser is present and simple.
+		float fval = 0.0f;
+		if ((!val->empty()) && (!ParseFloatValue(L"Constants", key->c_str(), *val, fval, true, ini_namespace)))
+
+			continue;
+
+		if (!RegisterGlobalVariable(name, &fval, flags))
+		{
+			IniWarningW(L"Redeclaration of %ls\n - [Constants] @ [%ls]\n", name.c_str(), ini_namespace->c_str());
+			continue;
+		}
+
+		// Remove this line from the ini section data structures so the
+		// command list won't consider it in the 2nd pass:
+		next = section->erase(entry);
 	}
-	section->erase(std::next(section->begin(), static_cast<ptrdiff_t>(write_index)), section->end());
 }
 
 static constexpr auto true_false_overrule = std::array{
