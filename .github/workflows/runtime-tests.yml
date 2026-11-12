@@ -1,6 +1,10 @@
 name: Runtime regression checks
 
 on:
+  push:
+    branches: [upstream-improvements]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       expect_regressions:
@@ -29,7 +33,7 @@ jobs:
       - name: Exercise runtime behavior
         shell: pwsh
         env:
-          EXPECT_REGRESSIONS: ${{ inputs.expect_regressions }}
+          EXPECT_REGRESSIONS: ${{ inputs.expect_regressions || contains(github.event.head_commit.message, '[regression-baseline]') }}
         run: |
           $exe = '.quality/runtime-tests/x64/Release/RuntimeTests.exe'
           if ($env:EXPECT_REGRESSIONS -eq 'true') {
