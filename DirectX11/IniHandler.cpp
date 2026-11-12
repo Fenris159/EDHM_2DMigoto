@@ -5510,8 +5510,8 @@ void SavePersistentSettings()
 
 	if (!G->user_config_dirty)
 		return;
-	G->user_config_dirty = 0;
 
+	const std::string previous_locale = setlocale(LC_CTYPE, nullptr);
 	setlocale(LC_CTYPE, "en_US.UTF-8");
 
 	// Future work: Ability to update existing file rather than overwriting:
@@ -5521,6 +5521,7 @@ void SavePersistentSettings()
 	if (!f)
 	{
 		LogInfo("Unable to save settings in %S\n", G->user_config.c_str());
+		setlocale(LC_CTYPE, previous_locale.c_str());
 		return;
 	}
 
@@ -5539,9 +5540,14 @@ void SavePersistentSettings()
 	for (auto global : persistent_variables)
 		fprintf_s(f, "%ls = %.9g\n", global->name.c_str(), global->fval);
 
-	fclose(f);
+	const bool write_failed = ferror(f) != 0;
+	const bool close_failed = fclose(f) != 0;
+	if (!write_failed && !close_failed)
+		G->user_config_dirty = 0;
+	else
+		LogInfo("Unable to finish saving settings in %S\n", G->user_config.c_str());
 
-	setlocale(LC_CTYPE, G->gDefaultLocale.c_str());
+	setlocale(LC_CTYPE, previous_locale.c_str());
 }
 
 static void WipeUserConfig()
