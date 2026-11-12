@@ -122,8 +122,8 @@ def get_mutations(command_list, settings):
         (
             "region-views",
             command_list,
-            "!region_size && src_view && (EquivTarget(src.type) == EquivTarget(dst.type))",
-            "src_view && (EquivTarget(src.type) == EquivTarget(dst.type))",
+            "!region_size && !(options & ResourceCopyOptions::RAW_VIEW) && src_view &&",
+            "!(options & ResourceCopyOptions::RAW_VIEW) && src_view &&",
         ),
         (
             "region-cb",
