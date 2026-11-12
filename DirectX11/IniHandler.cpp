@@ -366,10 +366,17 @@ bool get_namespaced_section_name_lower(const wstring *section, const wstring *in
 	return rc;
 }
 
-wstring get_namespaced_var_name_lower(const wstring var, const wstring *ini_namespace)
+wstring get_namespaced_var_name_lower(const wstring &lower_name, const wstring *ini_namespace)
 {
-	wstring ret = wstring(L"$\\") + *ini_namespace + wstring(L"\\") + var.substr(1);
-	std::transform(ret.begin(), ret.end(), ret.begin(), ::towlower);
+	// Both callers already lower the variable name. Keep locale-aware folding
+	// of namespaces, including Unicode, without folding the name a second time.
+	wstring ret;
+	ret.reserve(lower_name.size() + ini_namespace->size() + 2);
+	ret = L"$\\";
+	ret += *ini_namespace;
+	ret += L'\\';
+	std::transform(ret.begin() + 2, ret.end(), ret.begin() + 2, ::towlower);
+	ret.append(lower_name, 1, wstring::npos);
 	return ret;
 }
 

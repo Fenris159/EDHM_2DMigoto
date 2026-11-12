@@ -71,6 +71,6 @@ bool ParseBinaryLiterals(const wstring &input, size_t start, uint64_t &out, size
 
 bool get_namespaced_section_name_lower(const wstring *section, const wstring *ini_namespace, wstring *ret);
 bool get_section_namespace(const wchar_t *section, wstring *ret);
-wstring get_namespaced_var_name_lower(const wstring var, const wstring *ini_namespace);
+wstring get_namespaced_var_name_lower(const wstring &lower_name, const wstring *ini_namespace);
 
 CommandListVariable *RegisterGlobalVariable(wstring &name, float *fval, VariableFlags flags);
