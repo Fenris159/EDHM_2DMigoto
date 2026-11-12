@@ -5760,7 +5760,14 @@ bool ParseCommandListVariableAssignment(const wchar_t *section, const wchar_t *k
 
 	CommandListVariable *var = nullptr;
 
-	if (!args.GetVariable(var, false, CommandArgumentReader::PeekMode::Argument))
+	const bool variable_found = args.GetVariable(var, false, CommandArgumentReader::PeekMode::Argument);
+	if (ini_namespace && !G->user_config.empty() && *ini_namespace == G->user_config && var &&
+	    (!(var->flags & VariableFlags::PERSIST) || (var->flags & VariableFlags::LOCKED)))
+	{
+		G->user_config_dirty |= 2;
+		return true;
+	}
+	if (!variable_found)
 	{
 		// Report only "locked" variable error for now to avoid `d3dx_user.ini` error spam.
 		// Future work: Refactor syntax parsing errors reporting.
@@ -8290,17 +8297,9 @@ static CommandListCommand *parse_resource_copy_operation(const wchar_t *section,
 			options |= ResourceCopyOptions::COPY;
 	}
 
-	// Known limitation: If custom resources are copied to other custom resources by
-	// reference that are in turn bound to the pipeline we may not
-	// propagate all the bind flags correctly depending on the order
-	// everything is parsed. We'd need to construct a dependency graph
-	// to fix this, but it's not clear that this combination would really
-	// be used in practice, so for now this will do. Update: We now
-	// or in the bind flags in use when the custom resource is first
-	// Substantiate()ed, which will cover most of these missing cases - the
-	// remaining exceptions would be where differing bind flags are used at
-	// different times and we still can't deduce it here
-	// Known limitation: The constant buffer bind flag can't be combined with others
+	// Resolve statically known reference chains after parsing; runtime-only
+	// destinations still add their usage during Substantiate(). Constant-buffer
+	// usage remains incompatible with other bind flags and requires an explicit copy.
 	if (src.type == ResourceCopyTargetType::CUSTOM_RESOURCE && (options & ResourceCopyOptions::REFERENCE))
 	{
 		CustomResource *src_custom_resource = src.GetCustomResource(nullptr, true);
@@ -8579,6 +8578,12 @@ bool ParseCommandListResourceCopyTargetDirective(const wchar_t *section, const w
 
 	if (dst.type == ResourceCopyTargetType::VARIABLE)
 	{
+		if (ini_namespace && !G->user_config.empty() && *ini_namespace == G->user_config && dst.custom_resource_pool &&
+		    !(dst.custom_resource_pool->variable_template->flags & VariableFlags::PERSIST))
+		{
+			G->user_config_dirty |= 2;
+			return true;
+		}
 		// Pool Variable - Copy Exression Result To Pool Variable
 		// $PoolFoo[0] = $PoolBar[0] + $var + 1
 		operation = parse_pool_variable_operation(section, dst, val, command_list, ini_namespace);

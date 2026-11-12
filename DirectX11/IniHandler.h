@@ -4,7 +4,9 @@ void FlagConfigReload(HackerDevice *device, void *private_data);
 void LoadConfigFile();
 void ReloadConfig(HackerDevice *device);
 void LoadProfileManagerConfig(const wchar_t *config_dir);
-void SavePersistentSettings();
+// True when there are no pending settings or the complete file was replaced.
+bool SavePersistentSettings();
+bool WipeUserConfig();
 
 struct IniLine
 {

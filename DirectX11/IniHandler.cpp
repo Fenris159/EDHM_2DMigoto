@@ -21,6 +21,8 @@
 #include "ShaderRegex.h"
 #include "cursor.h"
 #include "WineCompat.h"
+#include "PersistentSettingsState.h"
+#include <io.h>
 #include <chrono>
 
 #include "vector"
@@ -28,6 +30,8 @@
 #include <cmath>
 
 #define INI_FILENAME L"d3dx.ini"
+
+static PersistentSettingsState persistent_settings_state;
 
 static bool GetMigotoDirectory(wchar_t *path, size_t path_size)
 {
@@ -1687,6 +1691,7 @@ static void GetUserConfigPath(const wchar_t *migoto_path)
 		G->user_config = wstring(migoto_path) + rel_path;
 	else
 		G->user_config = rel_path;
+	persistent_settings_state.BeginLoad(G->user_config);
 }
 
 static void ParseIncludedIniFiles()
@@ -2578,29 +2583,15 @@ static void ParseCommandList(const wchar_t *id, CommandList *pre_command_list, C
 
 		if (entry->ini_namespace == G->user_config && !G->user_config.empty())
 		{
-			// Invalid command, but it is in the user config, which may happen
-			// if the user recently uninstalled/upgraded/etc a mod. We will flag
-			// the user config to be updated at the next save, but won't do this
-			// immediately just in case. Inform the user of what is happening.
-			if (!G->user_config_dirty)
-			{
-				LogOverlay(LOG_WARNING,
-				           "NOTICE: Unknown user settings will be removed from d3dx_user.ini\n"
-				           " This is normal if you recently removed/changed any mods\n"
-				           " Press %S to update the config now, or %S to reset all settings to default\n"
-				           " The first unrecognised entry was: \"%S\"\n",
-				           user_friendly_ini_key_binding(L"Hunting", L"reload_config").c_str(),
-				           user_friendly_ini_key_binding(L"Hunting", L"wipe_user_config").c_str(), raw_line->c_str());
-				// Once the [Constants] command list has finished running the
-				// low bit will be cleared to ensure that loading the user config
-				// itself cannot mark the user config as dirty. Set the second
-				// bit to indicate that it should be updated regardless:
+			// Generated user settings contain scalar assignments only. Preserve
+			// temporarily unavailable variables without executing unknown commands.
+			wchar_t *end = nullptr;
+			const float value = std::wcstof(val->c_str(), &end);
+			if (!key->empty() && (*key)[0] == L'$' && end != val->c_str() && *end == L'\0')
+				persistent_settings_state.Remember(*key, value);
+			else
 				G->user_config_dirty |= 2;
-			}
-			// There might be a lot of entries if a large mod was just
-			// uninstalled, so we only show the first bad setting on the
-			// overlay and log all other invalid settings to the log file:
-			LogInfoW(L"WARNING: Unrecognised entry in %ls: %ls\n", G->user_config.c_str(), raw_line->c_str());
+			LogInfoW(L"Unrecognised entry in %ls: %ls\n", G->user_config.c_str(), raw_line->c_str());
 			continue;
 		}
 
@@ -5102,6 +5093,7 @@ void LoadConfigFile()
 	}
 
 	// Allows to change interval between persistent vars autosaving to d3dx_user.ini (any negative number to disables it)
+	G->clear_unknown_settings = GetIniBool(L"System", L"clear_unknown_settings", true, nullptr);
 	G->gSettingsAutoSaveInterval = GetIniInt(L"System", L"settings_auto_save_interval", 60, nullptr);
 	if (G->gSettingsAutoSaveInterval < 0)
 	{
@@ -5441,6 +5433,8 @@ void LoadConfigFile()
 	ParseCommandList(L"ClearUnorderedAccessViewFloat", &G->clear_uav_float_command_list,
 	                 &G->post_clear_uav_float_command_list, nullptr);
 	PropagateDeferredBindFlags();
+	if (persistent_settings_state.FinishLoad(G->clear_unknown_settings))
+		G->user_config_dirty |= 2;
 
 	LogInfo("\n");
 
@@ -5504,30 +5498,45 @@ void LoadProfileManagerConfig(const wchar_t *config_dir)
 	LogInfo("\n");
 }
 
-void SavePersistentSettings()
+bool SavePersistentSettings()
 {
-	FILE *f;
-
 	G->gSettingsSaveTime = G->gTime;
-
 	if (!G->user_config_dirty)
-		return;
+		return true;
 
-	const std::string previous_locale = setlocale(LC_CTYPE, nullptr);
+	struct RestoreLocale
+	{
+		std::string previous = setlocale(LC_CTYPE, nullptr);
+		~RestoreLocale()
+		{
+			setlocale(LC_CTYPE, previous.c_str());
+		}
+	} restore_locale;
 	setlocale(LC_CTYPE, "en_US.UTF-8");
 
-	// Future work: Ability to update existing file rather than overwriting:
-	//wfopen_ensuring_access(&f, G->user_config.c_str(), L"r+");
-	//if (!f)
-	wfopen_ensuring_access(&f, G->user_config.c_str(), L"w");
-	if (!f)
+	wchar_t destination[MAX_PATH];
+	const DWORD length = GetFullPathNameW(G->user_config.c_str(), ARRAYSIZE(destination), destination, nullptr);
+	if (!length || length >= ARRAYSIZE(destination))
+		return false;
+	std::wstring directory(destination);
+	const size_t slash = directory.find_last_of(L"\\");
+	if (slash == std::wstring::npos)
+		return false;
+	directory.resize(slash + 1);
+	wchar_t temporary[MAX_PATH];
+	if (!GetTempFileNameW(directory.c_str(), L"edh", 0, temporary))
 	{
-		LogInfo("Unable to save settings in %S\n", G->user_config.c_str());
-		setlocale(LC_CTYPE, previous_locale.c_str());
-		return;
+		LogInfo("Unable to create settings temporary file for %S\n", G->user_config.c_str());
+		return false;
 	}
 
-	LogInfo("Saving user settings to %S\n", G->user_config.c_str());
+	FILE *f = nullptr;
+	wfopen_ensuring_access(&f, temporary, L"w");
+	if (!f)
+	{
+		DeleteFileW(temporary);
+		return false;
+	}
 
 	fputs("; AUTOMATICALLY GENERATED FILE - DO NOT EDIT\n"
 	      ";\n"
@@ -5541,23 +5550,39 @@ void SavePersistentSettings()
 
 	for (auto global : persistent_variables)
 		fprintf_s(f, "%ls = %.9g\n", global->name.c_str(), global->fval);
+	for (const auto &entry : persistent_settings_state.UnknownValues())
+		fprintf_s(f, "%ls = %.9g\n", entry.first.c_str(), entry.second);
 
-	const bool write_failed = ferror(f) != 0;
-	const bool close_failed = fclose(f) != 0;
-	if (!write_failed && !close_failed)
-		G->user_config_dirty = 0;
-	else
-		LogInfo("Unable to finish saving settings in %S\n", G->user_config.c_str());
-
-	setlocale(LC_CTYPE, previous_locale.c_str());
+	bool failed = ferror(f) != 0;
+	failed |= fflush(f) != 0;
+	failed |= _commit(_fileno(f)) != 0;
+	failed |= fclose(f) != 0;
+	if (!failed)
+		failed = !MoveFileExW(temporary, destination, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+	if (failed)
+	{
+		DeleteFileW(temporary);
+		LogInfo("Unable to replace settings in %S; pending values retained\n", G->user_config.c_str());
+		return false;
+	}
+	G->user_config_dirty = 0;
+	LogInfo("Saved user settings to %S\n", G->user_config.c_str());
+	return true;
 }
 
-static void WipeUserConfig()
+bool WipeUserConfig()
 {
+	if (!DeleteFileW(G->user_config.c_str()))
+	{
+		const DWORD error = GetLastError();
+		if (error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND)
+			return false;
+	}
 	G->gWipeUserConfig = false;
 	G->user_config_dirty = 0;
-
-	DeleteFile(G->user_config.c_str());
+	persistent_settings_state.Clear();
+	LogOverlayW(LOG_INFO, L"> Wiped user config file d3dx_user.ini\n");
+	return true;
 }
 
 static void MarkAllShadersDeferredUnprocessed()
@@ -5584,12 +5609,15 @@ void ReloadConfig(HackerDevice *device)
 {
 	auto start = std::chrono::high_resolution_clock::now();
 
+	// Failed saves must not be followed by a reload that discards the pending
+	// in-memory values and replaces them with the previous complete disk file.
+	if ((G->gWipeUserConfig && !WipeUserConfig()) || !SavePersistentSettings())
+	{
+		G->gReloadConfigPending = false;
+		LogInfo("Config reload deferred because user settings could not be saved or wiped\n");
+		return;
+	}
 	HackerContext *mHackerContext = device->GetHackerContext();
-
-	if (G->gWipeUserConfig)
-		WipeUserConfig();
-
-	SavePersistentSettings();
 
 	LogInfoW(L"Reloading " INI_FILENAME L" (EXPERIMENTAL)...\n");
 
@@ -5661,6 +5689,8 @@ void ReloadConfig(HackerDevice *device)
 	}
 
 	setlocale(LC_CTYPE, G->gDefaultLocale.c_str());
+	if (G->user_config_dirty & 2)
+		SavePersistentSettings();
 
 	auto stop = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<float> duration = stop - start;

@@ -417,6 +417,7 @@ struct Globals
 
 	std::wstring user_config;
 	int user_config_dirty;
+	bool clear_unknown_settings = true;
 
 	EnableHooks enable_hooks;
 
