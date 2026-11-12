@@ -1,4 +1,5 @@
 #include "../DirectX11/CommandList.h"
+#include "../DirectX11/HackerContext.h"
 #include "../DirectX11/IniHandler.h"
 #include "../DirectX11/globals.h"
 
@@ -68,6 +69,8 @@ void resets_only_the_requested_pool_proxy()
 	require(ParseCommandListResourceCopyTargetDirective(L"CommandListTest", L"poolproxy", &value, &commands, nullptr),
 	        "pool proxy reset was rejected");
 	CommandListState state;
+	HackerContext context(nullptr, nullptr);
+	state.mHackerContext = &context;
 	for (const auto &command : commands.commands)
 		command->run(&state);
 	require(proxy.GetVariable(0, false, false, false)->fval == 3.0f, "proxy did not return to its own variables");
@@ -82,6 +85,7 @@ struct D3DFixture
 	HMODULE module = LoadLibraryExW(L"d3d11.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
 	Microsoft::WRL::ComPtr<ID3D11Device1> device;
 	Microsoft::WRL::ComPtr<ID3D11DeviceContext1> context;
+	std::unique_ptr<HackerContext> hacker_context;
 	CommandListState state;
 
 	D3DFixture()
@@ -101,12 +105,15 @@ struct D3DFixture
 		require(SUCCEEDED(base_context.As(&context)), "D3D11.1 context unavailable");
 		state.mOrigDevice1 = device.Get();
 		state.mOrigContext1 = context.Get();
+		hacker_context = std::make_unique<HackerContext>(device.Get(), context.Get());
+		state.mHackerContext = hacker_context.get();
 	}
 
 	~D3DFixture()
 	{
 		if (context)
 			context->ClearState();
+		hacker_context.reset();
 		context.Reset();
 		device.Reset();
 		if (module)
