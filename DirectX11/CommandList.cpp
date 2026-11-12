@@ -8,6 +8,7 @@
 #include <WICTextureLoader.h>
 #include <algorithm>
 #include <cmath>
+#include <type_traits>
 #include <wrl/client.h>
 #include <sstream>
 #include "HackerDevice.h"
@@ -11496,47 +11497,49 @@ static ResourceCopyTargetType EffectiveViewTarget(ResourceCopyTarget *dst, Comma
 	return EquivTarget(dst->type);
 }
 
-template <typename DescType> static void CanonicalizeViewDesc(DescType &, ID3D11Resource *) {}
-
-static void CanonicalizeViewDesc(D3D11_SHADER_RESOURCE_VIEW_DESC &desc, ID3D11Resource *resource)
+template <typename DescType> static void CanonicalizeViewDesc(DescType &desc, ID3D11Resource *resource)
 {
-	if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE1D || desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE1DARRAY)
+	if constexpr (std::is_same_v<DescType, D3D11_SHADER_RESOURCE_VIEW_DESC>)
 	{
-		D3D11_TEXTURE1D_DESC texture{};
-		static_cast<ID3D11Texture1D *>(resource)->GetDesc(&texture);
-		if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE1D)
-			desc.Texture1D.MipLevels = texture.MipLevels;
-		else
-			desc.Texture1DArray.MipLevels = texture.MipLevels;
-	}
-	else if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE2D ||
-	         desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE2DARRAY ||
-	         desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURECUBE ||
-	         desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURECUBEARRAY)
-	{
-		D3D11_TEXTURE2D_DESC texture{};
-		static_cast<ID3D11Texture2D *>(resource)->GetDesc(&texture);
-		switch (desc.ViewDimension)
+		if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE1D ||
+		    desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE1DARRAY)
 		{
-		case D3D11_SRV_DIMENSION_TEXTURE2D:
-			desc.Texture2D.MipLevels = texture.MipLevels;
-			break;
-		case D3D11_SRV_DIMENSION_TEXTURE2DARRAY:
-			desc.Texture2DArray.MipLevels = texture.MipLevels;
-			break;
-		case D3D11_SRV_DIMENSION_TEXTURECUBE:
-			desc.TextureCube.MipLevels = texture.MipLevels;
-			break;
-		case D3D11_SRV_DIMENSION_TEXTURECUBEARRAY:
-			desc.TextureCubeArray.MipLevels = texture.MipLevels;
-			break;
+			D3D11_TEXTURE1D_DESC texture{};
+			static_cast<ID3D11Texture1D *>(resource)->GetDesc(&texture);
+			if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE1D)
+				desc.Texture1D.MipLevels = texture.MipLevels;
+			else
+				desc.Texture1DArray.MipLevels = texture.MipLevels;
 		}
-	}
-	else if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE3D)
-	{
-		D3D11_TEXTURE3D_DESC texture{};
-		static_cast<ID3D11Texture3D *>(resource)->GetDesc(&texture);
-		desc.Texture3D.MipLevels = texture.MipLevels;
+		else if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE2D ||
+		         desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE2DARRAY ||
+		         desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURECUBE ||
+		         desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURECUBEARRAY)
+		{
+			D3D11_TEXTURE2D_DESC texture{};
+			static_cast<ID3D11Texture2D *>(resource)->GetDesc(&texture);
+			switch (desc.ViewDimension)
+			{
+			case D3D11_SRV_DIMENSION_TEXTURE2D:
+				desc.Texture2D.MipLevels = texture.MipLevels;
+				break;
+			case D3D11_SRV_DIMENSION_TEXTURE2DARRAY:
+				desc.Texture2DArray.MipLevels = texture.MipLevels;
+				break;
+			case D3D11_SRV_DIMENSION_TEXTURECUBE:
+				desc.TextureCube.MipLevels = texture.MipLevels;
+				break;
+			case D3D11_SRV_DIMENSION_TEXTURECUBEARRAY:
+				desc.TextureCubeArray.MipLevels = texture.MipLevels;
+				break;
+			}
+		}
+		else if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE3D)
+		{
+			D3D11_TEXTURE3D_DESC texture{};
+			static_cast<ID3D11Texture3D *>(resource)->GetDesc(&texture);
+			desc.Texture3D.MipLevels = texture.MipLevels;
+		}
 	}
 }
 
@@ -11760,12 +11763,17 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 		dst_resource = src_resource;
 		// A region can change while the backing resource stays the same. Neither
 		// its full source view nor a previous region's cached view proves a match.
-		if (region_size && *pp_cached_view)
+		if ((region_size ||
+		     (dst_custom_resource && (dst_custom_resource->override_format != static_cast<DXGI_FORMAT>(-1) ||
+		                              dst_custom_resource->override_stride != -1))) &&
+		    *pp_cached_view)
 		{
 			(*pp_cached_view)->Release();
 			*pp_cached_view = nullptr;
 		}
-		if (!region_size && src_view && (EquivTarget(src.type) == EquivTarget(dst.type)) &&
+		if (!region_size && !(options & ResourceCopyOptions::RAW_VIEW) && src_view &&
+		    (src.type != ResourceCopyTargetType::CUSTOM_RESOURCE || ViewMatchesResource(src_view, dst_resource)) &&
+		    (EquivTarget(src.type) == EquivTarget(dst.type)) &&
 		    (!dst_custom_resource || (dst_custom_resource->override_format == static_cast<DXGI_FORMAT>(-1) &&
 		                              dst_custom_resource->override_stride == -1)))
 		{
@@ -11775,7 +11783,7 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 		}
 		else if (*pp_cached_view)
 		{
-			if (ViewMatchesResource(*pp_cached_view, dst_resource))
+			if (dst.type != ResourceCopyTargetType::THIS_RESOURCE && ViewMatchesResource(*pp_cached_view, dst_resource))
 			{
 				dst_view = *pp_cached_view;
 				if (Profiling::mode == Profiling::Mode::SUMMARY)
@@ -11813,8 +11821,12 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 		if ((options & ResourceCopyOptions::COPY_MASK) && buf_dst_size)
 			view_extent = buf_dst_size;
 		dst_view = CreateCompatibleView(&dst, dst_resource, state, stride, offset, format, view_extent, options);
-		// Not checking for nullptr return as view's are not applicable to
-		// all types. Legitimate failures are logged.
+		const auto type = EffectiveViewTarget(&dst, state);
+		if (!dst_view &&
+		    (type == ResourceCopyTargetType::SHADER_RESOURCE || type == ResourceCopyTargetType::RENDER_TARGET ||
+		     type == ResourceCopyTargetType::DEPTH_STENCIL_TARGET ||
+		     type == ResourceCopyTargetType::UNORDERED_ACCESS_VIEW))
+			goto out_release;
 		*pp_cached_view = dst_view;
 	}
 
