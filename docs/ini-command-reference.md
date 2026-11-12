@@ -838,3 +838,26 @@ These are **not** extra commands; they change defaults or safety:
 
 Parser source of truth: `DirectX11/IniHandler.cpp`, `DirectX11/CommandList.cpp`.
 Template comments: `Dependencies/d3dx.ini`.
+
+## CPU performance monitor
+
+The existing `[Hunting]` bindings control the CPU monitor:
+
+- `monitor_performance` defaults to Ctrl+F9 and cycles summary, top command lists,
+  top commands, applicable warnings, then off.
+- `freeze_performance_monitor` defaults to Shift+F9. It freezes the displayed
+  result and writes it to `d3d11_log.txt` when logging is enabled.
+- `monitor_performance_interval` defaults to 2.0 seconds per collection window.
+
+The summary includes separate resource-matching and fuzzy-scan CPU time,
+matching calls/scans, tested fuzzy candidates, successful/attempted view-creation
+API calls, and source/cached view reuse. Counts describe the complete collection
+window so infrequent work remains visible. Timings are CPU microseconds per
+frame. The fuzzy phase is nested within resource matching where that path calls
+it; direct descriptor/template matching can also contribute fuzzy scans.
+Do not add these nested timings or interpret the monitor as GPU timing.
+
+New diagnostics collect only in summary mode. Profiling remains off by default.
+Command lists and commands register once per collection; clear/mode changes and
+configuration loads begin a new collection before command storage is replaced.
+Use separate profiling-off frame-time captures to judge actual gameplay gains.

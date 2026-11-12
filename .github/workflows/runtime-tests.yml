@@ -72,6 +72,13 @@ jobs:
           $order = @('B')
           if ($env:BENCHMARK_BASELINE_RUN) {
             if ($env:BENCHMARK_BASELINE_RUN -notmatch '^[0-9]+$') { throw 'Baseline run must be a numeric run ID' }
+            $run = & gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:BENCHMARK_BASELINE_RUN" |
+              ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or $run.conclusion -ne 'success' -or
+                $run.head_repository.full_name -ne $env:GITHUB_REPOSITORY -or
+                $run.event -notin @('push', 'workflow_dispatch')) {
+              throw 'Baseline must be a successful trusted push/manual run from this repository'
+            }
             & gh run download $env:BENCHMARK_BASELINE_RUN -R $env:GITHUB_REPOSITORY `
               -p 'runtime-checks-x64-*' -D '.quality/benchmark-baseline'
             if ($LASTEXITCODE -ne 0) { throw 'Could not download baseline executable' }
@@ -80,7 +87,16 @@ jobs:
             $variants.A = $baseline[0].FullName
             $order = @('A', 'B', 'B', 'A', 'B', 'A', 'A', 'B')
           }
-          $metadata = @{}
+          $metadata = @{
+            candidate_source = $env:GITHUB_SHA
+            baseline_source = $(if ($run) { $run.head_sha } else { $null })
+            baseline_run = $env:BENCHMARK_BASELINE_RUN
+            processor = $env:PROCESSOR_IDENTIFIER
+            logical_processors = [Environment]::ProcessorCount
+            os = [Environment]::OSVersion.VersionString
+            runner_image = $env:ImageVersion
+            order = $order
+          }
           foreach ($variant in $variants.Keys) {
             $metadata[$variant] = @{ sha256 = (Get-FileHash $variants[$variant] -Algorithm SHA256).Hash }
           }

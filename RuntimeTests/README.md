@@ -60,3 +60,23 @@ reports load and command-list optimizer time separately. These modes measure
 CPU configuration work with the real optimizer and no device. Use an isolated snapshot, alternate independent variant processes, and
 record source/binary hashes. Separate first-process observations from warm loads.
 See [the implementation report](../docs/next-release-implementation.md).
+
+## Interpreter and resource-view measurements
+
+The executable also supports `benchmark-lists 11` and `benchmark-views 11`.
+These use fixed synthetic inputs and do not load the game configuration.
+`benchmark-lists` runs real assignment commands across 64 command lists and
+reports profiling-off, summary, top-list and top-command modes separately.
+`benchmark-views` runs real WARP resource references with the debug layer off,
+reporting both a stable resource and a round-robin set of 32 resources. It records
+Create*View API calls and the final bound-resource result alongside CPU timing.
+These are mechanism measurements, not Elite frames or GPU-time measurements.
+
+For a native same-host A/B comparison, dispatch **Runtime regression checks**
+with `mechanism_benchmarks=true` and `benchmark_baseline_run` set to a successful
+trusted push/manual run containing an x64 executable with these benchmark modes.
+The workflow alternates eight fresh processes in `ABBABAAB` order on one Windows
+runner, with 11 samples per workload/mode. Exclude sample zero from warm results;
+report process medians as well as pooled observations. The artifact includes raw
+CSV and binary hashes. A later game comparison must keep diagnostics off for the
+frame-time outcome and use separate diagnostic captures to locate wrapper costs.
