@@ -15,9 +15,14 @@ on:
         description: Capture interpreter and WARP view CPU mechanism measurements
         type: boolean
         default: false
+      benchmark_baseline_run:
+        description: Optional successful same-repository run with a matching x64 benchmark executable
+        type: string
+        default: ''
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   runtime-tests:
@@ -56,13 +61,37 @@ jobs:
       - name: Measure CPU mechanisms without the debug layer
         if: inputs.mechanism_benchmarks && matrix.platform == 'x64'
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BENCHMARK_BASELINE_RUN: ${{ inputs.benchmark_baseline_run }}
         run: |
           $output = '.quality/runtime-benchmarks'
           New-Item -ItemType Directory -Force -Path $output | Out-Null
-          $exe = '.quality/runtime-tests/x64/Release/RuntimeTests.exe'
-          foreach ($mode in @('lists', 'views')) {
-            & $exe "benchmark-$mode" 11 | Set-Content -Encoding utf8 "$output/$mode.csv"
-            if ($LASTEXITCODE -ne 0) { throw "Benchmark failed: $mode" }
+          $candidate = (Resolve-Path '.quality/runtime-tests/x64/Release/RuntimeTests.exe').Path
+          $variants = @{ B = $candidate }
+          $order = @('B')
+          if ($env:BENCHMARK_BASELINE_RUN) {
+            if ($env:BENCHMARK_BASELINE_RUN -notmatch '^[0-9]+$') { throw 'Baseline run must be a numeric run ID' }
+            & gh run download $env:BENCHMARK_BASELINE_RUN -R $env:GITHUB_REPOSITORY `
+              -p 'runtime-checks-x64-*' -D '.quality/benchmark-baseline'
+            if ($LASTEXITCODE -ne 0) { throw 'Could not download baseline executable' }
+            $baseline = @(Get-ChildItem '.quality/benchmark-baseline' -Recurse -Filter 'RuntimeTests.exe')
+            if ($baseline.Count -ne 1) { throw 'Expected exactly one baseline executable' }
+            $variants.A = $baseline[0].FullName
+            $order = @('A', 'B', 'B', 'A', 'B', 'A', 'A', 'B')
+          }
+          $metadata = @{}
+          foreach ($variant in $variants.Keys) {
+            $metadata[$variant] = @{ sha256 = (Get-FileHash $variants[$variant] -Algorithm SHA256).Hash }
+          }
+          $metadata | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 "$output/binaries.json"
+          for ($trial = 0; $trial -lt $order.Count; ++$trial) {
+            $variant = $order[$trial]
+            foreach ($mode in @('lists', 'views')) {
+              & $variants[$variant] "benchmark-$mode" 11 |
+                Set-Content -Encoding utf8 "$output/$mode-$trial-$variant.csv"
+              if ($LASTEXITCODE -ne 0) { throw "Benchmark failed: $variant/$mode" }
+            }
           }
       - name: Upload native test executable and mutation evidence
         if: always()
