@@ -130,7 +130,11 @@ def run(*args):
 
 
 def extract(ref):
-    full = run("git", "rev-parse", f"{ref}^{{commit}}").strip()
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./@{}~^+-]*", ref):
+        raise ValueError("Use a local Git revision without command options or whitespace")
+    full = run("git", "rev-parse", "--verify", "--end-of-options", f"{ref}^{{commit}}").strip()
+    if not re.fullmatch(r"[0-9a-f]{40}", full):
+        raise ValueError("Expected one canonical Git commit hash")
     source = run("git", "show", f"{full}:DirectX11/ResourceHash.h")
     start = source.index("template", source.index("// Thread safety"))
     end = source.index("struct RegionHashesCache")
@@ -146,10 +150,16 @@ def main():
     parser.add_argument("--samples", type=int, default=15)
     parser.add_argument("--iterations", type=int, default=200000)
     parser.add_argument("--cpu", type=int, help="Pin benchmark process to one Linux logical CPU")
-    parser.add_argument("--output", type=Path, default=ROOT / "docs/audit-data")
+    parser.add_argument("--compiler", choices=("g++", "clang++"), default="g++")
+    parser.add_argument("--output", type=Path, default=ROOT / ".quality/region-cache-results")
     args = parser.parse_args()
     if args.samples < 3 or args.iterations < 1000:
         parser.error("Use at least three samples and 1000 lookups per sample")
+    args.output = args.output.resolve()
+    if not args.output.is_relative_to((ROOT / ".quality").resolve()):
+        parser.error("Output must be inside the repository's .quality directory")
+    if args.cpu is not None and args.cpu not in os.sched_getaffinity(0):
+        parser.error("CPU must be available in this process's affinity set")
     base, old, old_hash, _ = extract(args.base)
     current, new, new_hash, payload = extract(args.current)
     build = ROOT / ".quality/audit-region-cache"
@@ -159,7 +169,7 @@ def main():
               + "}\nnamespace payload {\n" + payload + "\n}\n")
     (build / "extracted.hpp").write_text(header)
     (build / "benchmark.cpp").write_text(CPP)
-    compiler = os.environ.get("CXX", "g++")
+    compiler = "clang++" if args.compiler == "clang++" else "g++"
     flags = ["-std=c++17", "-O2", "-DNDEBUG", "-Wall", "-Wextra", "-Werror"]
     executable = build / "benchmark"
     subprocess.run([compiler, *flags, str(build / "benchmark.cpp"), "-o", str(executable)], check=True)

@@ -2686,7 +2686,7 @@ static void ParseConstantsSection()
 			(*section)[write_index] = std::move(entry);
 		++write_index;
 	}
-	section->erase(section->begin() + write_index, section->end());
+	section->erase(std::next(section->begin(), static_cast<ptrdiff_t>(write_index)), section->end());
 }
 
 static constexpr auto true_false_overrule = std::array{
