@@ -12,6 +12,8 @@
 
 namespace
 {
+const std::wstring config_namespace = L"test.ini";
+
 void require(bool result, const char *message)
 {
 	if (!result)
@@ -69,7 +71,8 @@ void resets_only_the_requested_pool_proxy()
 	require(proxy.SetSourcePool(&source), "could not establish pool proxy");
 	CommandList commands;
 	std::wstring value = L"null";
-	require(ParseCommandListResourceCopyTargetDirective(L"CommandListTest", L"poolproxy", &value, &commands, nullptr),
+	require(ParseCommandListResourceCopyTargetDirective(L"CommandListTest", L"poolproxy", &value, &commands,
+	                                                    &config_namespace),
 	        "pool proxy reset was rejected");
 	CommandListState state;
 	HackerContext context(nullptr, nullptr);
