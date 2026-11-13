@@ -9236,8 +9236,7 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 		// Substantiate ignores these flags for an existing resource/cache, and an
 		// unconfigured empty source cannot use them. Do not evaluate a destination
 		// index (which can read other pools) when that metadata will be discarded.
-		if (dst && !custom_resource->substantiated && !custom_resource->resource && !custom_resource->view &&
-		    (!custom_resource->filename.empty() || custom_resource->override_type != CustomResourceType::INVALID))
+		if (dst)
 			bind_flags = dst->BindFlags(state, &misc_flags);
 
 		custom_resource->Substantiate(mOrigDevice1, bind_flags, misc_flags);
