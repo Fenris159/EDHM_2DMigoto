@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import sys
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -85,8 +86,8 @@ def get_mutations(command_list, settings, profiling):
         (
             "pool-metadata",
             command_list,
-            "CustomResource *custom_resource = GetCustomResource(nullptr);\n\t\tif (misc_flags)",
-            "CustomResource *custom_resource = GetCustomResource(state);\n\t\tif (misc_flags)",
+            'const CustomResource *custom_resource =\n\t\t    state && pool_dynamic_index_expression\n\t\t        ? custom_resource_pool->PeekResource(pool_dynamic_index_expression->evaluate(state))\n\t\t        : GetCustomResource(nullptr);',
+            "const CustomResource *custom_resource = GetCustomResource(state);",
         ),
         (
             "pool-identifiers",
@@ -222,6 +223,42 @@ def get_mutations(command_list, settings, profiling):
             "const auto type = EffectiveViewTarget(&dst, state);",
             "const auto type = dst_custom_resource ? EffectiveViewTarget(&dst, state) : ResourceCopyTargetType::CUSTOM_RESOURCE;",
         ),
+        (
+            'region-cb-small',
+            command_list,
+            'FillInMissingInfo(src.type, src_resource, src_view, &stride, &offset, &buf_src_size, &format, region_size);',
+            'FillInMissingInfo(src.type, src_resource, src_view, &stride, &offset, &buf_src_size, &format, 0);',
+        ),
+        (
+            'view-clear',
+            command_list,
+            'if (!view || !clear_unknown_view(view, state))',
+            'if (!view)',
+        ),
+        (
+            'pool-learned-flags',
+            command_list,
+            'const CustomResource *custom_resource =\n\t\t    state && pool_dynamic_index_expression\n\t\t        ? custom_resource_pool->PeekResource(pool_dynamic_index_expression->evaluate(state))\n\t\t        : GetCustomResource(nullptr);',
+            'const CustomResource *custom_resource = GetCustomResource(nullptr);',
+        ),
+        (
+            'pool-scalar-precedence',
+            command_list,
+            "if (pool_length && remain[pool_length - 1] == L']')",
+            'if (pool_length)',
+        ),
+        (
+            'view-this-cache',
+            command_list,
+            'else if (cached_view_parameters && *cached_view_parameters == requested_view &&',
+            'else if (dst.type != ResourceCopyTargetType::THIS_RESOURCE && cached_view_parameters && *cached_view_parameters == requested_view &&',
+        ),
+        (
+            "profiling-zero-frame",
+            profiling,
+            "if (freeze || !frames)",
+            "if (freeze)",
+        ),
     ]
 
 
@@ -260,16 +297,24 @@ def main():
             finally:
                 path.write_bytes(originals[path])
     finally:
-        for path, content in originals.items():
-            path.write_bytes(content)
-        (OUTPUT / "results.json").write_text(json.dumps(evidence, indent=2) + "\n")
-    build_exit, _ = run(BUILD, "restored-build.log")
-    if build_exit:
-        raise RuntimeError("Restored production source did not build")
-    for case, _, _, _ in mutations:
-        exit_code, _ = run([str(EXE), case], f"{case}-restored.log")
-        if exit_code:
-            raise RuntimeError(f"Restored production behavior failed: {case}")
+        original_failure = sys.exc_info()[1]
+        try:
+            for path, content in originals.items():
+                path.write_bytes(content)
+            (OUTPUT / "results.json").write_text(json.dumps(evidence, indent=2) + "\n")
+            build_exit, _ = run(BUILD, "restored-build.log")
+            if build_exit:
+                raise RuntimeError("Restored production source did not build")
+            for case, _, _, _ in mutations:
+                exit_code, _ = run([str(EXE), case], f"{case}-restored.log")
+                if exit_code:
+                    raise RuntimeError(f"Restored production behavior failed: {case}")
+        except BaseException as restoration_failure:
+            # A restored checkout must never retain a binary built from a mutant.
+            EXE.unlink(missing_ok=True)
+            if original_failure is None:
+                raise
+            print(f"Production binary quarantined after cleanup failure: {restoration_failure}", file=sys.stderr)
     print("All mutations detected; restored production behavior passes.", flush=True)
 
 

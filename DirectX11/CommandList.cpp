@@ -1887,7 +1887,7 @@ bool FrameAnalysisChangeOptionsCommand::noop(bool post [[maybe_unused]], bool ig
 }
 
 static void FillInMissingInfo(ResourceCopyTargetType type, ID3D11Resource *resource, ID3D11View *view, UINT *stride,
-                              UINT *offset, UINT *buf_size, DXGI_FORMAT *format)
+                              UINT *offset, UINT *buf_size, DXGI_FORMAT *format, UINT fallback_stride = 0)
 {
 	D3D11_RESOURCE_DIMENSION dimension;
 	D3D11_BUFFER_DESC buf_desc;
@@ -2015,9 +2015,9 @@ static void FillInMissingInfo(ResourceCopyTargetType type, ID3D11Resource *resou
 
 		// This will catch constant buffers, which are not structured
 		// and don't have either a view or format, so set the stride to
-		// the size of the whole buffer:
+		// the size of the selected region, or the whole buffer otherwise:
 		if (!*stride)
-			*stride = *buf_size;
+			*stride = fallback_stride ? fallback_stride : *buf_size;
 	}
 }
 
@@ -4654,7 +4654,7 @@ static void tokenise(const wstring *expression, CommandListSyntaxTree *tree, con
 			{
 				// Pool identifiers also allow namespace characters, hyphens and Unicode.
 				const size_t pool_length = FindResourceCopyTargetTokenEnd(remain, 1);
-				if (pool_length)
+				if (pool_length && remain[pool_length - 1] == L']')
 				{
 					token = remain.substr(0, pool_length);
 					if (operand->parse_target(&token, ini_namespace, scope))
@@ -7120,6 +7120,52 @@ size_t CustomResourcePool::GetElementIndex(float id, bool use_ring_index, bool i
 		assert(false);
 		return SIZE_MAX;
 	}
+}
+
+size_t CustomResourcePool::PeekElementIndex(float id) const
+{
+	if (index_type == PoolIndexType::RING || index_type == PoolIndexType::STATIC)
+		return ((int)id % pool_size + pool_size) % pool_size;
+	if (!index_map)
+		return SIZE_MAX;
+	const auto live = [this](size_t index)
+	{
+		const unsigned updated = index_table[index].last_update_frame;
+		return expiration_timeout_frames == UINT32_MAX || updated == UINT32_MAX ||
+		       G->frame_no - updated <= expiration_timeout_frames;
+	};
+	size_t slot = SIZE_MAX;
+	if (index_map->find(BitCastToUint(id), slot) && live(slot))
+		return slot;
+	if (index_type != PoolIndexType::SPATIAL)
+		return SIZE_MAX;
+
+	const GridPos query = UnpackCellCoords(BitCastToUint(id));
+	uint32_t closest = UINT32_MAX;
+	slot = SIZE_MAX;
+	for (size_t i = 0; i < index_table.size(); ++i)
+	{
+		if (index_table[i].key == UINT32_MAX || !live(i))
+			continue;
+		const uint32_t distance = SpatialDistanceChebyshev(query, UnpackCellCoords(index_table[i].key));
+		if (distance <= spatial_radius && distance < closest)
+		{
+			closest = distance;
+			slot = i;
+		}
+	}
+	return slot;
+}
+
+const CustomResource *CustomResourcePool::PeekResource(float id) const
+{
+	if (source_pool)
+		return source_pool->PeekResource(id);
+	if (!pool_size)
+		return resource_template;
+	const size_t slot = PeekElementIndex(id);
+	// Observe existing metadata without expiration, allocation, type switches or re-keying.
+	return slot != SIZE_MAX && elements[slot].resource ? elements[slot].resource : resource_template;
 }
 
 CustomResource *CustomResourcePool::GetResource(float id, bool template_lookup, bool use_ring_index, bool is_assignment)
@@ -9602,7 +9648,10 @@ D3D11_BIND_FLAG ResourceCopyTarget::BindFlags(CommandListState *state, D3D11_RES
 	{
 		// Metadata queries must not allocate a lazy pool element or refresh its
 		// expiration before an unless_null copy can decide to leave it alone.
-		CustomResource *custom_resource = GetCustomResource(nullptr);
+		const CustomResource *custom_resource =
+		    state && pool_dynamic_index_expression
+		        ? custom_resource_pool->PeekResource(pool_dynamic_index_expression->evaluate(state))
+		        : GetCustomResource(nullptr);
 		if (misc_flags)
 			*misc_flags = custom_resource->misc_flags;
 		return custom_resource->bind_flags;
@@ -11368,19 +11417,14 @@ ID3D11View *ClearViewCommand::create_best_view(ID3D11Resource *resource, Command
 	return nullptr;
 }
 
-void ClearViewCommand::clear_unknown_view(ID3D11View *view, CommandListState *state)
+bool ClearViewCommand::clear_unknown_view(ID3D11View *view, CommandListState *state)
 {
 	ID3D11RenderTargetView *rtv = nullptr;
 	ID3D11DepthStencilView *dsv = nullptr;
 	ID3D11UnorderedAccessView *uav = nullptr;
 
-	// We have a view, but we don't know what kind of view it is. We could
-	// infer that from the target type, but in the future CustomResource
-	// targets will return a cached view as well (they already have a view
-	// today, but if you follow the logic closely you will realise we don't
-	// have any code paths that will decide to use it), so to try to future
-	// proof this let's use QueryInterface() to see which interfaces the
-	// view supports to tell us what kind it is:
+	// Custom resources may retain readable or writable views. Query the
+	// writable interfaces rather than inferring one from the target type.
 	view->QueryInterface(__uuidof(ID3D11RenderTargetView), (void **)&rtv);
 	view->QueryInterface(__uuidof(ID3D11DepthStencilView), (void **)&dsv);
 	view->QueryInterface(__uuidof(ID3D11UnorderedAccessView), (void **)&uav);
@@ -11426,12 +11470,14 @@ void ClearViewCommand::clear_unknown_view(ID3D11View *view, CommandListState *st
 		Profiling::views_cleared++;
 	}
 
+	const bool cleared = rtv || dsv || uav;
 	if (rtv)
 		rtv->Release();
 	if (dsv)
 		dsv->Release();
 	if (uav)
 		uav->Release();
+	return cleared;
 }
 
 void ClearViewCommand::run(CommandListState *state)
@@ -11452,13 +11498,17 @@ void ClearViewCommand::run(CommandListState *state)
 		return;
 	}
 
-	if (!view)
+	if (!view || !clear_unknown_view(view, state))
+	{
+		// A retained SRV is readable but cannot be cleared. Build a writable view.
+		if (view)
+			view->Release();
 		view = create_best_view(resource, state, stride, offset, format, buf_src_size);
-
-	if (view)
-		clear_unknown_view(view, state);
-	else
-		COMMAND_LIST_LOG(state, "  No view and unable to create view to clear resource\n");
+		if (view)
+			clear_unknown_view(view, state);
+		else
+			COMMAND_LIST_LOG(state, "  No view and unable to create view to clear resource\n");
+	}
 
 	if (resource)
 		resource->Release();
@@ -11846,7 +11896,7 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 		}
 	}
 
-	FillInMissingInfo(src.type, src_resource, src_view, &stride, &offset, &buf_src_size, &format);
+	FillInMissingInfo(src.type, src_resource, src_view, &stride, &offset, &buf_src_size, &format, region_size);
 
 	ID3D11Resource *dst_resource = nullptr;
 	ID3D11View *dst_view = nullptr;
@@ -11951,8 +12001,8 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 					                     offset, format, requested_view.extent, options);
 				dst_view = reused_source_view.Get();
 			}
-			else if (dst.type != ResourceCopyTargetType::THIS_RESOURCE && cached_view_parameters &&
-			         *cached_view_parameters == requested_view && ViewMatchesResource(*pp_cached_view, dst_resource))
+			else if (cached_view_parameters && *cached_view_parameters == requested_view &&
+			         ViewMatchesResource(*pp_cached_view, dst_resource))
 				dst_view = *pp_cached_view;
 			if (dst_view)
 			{

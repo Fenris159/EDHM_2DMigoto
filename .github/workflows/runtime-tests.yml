@@ -36,6 +36,8 @@ jobs:
       - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
         with:
           vs-version: '[17.0,18.0)'
+      - name: Verify mutation runner failure cleanup
+        run: python -m unittest discover -s RuntimeTests -p test_mutation_cleanup.py -v
       - name: Build native runtime checks
         shell: pwsh
         run: >-
@@ -110,8 +112,8 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw "Benchmark failed: $variant/$mode" }
             }
           }
-      - name: Upload native test executable and mutation evidence
-        if: always()
+      - name: Upload validated native test executable and mutation evidence
+        if: success()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: runtime-checks-${{ matrix.platform }}-${{ github.sha }}
@@ -120,4 +122,14 @@ jobs:
             .quality/runtime-mutations/
             .quality/runtime-benchmarks/
           if-no-files-found: warn
+          retention-days: 14
+      - name: Upload failure evidence without an executable
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: runtime-failure-evidence-${{ matrix.platform }}-${{ github.sha }}
+          path: |
+            .quality/runtime-mutations/
+            .quality/runtime-benchmarks/
+          if-no-files-found: ignore
           retention-days: 14

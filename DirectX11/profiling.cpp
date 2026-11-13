@@ -419,7 +419,7 @@ void Profiling::update_txt()
 	unsigned frames = G->frame_no - start_frame_no;
 	wchar_t buf[256];
 
-	if (freeze)
+	if (freeze || !frames)
 		return;
 
 	QueryPerformanceCounter(&end_time);

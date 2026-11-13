@@ -671,6 +671,7 @@ class CustomResourcePool
 
 	size_t GetElementIndex(float id, bool use_ring_index, bool is_assignment);
 	CustomResource *GetResource(float id, bool template_lookup, bool use_ring_index, bool is_assignment);
+	const CustomResource *PeekResource(float id) const;
 	CommandListVariable *GetVariable(float id, bool template_lookup, bool use_ring_index, bool is_assignment);
 	size_t GetPoolSize();
 	unsigned GetLastUpdateFrame(float id, bool use_ring_index);
@@ -683,6 +684,7 @@ class CustomResourcePool
 	void ResetPool(bool reset_elements = true);
 
   private:
+	size_t PeekElementIndex(float id) const;
 	void InitializeResource(size_t pool_index);
 	void InitializeVariable(size_t pool_index);
 
@@ -1541,7 +1543,7 @@ class ClearViewCommand : public CommandListCommand
 
 	ID3D11View *create_best_view(ID3D11Resource *resource, CommandListState *state, UINT stride, UINT offset,
 	                             DXGI_FORMAT format, UINT buf_src_size);
-	void clear_unknown_view(ID3D11View *, CommandListState *state);
+	bool clear_unknown_view(ID3D11View *, CommandListState *state);
 
 	void run(CommandListState *) override;
 };
