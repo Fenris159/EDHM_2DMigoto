@@ -268,6 +268,7 @@ CustomResourcePool &make_pool(const wchar_t *name, float default_value)
 	pool.name = name;
 	pool.resource_template = &customResources[pool.name + L"_template"];
 	pool.resource_template->pool = &pool;
+	pool.resource_template->pool_index = -1;
 	pool.variable_template =
 	    std::make_unique<CommandListVariable>(L"$" + pool.name, default_value, VariableFlags::NONE);
 	pool.Initialize(2);
@@ -1960,6 +1961,10 @@ struct MetadataFixture
 		current.type = ResourceCopyTargetType::SHADER_RESOURCE;
 		current.shader_type = L'p';
 		d3d.state.this_target = &current;
+	}
+	~MetadataFixture()
+	{
+		d3d.state.this_target = nullptr;
 	}
 
 	static void configure_buffer(CustomResource &resource)
