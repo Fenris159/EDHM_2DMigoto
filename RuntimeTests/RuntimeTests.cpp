@@ -2102,6 +2102,91 @@ void metadata_fifo_reads_match_allocation_order()
 	fixture.d3d.require_no_errors();
 }
 
+void metadata_hot_resources_keep_their_identity()
+{
+	MetadataFixture fixture;
+	auto &key = customResources[L"resourcehotkey"];
+	MetadataFixture::configure_buffer(key);
+	fixture.execute(L"this", L"ref resourcehotkey");
+	Microsoft::WRL::ComPtr<ID3D11Resource> original = key.resource;
+	require(original != nullptr, "hot key was not created");
+	auto &outer = make_pool(L"poolouter", 0.0f);
+	outer.index_type = PoolIndexType::FIFO;
+	outer.Initialize(2);
+	auto &fresh = customResources[L"resourcepreviewfresh"];
+	MetadataFixture::configure_buffer(fresh);
+	fresh.bind_flags = D3D11_BIND_SHADER_RESOURCE;
+	fixture.execute(L"poolouter[@resourcehotkey]", L"ref resourcepreviewfresh");
+	require(key.resource == original.Get(), "metadata adoption destroyed an already-created key resource");
+	fixture.execute(L"this", L"ref resourcehotkey");
+	fixture.require_binding(&key);
+	fixture.d3d.require_no_errors();
+}
+
+void metadata_spatial_reads_preserve_cached_ranges()
+{
+	MetadataFixture fixture;
+	auto &key = customResources[L"resourcecachedkey"];
+	const float coordinates[] = {64, 2, 3};
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = sizeof(coordinates);
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	D3D11_SUBRESOURCE_DATA initial{};
+	initial.pSysMem = coordinates;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+	require(SUCCEEDED(fixture.d3d.device->CreateBuffer(&desc, &initial, &buffer)), "cached key buffer failed");
+	key.resource = buffer.Detach();
+	key.device = fixture.d3d.device.Get();
+	key.substantiated = true;
+	key.is_null = false;
+	key.format = DXGI_FORMAT_R32_FLOAT;
+	key.stride = 4;
+	key.buf_size = 12;
+	ResourceHandleInfo source_cache;
+	const float cached[] = {99, 64, 2, 3};
+	source_cache.SetDataCache(cached, sizeof(cached));
+	key.handle_info = std::make_unique<ResourceHandleInfo>();
+	key.handle_info->InitializeDataCache(12, 4);
+	key.handle_info->cached_data = source_cache.cached_data;
+	CommandListScope scope;
+	CommandListExpression query;
+	const std::wstring expression = L"resourcecachedkey->spatialhash(0,1,2,1)";
+	require(query.parse(&expression, &config_namespace, &scope), "cached spatial query was rejected");
+	// Unit cells at (64,2,3), packed into the 12/8/12-bit grid.
+	require(BitCastToUint(query.evaluate(&fixture.d3d.state)) == 0x04002003U,
+	        "cached spatial fixture has the wrong key");
+	fixture.prepare_outer(L"ref poolouter[0]");
+	customResourcePools[L"poolouter"].Initialize(4);
+	fixture.execute(L"poolouter[resourcecachedkey->spatialhash(0,1,2,1)]", L"ref resourcepreviewfresh");
+	fixture.require_fresh_flags();
+	require(BitCastToUint(query.evaluate(&fixture.d3d.state)) == 0x04002003U,
+	        "metadata adoption lost cached data ownership or its range");
+	fixture.execute(L"this", L"ref poolouter[0]");
+	fixture.require_binding(&customResources[L"resourcepreviewfresh"]);
+	fixture.d3d.require_no_errors();
+}
+
+void metadata_static_resources_remain_pinned_after_proxy_changes()
+{
+	MetadataFixture fixture;
+	auto &pinned = make_pool(L"poolstaticpin", 0.0f);
+	pinned.index_type = PoolIndexType::STATIC;
+	auto &other = make_pool(L"poolother", 0.0f);
+	fixture.prepare_outer(L"ref poolouter[0]");
+	customResourcePools[L"poolouter"].Initialize(4);
+	CommandListScope scope;
+	CommandList commands;
+	commands.scope = &scope;
+	parse_copy(commands, L"poolouter[#poolstaticpin[0]]", L"ref resourcepreviewfresh");
+	require(pinned.SetSourcePool(&other), "static pool proxy was rejected");
+	for (const auto &command : commands.commands)
+		command->run(&fixture.d3d.state);
+	fixture.require_fresh_flags();
+	fixture.execute(L"this", L"ref poolouter[0]");
+	fixture.require_binding(&customResources[L"resourcepreviewfresh"]);
+	fixture.d3d.require_no_errors();
+}
+
 void metadata_expiration_matches_same_frame_reset()
 {
 	MetadataFixture fixture;
@@ -2377,6 +2462,9 @@ int main(int argc, char **argv)
 	             {"metadata-lazy-index", metadata_lazy_indexes_match_assignment},
 	             {"metadata-fifo", metadata_fifo_reads_match_allocation_order},
 	             {"metadata-expiration", metadata_expiration_matches_same_frame_reset},
+	             {"metadata-hot-identity", metadata_hot_resources_keep_their_identity},
+	             {"metadata-cached-spatial", metadata_spatial_reads_preserve_cached_ranges},
+	             {"metadata-static-pin", metadata_static_resources_remain_pinned_after_proxy_changes},
 	             {"pool-identifiers", accepts_pool_identifier_grammar},
 	             {"store-values", stores_typed_and_structured_values},
 	             {"store-views", releases_store_views_on_success_and_failure},
