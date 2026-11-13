@@ -173,6 +173,7 @@ void benchmark_resource_views(int samples)
 		        "benchmark source view failed");
 	}
 	BorrowedCustomResource source;
+	source.device = boundary.Get();
 	source.substantiated = true;
 	source.is_null = false;
 	source.stride = 4;
