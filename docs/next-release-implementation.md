@@ -744,11 +744,17 @@ default 3 and untouched live value 11 through the detached-preview API. Five
 additional deliberate breaks cover the four warnings and accepted resource
 identity, including a self-indexed source.
 
-Verification runs for source/test snapshot `491ac5a2`:
+Verification runs for runtime/test snapshot `491ac5a2`, with the mutation harness correction in `54e6d4e5`:
 
-- [Native x64/Win32 behavior, 42 compiling deliberate breaks, restored production and cleanup checks](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43369164030).
+- [Native x64/Win32 behavior, 42 compiling deliberate breaks, restored production and cleanup checks](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43369978270).
 - [Ordinary/strict Release and strict Zip Release builds, formatting, scripts and shaders](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43369166788).
 - [Sonar quality gate and changed-source clang-tidy against `origin/develop`](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43369170005).
+
+The first detached-preview mutation run stopped because the template-only
+replacement left the extracted `id` unused, producing strict compiler warning
+C4189. That failed mutant build was not credited as detection. `54e6d4e5` removes
+the index declaration with the replacement, preserving a compiling behavior
+break; runtime and native-case source remain identical to `491ac5a2`.
 
 The native workflow uploads the validated executable, per-case mutation hashes,
 failure logs and restored-case logs. The earlier 35- and 37-case receipts remain
