@@ -2201,9 +2201,10 @@ void metadata_static_resources_remain_pinned_after_proxy_changes()
 	fixture.d3d.require_no_errors();
 }
 
-void metadata_static_and_dynamic_aliases_share_one_resource()
+void verify_shared_alias(bool expire_on_dynamic_read)
 {
 	MetadataFixture fixture;
+	G->frame_no = 10;
 	Microsoft::WRL::ComPtr<D3DDeviceBoundary> boundary;
 	boundary.Attach(new D3DDeviceBoundary(fixture.d3d.device.Get()));
 	HackerContext context(boundary.Get(), fixture.d3d.context.Get());
@@ -2212,15 +2213,37 @@ void metadata_static_and_dynamic_aliases_share_one_resource()
 	auto &pinned = make_pool(L"poolstaticalias", 0.0f);
 	pinned.index_type = PoolIndexType::STATIC;
 	MetadataFixture::configure_buffer(*pinned.resource_template);
+	if (expire_on_dynamic_read)
+	{
+		pinned.expiration_timeout_frames = 5;
+		pinned.Initialize(2);
+		pinned.GetResource(0, false, false, true);
+	}
 	auto &dynamic = make_pool(L"pooldynamicalias", 0.0f);
 	require(dynamic.SetSourcePool(&pinned), "dynamic alias was rejected");
-	fixture.prepare_outer(L"ref poolouter[1]");
-	fixture.execute(L"poolouter[!(@poolstaticalias[0]-@pooldynamicalias[0])]", L"ref resourcepreviewfresh");
+	fixture.prepare_outer(expire_on_dynamic_read ? L"ref poolouter[0]" : L"ref poolouter[1]");
+	CommandListScope scope;
+	CommandList commands;
+	commands.scope = &scope;
+	parse_copy(commands, L"poolouter[!(@poolstaticalias[0]-@pooldynamicalias[0])]", L"ref resourcepreviewfresh");
+	G->frame_no = expire_on_dynamic_read ? 17 : 10;
+	for (const auto &command : commands.commands)
+		command->run(&fixture.d3d.state);
 	require(boundary->buffer_creations == 3, "aliases created separate provisional GPU resources for one slot");
 	fixture.require_fresh_flags();
-	fixture.execute(L"this", L"ref poolouter[1]");
+	fixture.execute(L"this", expire_on_dynamic_read ? L"ref poolouter[0]" : L"ref poolouter[1]");
 	fixture.require_binding(&customResources[L"resourcepreviewfresh"]);
 	fixture.d3d.require_no_errors();
+}
+
+void metadata_static_and_dynamic_aliases_share_one_resource()
+{
+	verify_shared_alias(false);
+}
+
+void metadata_aliases_preserve_expiration_order()
+{
+	verify_shared_alias(true);
 }
 
 void metadata_expiration_matches_same_frame_reset()
@@ -2502,6 +2525,7 @@ int main(int argc, char **argv)
 	             {"metadata-cached-spatial", metadata_spatial_reads_preserve_cached_ranges},
 	             {"metadata-static-pin", metadata_static_resources_remain_pinned_after_proxy_changes},
 	             {"metadata-alias", metadata_static_and_dynamic_aliases_share_one_resource},
+	             {"metadata-alias-expiration", metadata_aliases_preserve_expiration_order},
 	             {"pool-identifiers", accepts_pool_identifier_grammar},
 	             {"store-values", stores_typed_and_structured_values},
 	             {"store-views", releases_store_views_on_success_and_failure},

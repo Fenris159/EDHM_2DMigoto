@@ -9121,6 +9121,9 @@ class PoolMetadataPreview
 	{
 		if (!resource)
 			return nullptr;
+		CustomResourcePool *owner = resource->pool;
+		if (owner && owner->ResolvePool() == owner && owner->MetadataResource(resource->pool_index) == resource)
+			return GetPool(owner)->MetadataResource(resource->pool_index);
 		if (!contents)
 			contents = std::make_unique<Contents>();
 		auto &preview = contents->resources[resource];
