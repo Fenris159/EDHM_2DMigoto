@@ -86,8 +86,8 @@ def get_mutations(command_list, settings, profiling):
         (
             "pool-metadata",
             command_list,
-            'const CustomResource *custom_resource =\n\t\t    state && pool_dynamic_index_expression\n\t\t        ? custom_resource_pool->PeekResource(pool_dynamic_index_expression->evaluate(state))\n\t\t        : GetCustomResource(nullptr);',
-            "const CustomResource *custom_resource = GetCustomResource(state);",
+            "custom_resource = custom_resource_pool->PeekResource(pool_dynamic_index_expression->evaluate(state));",
+            "custom_resource = custom_resource_pool->GetResource(pool_dynamic_index_expression->evaluate(state), false, false, false);",
         ),
         (
             "pool-identifiers",
@@ -236,10 +236,10 @@ def get_mutations(command_list, settings, profiling):
             'if (!view)',
         ),
         (
-            'pool-learned-flags',
+            "pool-learned-flags",
             command_list,
-            'const CustomResource *custom_resource =\n\t\t    state && pool_dynamic_index_expression\n\t\t        ? custom_resource_pool->PeekResource(pool_dynamic_index_expression->evaluate(state))\n\t\t        : GetCustomResource(nullptr);',
-            'const CustomResource *custom_resource = GetCustomResource(nullptr);',
+            "custom_resource = custom_resource_pool->PeekResource(pool_dynamic_index_expression->evaluate(state));",
+            "custom_resource = GetCustomResource(nullptr);",
         ),
         (
             'pool-scalar-precedence',
@@ -268,8 +268,8 @@ def get_mutations(command_list, settings, profiling):
         (
             "nested-metadata",
             command_list,
-            'if (dst && !custom_resource->substantiated && !custom_resource->resource && !custom_resource->view &&\n\t\t    (!custom_resource->filename.empty() || custom_resource->override_type != CustomResourceType::INVALID))',
-            "if (dst)",
+            "const MetadataScope metadata(state->pool_metadata_query);",
+            "// Deliberate break: evaluate nested indexes with ordinary pool reads.",
         ),
     ]
 

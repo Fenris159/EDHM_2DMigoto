@@ -64,6 +64,7 @@ class CommandListState
 	DrawCallInfo *call_info;
 	bool post;
 	bool aborted;
+	bool pool_metadata_query = false;
 
 	bool scissor_valid;
 	D3D11_RECT scissor_rects[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE]{};
@@ -670,11 +671,14 @@ class CustomResourcePool
 	bool PropagateFlags(D3D11_BIND_FLAG bind_flags, D3D11_RESOURCE_MISC_FLAG misc_flags);
 
 	size_t GetElementIndex(float id, bool use_ring_index, bool is_assignment);
-	CustomResource *GetResource(float id, bool template_lookup, bool use_ring_index, bool is_assignment);
-	const CustomResource *PeekResource(float id) const;
-	CommandListVariable *GetVariable(float id, bool template_lookup, bool use_ring_index, bool is_assignment);
+	CustomResource *GetResource(float id, bool template_lookup, bool use_ring_index, bool is_assignment,
+	                            bool metadata_only = false);
+	CustomResource *PeekResource(float id) const;
+	CommandListVariable *PeekVariable(float id) const;
+	CommandListVariable *GetVariable(float id, bool template_lookup, bool use_ring_index, bool is_assignment,
+	                                 bool metadata_only = false);
 	size_t GetPoolSize();
-	unsigned GetLastUpdateFrame(float id, bool use_ring_index);
+	unsigned GetLastUpdateFrame(float id, bool use_ring_index, bool metadata_only = false);
 
 	bool SetSourcePool(CustomResourcePool *source);
 	CustomResourcePool *ResolvePool();

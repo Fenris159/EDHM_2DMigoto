@@ -7157,7 +7157,7 @@ size_t CustomResourcePool::PeekElementIndex(float id) const
 	return slot;
 }
 
-const CustomResource *CustomResourcePool::PeekResource(float id) const
+CustomResource *CustomResourcePool::PeekResource(float id) const
 {
 	if (source_pool)
 		return source_pool->PeekResource(id);
@@ -7168,15 +7168,34 @@ const CustomResource *CustomResourcePool::PeekResource(float id) const
 	return slot != SIZE_MAX && elements[slot].resource ? elements[slot].resource : resource_template;
 }
 
-CustomResource *CustomResourcePool::GetResource(float id, bool template_lookup, bool use_ring_index, bool is_assignment)
+CommandListVariable *CustomResourcePool::PeekVariable(float id) const
 {
 	if (source_pool)
-		return source_pool->GetResource(id, template_lookup, use_ring_index, is_assignment);
+		return source_pool->PeekVariable(id);
+	if (!pool_size)
+		return variable_template.get();
+	const size_t slot = PeekElementIndex(id);
+	if (slot == SIZE_MAX || !elements[slot].variable)
+		return variable_template.get();
+	if (reset_expired_elements && expiration_timeout_frames != UINT32_MAX &&
+	    index_table[slot].last_update_frame != UINT32_MAX &&
+	    G->frame_no - index_table[slot].last_update_frame > expiration_timeout_frames)
+		return variable_template.get();
+	return elements[slot].variable;
+}
+
+CustomResource *CustomResourcePool::GetResource(float id, bool template_lookup, bool use_ring_index, bool is_assignment,
+                                                bool metadata_only)
+{
+	if (source_pool)
+		return source_pool->GetResource(id, template_lookup, use_ring_index, is_assignment, metadata_only);
 
 	// During static evaluation (parsing time) we cannot evaluate dynamic indexes
 	// So parsing-time config has to be applied to the entire pool
 	if (template_lookup)
 		return resource_template;
+	if (metadata_only)
+		return PeekResource(id);
 
 	size_t pool_index = GetElementIndex(id, use_ring_index, is_assignment);
 
@@ -7195,15 +7214,17 @@ CustomResource *CustomResourcePool::GetResource(float id, bool template_lookup, 
 }
 
 CommandListVariable *CustomResourcePool::GetVariable(float id, bool template_lookup, bool use_ring_index,
-                                                     bool is_assignment)
+                                                     bool is_assignment, bool metadata_only)
 {
 	if (source_pool)
-		return source_pool->GetVariable(id, template_lookup, use_ring_index, is_assignment);
+		return source_pool->GetVariable(id, template_lookup, use_ring_index, is_assignment, metadata_only);
 
 	// During static evaluation (parsing time) we cannot evaluate dynamic indexes
 	// So parsing-time config has to be applied to the entire pool
 	if (template_lookup)
 		return variable_template.get();
+	if (metadata_only)
+		return PeekVariable(id);
 
 	size_t pool_index = GetElementIndex(id, use_ring_index, is_assignment);
 
@@ -7221,18 +7242,21 @@ CommandListVariable *CustomResourcePool::GetVariable(float id, bool template_loo
 	return element.variable;
 }
 
-unsigned CustomResourcePool::GetLastUpdateFrame(float id, bool use_ring_index)
+unsigned CustomResourcePool::GetLastUpdateFrame(float id, bool use_ring_index, bool metadata_only)
 {
 	if (source_pool)
-		return source_pool->GetLastUpdateFrame(id, use_ring_index);
+		return source_pool->GetLastUpdateFrame(id, use_ring_index, metadata_only);
 
-	size_t pool_index = GetElementIndex(id, use_ring_index, false);
+	size_t pool_index = metadata_only ? PeekElementIndex(id) : GetElementIndex(id, use_ring_index, false);
 
-	if (pool_index == SIZE_MAX)
+	if (pool_index >= index_table.size())
 		return 0;
 
 	PoolSlot &slot = index_table[pool_index];
 
+	if (metadata_only && expiration_timeout_frames != UINT32_MAX && slot.last_update_frame != UINT32_MAX &&
+	    G->frame_no - slot.last_update_frame > expiration_timeout_frames)
+		return UINT32_MAX;
 	return slot.last_update_frame;
 }
 
@@ -9002,8 +9026,11 @@ CustomResource *ResourceCopyTarget::GetCustomResource(CommandListState *state, b
 		return nullptr;
 
 	return GetPoolObject(static_custom_resource, state, is_assignment,
-	                     [this](float id, bool template_lookup, bool assign)
-	                     { return custom_resource_pool->GetResource(id, template_lookup, false, assign); });
+	                     [this, state](float id, bool template_lookup, bool assign)
+	                     {
+		                     return custom_resource_pool->GetResource(id, template_lookup, false, assign,
+							                                          state && state->pool_metadata_query);
+	                     });
 }
 
 CommandListVariable *ResourceCopyTarget::GetPoolVariable(CommandListState *state, bool is_assignment)
@@ -9011,8 +9038,12 @@ CommandListVariable *ResourceCopyTarget::GetPoolVariable(CommandListState *state
 	if (!static_pool_variable && !custom_resource_pool)
 		return nullptr;
 
-	return GetPoolObject(static_pool_variable, state, is_assignment, [this](float id, bool template_lookup, bool assign)
-	                     { return custom_resource_pool->GetVariable(id, template_lookup, false, assign); });
+	return GetPoolObject(static_pool_variable, state, is_assignment,
+	                     [this, state](float id, bool template_lookup, bool assign)
+	                     {
+		                     return custom_resource_pool->GetVariable(id, template_lookup, false, assign,
+							                                          state && state->pool_metadata_query);
+	                     });
 }
 
 ID3D11Resource *ResourceCopyTarget::GetResource(
@@ -9233,11 +9264,9 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 
 		custom_resource->expire(mOrigDevice1, mOrigContext1);
 
-		// Substantiate ignores these flags for an existing resource/cache, and an
-		// unconfigured empty source cannot use them. Do not evaluate a destination
-		// index (which can read other pools) when that metadata will be discarded.
-		if (dst && !custom_resource->substantiated && !custom_resource->resource && !custom_resource->view &&
-		    (!custom_resource->filename.empty() || custom_resource->override_type != CustomResourceType::INVALID))
+		// Existing caches ignore creation flags. First-use sources still learn
+		// them, using non-mutating pool reads while resolving destination metadata.
+		if (dst && !custom_resource->substantiated && !custom_resource->resource && !custom_resource->view)
 			bind_flags = dst->BindFlags(state, &misc_flags);
 
 		custom_resource->Substantiate(mOrigDevice1, bind_flags, misc_flags);
@@ -9652,10 +9681,25 @@ D3D11_BIND_FLAG ResourceCopyTarget::BindFlags(CommandListState *state, D3D11_RES
 	{
 		// Metadata queries must not allocate a lazy pool element or refresh its
 		// expiration before an unless_null copy can decide to leave it alone.
-		const CustomResource *custom_resource =
-		    state && pool_dynamic_index_expression
-		        ? custom_resource_pool->PeekResource(pool_dynamic_index_expression->evaluate(state))
-		        : GetCustomResource(nullptr);
+		const CustomResource *custom_resource = GetCustomResource(nullptr);
+		if (state && pool_dynamic_index_expression)
+		{
+			struct MetadataScope
+			{
+				bool &flag;
+				bool previous;
+				explicit MetadataScope(bool &metadata_flag) : flag(metadata_flag), previous(metadata_flag)
+				{
+					flag = true;
+				}
+				~MetadataScope()
+				{
+					flag = previous;
+				}
+			};
+			const MetadataScope metadata(state->pool_metadata_query);
+			custom_resource = custom_resource_pool->PeekResource(pool_dynamic_index_expression->evaluate(state));
+		}
 		if (misc_flags)
 			*misc_flags = custom_resource ? custom_resource->misc_flags : static_cast<D3D11_RESOURCE_MISC_FLAG>(0);
 		return custom_resource ? custom_resource->bind_flags : static_cast<D3D11_BIND_FLAG>(0);
@@ -10175,7 +10219,7 @@ float ResourceCopyTarget::GetPoolElementLastFrame(CommandListState *state)
 
 	CustomResourcePool *pool = custom_resource_pool->ResolvePool();
 
-	return (float)pool->GetLastUpdateFrame(id, false);
+	return (float)pool->GetLastUpdateFrame(id, false, state && state->pool_metadata_query);
 }
 
 #pragma endregion ResourceCopyTarget

@@ -416,6 +416,22 @@ void skipped_copies_do_not_evaluate_nested_destination_indexes()
 		pool.read_refreshes_expiration = false;
 		require(pool.GetVariable(0, false, true, false)->fval == 3.0f,
 		        "skipped copy refreshed expiration through its nested destination index");
+		G->frame_no = 20;
+		pool.read_refreshes_expiration = true;
+		CommandListVariable *retained = pool.GetVariable(0, false, true, true);
+		retained->fval = 11.0f;
+		G->frame_no = 24;
+		CommandListExpression normal_read;
+		const std::wstring variable = std::wstring(L"$") + pool_name + L"[0]";
+		require(normal_read.parse(&variable, &config_namespace, &scope), "normal pool read was rejected");
+		require(normal_read.evaluate(&fixture.state) == 11.0f, "normal pool read changed the variable value");
+		G->frame_no = 27;
+		pool.read_refreshes_expiration = false;
+		require(pool.GetVariable(0, false, true, false)->fval == 11.0f,
+		        "metadata evaluation disabled expiration refresh for a subsequent normal read");
+		G->frame_no = 31;
+		require(pool.GetVariable(0, false, false, false, true)->fval == 3.0f && retained->fval == 11.0f,
+		        "metadata read did not expose the expired default without resetting stored data");
 	}
 	fixture.require_no_errors();
 }
@@ -1906,6 +1922,29 @@ void preserves_learned_pool_flags_during_copy()
 	require(resource.Get() == fresh.resource &&
 	            read_buffer(fixture, resource.Get()) == std::vector<float>({11, 13, 17, 19}),
 	        "newly substantiated pool reference exposed the wrong resource or data");
+	customResources[L"resourceemptythenpopulated"];
+	CommandList empty_reference;
+	parse_copy(empty_reference, L"poollearned[0]", L"ref unless_null resourceemptythenpopulated");
+	for (const auto &command : empty_reference.commands)
+		command->run(&fixture.state);
+	CommandList populate;
+	parse_copy(populate, L"resourceemptythenpopulated", L"copy vb0");
+	for (const auto &command : populate.commands)
+		command->run(&fixture.state);
+	CommandList populated_reference;
+	parse_copy(populated_reference, L"poollearned[0]", L"ref resourceemptythenpopulated");
+	for (const auto &command : populated_reference.commands)
+		command->run(&fixture.state);
+	fixture.context->PSSetShaderResources(0, 1, &empty);
+	for (const auto &command : reference.commands)
+		command->run(&fixture.state);
+	result.Reset();
+	fixture.context->PSGetShaderResources(0, 1, &result);
+	require(result != nullptr, "an initially empty reference lost future binding requirements");
+	resource.Reset();
+	result->GetResource(&resource);
+	require(read_buffer(fixture, resource.Get()) == std::vector<float>({2, 3, 5, 7}),
+	        "populating a previously empty reference exposed stale data");
 	fixture.state.this_target = nullptr;
 	fixture.require_no_errors();
 }
