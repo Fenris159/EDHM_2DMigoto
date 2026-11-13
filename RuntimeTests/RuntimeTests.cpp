@@ -1949,6 +1949,137 @@ void preserves_learned_pool_flags_during_copy()
 	fixture.require_no_errors();
 }
 
+struct MetadataFixture
+{
+	D3DFixture d3d;
+	ConfigFixture resources;
+	ResourceCopyTarget current;
+
+	MetadataFixture()
+	{
+		current.type = ResourceCopyTargetType::SHADER_RESOURCE;
+		current.shader_type = L'p';
+		d3d.state.this_target = &current;
+	}
+
+	static void configure_buffer(CustomResource &resource)
+	{
+		resource.override_type = CustomResourceType::BUFFER;
+		resource.override_format = DXGI_FORMAT_R32_FLOAT;
+		resource.override_array = 4;
+		const float values[] = {11, 13, 17, 19};
+		resource.initial_data = malloc(sizeof(values));
+		require(resource.initial_data != nullptr, "metadata fixture data allocation failed");
+		memcpy(resource.initial_data, values, sizeof(values));
+		resource.initial_data_size = sizeof(values);
+	}
+
+	void execute(const wchar_t *destination, const wchar_t *source)
+	{
+		CommandListScope scope;
+		CommandList commands;
+		commands.scope = &scope;
+		parse_copy(commands, destination, source);
+		for (const auto &command : commands.commands)
+			command->run(&d3d.state);
+	}
+
+	void require_binding(CustomResource *expected = nullptr)
+	{
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
+		d3d.context->PSGetShaderResources(0, 1, &view);
+		require(view != nullptr, "metadata preview prevented a later SRV binding");
+		Microsoft::WRL::ComPtr<ID3D11Resource> resource;
+		view->GetResource(&resource);
+		require(!expected || resource.Get() == expected->resource,
+		        "preview and assignment selected different resources");
+		require(read_buffer(d3d, resource.Get()) == std::vector<float>({11, 13, 17, 19}),
+		        "metadata preview changed the bound values");
+	}
+
+	void prepare_outer(const wchar_t *learned)
+	{
+		auto &outer = make_pool(L"poolouter", 0.0f);
+		configure_buffer(*outer.resource_template);
+		execute(L"this", learned);
+		ID3D11ShaderResourceView *empty = nullptr;
+		d3d.context->PSSetShaderResources(0, 1, &empty);
+		configure_buffer(customResources[L"resourcepreviewfresh"]);
+	}
+
+	void require_fresh_flags()
+	{
+		auto *resource = customResources[L"resourcepreviewfresh"].resource;
+		require(resource != nullptr, "preview source was not created");
+		D3D11_BUFFER_DESC desc{};
+		static_cast<ID3D11Buffer *>(resource)->GetDesc(&desc);
+		require((desc.BindFlags & D3D11_BIND_SHADER_RESOURCE) != 0,
+		        "preview selected flags from a different destination than assignment");
+	}
+};
+
+void metadata_resource_reads_preserve_lazy_templates()
+{
+	MetadataFixture fixture;
+	auto &keys = make_pool(L"poolkeys", 0.0f);
+	keys.index_type = PoolIndexType::FIFO;
+	keys.Initialize(2);
+	MetadataFixture::configure_buffer(*keys.resource_template);
+	keys.GetVariable(1, false, false, true)->fval = 1;
+	make_pool(L"poolouter", 0.0f);
+	customResources[L"resourcepreviewempty"];
+	fixture.execute(L"poolouter[@poolkeys[1]]", L"ref unless_null resourcepreviewempty");
+	fixture.execute(L"this", L"ref poolkeys[2]");
+	fixture.require_binding();
+	fixture.d3d.require_no_errors();
+}
+
+void metadata_lazy_indexes_match_assignment()
+{
+	MetadataFixture fixture;
+	make_pool(L"poolinner", 0.0f);
+	fixture.prepare_outer(L"ref poolouter[0]");
+	fixture.execute(L"poolouter[#poolinner[0]]", L"ref resourcepreviewfresh");
+	fixture.require_fresh_flags();
+	fixture.execute(L"this", L"ref poolouter[0]");
+	fixture.require_binding(&customResources[L"resourcepreviewfresh"]);
+	fixture.d3d.require_no_errors();
+}
+
+void metadata_fifo_reads_match_allocation_order()
+{
+	MetadataFixture fixture;
+	auto &ids = make_pool(L"poolids", 0.0f);
+	ids.index_type = PoolIndexType::FIFO;
+	ids.allocate_slot_on_missing = true;
+	ids.Initialize(2);
+	ids.GetVariable(1, false, false, true)->fval = 0;
+	ids.GetVariable(2, false, false, true)->fval = 1;
+	fixture.prepare_outer(L"ref poolouter[1]");
+	fixture.execute(L"poolouter[$poolids[3]+$poolids[4]]", L"ref resourcepreviewfresh");
+	fixture.require_fresh_flags();
+	fixture.execute(L"this", L"ref poolouter[1]");
+	fixture.require_binding(&customResources[L"resourcepreviewfresh"]);
+	fixture.d3d.require_no_errors();
+}
+
+void metadata_expiration_matches_same_frame_reset()
+{
+	MetadataFixture fixture;
+	auto &ids = make_pool(L"poolids", 0.0f);
+	ids.expiration_timeout_frames = 5;
+	ids.Initialize(2);
+	G->frame_no = 100;
+	ids.GetVariable(0, false, false, true)->fval = 1;
+	ids.ResetPool(false);
+	fixture.prepare_outer(L"ref poolouter[1]");
+	fixture.execute(L"poolouter[$poolids[0]]", L"ref resourcepreviewfresh");
+	fixture.require_fresh_flags();
+	fixture.execute(L"this", L"ref poolouter[1]");
+	fixture.require_binding(&customResources[L"resourcepreviewfresh"]);
+	fixture.d3d.require_no_errors();
+}
+
 void scalar_variables_keep_precedence_over_pool_names()
 {
 	ConfigFixture resources;
@@ -2202,6 +2333,10 @@ int main(int argc, char **argv)
 	             {"pool-metadata", metadata_queries_do_not_extend_pool_lifetime},
 	             {"missing-metadata", missing_resource_metadata_has_no_bind_flags},
 	             {"nested-metadata", skipped_copies_do_not_evaluate_nested_destination_indexes},
+	             {"metadata-resource", metadata_resource_reads_preserve_lazy_templates},
+	             {"metadata-lazy-index", metadata_lazy_indexes_match_assignment},
+	             {"metadata-fifo", metadata_fifo_reads_match_allocation_order},
+	             {"metadata-expiration", metadata_expiration_matches_same_frame_reset},
 	             {"pool-identifiers", accepts_pool_identifier_grammar},
 	             {"store-values", stores_typed_and_structured_values},
 	             {"store-views", releases_store_views_on_success_and_failure},
