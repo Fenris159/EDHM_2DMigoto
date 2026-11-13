@@ -341,6 +341,18 @@ def get_mutations(command_list, settings, profiling):
             "state->pool_metadata_preview->ResolveDestination(this, resource);",
             "static_cast<void>(resource);",
         ),
+        (
+            "metadata-destination-key-spatial",
+            command_list,
+            "state->pool_metadata_preview->RestoreDestination(this);",
+            "static_cast<void>(is_assignment);",
+        ),
+        (
+            "metadata-destination-key-fifo",
+            command_list,
+            "state->pool_metadata_preview->RestoreDestination(this);",
+            "static_cast<void>(is_assignment);",
+        ),
     ]
 
 

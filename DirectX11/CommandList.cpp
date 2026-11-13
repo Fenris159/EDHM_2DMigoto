@@ -7312,6 +7312,33 @@ CustomResource *CustomResourcePool::GetResource(float id, bool template_lookup, 
 	return element.resource;
 }
 
+void CustomResourcePool::RestoreResourceAssignment(float id, CustomResource *resource)
+{
+	// A copy pins its physical destination before reading its source. Those
+	// reads can rekey the same pool; commit the evaluated destination key to
+	// the pinned slot without evaluating the expression or choosing a new slot.
+	if (!resource || resource->pool != this || resource->pool_index < 0)
+		return;
+	const size_t slot = static_cast<size_t>(resource->pool_index);
+	if (slot >= pool_size || elements[slot].resource != resource)
+		return;
+
+	const uint32_t key = BitCastToUint(id);
+	if ((index_type & PoolIndexType::INDEX_TABLE_MASK) && index_table[slot].key != key)
+	{
+		size_t displaced;
+		if (index_map->find(key, displaced) && displaced != slot)
+			index_table[displaced].key = UINT32_MAX;
+		AssignSlot(slot, key, true);
+		// Restoring an existing slot does not allocate another FIFO slot.
+	}
+	else if (expiration_timeout_frames != UINT32_MAX)
+		PostponeExpiration(index_table[slot], true);
+
+	SwitchElementType(elements[slot],
+	                  element_type_switch_reset ? PoolElement::Type::Resource : PoolElement::Type::Mixed);
+}
+
 CommandListVariable *CustomResourcePool::GetVariable(float id, bool template_lookup, bool use_ring_index,
                                                      bool is_assignment)
 {
@@ -9127,6 +9154,18 @@ class PoolMetadataPreview
 		if (target == destination)
 			resolved_destination = resource;
 	}
+	void RememberDestinationIndex(ResourceCopyTarget *target, CustomResourcePool *pool, float id)
+	{
+		if (target != destination)
+			return;
+		destination_pool = pool->ResolvePool();
+		destination_id = id;
+	}
+	void RestoreDestination(ResourceCopyTarget *target)
+	{
+		if (target == destination && destination_pool)
+			destination_pool->RestoreResourceAssignment(destination_id, resolved_destination);
+	}
 	CustomResourcePool *GetPool(CustomResourcePool *pool)
 	{
 		pool = pool->ResolvePool();
@@ -9174,6 +9213,8 @@ class PoolMetadataPreview
 	PoolMetadataPreview *previous;
 	ResourceCopyTarget *destination;
 	CustomResource *resolved_destination = nullptr;
+	CustomResourcePool *destination_pool = nullptr;
+	float destination_id = 0.0f;
 	struct Contents
 	{
 		std::unordered_map<CustomResourcePool *, std::unique_ptr<CustomResourcePool>> pools;
@@ -9219,7 +9260,11 @@ CustomResource *ResourceCopyTarget::GetCustomResource(CommandListState *state, b
 	if (pool_dynamic_index_expression && state && !state->pool_metadata_query && state->pool_metadata_preview)
 	{
 		if (CustomResource *resolved = state->pool_metadata_preview->GetDestination(this))
+		{
+			if (is_assignment)
+				state->pool_metadata_preview->RestoreDestination(this);
 			return resolved;
+		}
 	}
 	if (static_custom_resource && state && state->pool_metadata_query)
 		return state->pool_metadata_preview->GetResource(static_custom_resource);
@@ -9231,6 +9276,8 @@ CustomResource *ResourceCopyTarget::GetCustomResource(CommandListState *state, b
 		                  if (state && state->pool_metadata_query)
 			                  return state->pool_metadata_preview->GetPool(custom_resource_pool)
 							      ->GetResource(id, template_lookup, false, assign);
+		                  if (state && state->pool_metadata_preview && !template_lookup)
+			                  state->pool_metadata_preview->RememberDestinationIndex(this, custom_resource_pool, id);
 		                  return custom_resource_pool->GetResource(id, template_lookup, false, assign);
 	                  });
 	if (state && !state->pool_metadata_query && state->pool_metadata_preview)

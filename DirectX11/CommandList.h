@@ -694,6 +694,7 @@ class CustomResourcePool
 
 	size_t GetElementIndex(float id, bool use_ring_index, bool is_assignment);
 	CustomResource *GetResource(float id, bool template_lookup, bool use_ring_index, bool is_assignment);
+	void RestoreResourceAssignment(float id, CustomResource *resource);
 	std::unique_ptr<CustomResourcePool> CreateMetadataPreview() const;
 	CustomResource *MetadataResource(int index) const;
 	CommandListVariable *GetVariable(float id, bool template_lookup, bool use_ring_index, bool is_assignment);
