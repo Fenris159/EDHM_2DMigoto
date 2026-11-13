@@ -26,7 +26,7 @@ bounds, CB ranges, and INI/optimizer ordering and reload semantics. A real devic
 boundary records submitted buffer descriptors and can fail staging allocation;
 this catches errors that WARP normalizes in a completed buffer description.
 
-The 36 cases also cover monitor-mode/window/reload transitions and recursive or
+The 37 cases also cover monitor-mode/window/reload transitions and recursive or
 shared command counts; summary-only matching/view diagnostics; hash-first and
 ordered dual matching; documented expression operators; all four view kinds,
 resource/descriptor/raw/override fallbacks, changing `this` targets, warm-cache
@@ -36,6 +36,10 @@ clearing saved SRV-backed resources through writable views, runtime-learned pool
 bind flags, scalar/local variable precedence over pool names, stable `this`
 view-cache reuse with safe kind changes, and zero-frame reload measurements.
 View failures are injected at the D3D device boundary. Missing custom-resource metadata returns zero bind/misc flags without allocation.
+Skipped empty-source references preview nested indexes without allocating or
+refreshing pool slots. Normal reads resume their expiration behavior afterward;
+expired previews expose defaults without resetting stored data. Initially empty
+and first-time configured sources retain learned destination flags.
 CPU timing is never a regression threshold.
 
 ## Regression sensitivity

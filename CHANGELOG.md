@@ -36,6 +36,17 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 - Clear stale structured stride during CB recreation and guard unsupported
   typed-buffer formats against division by zero.
 
+- Enable the required C++17 language mode in ordinary builds as well as strict builds.
+- Preserve smaller explicit CB copies, clear saved SRV-backed resources through
+  writable views, retain runtime-learned pool flags and scalar-variable precedence,
+  and keep valid warm views for `this` targets.
+- Retain reload initialization measurements until a completed frame can be reported.
+- Read nested pool indexes without changing pool state during metadata queries,
+  retain bind-flag learning for initially empty references, and skip unused
+  destination metadata for existing resource caches.
+- Restore production binaries after failed mutation checks and exclude unverified
+  executables from failure artifacts.
+
 ### Added
 
 - Summary-mode CPU timing and counts for resource matching, fuzzy candidates,

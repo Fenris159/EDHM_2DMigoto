@@ -661,3 +661,51 @@ The approved metadata coverage includes the missing-target boundary; the suite
 now contains **36** native cases and matching deliberate breaks. The previous
 35-case receipt remains pinned to `e9706f91` and is not relabeled as new evidence.
 The existing three cleanup cases still pass after the extraction.
+
+
+### Nested destination-index correction
+
+Kilo's incremental review of `660b78fb` confirmed the earlier repairs and
+reported [one new warning](https://github.com/Fenris159/EDHM_2DMigoto/pull/43#discussion_r4559421827):
+`PeekResource()` is non-mutating, but its index expression can read another pool
+and refresh expiration before an empty-source reference is skipped.
+
+The first candidate, `0adaa0d6`, skipped unused destination-flag lookup for
+existing caches and unconfigured empty sources. The final repair preserves the
+flag learning that even an initially empty source can need when populated later.
+A scoped metadata-read mode in `CommandListState` flows through resource,
+variable, proxy and last-frame pool lookups. It previews existing/default values
+without slot allocation, expiration refresh, type switching or re-keying, and
+restores ordinary read behavior when expression evaluation ends. Existing caches
+still bypass creation metadata they cannot use. Configured first-use sources
+receive the selected destination's learned flags. The pool regression
+also verifies that a new configured buffer can be referenced into an already
+learned SRV slot and expose the literal values 11, 13, 17 and 19.
+
+The first nested-index harness attempt lacked the command-list scope required
+for a resource operand and stopped at parsing. Those failures were **not**
+counted as reproduction. `193b687e` supplies the missing fixture scope without
+changing the expiration expectation. The corrected
+[control run](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43363009915)
+reverts only the source-creation guard and fails the intended expiration check
+on both architectures; the other cases pass. The fixed
+[37-case run](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43362869804)
+passes both architectures and records deliberate-break/restoration verification.
+
+The earlier guard candidate and corrected harness are pinned to `0adaa0d6`
+and `193b687e`. The scoped metadata-read repair is in `4575c2e3`, with typed
+future-population coverage and an empty-pool guard in `4b04a2fb`.
+Final validation of `4b04a2fb7c260e908f01fe93e3028a186fc7f650`:
+
+| Gate | Result and evidence |
+|---|---|
+| Native behavior | All 37 cases passed on x64 and Win32 in [43364493847](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43364493847). The three mutation-cleanup failure cases also passed on both architectures. |
+| Regression sensitivity | All 37 deliberate breaks compiled and were detected on x64; the restored production build passed all 37 cases. The [new receipt](benchmarks/pr43-nested-metadata-mutations.json) records source/test identities, the executable SHA-256 and per-case hashes/exits. |
+| Builds and packaging | Ordinary x64 Release/Zip Release, strict x64/Win32 Release/Zip Release, formatting, script and shader checks passed in [43364500146](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43364500146). |
+| Analysis | [43364496610](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43364496610) records the Sonar quality gate and changed-source clang-tidy against `origin/develop`. No analyzer rules were suppressed. |
+
+The 35-case receipt stays pinned to its original source; no performance percentage
+is relabeled or added for these correctness repairs. The repaired source is
+collected on `upstream-improvements` for PR #43, targeting `develop`. Latest PR
+checks and Kilo's incremental review are separate gates on the PR head.
+Installed Elite + EDHM smoke and frame-time validation remain open.
