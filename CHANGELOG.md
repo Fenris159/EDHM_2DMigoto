@@ -44,6 +44,8 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 - Read nested pool indexes without changing pool state during metadata queries,
   retain bind-flag learning for initially empty references, and skip unused
   destination metadata for existing resource caches.
+- Match normal lazy-slot, FIFO and same-frame expiration behavior in detached
+  metadata previews, and preserve resource identities when a copy is accepted.
 - Restore production binaries after failed mutation checks and exclude unverified
   executables from failure artifacts.
 

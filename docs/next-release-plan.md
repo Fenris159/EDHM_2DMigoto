@@ -1,6 +1,6 @@
 # Next release implementation plan
 
-**Prepared:** 2026-11-12. **Status:** first wave native validated; follow-up profiler/parser/view candidate implemented on `upstream-improvements`, with PR #43 review repairs and 37 native cases validated; the game gate remains open.
+**Prepared:** 2026-11-12. **Status:** first wave native validated; follow-up profiler/parser/view candidate implemented on `upstream-improvements`, with PR #43 review repairs and 42 native cases covering detached metadata lookup; the game gate remains open.
 **Next work:** review PR #43 and its analysis results, then installed-game smoke and frame-time validation before promotion. The execution log records accepted and deferred items;
 [the implementation report](next-release-implementation.md) records the evidence.
 
@@ -369,3 +369,10 @@ configured and initially empty resources. The scoped metadata repair is collecte
 on `upstream-improvements`; the separate test branch retains the deliberate-break
 control. All 37 native cases and compiling mutations passed, including a clean
 restored build; see the implementation report's nested-index section and receipt.
+
+Four later metadata warnings reproduced and led to a detached pool-state preview
+that reuses ordinary lookup rules. Five added cases protect resource-template
+isolation, accepted resource identities, lazy indexes, sequential FIFO lookup
+and the same-frame expiration gate. The implementation report's detached-lookup
+section links the 42-case native/mutation, build and analysis runs. Earlier
+35/37-case receipts and performance measurements remain historical snapshots.

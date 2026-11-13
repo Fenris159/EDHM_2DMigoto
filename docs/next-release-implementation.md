@@ -709,3 +709,49 @@ is relabeled or added for these correctness repairs. The repaired source is
 collected on `upstream-improvements` for PR #43, targeting `develop`. Latest PR
 checks and Kilo's incremental review are separate gates on the PR head.
 Installed Elite + EDHM smoke and frame-time validation remain open.
+
+### Detached pool lookup correction
+
+Kilo's incremental review of `c1256952` reported four further warnings:
+resource operands could substantiate the shared template, lazy resource indexes
+could expose the template index, FIFO allocation previews could return the wrong
+retained value, and expiration previews could ignore the once-per-frame gate.
+All four reproduced on x64 and Win32 in [43367804486](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43367804486).
+The lazy-index fixture uses the production template sentinel, -1; the earlier
+fixture's default -2 accidentally wrapped to slot 0 and was corrected before
+counting that reproduction. An additional accepted-resource case detects a
+second GPU identity being created for a nested read in [43368276697](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43368276697).
+
+`491ac5a2` replaces the separate preview lookup algorithm with detached pool
+state that executes the ordinary lookup rules. It preserves the index map,
+replacement cursor, expiration gate, slot types and values, including proxy
+resolution. Live pools and the global element registries remain untouched
+during metadata evaluation. Template configuration is copied into fresh lazy
+slots without sharing the template's GPU object.
+
+Resource operands can create provisional GPU resources in detached state.
+Accepted ordinary reads adopt those resources only while their live source
+still matches the snapshot, preserving resource identity and avoiding duplicate
+creation; skipped copies release them. Initial buffer data is detached before
+preview creation can resize it. Preview containers allocate only when metadata
+is actually needed; existing source caches continue to bypass creation flags.
+This is a correctness repair. Its cold-path copying cost is not separately
+benchmarked, and earlier performance figures retain their original identities.
+
+The suite now contains **42** native cases plus the three mutation-cleanup
+failure cases. The existing expired-preview assertion retains its expected
+default 3 and untouched live value 11 through the detached-preview API. Five
+additional deliberate breaks cover the four warnings and accepted resource
+identity, including a self-indexed source.
+
+Verification runs for source/test snapshot `491ac5a2`:
+
+- [Native x64/Win32 behavior, 42 compiling deliberate breaks, restored production and cleanup checks](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43369164030).
+- [Ordinary/strict Release and strict Zip Release builds, formatting, scripts and shaders](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43369166788).
+- [Sonar quality gate and changed-source clang-tidy against `origin/develop`](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43369170005).
+
+The native workflow uploads the validated executable, per-case mutation hashes,
+failure logs and restored-case logs. The earlier 35- and 37-case receipts remain
+frozen historical snapshots. PR #43's latest checks and review record the final
+integration endpoint; `develop`, `main` and installed-game validation remain
+separate promotion steps.
