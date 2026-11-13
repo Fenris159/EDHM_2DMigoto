@@ -46,6 +46,8 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
   destination metadata for existing resource caches.
 - Match normal lazy-slot, FIFO and same-frame expiration behavior in detached
   metadata previews, and preserve resource identities when a copy is accepted.
+- Preserve hot resources and cached spatial data during preview adoption, and
+  retain statically pinned resource targets after pool proxy changes.
 - Restore production binaries after failed mutation checks and exclude unverified
   executables from failure artifacts.
 

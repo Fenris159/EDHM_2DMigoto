@@ -761,3 +761,37 @@ failure logs and restored-case logs. The earlier 35- and 37-case receipts remain
 frozen historical snapshots. PR #43's latest checks and review record the final
 integration endpoint; `develop`, `main` and installed-game validation remain
 separate promotion steps.
+
+### Hot resources, cached spatial data and static pins
+
+Kilo's review of `f54e4cbb` identified three further lifetime/equivalence
+warnings. Repeated adoption could clear a hot resource, runtime snapshots
+omitted CPU-side cached data, and statically pinned operands could follow the
+pool's current proxy during preview. All three reproduced on x64 and Win32 in
+[43372079390](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43372079390),
+while the prior 42 cases passed.
+
+`9a43e4c5` consumes each preview once and keeps unchanged GPU objects and their
+live caches in place. Runtime snapshots share ownership of CPU data and copy
+the cache range and resource metadata; preview hashing can recompute local
+memoized hashes. Adoption preserves an already-valid live cache. Static operands
+clone their exact parsed resource, and adoption prefers that pinned snapshot
+before looking up a physical pool owner. Ordinary STATIC proxy semantics are
+preserved.
+
+The suite now contains **45** native cases and matching compiling deliberate
+breaks, plus the three cleanup failure cases. The spatial case uses a nonzero
+CPU-cache range and the independently specified grid key `0x04002003` for unit
+cells at (64,2,3), and checks that the same key remains available after the copy.
+The other new cases protect hot GPU identity and a STATIC operand parsed before
+its pool becomes a proxy.
+
+Verification for runtime/test and mutation snapshot `9a43e4c5`:
+
+- [45 native cases, deliberate breaks, restored production and cleanup checks](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43372700005).
+- [Ordinary/strict Release and Zip Release, formatting, scripts and shaders](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43372702901).
+- [Sonar and changed-source clang-tidy against `origin/develop`](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43372705996).
+
+The earlier 35/37/42-case receipts retain their original sources and binaries.
+These lifetime repairs have no new performance measurement. Installed-game smoke
+and frame-time validation remain open.

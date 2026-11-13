@@ -26,7 +26,7 @@ bounds, CB ranges, and INI/optimizer ordering and reload semantics. A real devic
 boundary records submitted buffer descriptors and can fail staging allocation;
 this catches errors that WARP normalizes in a completed buffer description.
 
-The 42 cases also cover monitor-mode/window/reload transitions and recursive or
+The 45 cases also cover monitor-mode/window/reload transitions and recursive or
 shared command counts; summary-only matching/view diagnostics; hash-first and
 ordered dual matching; documented expression operators; all four view kinds,
 resource/descriptor/raw/override fallbacks, changing `this` targets, warm-cache
@@ -43,6 +43,9 @@ and first-time configured sources retain learned destination flags. Detached
 previews use the ordinary lookup rules for lazy resource indexes, sequential FIFO
 allocation and same-frame expiration/reset. Resource operands cannot substantiate
 live templates; accepted nested and self-indexed reads preserve one GPU identity.
+Hot resource reads retain their identity across repeated adoption. Spatial
+previews preserve shared CPU data and its range, and STATIC targets keep their
+parsed resource when the owning pool later becomes a proxy.
 CPU timing is never a regression threshold.
 
 ## Regression sensitivity

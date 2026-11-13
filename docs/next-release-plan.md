@@ -1,6 +1,6 @@
 # Next release implementation plan
 
-**Prepared:** 2026-11-12. **Status:** first wave native validated; follow-up profiler/parser/view candidate implemented on `upstream-improvements`, with PR #43 review repairs and 42 native cases covering detached metadata lookup; the game gate remains open.
+**Prepared:** 2026-11-12. **Status:** first wave native validated; follow-up profiler/parser/view candidate implemented on `upstream-improvements`, with PR #43 review repairs and 45 native cases covering detached metadata lookup and resource lifetimes; the game gate remains open.
 **Next work:** review PR #43 and its analysis results, then installed-game smoke and frame-time validation before promotion. The execution log records accepted and deferred items;
 [the implementation report](next-release-implementation.md) records the evidence.
 
@@ -376,3 +376,8 @@ isolation, accepted resource identities, lazy indexes, sequential FIFO lookup
 and the same-frame expiration gate. The implementation report's detached-lookup
 section links the 42-case native/mutation, build and analysis runs. Earlier
 35/37-case receipts and performance measurements remain historical snapshots.
+
+Three subsequent warnings add protection for repeated adoption of hot resources,
+cached spatial data with a nonzero range, and STATIC operands pinned before
+proxy changes. The report's hot-resource section records the 45-case validation
+and lifetime corrections. The earlier 42-case receipt remains a fixed checkpoint.
