@@ -450,20 +450,27 @@ int wmain(int argc, wchar_t **argv)
 		if (!runtime)
 			checked(HRESULT_FROM_WIN32(GetLastError()), "load selected D3D11 runtime");
 		require(runtime != nullptr, "load selected D3D11 runtime");
-		Probe probe;
-		probe.initialize(runtime, std::wstring(argv[3]) == L"warp" ? D3D_DRIVER_TYPE_WARP : D3D_DRIVER_TYPE_HARDWARE);
-		emit("runtime_load_and_device", 0, 1,
-		     std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - begin).count(), "ms");
-		probe.describe_adapter();
-		emit("process_private_before_runtime", 0, 1, static_cast<double>(before), "bytes");
-		emit("process_private_after_device", 0, 1, static_cast<double>(private_bytes()), "bytes");
-		probe.setup(vertex.Get(), pixel.Get(), compute.Get());
-		probe.render_and_compute(hud && std::wstring(argv[1]) != L"system");
-		probe.measure_calls(samples, iterations, hud && std::wstring(argv[1]) != L"system");
-		probe.verify_outputs(samples);
-		emit("process_private_after_workload", 0, 1, static_cast<double>(private_bytes()), "bytes");
-		probe.context->ClearState();
-		probe.drain();
+		{
+			Probe probe;
+			probe.initialize(runtime,
+			                 std::wstring(argv[3]) == L"warp" ? D3D_DRIVER_TYPE_WARP : D3D_DRIVER_TYPE_HARDWARE);
+			emit("runtime_load_and_device", 0, 1,
+			     std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - begin).count(), "ms");
+			probe.describe_adapter();
+			emit("process_private_before_runtime", 0, 1, static_cast<double>(before), "bytes");
+			emit("process_private_after_device", 0, 1, static_cast<double>(private_bytes()), "bytes");
+			probe.setup(vertex.Get(), pixel.Get(), compute.Get());
+			probe.render_and_compute(hud && std::wstring(argv[1]) != L"system");
+			probe.measure_calls(samples, iterations, hud && std::wstring(argv[1]) != L"system");
+			probe.verify_outputs(samples);
+			emit("process_private_after_workload", 0, 1, static_cast<double>(private_bytes()), "bytes");
+			probe.context->ClearState();
+			probe.drain();
+		}
+		// Diagnostic-only: unload the outer wrapper while the lower tracer is
+		// still alive, after releasing the caller's COM objects.
+		if (GetEnvironmentVariableW(L"EDHM_PROBE_UNLOAD_RUNTIME", nullptr, 0))
+			checked(FreeLibrary(runtime) ? S_OK : E_FAIL, "unload diagnostic runtime");
 	}
 	catch (const std::exception &error)
 	{

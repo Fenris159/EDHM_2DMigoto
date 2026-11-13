@@ -1,0 +1,97 @@
+name: Offscreen backend trace comparison
+
+on:
+  push:
+    branches: [original-3dmigoto-performance]
+    paths:
+      - Benchmarks/SurfaceProbe.cpp
+      - Benchmarks/SurfaceProbe.vcxproj
+      - Benchmarks/run_surface_probe.py
+      - .github/workflows/trace-surface-comparison.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: original-offscreen-trace-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+        with:
+          vs-version: '[17.0,18.0)'
+      - name: Build standalone probe
+        run: msbuild Benchmarks/SurfaceProbe.vcxproj -target:Build -property:Configuration=Release -property:Platform=x64 -nodeReuse:false -verbosity:minimal
+      - name: Fetch exact released DLLs
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force .quality/assets | Out-Null
+          gh release download 1.4.9 -R bo3b/3Dmigoto -p 3Dmigoto_v1.4.9.7z -D .quality/assets
+          if ($LASTEXITCODE -ne 0) { throw 'Original download failed' }
+          if ((Get-FileHash .quality/assets/3Dmigoto_v1.4.9.7z -Algorithm SHA256).Hash -ne 'D5D05E78F0F6DF7CCE8EF10C669C088DB6B8DBE1428CE783D8C3C93AC842DCE1') { throw 'Original archive hash mismatch' }
+          & 7z @('x', '-y', '.quality/assets/3Dmigoto_v1.4.9.7z', '-o.quality/assets/original', 'x64/d3d11.dll', 'x64/nvapi64.dll', 'x64/d3dcompiler_47.dll')
+          if ($LASTEXITCODE -ne 0) { throw 'Original extraction failed' }
+          gh run download 43441909497 -R Fenris159/EDHM_2DMigoto -n d3d11-release-x64-5c74823ff0d21c662e2d659d04afc6624d245509 -D .quality/assets/develop
+          if ($LASTEXITCODE -ne 0) { throw 'Develop artifact download failed' }
+          if ((Get-FileHash .quality/assets/develop/d3d11.dll -Algorithm SHA256).Hash -ne 'BCAD31BEC60BD072EBCF5F1D152593AD8CF359D4DDFAFBBB38FCB3A23611F7E9') { throw 'Develop DLL hash mismatch' }
+      - name: Fetch pinned API tracer
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri 'https://github.com/apitrace/apitrace/releases/download/14.0/apitrace-14.0-win64.7z' -OutFile .quality/assets/apitrace-14.0-win64.7z
+          if ((Get-FileHash .quality/assets/apitrace-14.0-win64.7z -Algorithm SHA256).Hash -ne '32C702683770BA00B06A12A95FE1AFDD7D7353CF519ADF2073E6433F78147DC3') { throw 'Tracer archive hash mismatch' }
+          & 7z @('x', '-y', '.quality/assets/apitrace-14.0-win64.7z', '-o.quality/assets/tracer')
+          if ($LASTEXITCODE -ne 0) { throw 'Tracer extraction failed' }
+      - name: Run native WARP without a game or swap chain
+        run: >-
+          python Benchmarks/run_surface_probe.py
+          --probe .quality/surface-probe-native/SurfaceProbe.exe
+          --compiler .quality/assets/original/x64/d3dcompiler_47.dll
+          --variant A=.quality/assets/original/x64/d3d11.dll
+          --variant B=.quality/assets/develop/d3d11.dll --variant R=system
+          --backend warp --samples 1 --iterations 64 --smoke
+          --trace-proxy .quality/assets/tracer/apitrace-14.0-win64/lib/wrappers/dxgitrace.dll
+          --output .quality/native-trace-results
+      - name: Dump trace diagnostics
+        if: always()
+        shell: pwsh
+        run: |
+          $traces = @(Get-ChildItem .quality/native-trace-results -Filter '*.trace' -ErrorAction SilentlyContinue)
+          foreach ($trace in $traces) {
+            & .quality/assets/tracer/apitrace-14.0-win64/bin/apitrace.exe dump --color=never $trace.FullName |
+              Set-Content -Encoding utf8 ($trace.FullName + '.txt')
+            if ($LASTEXITCODE -ne 0) { throw 'Could not read trace' }
+          }
+      - name: Upload validated probe and measurements
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: native-trace-comparison-${{ github.sha }}
+          path: |
+            .quality/surface-probe-native/SurfaceProbe.exe
+            .quality/native-trace-results/*.json
+            .quality/native-trace-results/*.jsonl
+            .quality/native-trace-results/*.stderr
+            .quality/native-trace-results/*.trace
+            .quality/native-trace-results/*.txt
+            .quality/native-trace-results/*.ini
+          retention-days: 14
+      - name: Upload diagnostics without unvalidated executables
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: native-trace-failure-${{ github.sha }}
+          path: |
+            .quality/native-trace-results/*.json
+            .quality/native-trace-results/*.jsonl
+            .quality/native-trace-results/*.stderr
+            .quality/native-trace-results/*.trace
+            .quality/native-trace-results/*.txt
+          if-no-files-found: ignore
+          retention-days: 14

@@ -60,6 +60,8 @@ def main():
         command_prefix = [str(args.proton.resolve()), "runinprefix"]
     if args.force_module_path:
         env["APITRACE_FORCE_MODULE_PATH"] = guest(args.force_module_path)
+    if args.trace_proxy:
+        env["EDHM_PROBE_UNLOAD_RUNTIME"] = "1"
     manifest = {
         "probe_sha256": digest(args.probe), "compiler_sha256": digest(args.compiler),
         "backend": args.backend, "proton": str(args.proton.name) if args.proton else None,
@@ -74,8 +76,10 @@ def main():
         folder = output / "fixtures" / variant
         folder.mkdir(parents=True)
         shutil.copy2(args.probe, folder / "SurfaceProbe.exe")
+        if args.trace_proxy:
+            shutil.copy2(args.trace_proxy, folder / "dxgitrace.dll")
         if source == "system":
-            runtime = guest(args.trace_proxy) if args.trace_proxy else "system"
+            runtime = guest(folder / "dxgitrace.dll") if args.trace_proxy else "system"
             manifest["variants"][variant] = {"runtime": "system"}
         else:
             source = Path(source).resolve()
@@ -98,7 +102,7 @@ def main():
                 raise RuntimeError(f"configuration generation failed: {profile}")
             configuration = config.stdout
             if args.trace_proxy:
-                configuration = configuration.replace(b"load_library_redirect=0", ("load_library_redirect=0\nproxy_d3d11=" + guest(args.trace_proxy)).encode())
+                configuration = configuration.replace(b"load_library_redirect=0", b"load_library_redirect=0\nproxy_d3d11=dxgitrace.dll")
             (output / f"{profile}.ini").write_bytes(configuration)
             for folder, _ in fixtures.values():
                 (folder / "d3dx.ini").write_bytes(configuration)
