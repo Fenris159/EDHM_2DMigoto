@@ -62,8 +62,9 @@ jobs:
           for ($trial = 0; $trial -lt $order.Count; ++$trial) {
             $variant = $order[$trial]
             foreach ($mode in @('lists', 'views')) {
-              & $variants[$variant] $mode 11 | Set-Content -Encoding utf8 "$output/$mode-$trial-$variant.csv"
-              if ($LASTEXITCODE -ne 0) { throw "Benchmark failed: $variant/$mode" }
+              & $variants[$variant] $mode 11 2> "$output/$mode-$trial-$variant.stderr" |
+                Set-Content -Encoding utf8 "$output/$mode-$trial-$variant.csv"
+              if ($LASTEXITCODE -ne 0) { throw "Benchmark failed: $variant/$mode (exit $LASTEXITCODE)" }
             }
           }
       - name: Upload measurements and exact executables
@@ -75,4 +76,12 @@ jobs:
             .quality/original-comparison-results/
             .quality/original-comparison-build/OriginalComparison.exe
             .quality/original-source/.quality/original-comparison-build/OriginalComparison.exe
+          retention-days: 14
+      - name: Upload failed-run diagnostics without executables
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: original-component-failure-${{ github.sha }}
+          path: .quality/original-comparison-results/
+          if-no-files-found: ignore
           retention-days: 14

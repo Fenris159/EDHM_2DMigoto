@@ -2,6 +2,7 @@
 // boundary so original 3Dmigoto and develop execute the same operation.
 #include "CommandList.h"
 #include "HackerContext.h"
+#include "HackerDevice.h"
 #include "IniHandler.h"
 #include "globals.h"
 #include "input.h"
@@ -41,6 +42,7 @@ struct D3DFixture
 	Microsoft::WRL::ComPtr<ID3D11Device1> device;
 	Microsoft::WRL::ComPtr<ID3D11DeviceContext1> context;
 	Microsoft::WRL::ComPtr<ID3D11InfoQueue> messages;
+	std::unique_ptr<HackerDevice> hacker_device;
 	std::unique_ptr<HackerContext> hacker_context;
 	CommandListState state;
 
@@ -67,7 +69,10 @@ struct D3DFixture
 		require(SUCCEEDED(base_context.As(&context)), "D3D11.1 context unavailable");
 		state.mOrigDevice1 = device.Get();
 		state.mOrigContext1 = context.Get();
+		hacker_device = std::make_unique<HackerDevice>(device.Get(), context.Get());
+		state.mHackerDevice = hacker_device.get();
 		hacker_context = std::make_unique<HackerContext>(device.Get(), context.Get());
+		hacker_context->SetHackerDevice(hacker_device.get());
 		state.mHackerContext = hacker_context.get();
 		device.As(&messages);
 	}
