@@ -999,6 +999,599 @@ void preserves_static_and_dynamic_conditions_across_reload()
 	        "reload did not reset the dynamic condition state");
 }
 
+// Follow-up cases use the same production parser/interpreter and real D3D boundary.
+void preserves_expression_operator_contract()
+{
+	const struct
+	{
+		const wchar_t *text;
+		float expected;
+	} cases[] = {{L"2 + 3 * 4", 14},
+	             {L"20 - 6 - 3", 11},
+	             {L"20 / 2 / 2", 5},
+	             {L"2 ** 3 ** 2", 512},
+	             {L"-2 ** 2", 4},
+	             {L"!0 + ~0", 0},
+	             {L"17 // 3 + 17 % 3", 7},
+	             {L"1 + 2 << 2", 12},
+	             {L"32 >> 2 + 1", 4},
+	             {L"2 < 3 == 1", 1},
+	             {L"2 <= 2 && 4 >= 3 && 5 > 4", 1},
+	             {L"1 | 6 ^ 3 & 1", 7},
+	             {L"0 && 1 || 1", 1},
+	             {L"0 === -0", 0},
+	             {L"0 !== -0", 1},
+	             {L"2 != 3", 1},
+	             {L"abs(-3) + sqrt(16)", 7},
+	             {L"((2 + 3) * (7 - 4))", 15}};
+	for (const auto &item : cases)
+		require(evaluate(item.text) == item.expected, "expression changed documented operator behavior");
+	for (const wchar_t *text : {L"1 +", L"(1 + 2", L"1 2", L"sqrt()", L"2 *** 3", L"1 + )2("})
+	{
+		CommandListExpression expression;
+		const std::wstring input(text);
+		require(!expression.parse(&input, nullptr, nullptr), "malformed expression was accepted");
+	}
+	ConfigFixture resources;
+	command_list_globals.emplace(L"$\\test.ini\\value",
+	                             CommandListVariable(L"$\\test.ini\\value", 3, VariableFlags::NONE));
+	CommandListExpression expression;
+	const std::wstring input = L"($\\test.ini\\value + 2) * 3";
+	require(expression.parse(&input, &config_namespace, nullptr), "namespaced expression was rejected");
+	CommandListState state;
+	require(expression.evaluate(&state) == 15, "namespaced expression returned the wrong value");
+	command_list_globals.at(L"$\\test.ini\\value").fval = 5;
+	require(expression.evaluate(&state) == 21, "parsed expression froze its variable value");
+}
+
+struct ProfilingFixture
+{
+	ProfilingFixture()
+	{
+		Profiling::mode = Profiling::Mode::NONE;
+		Profiling::clear();
+	}
+	~ProfilingFixture()
+	{
+		Profiling::mode = Profiling::Mode::NONE;
+		Profiling::clear();
+		Profiling::text.clear();
+	}
+};
+
+void write_recursive_profile_config(SettingsConfigFixture &files)
+{
+	std::ofstream(files.config)
+	    << "[Logging]\nenabled=0\ncalls=0\nshow_warnings=0\n"
+	       "[Include]\nuser_config=runtime-user.ini\n[Constants]\nglobal $visits=0\n"
+	       "[CommandListRecursive]\n$visits=$visits+1\nif $visits < 3\nrun=CommandListRecursive\nendif\n";
+	LoadConfigFile();
+}
+
+void runs_recursive_profile_list(CommandListState &state)
+{
+	command_list_globals.at(L"$visits").fval = 0;
+	RunLinkedCommandList runner(&explicitCommandListSections.at(L"commandlistrecursive").command_list);
+	runner.run(&state);
+	require(command_list_globals.at(L"$visits").fval == 3, "profiling changed recursive execution");
+}
+
+void profiling_collections_follow_mode_and_window_changes()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	SettingsConfigFixture files;
+	ProfilingFixture profiling;
+	write_recursive_profile_config(files);
+	for (auto expected : {Profiling::Mode::SUMMARY, Profiling::Mode::TOP_COMMAND_LISTS, Profiling::Mode::TOP_COMMANDS,
+	                      Profiling::Mode::NONE})
+	{
+		Profiling::next_mode();
+		require(Profiling::mode == expected, "monitor mode cycle changed");
+		require(command_lists_profiling.empty() && command_lists_cmd_profiling.empty(),
+		        "mode switch retained a collection");
+		runs_recursive_profile_list(fixture.state);
+		runs_recursive_profile_list(fixture.state);
+		if (expected == Profiling::Mode::SUMMARY || expected == Profiling::Mode::TOP_COMMAND_LISTS)
+		{
+			require(command_lists_profiling.size() == 2 && command_lists_cmd_profiling.empty(),
+			        "wrong list collection for selected mode");
+			require(explicitCommandListSections.at(L"commandlistrecursive").command_list.executions == 6,
+			        "recursive/repeated list executions were lost or counted twice");
+		}
+		else if (expected == Profiling::Mode::TOP_COMMANDS)
+		{
+			require(command_lists_cmd_profiling.size() == 3 && command_lists_profiling.empty(),
+			        "wrong command collection for selected mode");
+			unsigned executions = 0;
+			for (auto *command : command_lists_cmd_profiling)
+				executions += command->pre_executions;
+			require(executions == 16, "recursive/repeated command executions changed");
+		}
+		else
+			require(command_lists_profiling.empty() && command_lists_cmd_profiling.empty(),
+			        "disabled monitor collected commands");
+		Profiling::clear();
+		require(command_lists_profiling.empty() && command_lists_cmd_profiling.empty(), "clear retained a collection");
+		runs_recursive_profile_list(fixture.state);
+		if (expected == Profiling::Mode::SUMMARY || expected == Profiling::Mode::TOP_COMMAND_LISTS)
+			require(explicitCommandListSections.at(L"commandlistrecursive").command_list.executions == 3,
+			        "new window inherited the previous execution count");
+		if (expected == Profiling::Mode::TOP_COMMANDS)
+		{
+			unsigned executions = 0;
+			for (auto *command : command_lists_cmd_profiling)
+				executions += command->pre_executions;
+			require(executions == 8, "new window inherited command counts");
+		}
+	}
+}
+
+void profiling_reload_discards_old_command_collections()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	SettingsConfigFixture files;
+	ProfilingFixture profiling;
+	write_recursive_profile_config(files);
+	for (auto mode : {Profiling::Mode::SUMMARY, Profiling::Mode::TOP_COMMANDS})
+	{
+		Profiling::mode = mode;
+		Profiling::clear();
+		runs_recursive_profile_list(fixture.state);
+		Profiling::text = L"previous configuration";
+		LoadConfigFile();
+		require(command_lists_profiling.empty() && command_lists_cmd_profiling.empty() && Profiling::text.empty(),
+		        "reload retained command identities or display text from old storage");
+		runs_recursive_profile_list(fixture.state);
+		if (mode == Profiling::Mode::SUMMARY)
+			require(explicitCommandListSections.at(L"commandlistrecursive").command_list.executions == 3,
+			        "reloaded list did not start a fresh collection");
+		else
+			require(command_lists_cmd_profiling.size() == 3, "reloaded commands were not registered");
+	}
+}
+
+void matching_diagnostics_preserve_hash_first_and_order()
+{
+	D3DFixture fixture;
+	ProfilingFixture profiling;
+	struct Cleanup
+	{
+		~Cleanup()
+		{
+			G->mFuzzyTextureOverrides.clear();
+			G->mTextureOverrideMap.clear();
+			G->mResources.clear();
+			G->fuzzy_match_alongside_hash = false;
+		}
+	} cleanup;
+	G->mFuzzyTextureOverrides.clear();
+	G->mTextureOverrideMap.clear();
+	G->mResources.clear();
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = 32;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer, miss;
+	require(SUCCEEDED(fixture.device->CreateBuffer(&desc, nullptr, &buffer)), "matching buffer creation failed");
+	desc.ByteWidth = 64;
+	require(SUCCEEDED(fixture.device->CreateBuffer(&desc, nullptr, &miss)), "matching miss buffer creation failed");
+	G->mResources[buffer.Get()].hash = 0x1234;
+	auto &exact = G->mTextureOverrideMap[0x1234];
+	exact.emplace_back();
+	exact[0].ini_section = L"hash";
+	for (const wchar_t *name : {L"z", L"b", L"a", L"miss"})
+	{
+		auto match = std::make_shared<FuzzyMatchResourceDesc>(name);
+		match->set_resource_type(D3D11_RESOURCE_DIMENSION_BUFFER);
+		match->ByteWidth.op = FuzzyMatchOp::EQUAL;
+		match->ByteWidth.val = std::wstring(name) == L"miss" ? 128 : 32;
+		match->texture_override->priority = std::wstring(name) == L"z" ? 10 : 0;
+		G->mFuzzyTextureOverrides.insert(match);
+	}
+	for (auto mode : {Profiling::Mode::NONE, Profiling::Mode::SUMMARY, Profiling::Mode::TOP_COMMAND_LISTS,
+	                  Profiling::Mode::TOP_COMMANDS, Profiling::Mode::CTO_WARNING})
+	{
+		Profiling::mode = mode;
+		Profiling::clear();
+		TextureOverrideMatches matches;
+		G->fuzzy_match_alongside_hash = false;
+		find_texture_overrides_for_resource(buffer.Get(), &matches, nullptr);
+		require(matches.size() == 1 && matches[0]->ini_section == L"hash",
+		        "hash-first matching included fuzzy overrides");
+		G->fuzzy_match_alongside_hash = true;
+		matches.clear();
+		find_texture_overrides_for_resource(buffer.Get(), &matches, nullptr);
+		require(matches.size() == 4 && matches[0]->ini_section == L"hash" && matches[1]->ini_section == L"a" &&
+		            matches[2]->ini_section == L"b" && matches[3]->ini_section == L"z",
+		        "dual matching changed ordered results");
+		G->mResources.erase(buffer.Get());
+		matches.clear();
+		find_texture_overrides_for_resource(buffer.Get(), &matches, nullptr);
+		require(matches.size() == 3 && matches[0]->ini_section == L"a" && matches[1]->ini_section == L"b" &&
+		            matches[2]->ini_section == L"z",
+		        "untracked resource lost ordered descriptor matches");
+		matches.clear();
+		find_texture_overrides_for_resource(miss.Get(), &matches, nullptr);
+		require(matches.empty(), "unmatched resource produced a match");
+		const bool collecting = mode == Profiling::Mode::SUMMARY;
+		require(Profiling::texture_override_match_overhead.count == (collecting ? 4U : 0U) &&
+		            Profiling::texture_override_match_overhead.hits == (collecting ? 3U : 0U) &&
+		            Profiling::texture_override_fuzzy_match_overhead.count == (collecting ? 3U : 0U) &&
+		            Profiling::texture_override_fuzzy_match_overhead.hits == (collecting ? 2U : 0U) &&
+		            Profiling::fuzzy_candidates_tested == (collecting ? 12U : 0U),
+		        "matching diagnostics collected wrong counts or mode");
+		if (!collecting)
+			require(Profiling::texture_override_match_overhead.cpu.QuadPart == 0 &&
+			            Profiling::texture_override_fuzzy_match_overhead.cpu.QuadPart == 0,
+			        "inactive matching diagnostics collected CPU time");
+		Profiling::clear();
+		require(Profiling::texture_override_match_overhead.count == 0 &&
+		            Profiling::texture_override_fuzzy_match_overhead.count == 0 &&
+		            Profiling::fuzzy_candidates_tested == 0,
+		        "clear retained matching metrics");
+		G->mResources[buffer.Get()].hash = 0x1234;
+	}
+	fixture.require_no_errors();
+}
+
+Microsoft::WRL::ComPtr<ID3D11View> bound_view(D3DFixture &fixture, ResourceCopyTargetType kind)
+{
+	switch (kind)
+	{
+	case ResourceCopyTargetType::SHADER_RESOURCE:
+	{
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> v;
+		fixture.context->PSGetShaderResources(0, 1, &v);
+		return v;
+	}
+	case ResourceCopyTargetType::RENDER_TARGET:
+	{
+		Microsoft::WRL::ComPtr<ID3D11RenderTargetView> v;
+		fixture.context->OMGetRenderTargets(1, &v, nullptr);
+		return v;
+	}
+	case ResourceCopyTargetType::DEPTH_STENCIL_TARGET:
+	{
+		Microsoft::WRL::ComPtr<ID3D11DepthStencilView> v;
+		fixture.context->OMGetRenderTargets(0, nullptr, &v);
+		return v;
+	}
+	case ResourceCopyTargetType::UNORDERED_ACCESS_VIEW:
+	{
+		Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> v;
+		fixture.context->CSGetUnorderedAccessViews(0, 1, &v);
+		return v;
+	}
+	default:
+		throw std::runtime_error("unsupported fixture binding");
+	}
+}
+
+void require_view_resource(ID3D11View *view, ID3D11Resource *expected)
+{
+	require(view != nullptr, "expected pipeline view is missing");
+	Microsoft::WRL::ComPtr<ID3D11Resource> resource;
+	view->GetResource(&resource);
+	require(resource.Get() == expected, "view refers to the wrong resource");
+}
+
+std::shared_ptr<std::atomic_bool> track_view_lifetime(ID3D11View *view)
+{
+	auto destroyed = std::make_shared<std::atomic_bool>(false);
+	auto *lifetime = new ViewLifetime(destroyed);
+	const GUID key = {0x5b6dce93, 0x77c8, 0x4d4c, {0xb4, 0x96, 0x37, 0xc1, 0x83, 0xcd, 0x86, 0xf4}};
+	require(SUCCEEDED(view->SetPrivateDataInterface(key, lifetime)), "could not track copied view lifetime");
+	lifetime->Release();
+	return destroyed;
+}
+
+struct TextureViewFixture
+{
+	std::array<Microsoft::WRL::ComPtr<ID3D11Texture2D>, 2> resources;
+	std::array<Microsoft::WRL::ComPtr<ID3D11View>, 2> views;
+	TextureViewFixture(D3DFixture &fixture, ResourceCopyTargetType kind)
+	{
+		D3D11_TEXTURE2D_DESC desc{};
+		desc.Width = desc.Height = 4;
+		desc.MipLevels = 2;
+		desc.ArraySize = desc.SampleDesc.Count = 1;
+		desc.Format =
+		    kind == ResourceCopyTargetType::DEPTH_STENCIL_TARGET ? DXGI_FORMAT_D32_FLOAT : DXGI_FORMAT_R32_FLOAT;
+		switch (kind)
+		{
+		case ResourceCopyTargetType::SHADER_RESOURCE:
+			desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+			break;
+		case ResourceCopyTargetType::RENDER_TARGET:
+			desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+			break;
+		case ResourceCopyTargetType::DEPTH_STENCIL_TARGET:
+			desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+			break;
+		case ResourceCopyTargetType::UNORDERED_ACCESS_VIEW:
+			desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+			break;
+		default:
+			throw std::runtime_error("unsupported fixture view");
+		}
+		for (size_t i = 0; i < 2; ++i)
+		{
+			require(SUCCEEDED(fixture.device->CreateTexture2D(&desc, nullptr, &resources[i])),
+			        "texture view resource creation failed");
+			switch (kind)
+			{
+			case ResourceCopyTargetType::SHADER_RESOURCE:
+			{
+				Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> v;
+				require(SUCCEEDED(fixture.device->CreateShaderResourceView(resources[i].Get(), nullptr, &v)),
+				        "source SRV failed");
+				views[i] = v;
+				break;
+			}
+			case ResourceCopyTargetType::RENDER_TARGET:
+			{
+				Microsoft::WRL::ComPtr<ID3D11RenderTargetView> v;
+				require(SUCCEEDED(fixture.device->CreateRenderTargetView(resources[i].Get(), nullptr, &v)),
+				        "source RTV failed");
+				views[i] = v;
+				break;
+			}
+			case ResourceCopyTargetType::DEPTH_STENCIL_TARGET:
+			{
+				Microsoft::WRL::ComPtr<ID3D11DepthStencilView> v;
+				require(SUCCEEDED(fixture.device->CreateDepthStencilView(resources[i].Get(), nullptr, &v)),
+				        "source DSV failed");
+				views[i] = v;
+				break;
+			}
+			case ResourceCopyTargetType::UNORDERED_ACCESS_VIEW:
+			{
+				Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> v;
+				require(SUCCEEDED(fixture.device->CreateUnorderedAccessView(resources[i].Get(), nullptr, &v)),
+				        "source UAV failed");
+				views[i] = v;
+				break;
+			}
+			default:
+				break;
+			}
+		}
+	}
+};
+
+void reuses_matching_views_with_owned_lifetimes()
+{
+	D3DFixture fixture;
+	Microsoft::WRL::ComPtr<D3DDeviceBoundary> boundary;
+	boundary.Attach(new D3DDeviceBoundary(fixture.device.Get()));
+	fixture.state.mOrigDevice1 = boundary.Get();
+	for (auto kind : {ResourceCopyTargetType::SHADER_RESOURCE, ResourceCopyTargetType::RENDER_TARGET,
+	                  ResourceCopyTargetType::DEPTH_STENCIL_TARGET, ResourceCopyTargetType::UNORDERED_ACCESS_VIEW})
+	{
+		fixture.context->ClearState();
+		TextureViewFixture input(fixture, kind);
+		auto first = track_view_lifetime(input.views[0].Get());
+		auto last = track_view_lifetime(input.views[1].Get());
+		{
+			CustomResource source;
+			ResourceCopyOperation operation;
+			operation.options = ResourceCopyOptions::REFERENCE;
+			operation.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+			operation.src.SetCustomResource(&source);
+			operation.dst.type = kind;
+			operation.dst.shader_type = kind == ResourceCopyTargetType::UNORDERED_ACCESS_VIEW ? L'c' : L'p';
+			boundary->view_creations = 0;
+			for (size_t index : {size_t{0}, size_t{1}, size_t{0}, size_t{1}})
+			{
+				operation.CopyResourceToResource(
+				    &fixture.state, input.resources[index].Get(), input.views[index].Get(), 0, 0,
+				    kind == ResourceCopyTargetType::DEPTH_STENCIL_TARGET ? DXGI_FORMAT_D32_FLOAT
+					                                                     : DXGI_FORMAT_R32_FLOAT,
+				    0);
+				auto bound = bound_view(fixture, kind);
+				require_view_resource(bound.Get(), input.resources[index].Get());
+				if (kind == ResourceCopyTargetType::SHADER_RESOURCE)
+				{
+					Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> typed;
+					require(SUCCEEDED(bound.As(&typed)), "bound view lacks SRV interface");
+					D3D11_SHADER_RESOURCE_VIEW_DESC desc{};
+					typed->GetDesc(&desc);
+					require(desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE2D && desc.Texture2D.MipLevels == 2,
+					        "reused SRV lost mip range");
+				}
+			}
+			require(boundary->view_creations == 0, "matching views were recreated instead of reused");
+			input.views[0].Reset();
+			input.views[1].Reset();
+			fixture.context->ClearState();
+			fixture.context->Flush();
+			require(first->load() && !last->load(), "view cache has incorrect owned lifetime");
+		}
+		fixture.context->Flush();
+		require(last->load(), "view cache leaked its queried interface");
+	}
+	fixture.require_no_errors();
+}
+
+struct BufferViewFixture
+{
+	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer, other;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
+	BufferViewFixture(D3DFixture &fixture)
+	{
+		D3D11_BUFFER_DESC desc{};
+		desc.ByteWidth = 32;
+		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
+		desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS;
+		const float values[] = {1, 2, 3, 4, 5, 6, 7, 8};
+		D3D11_SUBRESOURCE_DATA initial{};
+		initial.pSysMem = values;
+		require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &initial, &buffer)),
+		        "buffer view source creation failed");
+		require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &initial, &other)), "other view source creation failed");
+		D3D11_SHADER_RESOURCE_VIEW_DESC vd{};
+		vd.Format = DXGI_FORMAT_R32_FLOAT;
+		vd.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+		vd.Buffer.NumElements = 8;
+		require(SUCCEEDED(fixture.device->CreateShaderResourceView(buffer.Get(), &vd, &view)),
+		        "buffer source view creation failed");
+	}
+};
+
+void require_buffer_view(D3DFixture &fixture, ID3D11Resource *resource, DXGI_FORMAT format, UINT first, UINT count,
+                         bool raw = false)
+{
+	auto bound = bound_view(fixture, ResourceCopyTargetType::SHADER_RESOURCE);
+	require_view_resource(bound.Get(), resource);
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> typed;
+	require(SUCCEEDED(bound.As(&typed)), "buffer view lacks SRV interface");
+	D3D11_SHADER_RESOURCE_VIEW_DESC desc{};
+	typed->GetDesc(&desc);
+	require(desc.Format == format &&
+	            desc.ViewDimension == (raw ? D3D11_SRV_DIMENSION_BUFFEREX : D3D11_SRV_DIMENSION_BUFFER),
+	        "view changed required format or dimension");
+	require(desc.Buffer.FirstElement == first && desc.Buffer.NumElements == count,
+	        "view exposes the wrong buffer range");
+	if (raw)
+		require(desc.BufferEx.Flags == D3D11_BUFFEREX_SRV_FLAG_RAW, "raw view lost its raw flag");
+}
+
+void incompatible_views_use_correct_factory_descriptors()
+{
+	D3DFixture fixture;
+	BufferViewFixture input(fixture);
+	CustomResource source;
+	Microsoft::WRL::ComPtr<D3DDeviceBoundary> boundary;
+	boundary.Attach(new D3DDeviceBoundary(fixture.device.Get()));
+	fixture.state.mOrigDevice1 = boundary.Get();
+	for (int example = 0; example < 4; ++example)
+	{
+		ResourceCopyOperation operation;
+		operation.options = ResourceCopyOptions::REFERENCE;
+		operation.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+		operation.src.SetCustomResource(&source);
+		operation.dst.type = ResourceCopyTargetType::SHADER_RESOURCE;
+		operation.dst.shader_type = L'p';
+		boundary->view_creations = 0;
+		auto *resource = example == 1 ? input.other.Get() : input.buffer.Get();
+		if (example == 3)
+			operation.options |= ResourceCopyOptions::RAW_VIEW;
+		operation.CopyResourceToResource(&fixture.state, resource, input.view.Get(), 4, example == 0 ? 8 : 0,
+		                                 example == 2 ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R32_FLOAT,
+		                                 example == 0 ? 24 : 32);
+		require_buffer_view(fixture, resource,
+		                    example == 3   ? DXGI_FORMAT_R32_TYPELESS
+		                    : example == 2 ? DXGI_FORMAT_R32_UINT
+		                                   : DXGI_FORMAT_R32_FLOAT,
+		                    example == 0 ? 2 : 0, example == 0 ? 4 : 8, example == 3);
+		require(boundary->view_creations == 1, "incompatible source view bypassed required view creation");
+	}
+	CustomResource destination;
+	destination.override_format = DXGI_FORMAT_R32_UINT;
+	destination.override_stride = 8;
+	ResourceCopyOperation operation;
+	operation.options = ResourceCopyOptions::REFERENCE;
+	operation.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+	operation.src.SetCustomResource(&source);
+	operation.dst.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+	operation.dst.SetCustomResource(&destination);
+	operation.CopyResourceToResource(&fixture.state, input.buffer.Get(), input.view.Get(), 4, 0, DXGI_FORMAT_R32_FLOAT,
+	                                 32);
+	require_view_resource(destination.view, input.buffer.Get());
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> typed;
+	require(SUCCEEDED(destination.view->QueryInterface(IID_PPV_ARGS(&typed))),
+	        "override view lacks required interface");
+	D3D11_SHADER_RESOURCE_VIEW_DESC desc{};
+	typed->GetDesc(&desc);
+	require(desc.Format == DXGI_FORMAT_R32_UINT && desc.Buffer.NumElements == 8 && destination.stride == 8,
+	        "custom destination override was bypassed");
+	fixture.require_no_errors();
+}
+
+void cached_views_follow_changing_source_metadata()
+{
+	D3DFixture fixture;
+	BufferViewFixture input(fixture);
+	CustomResource source;
+	ResourceCopyOperation operation;
+	operation.options = ResourceCopyOptions::REFERENCE;
+	operation.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+	operation.src.SetCustomResource(&source);
+	operation.dst.type = ResourceCopyTargetType::SHADER_RESOURCE;
+	operation.dst.shader_type = L'p';
+	operation.CopyResourceToResource(&fixture.state, input.buffer.Get(), input.view.Get(), 4, 0, DXGI_FORMAT_R32_FLOAT,
+	                                 32);
+	require_buffer_view(fixture, input.buffer.Get(), DXGI_FORMAT_R32_FLOAT, 0, 8);
+	operation.CopyResourceToResource(&fixture.state, input.buffer.Get(), input.view.Get(), 4, 8, DXGI_FORMAT_R32_FLOAT,
+	                                 24);
+	require_buffer_view(fixture, input.buffer.Get(), DXGI_FORMAT_R32_FLOAT, 2, 4);
+	operation.CopyResourceToResource(&fixture.state, input.buffer.Get(), input.view.Get(), 4, 0, DXGI_FORMAT_R32_UINT,
+	                                 32);
+	require_buffer_view(fixture, input.buffer.Get(), DXGI_FORMAT_R32_UINT, 0, 8);
+	fixture.require_no_errors();
+}
+
+void failed_view_creation_preserves_bindings_and_selected_metrics()
+{
+	D3DFixture fixture;
+	ProfilingFixture profiling;
+	Microsoft::WRL::ComPtr<D3DDeviceBoundary> boundary;
+	boundary.Attach(new D3DDeviceBoundary(fixture.device.Get()));
+	fixture.state.mOrigDevice1 = boundary.Get();
+	for (auto kind : {ResourceCopyTargetType::SHADER_RESOURCE, ResourceCopyTargetType::RENDER_TARGET,
+	                  ResourceCopyTargetType::DEPTH_STENCIL_TARGET, ResourceCopyTargetType::UNORDERED_ACCESS_VIEW})
+	{
+		fixture.context->ClearState();
+		TextureViewFixture input(fixture, kind);
+		for (auto mode : {Profiling::Mode::NONE, Profiling::Mode::SUMMARY, Profiling::Mode::TOP_COMMAND_LISTS,
+		                  Profiling::Mode::TOP_COMMANDS})
+		{
+			Profiling::mode = mode;
+			Profiling::clear();
+			ResourceCopyOperation operation;
+			CustomResource source;
+			operation.options = ResourceCopyOptions::REFERENCE;
+			operation.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+			operation.src.SetCustomResource(&source);
+			operation.dst.type = kind;
+			operation.dst.shader_type = kind == ResourceCopyTargetType::UNORDERED_ACCESS_VIEW ? L'c' : L'p';
+			operation.dst.SetResource(&fixture.state, input.resources[0].Get(), input.views[0].Get(), 0, 0,
+			                          DXGI_FORMAT_UNKNOWN, 0);
+			boundary->fail_views = true;
+			boundary->view_creations = 0;
+			operation.CopyResourceToResource(
+			    &fixture.state, input.resources[1].Get(), nullptr, 0, 0,
+			    kind == ResourceCopyTargetType::DEPTH_STENCIL_TARGET ? DXGI_FORMAT_D32_FLOAT : DXGI_FORMAT_R32_FLOAT,
+			    0);
+			auto bound = bound_view(fixture, kind);
+			require_view_resource(bound.Get(), input.resources[0].Get());
+			require(boundary->view_creations == 1, "required view failure was not exercised");
+			require(Profiling::resource_view_creation_overhead.count == (mode == Profiling::Mode::SUMMARY ? 1U : 0U) &&
+			            Profiling::resource_view_creation_overhead.hits == 0,
+			        "failed view diagnostics changed mode/counts");
+			boundary->fail_views = false;
+			operation.CopyResourceToResource(
+			    &fixture.state, input.resources[1].Get(), nullptr, 0, 0,
+			    kind == ResourceCopyTargetType::DEPTH_STENCIL_TARGET ? DXGI_FORMAT_D32_FLOAT : DXGI_FORMAT_R32_FLOAT,
+			    0);
+			bound = bound_view(fixture, kind);
+			require_view_resource(bound.Get(), input.resources[1].Get());
+			require(Profiling::resource_view_creation_overhead.count == (mode == Profiling::Mode::SUMMARY ? 2U : 0U) &&
+			            Profiling::resource_view_creation_overhead.hits == (mode == Profiling::Mode::SUMMARY ? 1U : 0U),
+			        "successful view diagnostics changed mode/counts");
+			if (mode != Profiling::Mode::SUMMARY)
+				require(Profiling::resource_view_creation_overhead.cpu.QuadPart == 0,
+				        "inactive view diagnostics collected CPU time");
+			Profiling::clear();
+			require(Profiling::resource_view_creation_overhead.count == 0 &&
+			            Profiling::resource_view_creation_overhead.hits == 0,
+			        "clear retained view diagnostics");
+		}
+	}
+	fixture.require_no_errors();
+}
+
 // Mechanism benchmarks use real interpreter/D3D boundaries. They are separate
 // from regression cases and keep timings out of pass/fail expectations.
 void benchmark_command_lists(int samples)
@@ -1185,7 +1778,15 @@ int main(int argc, char **argv)
 	             {"settings-lifecycle", preserves_only_eligible_settings_across_reload},
 	             {"constants-order", preserves_constants_declaration_and_execution_order},
 	             {"ini-sections", preserves_duplicate_sections_and_recursive_includes},
-	             {"if-conditions", preserves_static_and_dynamic_conditions_across_reload}};
+	             {"if-conditions", preserves_static_and_dynamic_conditions_across_reload},
+	             {"expression-grammar", preserves_expression_operator_contract},
+	             {"profiling-collections", profiling_collections_follow_mode_and_window_changes},
+	             {"profiling-reload", profiling_reload_discards_old_command_collections},
+	             {"matching-diagnostics", matching_diagnostics_preserve_hash_first_and_order},
+	             {"view-reuse", reuses_matching_views_with_owned_lifetimes},
+	             {"view-descriptors", incompatible_views_use_correct_factory_descriptors},
+	             {"view-cache-metadata", cached_views_follow_changing_source_metadata},
+	             {"view-failure", failed_view_creation_preserves_bindings_and_selected_metrics}};
 	int failures = 0;
 	int selected = 0;
 	for (const auto &test : tests)

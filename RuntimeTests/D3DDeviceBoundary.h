@@ -16,6 +16,7 @@ class D3DDeviceBoundary final : public ID3D11Device1
 	unsigned buffer_creations = 0;
 	unsigned view_creations = 0;
 	bool fail_staging = false;
+	bool fail_views = false;
 
 	explicit D3DDeviceBoundary(ID3D11Device1 *original) : device(original) {}
 	HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **result) override
@@ -81,6 +82,11 @@ class D3DDeviceBoundary final : public ID3D11Device1
 	                                                   ID3D11ShaderResourceView **ppSRView) override
 	{
 		++view_creations;
+		if (fail_views)
+		{
+			*ppSRView = nullptr;
+			return E_OUTOFMEMORY;
+		}
 		return device->CreateShaderResourceView(pResource, pDesc, ppSRView);
 	}
 
@@ -89,6 +95,11 @@ class D3DDeviceBoundary final : public ID3D11Device1
 	                                                    ID3D11UnorderedAccessView **ppUAView) override
 	{
 		++view_creations;
+		if (fail_views)
+		{
+			*ppUAView = nullptr;
+			return E_OUTOFMEMORY;
+		}
 		return device->CreateUnorderedAccessView(pResource, pDesc, ppUAView);
 	}
 
@@ -97,6 +108,11 @@ class D3DDeviceBoundary final : public ID3D11Device1
 	                                                 ID3D11RenderTargetView **ppRTView) override
 	{
 		++view_creations;
+		if (fail_views)
+		{
+			*ppRTView = nullptr;
+			return E_OUTOFMEMORY;
+		}
 		return device->CreateRenderTargetView(pResource, pDesc, ppRTView);
 	}
 
@@ -105,6 +121,11 @@ class D3DDeviceBoundary final : public ID3D11Device1
 	                                                 ID3D11DepthStencilView **ppDepthStencilView) override
 	{
 		++view_creations;
+		if (fail_views)
+		{
+			*ppDepthStencilView = nullptr;
+			return E_OUTOFMEMORY;
+		}
 		return device->CreateDepthStencilView(pResource, pDesc, ppDepthStencilView);
 	}
 

@@ -66,6 +66,7 @@ static inline typename T::iterator lookup_map(T &map, typename T::key_type key, 
 	return ret;
 }
 
+void next_mode();
 void update_txt();
 void update_cto_warning(bool warn);
 void clear();

@@ -506,3 +506,18 @@ void Profiling::clear()
 	start_frame_no = G->frame_no;
 	QueryPerformanceCounter(&profiling_start_time);
 }
+
+void Profiling::next_mode()
+{
+	Profiling::mode = (Profiling::Mode)((int)Profiling::mode + 1);
+
+	if (Profiling::mode == Profiling::Mode::CTO_WARNING &&
+	    (!G->implicit_post_checktextureoverride_used || Profiling::cto_warning.empty()))
+		Profiling::mode = (Profiling::Mode)((int)Profiling::mode + 1);
+
+	if (Profiling::mode == Profiling::Mode::INVALID)
+		Profiling::mode = Profiling::Mode::NONE;
+
+	Profiling::text.clear();
+	Profiling::clear();
+}
