@@ -2051,6 +2051,32 @@ void metadata_lazy_indexes_match_assignment()
 	fixture.d3d.require_no_errors();
 }
 
+void metadata_resource_identities_survive_acceptance()
+{
+	MetadataFixture fixture;
+	Microsoft::WRL::ComPtr<D3DDeviceBoundary> boundary;
+	boundary.Attach(new D3DDeviceBoundary(fixture.d3d.device.Get()));
+	HackerContext context(boundary.Get(), fixture.d3d.context.Get());
+	fixture.d3d.state.mOrigDevice1 = boundary.Get();
+	fixture.d3d.state.mHackerContext = &context;
+	auto &keys = make_pool(L"poolkeys", 0.0f);
+	keys.index_type = PoolIndexType::FIFO;
+	keys.Initialize(2);
+	MetadataFixture::configure_buffer(*keys.resource_template);
+	keys.GetVariable(1, false, false, true)->fval = 1;
+	auto &outer = make_pool(L"poolouter", 0.0f);
+	outer.index_type = PoolIndexType::FIFO;
+	outer.Initialize(2);
+	auto &fresh = customResources[L"resourcepreviewfresh"];
+	MetadataFixture::configure_buffer(fresh);
+	fresh.bind_flags = D3D11_BIND_SHADER_RESOURCE;
+	fixture.execute(L"poolouter[@poolkeys[1]]", L"ref resourcepreviewfresh");
+	require(boundary->buffer_creations == 2, "accepted preview created a second GPU identity for its nested resource");
+	fixture.execute(L"this", L"ref poolouter[@poolkeys[1]]");
+	fixture.require_binding(&fresh);
+	fixture.d3d.require_no_errors();
+}
+
 void metadata_fifo_reads_match_allocation_order()
 {
 	MetadataFixture fixture;
@@ -2339,6 +2365,7 @@ int main(int argc, char **argv)
 	             {"missing-metadata", missing_resource_metadata_has_no_bind_flags},
 	             {"nested-metadata", skipped_copies_do_not_evaluate_nested_destination_indexes},
 	             {"metadata-resource", metadata_resource_reads_preserve_lazy_templates},
+	             {"metadata-resource-identity", metadata_resource_identities_survive_acceptance},
 	             {"metadata-lazy-index", metadata_lazy_indexes_match_assignment},
 	             {"metadata-fifo", metadata_fifo_reads_match_allocation_order},
 	             {"metadata-expiration", metadata_expiration_matches_same_frame_reset},
