@@ -4,7 +4,7 @@ on:
   push:
     branches: [upstream-improvements]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
     inputs:
       mutation_checks:

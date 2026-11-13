@@ -1,12 +1,12 @@
 # Validate tree and build d3d11.dll when the solution exists.
-# Runs when work lands on main (develop → main merge / push), not on every develop commit.
+# Runs for PRs into develop/main and pushes to main, not on every develop commit.
 name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
     inputs:
       zip_release:
