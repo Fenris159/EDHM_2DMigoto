@@ -2,6 +2,16 @@ name: Original 3Dmigoto component comparison
 
 on:
   workflow_dispatch:
+  push:
+    branches: [original-3dmigoto-performance]
+    paths:
+      - Benchmarks/OriginalComparison.cpp
+      - Benchmarks/build_original_comparison.py
+      - .github/workflows/original-comparison.yml
+
+concurrency:
+  group: original-component-comparison-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
