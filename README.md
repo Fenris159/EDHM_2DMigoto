@@ -37,7 +37,11 @@ authorship, licensing, and attribution.
 
 ## Documentation (start here)
 
-**Developer documentation lives on the [project Wiki](https://github.com/Fenris159/EDHM_2DMigoto/wiki):**
+**Contributors and coding agents:** start with [CONTRIBUTING.md](CONTRIBUTING.md)
+and the automatically discoverable [AGENTS.md](AGENTS.md) for the fork/PR workflow
+and repository-specific guidance.
+
+**Additional development and user guides are available on the [project Wiki](https://github.com/Fenris159/EDHM_2DMigoto/wiki):**
 
 | Topic | Wiki page |
 |-------|-----------|
@@ -49,7 +53,8 @@ authorship, licensing, and attribution.
 | Config / overrides | [Configuration Reference](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Configuration-Reference), [ShaderFixes & Overrides](https://github.com/Fenris159/EDHM_2DMigoto/wiki/ShaderFixes-and-Overrides) |
 | Releases & vendor cache | [Releasing & CI](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Releasing-and-CI), [Vendor Cache](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Vendor-Cache-and-Releases) |
 
-In-tree `docs/` remains a short reference; the **wiki is canonical** for development how-tos.
+In-tree guides support offline and repository browsing. Contribution and agent
+instructions live in this checkout; the wiki provides extended project how-tos.
 
 This repository starts from [SpectrumQT/XXMI-Libs-Package](https://github.com/SpectrumQT/XXMI-Libs-Package) (itself a streamlined fork of [bo3b/3Dmigoto](https://github.com/bo3b/3Dmigoto/)) but is **not** registered as a GitHub fork of either project. It is maintained independently as an EDHM compatibility build while preserving upstream authorship and GPLv3 obligations; useful upstream fixes can still be pulled in selectively.
 

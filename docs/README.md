@@ -1,10 +1,14 @@
 # Docs
 
-> **Canonical developer documentation:** [EDHM_2DMigoto Wiki](https://github.com/Fenris159/EDHM_2DMigoto/wiki)  
-> Files below are short in-tree copies for offline/repo browsing.
+> **Additional project guides:** [EDHM_2DMigoto Wiki](https://github.com/Fenris159/EDHM_2DMigoto/wiki)
+>
+> The contributor and agent instructions, plus the guides below, are available
+> in the checkout for offline and repository browsing.
 
 | Document | Description |
 |----------|-------------|
+| [AGENTS.md](../AGENTS.md) | Agent entry point and task-specific context routing |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Fork/PR workflow, source map, validation and review guidance |
 | [layout.md](layout.md) | What lives on develop vs xxmi-base; d3d11 build graph |
 | [building.md](building.md) | How to build `d3d11.dll` and package `d3dcompiler_47.dll` |
 | [linux-wine-compat.md](linux-wine-compat.md) | Standard EDHM setup for Proton and Wine |
