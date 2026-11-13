@@ -2291,6 +2291,43 @@ void metadata_aliases_preserve_expiration_order()
 		verify_shared_alias(true, reverse);
 }
 
+void verify_destination_key_after_source_lookup(bool spatial)
+{
+	MetadataFixture fixture;
+	auto &pool = make_pool(L"poolkeycommit", 0.0f);
+	pool.index_type = spatial ? PoolIndexType::SPATIAL : PoolIndexType::FIFO;
+	pool.spatial_radius = 1;
+	pool.allocate_slot_on_missing = !spatial;
+	pool.Initialize(1);
+	const float source = spatial ? BitCastToFloat(0x04000000U) : 1.0f;
+	const float destination = spatial ? BitCastToFloat(0x04100000U) : 2.0f;
+	const float probe = spatial ? BitCastToFloat(0x04200000U) : 2.0f;
+	command_list_globals.emplace(L"$s", CommandListVariable(L"$s", source, VariableFlags::NONE));
+	command_list_globals.emplace(L"$d", CommandListVariable(L"$d", destination, VariableFlags::NONE));
+	command_list_globals.emplace(L"$e", CommandListVariable(L"$e", probe, VariableFlags::NONE));
+	auto &seed = customResources[L"resourcekeyseed"];
+	MetadataFixture::configure_buffer(seed);
+	seed.bind_flags = D3D11_BIND_SHADER_RESOURCE;
+	fixture.execute(L"poolkeycommit[$s]", L"ref resourcekeyseed");
+	fixture.execute(L"this", L"ref poolkeycommit[$s]");
+	fixture.require_binding(&seed);
+	fixture.execute(L"poolkeycommit[$d]", L"ref poolkeycommit[$s]");
+	pool.allocate_slot_on_missing = false;
+	fixture.execute(L"this", L"ref poolkeycommit[$e]");
+	fixture.require_binding(&seed);
+	fixture.d3d.require_no_errors();
+}
+
+void spatial_copy_keeps_its_destination_key()
+{
+	verify_destination_key_after_source_lookup(true);
+}
+
+void fifo_copy_keeps_its_destination_key()
+{
+	verify_destination_key_after_source_lookup(false);
+}
+
 void metadata_expiration_matches_same_frame_reset()
 {
 	MetadataFixture fixture;
@@ -2571,6 +2608,8 @@ int main(int argc, char **argv)
 	             {"metadata-static-pin", metadata_static_resources_remain_pinned_after_proxy_changes},
 	             {"metadata-alias", metadata_static_and_dynamic_aliases_share_one_resource},
 	             {"metadata-alias-expiration", metadata_aliases_preserve_expiration_order},
+	             {"metadata-destination-key-spatial", spatial_copy_keeps_its_destination_key},
+	             {"metadata-destination-key-fifo", fifo_copy_keeps_its_destination_key},
 	             {"pool-identifiers", accepts_pool_identifier_grammar},
 	             {"store-values", stores_typed_and_structured_values},
 	             {"store-views", releases_store_views_on_success_and_failure},
