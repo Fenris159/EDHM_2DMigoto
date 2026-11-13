@@ -1,3 +1,4 @@
+#include <optional>
 #pragma once
 
 #include <memory>
@@ -1008,6 +1009,19 @@ static EnumName_t<const wchar_t *, ResourceCopyOptions> ResourceCopyOptionNames[
 class ResourceCopyOperation : public CommandListCommand
 {
   public:
+	struct ViewCacheParameters
+	{
+		UINT stride, offset, extent;
+		DXGI_FORMAT format;
+		ResourceCopyTargetType target;
+		bool raw;
+		bool operator==(const ViewCacheParameters &other) const
+		{
+			return stride == other.stride && offset == other.offset && extent == other.extent &&
+			       format == other.format && target == other.target && raw == other.raw;
+		}
+	};
+	std::optional<ViewCacheParameters> cached_view_parameters;
 	ResourceCopyTarget src;
 	ResourceCopyTarget dst;
 	ResourceCopyOptions options;

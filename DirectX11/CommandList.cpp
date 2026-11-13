@@ -11851,6 +11851,7 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 	ID3D11Resource *dst_resource = nullptr;
 	ID3D11View *dst_view = nullptr;
 	Microsoft::WRL::ComPtr<ID3D11View> reused_source_view;
+	bool validated_view = false;
 	UINT buf_dst_size = region_size;
 	if (region_size)
 	{
@@ -11858,8 +11859,16 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 		buf_src_size = region_extent;
 	}
 
+	const ViewCacheParameters requested_view{stride,
+	                                         offset,
+	                                         region_size ? region_offset + region_size : buf_src_size,
+	                                         format,
+	                                         EffectiveViewTarget(&dst, state),
+	                                         !!(options & ResourceCopyOptions::RAW_VIEW)};
+
 	if (options & ResourceCopyOptions::COPY_MASK)
 	{
+		cached_view_parameters.reset();
 		RecreateCompatibleResource(&ini_line, &src, &dst, src_resource, pp_cached_resource, p_resource_pool, src_view,
 		                           pp_cached_view, state, options, stride, offset, format, &buf_src_size,
 		                           &buf_dst_size);
@@ -11933,9 +11942,21 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 		}
 		else if (*pp_cached_view)
 		{
-			if (dst.type != ResourceCopyTargetType::THIS_RESOURCE && ViewMatchesResource(*pp_cached_view, dst_resource))
+			if (dst_custom_resource)
 			{
+				// Custom resources share their view across commands. Validate the
+				// current descriptor rather than trusting an operation-local key.
+				reused_source_view =
+				    CompatibleSourceView(EffectiveViewTarget(&dst, state), *pp_cached_view, dst_resource, stride,
+					                     offset, format, requested_view.extent, options);
+				dst_view = reused_source_view.Get();
+			}
+			else if (dst.type != ResourceCopyTargetType::THIS_RESOURCE && cached_view_parameters &&
+			         *cached_view_parameters == requested_view && ViewMatchesResource(*pp_cached_view, dst_resource))
 				dst_view = *pp_cached_view;
+			if (dst_view)
+			{
+				validated_view = true;
 				if (Profiling::mode == Profiling::Mode::SUMMARY)
 					++Profiling::cached_views_reused;
 			}
@@ -11955,6 +11976,7 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 			if (reused_source_view)
 			{
 				dst_view = reused_source_view.Get();
+				validated_view = true;
 				if (!dst_custom_resource)
 					*pp_cached_view = reused_source_view.Detach();
 				if (Profiling::mode == Profiling::Mode::SUMMARY)
@@ -11978,6 +12000,7 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 		     type == ResourceCopyTargetType::UNORDERED_ACCESS_VIEW))
 			goto out_release;
 		*pp_cached_view = dst_view;
+		validated_view = dst_view != nullptr;
 	}
 
 	// SetResource supports branching to SetConstantBuffers1 when offset and buf_dst_size are specified.
@@ -11995,6 +12018,8 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 	}
 
 	dst.SetResource(state, dst_resource, dst_view, stride, offset, format, buf_dst_size);
+	if (!(options & ResourceCopyOptions::COPY_MASK) && !dst_custom_resource && validated_view)
+		cached_view_parameters = requested_view;
 
 	if (options & ResourceCopyOptions::SET_VIEWPORT)
 		SetViewportFromResource(state, dst_resource);
@@ -12005,6 +12030,7 @@ out_release:
 	{
 		(*pp_cached_view)->Release();
 		*pp_cached_view = nullptr;
+		cached_view_parameters.reset();
 	}
 }
 

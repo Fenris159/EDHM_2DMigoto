@@ -1572,10 +1572,21 @@ void incompatible_views_use_correct_factory_descriptors()
 	operation.dst.SetCustomResource(&destination);
 	operation.CopyResourceToResource(&fixture.state, input.buffer.Get(), input.view.Get(), 4, 0, DXGI_FORMAT_R32_FLOAT,
 	                                 32);
-	require_view_resource(destination.view, input.buffer.Get());
+	// A custom resource may retain metadata without a view until a concrete
+	// pipeline target requests its interface. Observe that actual binding.
+	ResourceCopyOperation bind;
+	bind.options = ResourceCopyOptions::REFERENCE;
+	bind.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+	bind.src.SetCustomResource(&destination);
+	bind.dst.type = ResourceCopyTargetType::SHADER_RESOURCE;
+	bind.dst.shader_type = L'p';
+	fixture.context->ClearState();
+	bind.run(&fixture.state);
+	require_buffer_view(fixture, input.buffer.Get(), DXGI_FORMAT_R32_UINT, 0, 8);
+	auto final_view = bound_view(fixture, ResourceCopyTargetType::SHADER_RESOURCE);
+
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> typed;
-	require(SUCCEEDED(destination.view->QueryInterface(IID_PPV_ARGS(&typed))),
-	        "override view lacks required interface");
+	require(SUCCEEDED(final_view->QueryInterface(IID_PPV_ARGS(&typed))), "override view lacks required interface");
 	D3D11_SHADER_RESOURCE_VIEW_DESC desc{};
 	typed->GetDesc(&desc);
 	require(desc.Format == DXGI_FORMAT_R32_UINT && desc.Buffer.NumElements == 8 && destination.stride == 8,
