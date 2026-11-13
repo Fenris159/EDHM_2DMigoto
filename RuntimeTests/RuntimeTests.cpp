@@ -369,6 +369,9 @@ void metadata_queries_do_not_extend_pool_lifetime()
 	CommandList commands;
 	parse_copy(commands, L"poolmetadata[0]", L"ref unless_null resourcemissing");
 	G->frame_no = 14;
+	ResourceCopyTarget metadata;
+	require(metadata.ParseTarget(L"poolmetadata[0]", true, &config_namespace, nullptr), "metadata target rejected");
+	require(metadata.BindFlags(&fixture.state) == 0, "empty pool metadata gained binding requirements");
 	for (const auto &command : commands.commands)
 		command->run(&fixture.state);
 	G->frame_no = 17;
@@ -1877,6 +1880,30 @@ void preserves_learned_pool_flags_during_copy()
 	result->GetResource(&resource);
 	require(read_buffer(fixture, resource.Get()) == std::vector<float>({2, 3, 5, 7}),
 	        "pool rebind exposed stale copied values");
+	auto &fresh = customResources[L"resourcefreshpoolreference"];
+	fresh.override_type = CustomResourceType::BUFFER;
+	fresh.override_format = DXGI_FORMAT_R32_FLOAT;
+	fresh.override_array = 4;
+	const float fresh_values[] = {11, 13, 17, 19};
+	fresh.initial_data = malloc(sizeof(fresh_values));
+	require(fresh.initial_data != nullptr, "initial reference data allocation failed");
+	memcpy(fresh.initial_data, fresh_values, sizeof(fresh_values));
+	fresh.initial_data_size = sizeof(fresh_values);
+	CommandList fresh_reference;
+	parse_copy(fresh_reference, L"poollearned[0]", L"ref resourcefreshpoolreference");
+	for (const auto &command : fresh_reference.commands)
+		command->run(&fixture.state);
+	fixture.context->PSSetShaderResources(0, 1, &empty);
+	for (const auto &command : reference.commands)
+		command->run(&fixture.state);
+	result.Reset();
+	fixture.context->PSGetShaderResources(0, 1, &result);
+	require(result != nullptr, "initial source creation lost the destination's learned binding requirements");
+	resource.Reset();
+	result->GetResource(&resource);
+	require(resource.Get() == fresh.resource &&
+	            read_buffer(fixture, resource.Get()) == std::vector<float>({11, 13, 17, 19}),
+	        "newly substantiated pool reference exposed the wrong resource or data");
 	fixture.state.this_target = nullptr;
 	fixture.require_no_errors();
 }

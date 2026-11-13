@@ -265,6 +265,12 @@ def get_mutations(command_list, settings, profiling):
             "*misc_flags = custom_resource ? custom_resource->misc_flags : static_cast<D3D11_RESOURCE_MISC_FLAG>(0);",
             "*misc_flags = custom_resource->misc_flags;",
         ),
+        (
+            "nested-metadata",
+            command_list,
+            'if (dst && !custom_resource->substantiated && !custom_resource->resource && !custom_resource->view &&\n\t\t    (!custom_resource->filename.empty() || custom_resource->override_type != CustomResourceType::INVALID))',
+            "if (dst)",
+        ),
     ]
 
 
