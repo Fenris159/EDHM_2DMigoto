@@ -1922,7 +1922,7 @@ void preserves_learned_pool_flags_during_copy()
 	require(resource.Get() == fresh.resource &&
 	            read_buffer(fixture, resource.Get()) == std::vector<float>({11, 13, 17, 19}),
 	        "newly substantiated pool reference exposed the wrong resource or data");
-	customResources[L"resourceemptythenpopulated"];
+	customResources[L"resourceemptythenpopulated"].override_format = DXGI_FORMAT_R32_FLOAT;
 	CommandList empty_reference;
 	parse_copy(empty_reference, L"poollearned[0]", L"ref unless_null resourceemptythenpopulated");
 	for (const auto &command : empty_reference.commands)

@@ -7246,6 +7246,8 @@ unsigned CustomResourcePool::GetLastUpdateFrame(float id, bool use_ring_index, b
 {
 	if (source_pool)
 		return source_pool->GetLastUpdateFrame(id, use_ring_index, metadata_only);
+	if (!pool_size)
+		return 0;
 
 	size_t pool_index = metadata_only ? PeekElementIndex(id) : GetElementIndex(id, use_ring_index, false);
 
