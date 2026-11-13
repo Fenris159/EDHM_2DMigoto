@@ -1,7 +1,7 @@
 # Next release implementation plan
 
-**Prepared:** 2026-11-12. **Status:** first wave native validated; follow-up profiler/parser/view candidate implemented on `upstream-improvements`, with targeted-case confirmation and game gates open.
-**Next work:** confirm and add the new follow-up regression cases, then installed-game smoke and frame-time validation before promotion. The execution log records accepted and deferred items;
+**Prepared:** 2026-11-12. **Status:** first wave native validated; follow-up profiler/parser/view candidate implemented on `upstream-improvements`, with the approved 29-case follow-up validated and the game gate open.
+**Next work:** installed-game smoke and frame-time validation before promotion. The execution log records accepted and deferred items;
 [the implementation report](next-release-implementation.md) records the evidence.
 
 ## Objective and release boundaries
@@ -330,8 +330,14 @@ architecture details are in the final section of the implementation report.
   failed-view binding preservation. Evaluate stable and changing resources.
 - [x] Run existing native cases and approved mutation checks on the combined
   candidate; strict Release/Zip Release and shader checks pass.
-- [ ] Receive confirmation for the newly listed profiling/view/parser regression
-  behaviors, then add focused cases and demonstrate their mutation sensitivity.
+- [x] Receive recommended-case confirmation for both prompts.
+- [x] Add nine follow-up cases alongside the existing 20; repair the warm-view
+  metadata defect exposed by the new checks. Native x64/Win32 cases pass.
+- [x] Finish the expanded 29-case mutation run and final analysis/measurement
+  gates on `follow-up-regression-checks`, then collect the validated work on
+  `upstream-improvements`. All 29 compiling mutants were detected; restored
+  production, strict builds and Sonar/clang-tidy passed. Cache-validation CPU
+  costs and the retained creation-heavy benefit are recorded separately.
 - [x] Finish combined static analysis and record the cumulative configuration
   result: 72.032 → 72.090 ms load, with no additional startup gain established.
   Sonar/clang-tidy passed for `83b46492`; linked evidence is in the report.
@@ -339,6 +345,6 @@ architecture details are in the final section of the implementation report.
   profiling-off frame-time outcomes; leave caching/batching gates closed until
   the workload justifies them.
 
-No new regression cases were written while the confirmation prompts remained
-unanswered. Existing behavior checks and benchmark observations are recorded
-separately from that open gate.
+The user approved both recommended case lists before these new cases were
+written and allowed separate test/benchmark branches. The implementation report
+records pre-fix failures, the cache repair and the resulting native checks.

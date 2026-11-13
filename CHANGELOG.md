@@ -31,6 +31,8 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
   indices, preserve failed-read values, and release owned source views.
 - Interpret `Region(offset,size)` as a byte count, validate backing bounds,
   create bounded views, and distinguish copied CBs from aligned CB references.
+- Rebuild a referenced view when its requested offset, extent, format, stride,
+  target kind or raw-view mode changes on the same resource.
 - Clear stale structured stride during CB recreation and guard unsupported
   typed-buffer formats against division by zero.
 

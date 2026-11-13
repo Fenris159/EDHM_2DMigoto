@@ -29,7 +29,8 @@ profiler registration, and guarded compatible-view reuse. Native mechanism
 measurements found 16–19% less enabled-profiler cost and about 91% less CPU cost
 in a changing-buffer reference fixture. These are conditional CPU results.
 Further parser changes were evaluated and left out after cumulative controls;
-new targeted regression cases still await the required behavior confirmation.
+the approved regression follow-up below records the subsequent 29-case
+validation and cache-metadata repair.
 
 ## Scope and references
 
@@ -301,7 +302,7 @@ gates.
 | P4.1 constants compaction | Evaluated, then removed; corrected EDHM effect is within noise. | A declaration-heavy actual configuration and useful isolated/cumulative gain. |
 | P4.2 static If memoization | Evaluated on an independent branch; negligible optimizer benefit here. | A profile showing material repeated static evaluation and a useful total reduction. |
 | P4.4 buffer-contamination early exit | Defer. Normal workload has region tracking off; an added `GetType` affects the off path too. | Buffer/texture tracking-on/off total-cost comparison, including locking/profiling exits. |
-| P4.5 broader compatible-view reuse | Deferred in the first wave; a follow-up candidate is now implemented and measured below. | New targeted behavior confirmation/coverage and installed-game evidence remain open. |
+| P4.5 broader compatible-view reuse | Deferred in the first wave; a follow-up candidate is now implemented and measured below. | Approved follow-up native coverage is recorded below; installed-game evidence remains open. |
 | P4.6 duplicate ShaderRegex disassembly | Defer. Installed lexical scan found no active ShaderRegex declarations. | A real patterned-miss authoring workload, identical replacements and cold first-use measurements. |
 | Smaller parser dispatch/normalization | Follow-up evaluated masks, traversal and namespace construction; all remain excluded after controls. | Reproducible incremental gain in the final combined binary and grammar compatibility. |
 | P5.3 stream-output targets | Defer. No intended EDHM SO-target workload established. | A mod using SO plus offset, append-position and reference-array ownership cases. |
@@ -344,13 +345,13 @@ CI supplies API/build evidence, not evidence of a Windows Elite play session.
 
 ## Follow-up profiling, parser and view work
 
-**Selected integration candidate:** `83b4649200036ff9f8453763f14c97d0024554c8`, based on
+**Second-wave snapshot:** `83b4649200036ff9f8453763f14c97d0024554c8`, based on
 `afe3372b`. The existing 20 native cases and their 20 deliberate-break checks
 pass for `83b46492`, as do strict x64/Win32 Release and Zip Release builds.
 The selected candidate removes the unproven operator-mask optimization;
 validation evidence is recorded below. New targeted
-regression cases remain pending the behavior confirmation required by the
-user's AGENTS.md. The installed-game smoke/frame-time gate remains open.
+regression cases were awaiting the behavior confirmation required by the
+user's AGENTS.md at that snapshot. Approval and subsequent checks are recorded below. The installed-game smoke/frame-time gate remains open.
 
 ### Selected changes
 
@@ -371,9 +372,10 @@ comparison; factory parameters retain their original values. See Microsoft's
 [GetResource ownership contract](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11view-getresource),
 and [PlaneSlice definition](https://learn.microsoft.com/en-us/windows/win32/api/d3d11_3/ns-d3d11_3-d3d11_tex2d_srv1).
 
-The ordinary warm-cache path still keys reuse by resource identity. Dynamic
-metadata invalidation needs separate targeted coverage; the new source-view
-comparison runs when no usable cached view is present. The timing fixture uses
+At this snapshot, the ordinary warm-cache path still keyed reuse by resource
+identity. The approved follow-up below adds targeted coverage and repairs that
+metadata invalidation gap; the source-view comparison shown here runs when no
+usable cached view is present. The timing fixture uses
 buffer SRVs. It does not establish a speedup for textures, RTVs, DSVs or UAVs.
 
 ### Independent evaluations and uncertainty
@@ -464,7 +466,7 @@ be added to the first-wave 3% result.
 | Strict Release/Zip Release and shaders | [43330935594](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43330935594): passed x64/Win32, shaders and quality checks. |
 | Profiler-only analysis | [43323313875](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43323313875): passed Sonar/clang-tidy. |
 | Combined candidate analysis | [43330895111](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43330895111): Sonar quality gate and clang-tidy passed against all native source changed since `afe3372b`. Descriptor-comparison findings were fixed without suppressions; the redundant operator-mask condition was removed with that optimization. |
-| New targeted cases | Pending confirmation: mode/window/reload counters, matching outcomes, view kind/resource/descriptor/range/ownership/failure behavior, and broader expression grammar. Existing coverage does not close these cases; the selected source makes no further grammar change. |
+| New targeted cases | This snapshot preceded the required behavior approval. Both recommended lists were subsequently approved; the 29-case follow-up is recorded below. The selected source makes no further grammar change. |
 | Actual Elite frame outcomes | Pending. Steam was running when checked, but Elite was not; existing captures contained no usable frame-time trace. No DLL was installed or game files edited. |
 
 The [CPU monitor instructions](ini-command-reference.md#cpu-performance-monitor)
@@ -475,3 +477,122 @@ capture to attribute wrapper work. The
 explain the synthetic native comparisons and their limits. TextureOverride
 caching and SRV batching still require real workload counts and frame profiles
 before their larger implementation gates open.
+
+## Approved regression follow-up and cache validation repair
+
+The user selected the recommended behavior cases for both prompts and explicitly
+allowed separate test and benchmark branches. The original checkout remains on
+`chore/vendor-edhm-runtime-v0.1.3`. Selected runtime work is collected on
+`upstream-improvements`; `follow-up-regression-checks` preserves the approved
+regression follow-up and its cache repair. The validated endpoint is collected
+on the integration branch. The other parser/view/profiler branches retain
+isolated experiments and controls. No release or game installation was promoted.
+
+**Validated native source:** `9d93563fb27fd6eca201247689d03c8483894147`;
+QA-runner correction: `c9a55a0a` (no native-source changes).
+The existing 20 cases retain their expectations. Nine approved follow-up cases
+bring the native suite to 29:
+
+| Case | Observable result protected |
+|---|---|
+| `expression-grammar` | Documented precedence, associativity, unary/functions, grouping, malformed input and live namespaced variables. Existing Unicode/pool identifier checks also remain. |
+| `profiling-collections` | Actual monitor mode cycles, warning-mode eligibility, fresh windows, recursive/repeated list counts and shared pre/post command counts. |
+| `profiling-reload` | Old command collections and display text disappear before a new configuration executes. |
+| `matching-diagnostics` | Hash-first matching, ordered dual/descriptor results, unmatched resources, summary-only counters/timers and clear behavior. |
+| `view-reuse` | SRV/RTV/DSV/UAV bindings retain the selected resource, reuse source views, distinguish source/cache counters by mode, preserve mip ranges and release owned interfaces. |
+| `view-descriptors` | Wrong resource/interface/range/format/raw flags use the correct fallback; changing `this` targets keeps the required kind; custom overrides affect the eventual pipeline view. Existing explicit-region cases remain. |
+| `view-cache-metadata` | One operation updates a view when range or format changes on the same backing resource. |
+| `view-ownership` | Repeated custom references keep the destination view alive and release it when its last owner disappears. |
+| `view-failure` | Injected Create*View failures preserve existing bindings for all four kinds; success/failure counts follow the selected profiling mode. |
+
+These are production parser/interpreter paths and real WARP bindings. The device
+boundary injects allocation failures and records view calls; domain behavior is
+not mocked. Expected arithmetic values and buffer ranges are hand-computed
+literals. CPU time is never a positive-duration or performance pass/fail threshold.
+
+### Failure found and repaired
+
+The first run compiled successfully on both architectures and reproduced a warm
+cache failure: a reference first requested offset 0 / extent 32, then offset 8 /
+extent 24 on the same 32-byte float buffer. The second binding must expose
+`FirstElement=2, NumElements=4`; the old cache returned the first view's `0,8`.
+The subsequent format change must also produce an unsigned-integer view.
+[The initial failing run](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43336169033)
+and [the repeat with additional cases](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43336538499)
+preserve that pre-fix evidence.
+
+The cache previously checked resource identity alone. `4fc78ab4` adds an optional,
+operation-owned record of stride, offset, extent, format, effective target kind
+and raw-view mode. Reuse requires those parameters and the backing resource to
+match. Copy operations and explicit no-cache cleanup invalidate the record.
+Shared custom-resource views are checked against their active descriptors,
+because a key belonging to only one command cannot describe updates from other
+commands. The record owns no additional COM references.
+
+A separate early test incorrectly required an untyped custom destination to have
+a view immediately. Custom resources can hold override metadata until a concrete
+pipeline target requests its interface. That test now observes the resulting
+pipeline binding and still requires the requested UINT format, eight elements
+and stride metadata. All raw-view fallback examples passed; no raw-view factory
+repair was needed. No existing regression expectation was weakened.
+
+Monitor mode policy now lives in `Profiling::next_mode`; the hunting key callback
+delegates to it. This preserves the cycle and reset behavior while allowing the
+checks to exercise the real transition without synthesizing input events or
+using a real clock. The cases pass after the repair on
+[both architectures](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43337051034).
+
+### Final verification and measurement
+
+Strict Release/Zip builds and shader validation pass for the repaired native
+sources in [43337495559](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43337495559).
+The 29-case mutation run uses the QA-only runner correction `c9a55a0a`; its native
+sources and test cases are identical to `9d93563f`. A compile-rejected deliberate
+break in an earlier run was not counted as detection; the replacement keeps the
+same behavior defect while compiling under strict warnings.
+
+The repaired runtime was compared with the pre-reuse mechanism baseline on one
+Windows runner in [43338093659](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43338093659).
+Changing-buffer references measured **1,416.690 → 122.295 ns/reference** with
+profiling off (91.37% lower CPU cost, 95% change interval −91.94% to −91.09%).
+Create*View calls remained **10,000 → 0** per changing-resource batch.
+Stable references measured **53.238 → 56.698 ns/reference**; one baseline process
+was an outlier, and the interval was broad (−28.79% to +10.59%). With summary
+profiling, the stable case measured **54.120 → 57.405 ns/reference**, a 3.285 ns
+penalty (+6.07%, interval +4.85% to +9.55%). No stable-path gain is claimed.
+[Exact identities/statistics](benchmarks/compatible-view-reuse-final.json) and
+[raw observations](benchmarks/compatible-view-reuse-final.csv) retain this final
+native-code comparison separately from the earlier snapshot results.
+
+The same 107-file configuration snapshot was also measured in twelve interleaved
+processes, four per binary. Median loading was 71.109 ms for the first-wave
+baseline, 72.140 ms for the earlier selected `83b46492` build and 70.869 ms for the
+repaired `9d93563f` build. Total load-plus-optimizer change intervals cross zero
+against both controls (−1.18% to +4.82% and −2.92% to +3.05%, respectively).
+No additional startup gain is established. See
+[configuration identities/statistics](benchmarks/follow-up-configuration.json)
+and [raw cycles](benchmarks/follow-up-configuration.csv).
+
+A separate same-runner comparison against the earlier selected `83b46492`
+build measured the incremental validation cost. With profiling off, stable
+references measured 63.740 → 68.225 ns/reference (+4.485 ns), with a wide interval
+from process outliers; changing references measured 145.265 → 159.338 ns/reference
+(+14.073 ns, +9.69%, interval +8.23% to +11.91%). Summary-mode stable references
+measured 62.815 → 67.740 ns/reference (+4.925 ns, +7.84%, interval +5.24% to +9.76%).
+Both variants already reused source views, so this is a correctness cost compared
+with that earlier selected build. It is retained to prevent stale ranges/formats.
+Do not combine percentages across the separate runner comparisons. See the
+[incremental cost identities/statistics](benchmarks/view-cache-validation-cost.json)
+and [raw observations](benchmarks/view-cache-validation-cost.csv).
+
+| Final gate | Result and exact evidence |
+|---|---|
+| Native cases, x64 and Win32 | All 29 passed in [43338600288](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43338600288). |
+| Mutation sensitivity and restoration | All 29 deliberate breaks compiled and were detected; restored production passed all 29. [Receipt](benchmarks/follow-up-regression-mutations.json) preserves source hashes and exits. |
+| Strict Release/Zip and shaders | [43337495559](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43337495559) passed both architectures and quality checks. |
+| Sonar and clang-tidy | [43337495572](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43337495572) passed; changed-source clang-tidy emitted no warnings. |
+| Same-runner measurements | [Final view comparison](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43338093659) and [incremental validation comparison](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43338600288) passed; timings remain observations rather than regression thresholds. |
+
+The earlier performance figures remain pinned to their original binaries. Both
+behavior confirmations are resolved. Installed Elite smoke and repeatable
+frame-time validation remain open; the installed game has not been modified.

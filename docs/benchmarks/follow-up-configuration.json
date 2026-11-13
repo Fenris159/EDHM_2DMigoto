@@ -1,0 +1,66 @@
+{
+  "scope": "Same isolated107-file EDHM snapshot under Wine10, same path/prefix,12 interleaved processes,11 normal load->optimize cycles per process; exclude sample0. CPU configuration work, no game frames.",
+  "order": "ABCCBAACBBAC",
+  "snapshot_sha256": "806c6515ed3d10f4147c2982a457fad8512adaa65a617ff5ccd8c9c090435e9c",
+  "variants": {
+    "A": {
+      "source": "b14272fa74a3221092ccd6279e15a08463f864d6",
+      "binary_sha256": "b5daeae534a5c012bbe71387dabfc9e7ee64b64ace644b5cf5d7d0f887c65525",
+      "processes": 4,
+      "warm_load_median_ms": 71.109,
+      "warm_optimize_median_ms": 0.737,
+      "process_total_medians_ms": [
+        72.047,
+        71.993,
+        70.7735,
+        72.3745
+      ]
+    },
+    "B": {
+      "source": "83b4649200036ff9f8453763f14c97d0024554c8",
+      "binary_sha256": "27ccfd3822c61f3c1479a028114267122e37d6f4ba26005146bfed038bf01649",
+      "processes": 4,
+      "warm_load_median_ms": 72.14,
+      "warm_optimize_median_ms": 0.872,
+      "process_total_medians_ms": [
+        73.335,
+        72.244,
+        73.1795,
+        73.6755
+      ]
+    },
+    "C": {
+      "source": "9d93563fb27fd6eca201247689d03c8483894147",
+      "binary_sha256": "d8bfc8569ac0913c0415e97087e4426b759697776963ab3022830f592061db5d",
+      "processes": 4,
+      "warm_load_median_ms": 70.8685,
+      "warm_optimize_median_ms": 0.8035,
+      "process_total_medians_ms": [
+        71.9435,
+        71.2775,
+        71.445,
+        75.49
+      ]
+    }
+  },
+  "comparisons": {
+    "A-to-C": {
+      "baseline_process_median": 72.02,
+      "candidate_process_median": 71.69425,
+      "change_percent": -0.4523049153013048,
+      "bootstrap_95_change_percent": [
+        -1.1764176386479752,
+        4.818106081643991
+      ]
+    },
+    "B-to-C": {
+      "baseline_process_median": 73.25725,
+      "candidate_process_median": 71.69425,
+      "change_percent": -2.133577222732219,
+      "bootstrap_95_change_percent": [
+        -2.916798459973935,
+        3.0478212054096954
+      ]
+    }
+  }
+}
