@@ -608,7 +608,8 @@ written. Repairs were prepared on `pr43-review-fixes` before collection into
 `upstream-improvements`; neither `develop` nor `main` was merged or advanced.
 
 **Repair source:** `e9706f912a271d179b05c46f5df0276b589c7add`.
-Later documentation changes do not change this native source or test snapshot.
+Documentation checkpoint `a516969c` preserves this native source and test snapshot;
+the subsequent analysis corrections are recorded below.
 
 | Finding | Verified outcome and repair |
 |---|---|
@@ -648,3 +649,15 @@ builds also passed. The linked analysis run records the separate Sonar/clang-tid
 gate. No new performance percentage is attributed to these correctness repairs. Earlier
 measurements retain their original source/binary identities. Installed-game
 smoke and frame-time validation remain open.
+
+
+### Analysis corrections after the first repair checkpoint
+
+Sonar identified two possible null dereferences when a custom-resource metadata
+lookup returns no object, and a cognitive-complexity finding in mutation cleanup.
+`8535e8af` returns zero bind/misc flags for missing metadata and extracts the
+failure-safe restoration routine. No analyzer rules or severities were changed.
+The approved metadata coverage includes the missing-target boundary; the suite
+now contains **36** native cases and matching deliberate breaks. The previous
+35-case receipt remains pinned to `e9706f91` and is not relabeled as new evidence.
+The existing three cleanup cases still pass after the extraction.
