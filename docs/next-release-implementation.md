@@ -20,7 +20,7 @@ EDHM installation under Wine. Load plus optimization fell from **74.792 to
 72.484 ms**. These are CPU configuration measurements. No new FPS or GPU
 frame-time improvement has been measured.
 
-The code is prepared for review on a separate branch. The original dirty
+The code is under review in [PR #43](https://github.com/Fenris159/EDHM_2DMigoto/pull/43), targeting `develop`. The original dirty
 checkout and installed game files were preserved. Strict builds, native regressions, mutation sensitivity and static analysis pass.
 Game smoke and frame-time validation remain open.
 
@@ -596,3 +596,55 @@ and [raw observations](benchmarks/view-cache-validation-cost.csv).
 The earlier performance figures remain pinned to their original binaries. Both
 behavior confirmations are resolved. Installed Elite smoke and repeatable
 frame-time validation remain open; the installed game has not been modified.
+
+
+## PR #43 review follow-up
+
+Kilo reviewed `dbe8602734a09b24e8cfbed255bcb2091e8f1625` and reported nine
+findings. All original PR checks were green. Eight findings reproduced; the
+formatter prediction was a false positive. The user approved the six native
+regression cases and the three mutation-cleanup failure cases before they were
+written. Repairs were prepared on `pr43-review-fixes` before collection into
+`upstream-improvements`; neither `develop` nor `main` was merged or advanced.
+
+**Repair source:** `e9706f912a271d179b05c46f5df0276b589c7add`.
+Later documentation changes do not change this native source or test snapshot.
+
+| Finding | Verified outcome and repair |
+|---|---|
+| Ordinary builds require C++17 | Default Release and Zip Release failed with `std::optional` unavailable. Move the language standard and compatibility definitions outside the strict-warning condition in `Directory.Build.targets`. CI now builds both ordinary x64 configurations as well as the existing strict x64/Win32 configurations. |
+| Smaller constant-buffer regions | A 256-byte copy from a 1,024-byte CB copied zero bytes after fallback stride inference. Use the explicit byte count as the fallback stride; preserve real structured/typed strides and backing-buffer bounds. New coverage checks exact contents at offsets 0 and 256. |
+| Clear after retained SRV | A saved SRV prevented writable-view creation, leaving texture contents unchanged. Clearing reports whether a retained view was writable and falls back to creating an appropriate view when necessary. Readback checks both RTV- and UAV-capable textures. |
+| Learned pool bind flags | A ring-pool copy lost the selected element's runtime-learned SRV flag and failed to rebind copied data. Add side-effect-free metadata lookup of existing elements, including proxy and keyed/spatial lookup. Metadata queries do not allocate, refresh expiration, switch types or re-key slots. |
+| Scalar precedence | A pool named `PoolFoo` shadowed global/local `$poolfoo` scalars. Limit the early pool-variable parser to indexed syntax. Literal expectations protect local 11, global 7 and indexed pool value 2. |
+| Stable `this` view cache | Three references without a source view created three views. Permit a warm `this` cache when the resource and complete request, including effective kind, match. Coverage requires one initial view and one additional replacement on an SRV-to-UAV change. |
+| Zero-frame reload profiling | The first same-frame overlay update discarded initialization counts before any report. Preserve the collection when no frame has completed, while retaining the existing stale-pointer cleanup before reload. Coverage exercises summary, top-list and top-command modes without timing thresholds. |
+| Mutation failure cleanup | Undetected mutations and failed mutant builds restored source bytes but left mutant executables. Rebuild and verify production in failure-safe cleanup; remove the executable if restoration fails and retain the original failure. Failed CI jobs upload diagnostic evidence without a native executable. |
+| Claimed formatting failure | No repair required. The original file passes the pinned clang-format **23.1.1** with `--dry-run --Werror`, as does the actual PR quality job. System clang-format 21.1.8 gives different alignment output and is not the repository's pinned tool. |
+
+[The red native run](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43357768952)
+built successfully on x64 and Win32, passed the existing 29 cases, and failed all
+six new cases for their intended symptoms. [The ordinary-build reproductions](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43357772151)
+failed both configurations while the strict build passed. These failures are on
+the isolated review branch and intentionally preserve the pre-fix evidence.
+
+The cleanup cases exercise the actual runner with real temporary source/artifact
+files; only the compiler/process boundary is replaced. All three assertions
+failed against the old runner. Reverting only the cleanup repair made all three
+fail again; restoring exact fixed bytes made all three pass. The native
+mutation list includes the six new cases, bringing its total to 35.
+
+Validation runs for the repaired snapshot:
+
+- [35 native cases and deliberate-break checks](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43358505966).
+- [Ordinary/strict Release and strict Zip Release builds](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43358509219).
+- [Sonar and changed-source clang-tidy](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43358512269).
+
+All 35 native cases passed on both architectures. All 35 deliberate breaks
+compiled and were detected; the restored production build then passed all 35.
+The [receipt](benchmarks/pr43-review-mutations.json) records the native executable
+hash and per-case source hashes/exits. Ordinary and strict Release/Zip Release
+builds also passed. The linked analysis run records the separate Sonar/clang-tidy
+gate. No new performance percentage is attributed to these correctness repairs. Earlier
+measurements retain their original source/binary identities. Installed-game
+smoke and frame-time validation remain open.

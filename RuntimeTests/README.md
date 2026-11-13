@@ -26,11 +26,15 @@ bounds, CB ranges, and INI/optimizer ordering and reload semantics. A real devic
 boundary records submitted buffer descriptors and can fail staging allocation;
 this catches errors that WARP normalizes in a completed buffer description.
 
-The 29 cases also cover monitor-mode/window/reload transitions and recursive or
+The 35 cases also cover monitor-mode/window/reload transitions and recursive or
 shared command counts; summary-only matching/view diagnostics; hash-first and
 ordered dual matching; documented expression operators; all four view kinds,
 resource/descriptor/raw/override fallbacks, changing `this` targets, warm-cache
 metadata changes, custom/pipeline ownership, and failed-view binding preservation.
+The PR #43 cases additionally protect smaller constant-buffer region copies,
+clearing saved SRV-backed resources through writable views, runtime-learned pool
+bind flags, scalar/local variable precedence over pool names, stable `this`
+view-cache reuse with safe kind changes, and zero-frame reload measurements.
 View failures are injected at the D3D device boundary. CPU timing is never a
 regression threshold.
 
@@ -47,8 +51,18 @@ resource-matching and profiling sources.
 python RuntimeTests/check_mutations.py
 ```
 
-Evidence is written under `.quality/runtime-mutations/` and uploaded with the
-native executable. A compile failure does not count as successful detection.
+Evidence is written under `.quality/runtime-mutations/`. The runner restores
+source bytes and rebuilds/checks production even when a mutation fails; a failed
+restoration removes the executable and preserves the original mutation error.
+CI uploads native executables only after a successful job. Failed jobs upload
+logs separately, without an executable. A compile failure does not count as
+successful detection.
+
+Run the three hermetic compiler/process-boundary cleanup cases with:
+
+```bash
+python -m unittest discover -s RuntimeTests -p test_mutation_cleanup.py -v
+```
 
 ## Configuration measurements
 

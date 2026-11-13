@@ -115,7 +115,7 @@ Click a badge for the GitHub compare view. Counts are approximate history diverg
 
 | Workflow | Purpose |
 |----------|---------|
-| [**CI**](.github/workflows/ci.yml) | On push/PR to **`main` only** (e.g. develop→main merge) + manual: meta checks + MSBuild |
+| [**CI**](.github/workflows/ci.yml) | PRs into **`develop`/`main`**, pushes to `main`, and manual: quality/meta checks, strict x64/Win32 builds, ordinary x64 Release/Zip Release builds |
 | [**Release**](.github/workflows/release.yml) | Manual: build from `main` (release) or `develop` (pre-release), optional SemVer tag, publish assets |
 | [**Update xxmi-base**](.github/workflows/update-xxmi-base.yml) | Keep the XXMI mirror current; open/refresh an `upstream-xxmi` review issue when it advances |
 | [**Branch status badges**](.github/workflows/branch-status-badges.yml) | Daily / after `main` push: refresh Shields JSON on the **`badges`** branch only |

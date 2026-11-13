@@ -1,7 +1,7 @@
 # Next release implementation plan
 
-**Prepared:** 2026-11-12. **Status:** first wave native validated; follow-up profiler/parser/view candidate implemented on `upstream-improvements`, with the approved 29-case follow-up validated and the game gate open.
-**Next work:** installed-game smoke and frame-time validation before promotion. The execution log records accepted and deferred items;
+**Prepared:** 2026-11-12. **Status:** first wave native validated; follow-up profiler/parser/view candidate implemented on `upstream-improvements`, with PR #43 review repairs and 35 native cases validated; the game gate remains open.
+**Next work:** review PR #43 and its analysis results, then installed-game smoke and frame-time validation before promotion. The execution log records accepted and deferred items;
 [the implementation report](next-release-implementation.md) records the evidence.
 
 ## Objective and release boundaries
@@ -348,3 +348,16 @@ architecture details are in the final section of the implementation report.
 The user approved both recommended case lists before these new cases were
 written and allowed separate test/benchmark branches. The implementation report
 records pre-fix failures, the cache repair and the resulting native checks.
+
+
+## PR #43 review corrections
+
+Eight of Kilo's nine findings reproduced on the isolated `pr43-review-fixes`
+branch; the formatting claim passes with the pinned tool. The approved suite
+now has 35 native cases and three mutation-runner cleanup cases. Build-language,
+CB region, clear-view, pool metadata, scalar precedence, `this` cache, zero-frame
+profiling and mutation-restoration repairs are described with red/green evidence
+in [the implementation report](next-release-implementation.md#pr-43-review-follow-up).
+The tested repair checkpoint is collected on `upstream-improvements`; the linked
+checks record final native, build and analysis results. The PR continues to target `develop`; game validation
+remains a separate gate before release promotion.
