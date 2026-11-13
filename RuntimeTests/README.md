@@ -26,13 +26,22 @@ bounds, CB ranges, and INI/optimizer ordering and reload semantics. A real devic
 boundary records submitted buffer descriptors and can fail staging allocation;
 this catches errors that WARP normalizes in a completed buffer description.
 
+The 29 cases also cover monitor-mode/window/reload transitions and recursive or
+shared command counts; summary-only matching/view diagnostics; hash-first and
+ordered dual matching; documented expression operators; all four view kinds,
+resource/descriptor/raw/override fallbacks, changing `this` targets, warm-cache
+metadata changes, custom/pipeline ownership, and failed-view binding preservation.
+View failures are injected at the D3D device boundary. CPU timing is never a
+regression threshold.
+
 ## Regression sensitivity
 
 The manual **Runtime regression checks** workflow accepts `mutation_checks=true`.
 Its disposable checkout builds each deliberate behavior break, requires the
 focused case to fail, restores the exact source bytes, then rebuilds and reruns
 the restored cases. Local use requires a clean isolated worktree because the
-runner temporarily rewrites `CommandList.cpp` and `IniHandler.cpp`.
+runner temporarily rewrites the production command-list, configuration,
+resource-matching and profiling sources.
 
 ```powershell
 python RuntimeTests/check_mutations.py

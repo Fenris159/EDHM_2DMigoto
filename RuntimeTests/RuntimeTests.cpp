@@ -1520,7 +1520,6 @@ void incompatible_views_use_correct_factory_descriptors()
 		operation.CopyResourceToResource(&fixture.state, resource, input.view.Get(), 4, example == 0 ? 8 : 0,
 		                                 example == 2 ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R32_FLOAT,
 		                                 example == 0 ? 24 : 32);
-		std::cout << "[DEBUG-view-descriptor] example=" << example << "\n";
 		fixture.require_no_errors();
 		require_buffer_view(fixture, resource,
 		                    example == 3   ? DXGI_FORMAT_R32_TYPELESS

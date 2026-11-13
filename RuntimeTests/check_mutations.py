@@ -37,7 +37,7 @@ def verify_baselines(mutations):
             raise RuntimeError(f"Baseline must pass before mutation: {case}")
 
 
-def get_mutations(command_list, settings):
+def get_mutations(command_list, settings, profiling):
     return [
         (
             "empty-groups",
@@ -168,6 +168,60 @@ def get_mutations(command_list, settings):
             "if (expression.evaluate(state) != 0.0f)",
             "if (expression.evaluate(state) == 0.0f)",
         ),
+        (
+            "expression-grammar",
+            command_list,
+            "transform_operators_recursive(&tree, exponent_operators, ARRAYSIZE(exponent_operators), true, false);",
+            "transform_operators_recursive(&tree, exponent_operators, ARRAYSIZE(exponent_operators), false, false);",
+        ),
+        (
+            "profiling-collections",
+            profiling,
+            "Profiling::text.clear();\n\tProfiling::clear();\n}",
+            "Profiling::text.clear();\n}",
+        ),
+        (
+            "profiling-reload",
+            settings,
+            "// Drop profiling pointers before parsing can replace command storage.\n\tProfiling::clear();",
+            "// Deliberate break: retain old profiling pointers during reload.",
+        ),
+        (
+            "matching-diagnostics",
+            ROOT / "DirectX11" / "ResourceHash.cpp",
+            "if (matches->empty() || G->fuzzy_match_alongside_hash)",
+            "if (matches->empty())",
+        ),
+        (
+            "view-reuse",
+            command_list,
+            "return typed;",
+            "return {};",
+        ),
+        (
+            "view-descriptors",
+            command_list,
+            "if (!SameViewDesc(actual, expected))",
+            "if (false && !SameViewDesc(actual, expected))",
+        ),
+        (
+            "view-cache-metadata",
+            command_list,
+            "*cached_view_parameters == requested_view",
+            "cached_view_parameters->target == requested_view.target",
+        ),
+        (
+            "view-ownership",
+            command_list,
+            "return typed;",
+            "typed->AddRef();\n\treturn typed;",
+        ),
+        (
+            "view-failure",
+            command_list,
+            "const auto type = EffectiveViewTarget(&dst, state);",
+            "const auto type = ResourceCopyTargetType::CUSTOM_RESOURCE;",
+        ),
     ]
 
 
@@ -175,7 +229,7 @@ def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     command_list = ROOT / "DirectX11" / "CommandList.cpp"
     settings = ROOT / "DirectX11" / "IniHandler.cpp"
-    mutations = get_mutations(command_list, settings)
+    mutations = get_mutations(command_list, settings, ROOT / "DirectX11" / "profiling.cpp")
     originals = {path: path.read_bytes() for _, path, _, _ in mutations}
     evidence = []
     try:

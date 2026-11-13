@@ -1,7 +1,7 @@
-#include <optional>
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <cstdint>
 #include <array>
 #include <unordered_map>
@@ -1008,7 +1008,6 @@ static EnumName_t<const wchar_t *, ResourceCopyOptions> ResourceCopyOptionNames[
 
 class ResourceCopyOperation : public CommandListCommand
 {
-  public:
 	struct ViewCacheParameters
 	{
 		UINT stride, offset, extent;
@@ -1022,6 +1021,8 @@ class ResourceCopyOperation : public CommandListCommand
 		}
 	};
 	std::optional<ViewCacheParameters> cached_view_parameters;
+
+  public:
 	ResourceCopyTarget src;
 	ResourceCopyTarget dst;
 	ResourceCopyOptions options;
