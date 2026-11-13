@@ -2252,7 +2252,7 @@ void verify_shared_alias(bool expire_on_dynamic_read, bool reverse_operands = fa
 		require(fresh.resource != nullptr && slot0 != slot1, "expiring alias copy did not write one destination");
 		D3D11_BUFFER_DESC desc{};
 		static_cast<ID3D11Buffer *>(fresh.resource)->GetDesc(&desc);
-		require(desc.BindFlags == (slot0 ? D3D11_BIND_SHADER_RESOURCE : D3D11_BIND_UNORDERED_ACCESS),
+		require(desc.BindFlags == static_cast<UINT>(slot0 ? D3D11_BIND_SHADER_RESOURCE : D3D11_BIND_UNORDERED_ACCESS),
 		        "expiring alias preview omitted its actual destination's binding capability");
 		if (slot1)
 		{
