@@ -385,6 +385,16 @@ void metadata_queries_do_not_extend_pool_lifetime()
 	fixture.require_no_errors();
 }
 
+void missing_resource_metadata_has_no_bind_flags()
+{
+	CommandListState state;
+	ResourceCopyTarget target;
+	target.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+	D3D11_RESOURCE_MISC_FLAG misc = D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS;
+	require(target.BindFlags(&state, &misc) == 0 && misc == 0,
+	        "missing resource metadata did not return empty binding requirements");
+}
+
 void accepts_pool_identifier_grammar()
 {
 	ConfigFixture resources;
@@ -2092,6 +2102,7 @@ int main(int argc, char **argv)
 	             {"reference-order", resolves_reference_chains_in_any_order},
 	             {"reference-cycles", terminates_incompatible_reference_cycles},
 	             {"pool-metadata", metadata_queries_do_not_extend_pool_lifetime},
+	             {"missing-metadata", missing_resource_metadata_has_no_bind_flags},
 	             {"pool-identifiers", accepts_pool_identifier_grammar},
 	             {"store-values", stores_typed_and_structured_values},
 	             {"store-views", releases_store_views_on_success_and_failure},

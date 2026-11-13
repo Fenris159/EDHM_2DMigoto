@@ -259,7 +259,33 @@ def get_mutations(command_list, settings, profiling):
             "if (freeze || !frames)",
             "if (freeze)",
         ),
+        (
+            "missing-metadata",
+            command_list,
+            "*misc_flags = custom_resource ? custom_resource->misc_flags : static_cast<D3D11_RESOURCE_MISC_FLAG>(0);",
+            "*misc_flags = custom_resource->misc_flags;",
+        ),
     ]
+
+
+def restore_production(originals, mutations, evidence, original_failure):
+    try:
+        for path, content in originals.items():
+            path.write_bytes(content)
+        (OUTPUT / "results.json").write_text(json.dumps(evidence, indent=2) + "\n")
+        build_exit, _ = run(BUILD, "restored-build.log")
+        if build_exit:
+            raise RuntimeError("Restored production source did not build")
+        for case, _, _, _ in mutations:
+            exit_code, _ = run([str(EXE), case], f"{case}-restored.log")
+            if exit_code:
+                raise RuntimeError(f"Restored production behavior failed: {case}")
+    except BaseException as restoration_failure:
+        # A restored checkout must never retain a binary built from a mutant.
+        EXE.unlink(missing_ok=True)
+        if original_failure is None:
+            raise
+        print(f"Production binary quarantined after cleanup failure: {restoration_failure}", file=sys.stderr)
 
 
 def main():
@@ -297,24 +323,7 @@ def main():
             finally:
                 path.write_bytes(originals[path])
     finally:
-        original_failure = sys.exc_info()[1]
-        try:
-            for path, content in originals.items():
-                path.write_bytes(content)
-            (OUTPUT / "results.json").write_text(json.dumps(evidence, indent=2) + "\n")
-            build_exit, _ = run(BUILD, "restored-build.log")
-            if build_exit:
-                raise RuntimeError("Restored production source did not build")
-            for case, _, _, _ in mutations:
-                exit_code, _ = run([str(EXE), case], f"{case}-restored.log")
-                if exit_code:
-                    raise RuntimeError(f"Restored production behavior failed: {case}")
-        except BaseException as restoration_failure:
-            # A restored checkout must never retain a binary built from a mutant.
-            EXE.unlink(missing_ok=True)
-            if original_failure is None:
-                raise
-            print(f"Production binary quarantined after cleanup failure: {restoration_failure}", file=sys.stderr)
+        restore_production(originals, mutations, evidence, sys.exc_info()[1])
     print("All mutations detected; restored production behavior passes.", flush=True)
 
 

@@ -9653,8 +9653,8 @@ D3D11_BIND_FLAG ResourceCopyTarget::BindFlags(CommandListState *state, D3D11_RES
 		        ? custom_resource_pool->PeekResource(pool_dynamic_index_expression->evaluate(state))
 		        : GetCustomResource(nullptr);
 		if (misc_flags)
-			*misc_flags = custom_resource->misc_flags;
-		return custom_resource->bind_flags;
+			*misc_flags = custom_resource ? custom_resource->misc_flags : static_cast<D3D11_RESOURCE_MISC_FLAG>(0);
+		return custom_resource ? custom_resource->bind_flags : static_cast<D3D11_BIND_FLAG>(0);
 	}
 	case ResourceCopyTargetType::THIS_RESOURCE:
 		if (state)
