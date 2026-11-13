@@ -1046,6 +1046,8 @@ void preserves_expression_operator_contract()
 
 struct ProfilingFixture
 {
+	bool implicit_post = G->implicit_post_checktextureoverride_used;
+	std::wstring warning = Profiling::cto_warning;
 	ProfilingFixture()
 	{
 		Profiling::mode = Profiling::Mode::NONE;
@@ -1056,6 +1058,8 @@ struct ProfilingFixture
 		Profiling::mode = Profiling::Mode::NONE;
 		Profiling::clear();
 		Profiling::text.clear();
+		G->implicit_post_checktextureoverride_used = implicit_post;
+		Profiling::cto_warning = warning;
 	}
 };
 
@@ -1123,8 +1127,29 @@ void profiling_collections_follow_mode_and_window_changes()
 			for (auto *command : command_lists_cmd_profiling)
 				executions += command->pre_executions;
 			require(executions == 8, "new window inherited command counts");
+			Profiling::clear();
+			CommandList post;
+			auto shared = explicitCommandListSections.at(L"commandlistrecursive").command_list.commands[0];
+			post.commands.push_back(shared);
+			RunLinkedCommandList post_runner(&post);
+			fixture.state.post = true;
+			post_runner.run(&fixture.state);
+			post_runner.run(&fixture.state);
+			fixture.state.post = false;
+			require(shared->pre_executions == 0 && shared->post_executions == 2 &&
+			            command_lists_cmd_profiling.size() == 1,
+			        "shared post commands lost phase counts or registered more than once");
 		}
 	}
+	G->implicit_post_checktextureoverride_used = true;
+	Profiling::cto_warning = L"test warning";
+	for (int i = 0; i < 4; ++i)
+		Profiling::next_mode();
+	require(Profiling::mode == Profiling::Mode::CTO_WARNING, "applicable warning mode was skipped");
+	runs_recursive_profile_list(fixture.state);
+	require(command_lists_profiling.empty() && command_lists_cmd_profiling.empty(), "warning mode collected commands");
+	Profiling::next_mode();
+	require(Profiling::mode == Profiling::Mode::NONE, "warning mode did not cycle to off");
 }
 
 void profiling_reload_discards_old_command_collections()
@@ -1363,53 +1388,68 @@ struct TextureViewFixture
 void reuses_matching_views_with_owned_lifetimes()
 {
 	D3DFixture fixture;
+	ProfilingFixture profiling;
 	Microsoft::WRL::ComPtr<D3DDeviceBoundary> boundary;
 	boundary.Attach(new D3DDeviceBoundary(fixture.device.Get()));
 	fixture.state.mOrigDevice1 = boundary.Get();
 	for (auto kind : {ResourceCopyTargetType::SHADER_RESOURCE, ResourceCopyTargetType::RENDER_TARGET,
 	                  ResourceCopyTargetType::DEPTH_STENCIL_TARGET, ResourceCopyTargetType::UNORDERED_ACCESS_VIEW})
 	{
-		fixture.context->ClearState();
-		TextureViewFixture input(fixture, kind);
-		auto first = track_view_lifetime(input.views[0].Get());
-		auto last = track_view_lifetime(input.views[1].Get());
+		for (auto mode : {Profiling::Mode::NONE, Profiling::Mode::SUMMARY, Profiling::Mode::TOP_COMMAND_LISTS,
+		                  Profiling::Mode::TOP_COMMANDS})
 		{
-			CustomResource source;
-			ResourceCopyOperation operation;
-			operation.options = ResourceCopyOptions::REFERENCE;
-			operation.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
-			operation.src.SetCustomResource(&source);
-			operation.dst.type = kind;
-			operation.dst.shader_type = kind == ResourceCopyTargetType::UNORDERED_ACCESS_VIEW ? L'c' : L'p';
-			boundary->view_creations = 0;
-			for (size_t index : {size_t{0}, size_t{1}, size_t{0}, size_t{1}})
-			{
-				operation.CopyResourceToResource(
-				    &fixture.state, input.resources[index].Get(), input.views[index].Get(), 0, 0,
-				    kind == ResourceCopyTargetType::DEPTH_STENCIL_TARGET ? DXGI_FORMAT_D32_FLOAT
-					                                                     : DXGI_FORMAT_R32_FLOAT,
-				    0);
-				auto bound = bound_view(fixture, kind);
-				require_view_resource(bound.Get(), input.resources[index].Get());
-				if (kind == ResourceCopyTargetType::SHADER_RESOURCE)
-				{
-					Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> typed;
-					require(SUCCEEDED(bound.As(&typed)), "bound view lacks SRV interface");
-					D3D11_SHADER_RESOURCE_VIEW_DESC desc{};
-					typed->GetDesc(&desc);
-					require(desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE2D && desc.Texture2D.MipLevels == 2,
-					        "reused SRV lost mip range");
-				}
-			}
-			require(boundary->view_creations == 0, "matching views were recreated instead of reused");
-			input.views[0].Reset();
-			input.views[1].Reset();
+			Profiling::mode = mode;
+			Profiling::clear();
 			fixture.context->ClearState();
+			TextureViewFixture input(fixture, kind);
+			auto first = track_view_lifetime(input.views[0].Get());
+			auto last = track_view_lifetime(input.views[1].Get());
+			{
+				CustomResource source;
+				ResourceCopyOperation operation;
+				operation.options = ResourceCopyOptions::REFERENCE;
+				operation.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+				operation.src.SetCustomResource(&source);
+				operation.dst.type = kind;
+				operation.dst.shader_type = kind == ResourceCopyTargetType::UNORDERED_ACCESS_VIEW ? L'c' : L'p';
+				boundary->view_creations = 0;
+				for (size_t index : {size_t{0}, size_t{1}, size_t{0}, size_t{1}})
+				{
+					operation.CopyResourceToResource(
+					    &fixture.state, input.resources[index].Get(), input.views[index].Get(), 0, 0,
+					    kind == ResourceCopyTargetType::DEPTH_STENCIL_TARGET ? DXGI_FORMAT_D32_FLOAT
+						                                                     : DXGI_FORMAT_R32_FLOAT,
+					    0);
+					auto bound = bound_view(fixture, kind);
+					require_view_resource(bound.Get(), input.resources[index].Get());
+					if (kind == ResourceCopyTargetType::SHADER_RESOURCE)
+					{
+						Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> typed;
+						require(SUCCEEDED(bound.As(&typed)), "bound view lacks SRV interface");
+						D3D11_SHADER_RESOURCE_VIEW_DESC desc{};
+						typed->GetDesc(&desc);
+						require(desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE2D && desc.Texture2D.MipLevels == 2,
+						        "reused SRV lost mip range");
+					}
+				}
+				operation.CopyResourceToResource(&fixture.state, input.resources[1].Get(), input.views[1].Get(), 0, 0,
+				                                 kind == ResourceCopyTargetType::DEPTH_STENCIL_TARGET
+				                                     ? DXGI_FORMAT_D32_FLOAT
+													 : DXGI_FORMAT_R32_FLOAT,
+				                                 0);
+				require(Profiling::source_views_reused == (mode == Profiling::Mode::SUMMARY ? 4U : 0U) &&
+				            Profiling::cached_views_reused == (mode == Profiling::Mode::SUMMARY ? 1U : 0U),
+				        "view reuse diagnostics changed mode or source/cache counts");
+				require(boundary->view_creations == 0, "matching views were recreated instead of reused");
+				input.views[0].Reset();
+				input.views[1].Reset();
+				fixture.context->ClearState();
+				fixture.context->Flush();
+				require(first->load() && !last->load(), "view cache has incorrect owned lifetime");
+			}
 			fixture.context->Flush();
-			require(first->load() && !last->load(), "view cache has incorrect owned lifetime");
+			require(last->load(), "view cache leaked its queried interface");
 		}
-		fixture.context->Flush();
-		require(last->load(), "view cache leaked its queried interface");
 	}
 	fixture.require_no_errors();
 }
@@ -1480,12 +1520,46 @@ void incompatible_views_use_correct_factory_descriptors()
 		operation.CopyResourceToResource(&fixture.state, resource, input.view.Get(), 4, example == 0 ? 8 : 0,
 		                                 example == 2 ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R32_FLOAT,
 		                                 example == 0 ? 24 : 32);
+		std::cout << "[DEBUG-view-descriptor] example=" << example << "\n";
+		fixture.require_no_errors();
 		require_buffer_view(fixture, resource,
 		                    example == 3   ? DXGI_FORMAT_R32_TYPELESS
 		                    : example == 2 ? DXGI_FORMAT_R32_UINT
 		                                   : DXGI_FORMAT_R32_FLOAT,
 		                    example == 0 ? 2 : 0, example == 0 ? 4 : 8, example == 3);
 		require(boundary->view_creations == 1, "incompatible source view bypassed required view creation");
+	}
+	{
+		fixture.context->ClearState();
+		ResourceCopyTarget current;
+		current.type = ResourceCopyTargetType::UNORDERED_ACCESS_VIEW;
+		current.shader_type = L'c';
+		fixture.state.this_target = &current;
+		ResourceCopyOperation operation;
+		operation.options = ResourceCopyOptions::REFERENCE;
+		operation.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+		operation.src.SetCustomResource(&source);
+		operation.dst.type = ResourceCopyTargetType::THIS_RESOURCE;
+		boundary->view_creations = 0;
+		operation.CopyResourceToResource(&fixture.state, input.buffer.Get(), input.view.Get(), 4, 0,
+		                                 DXGI_FORMAT_R32_FLOAT, 32);
+		auto bound = bound_view(fixture, ResourceCopyTargetType::UNORDERED_ACCESS_VIEW);
+		require_view_resource(bound.Get(), input.buffer.Get());
+		Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> typed;
+		require(SUCCEEDED(bound.As(&typed)), "SRV source bypassed required UAV interface");
+		D3D11_UNORDERED_ACCESS_VIEW_DESC desc{};
+		typed->GetDesc(&desc);
+		require(desc.Format == DXGI_FORMAT_R32_FLOAT && desc.Buffer.NumElements == 8 && desc.Buffer.Flags == 0,
+		        "interface fallback changed UAV descriptor");
+		fixture.context->ClearState();
+		current.type = ResourceCopyTargetType::SHADER_RESOURCE;
+		current.shader_type = L'p';
+		operation.CopyResourceToResource(&fixture.state, input.buffer.Get(), input.view.Get(), 4, 0,
+		                                 DXGI_FORMAT_R32_FLOAT, 32);
+		require_buffer_view(fixture, input.buffer.Get(), DXGI_FORMAT_R32_FLOAT, 0, 8);
+		require(boundary->view_creations == 1,
+		        "changing this target reused a wrong-kind view or recreated a compatible source");
+		fixture.state.this_target = nullptr;
 	}
 	CustomResource destination;
 	destination.override_format = DXGI_FORMAT_R32_UINT;
@@ -1506,6 +1580,33 @@ void incompatible_views_use_correct_factory_descriptors()
 	typed->GetDesc(&desc);
 	require(desc.Format == DXGI_FORMAT_R32_UINT && desc.Buffer.NumElements == 8 && destination.stride == 8,
 	        "custom destination override was bypassed");
+	fixture.require_no_errors();
+}
+
+void custom_references_retain_only_destination_ownership()
+{
+	D3DFixture fixture;
+	BufferViewFixture input(fixture);
+	auto destroyed = track_view_lifetime(input.view.Get());
+	{
+		CustomResource destination;
+		ResourceCopyOperation operation;
+		operation.options = ResourceCopyOptions::REFERENCE;
+		operation.src.type = ResourceCopyTargetType::SHADER_RESOURCE;
+		operation.src.shader_type = L'p';
+		operation.dst.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+		operation.dst.SetCustomResource(&destination);
+		for (int i = 0; i < 3; ++i)
+			operation.CopyResourceToResource(&fixture.state, input.buffer.Get(), input.view.Get(), 4, 0,
+			                                 DXGI_FORMAT_R32_FLOAT, 32);
+		require_view_resource(destination.view, input.buffer.Get());
+		input.view.Reset();
+		fixture.context->ClearState();
+		fixture.context->Flush();
+		require(!destroyed->load(), "custom destination did not retain its source view");
+	}
+	fixture.context->Flush();
+	require(destroyed->load(), "custom reference leaked an owned queried view");
 	fixture.require_no_errors();
 }
 
@@ -1786,6 +1887,7 @@ int main(int argc, char **argv)
 	             {"view-reuse", reuses_matching_views_with_owned_lifetimes},
 	             {"view-descriptors", incompatible_views_use_correct_factory_descriptors},
 	             {"view-cache-metadata", cached_views_follow_changing_source_metadata},
+	             {"view-ownership", custom_references_retain_only_destination_ownership},
 	             {"view-failure", failed_view_creation_preserves_bindings_and_selected_metrics}};
 	int failures = 0;
 	int selected = 0;
