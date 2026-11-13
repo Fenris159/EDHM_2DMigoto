@@ -9109,13 +9109,23 @@ bool CommandPlaceholder::noop(bool post [[maybe_unused]], bool ignore_cto_pre [[
 class PoolMetadataPreview
 {
   public:
-	explicit PoolMetadataPreview(CommandListState &state) : state(state), previous(state.pool_metadata_preview)
+	explicit PoolMetadataPreview(CommandListState &state, ResourceCopyTarget *destination_target = nullptr)
+	    : state(state), previous(state.pool_metadata_preview), destination(destination_target)
 	{
 		state.pool_metadata_preview = this;
 	}
 	~PoolMetadataPreview()
 	{
 		state.pool_metadata_preview = previous;
+	}
+	CustomResource *GetDestination(ResourceCopyTarget *target) const
+	{
+		return target == destination ? resolved_destination : nullptr;
+	}
+	void ResolveDestination(ResourceCopyTarget *target, CustomResource *resource)
+	{
+		if (target == destination)
+			resolved_destination = resource;
 	}
 	CustomResourcePool *GetPool(CustomResourcePool *pool)
 	{
@@ -9162,6 +9172,8 @@ class PoolMetadataPreview
   private:
 	CommandListState &state;
 	PoolMetadataPreview *previous;
+	ResourceCopyTarget *destination;
+	CustomResource *resolved_destination = nullptr;
 	struct Contents
 	{
 		std::unordered_map<CustomResourcePool *, std::unique_ptr<CustomResourcePool>> pools;
@@ -9204,6 +9216,11 @@ CustomResource *ResourceCopyTarget::GetCustomResource(CommandListState *state, b
 {
 	if (!static_custom_resource && !custom_resource_pool)
 		return nullptr;
+	if (pool_dynamic_index_expression && state && !state->pool_metadata_query && state->pool_metadata_preview)
+	{
+		if (CustomResource *resolved = state->pool_metadata_preview->GetDestination(this))
+			return resolved;
+	}
 	if (static_custom_resource && state && state->pool_metadata_query)
 		return state->pool_metadata_preview->GetResource(static_custom_resource);
 
@@ -9216,8 +9233,13 @@ CustomResource *ResourceCopyTarget::GetCustomResource(CommandListState *state, b
 							      ->GetResource(id, template_lookup, false, assign);
 		                  return custom_resource_pool->GetResource(id, template_lookup, false, assign);
 	                  });
-	if (state && !state->pool_metadata_query && state->pool_metadata_preview && !is_assignment)
-		state->pool_metadata_preview->AdoptResource(resource);
+	if (state && !state->pool_metadata_query && state->pool_metadata_preview)
+	{
+		if (!is_assignment)
+			state->pool_metadata_preview->AdoptResource(resource);
+		if (pool_dynamic_index_expression)
+			state->pool_metadata_preview->ResolveDestination(this, resource);
+	}
 	return resource;
 }
 
@@ -9874,8 +9896,10 @@ D3D11_BIND_FLAG ResourceCopyTarget::BindFlags(CommandListState *state, D3D11_RES
 		// Metadata queries must not allocate a lazy pool element or refresh its
 		// expiration before an unless_null copy can decide to leave it alone.
 		std::optional<PoolMetadataPreview> local_preview;
-		const CustomResource *custom_resource = GetCustomResource(nullptr);
-		if (state && pool_dynamic_index_expression)
+		const CustomResource *resolved =
+		    state && state->pool_metadata_preview ? state->pool_metadata_preview->GetDestination(this) : nullptr;
+		const CustomResource *custom_resource = resolved ? resolved : GetCustomResource(nullptr);
+		if (!resolved && state && pool_dynamic_index_expression)
 		{
 			if (!state->pool_metadata_preview)
 				local_preview.emplace(*state);
@@ -12064,6 +12088,9 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 		}
 		return;
 	}
+	std::optional<PoolMetadataPreview> local_preview;
+	if (!state->pool_metadata_preview)
+		local_preview.emplace(*state, &dst);
 
 	UINT region_offset = 0, region_size = 0, region_extent = 0;
 	if (src.evaluation_mode == ResourceCopyTargetEvaluationMode::RESOURCE_REGION)
@@ -12366,7 +12393,7 @@ void ResourceCopyOperation::run(CommandListState *state)
 		dst.SetResource(state, nullptr, nullptr, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
 		return;
 	}
-	PoolMetadataPreview metadata_preview(*state);
+	PoolMetadataPreview metadata_preview(*state, &dst);
 
 	ID3D11Resource *src_resource = nullptr;
 	ID3D11View *src_view = nullptr;

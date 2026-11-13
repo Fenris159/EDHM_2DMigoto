@@ -31,9 +31,13 @@ def run(command, log_name):
     return result.returncode, output.decode(errors="replace")
 
 
+def native_case(mutation):
+    return mutation.split("--", 1)[0]
+
+
 def verify_baselines(mutations):
     for case, _, _, _ in mutations:
-        baseline_exit, _ = run([str(EXE), case], f"{case}-baseline.log")
+        baseline_exit, _ = run([str(EXE), native_case(case)], f"{case}-baseline.log")
         if baseline_exit:
             raise RuntimeError(f"Baseline must pass before mutation: {case}")
 
@@ -238,9 +242,8 @@ def get_mutations(command_list, settings, profiling):
         (
             "pool-learned-flags",
             command_list,
-            "const float id = pool_dynamic_index_expression->evaluate(state);\n\t\t\t"
-            "custom_resource =\n\t\t\t    state->pool_metadata_preview->GetPool(custom_resource_pool)->GetResource(id, false, false, true);",
-            "custom_resource = GetCustomResource(nullptr);",
+            "const CustomResource *custom_resource = resolved ? resolved : GetCustomResource(nullptr);",
+            "const CustomResource *custom_resource = GetCustomResource(nullptr);",
         ),
         (
             'pool-scalar-precedence',
@@ -332,6 +335,12 @@ def get_mutations(command_list, settings, profiling):
             "const MetadataCreationInfo created = preview.metadata_creation_info.value_or(",
             "preview.metadata_creation_info.reset();\n\tconst MetadataCreationInfo created = preview.metadata_creation_info.value_or(",
         ),
+        (
+            "metadata-alias-expiration--destination",
+            command_list,
+            "state->pool_metadata_preview->ResolveDestination(this, resource);",
+            "static_cast<void>(resource);",
+        ),
     ]
 
 
@@ -344,7 +353,7 @@ def restore_production(originals, mutations, evidence, original_failure):
         if build_exit:
             raise RuntimeError("Restored production source did not build")
         for case, _, _, _ in mutations:
-            exit_code, _ = run([str(EXE), case], f"{case}-restored.log")
+            exit_code, _ = run([str(EXE), native_case(case)], f"{case}-restored.log")
             if exit_code:
                 raise RuntimeError(f"Restored production behavior failed: {case}")
     except BaseException as restoration_failure:
@@ -374,12 +383,13 @@ def main():
                 build_exit, _ = run(BUILD, f"{case}-build.log")
                 if build_exit:
                     raise RuntimeError(f"Mutation must compile successfully: {case}")
-                exit_code, output = run([str(EXE), case], f"{case}-mutant.log")
-                if not exit_code or f"RUN {case}" not in output:
+                exit_code, output = run([str(EXE), native_case(case)], f"{case}-mutant.log")
+                if not exit_code or f"RUN {native_case(case)}" not in output:
                     raise RuntimeError(f"Regression check did not detect mutation: {case}")
                 evidence.append(
                     {
-                        "case": case,
+                        "case": native_case(case),
+                        "mutation": case,
                         "baseline_exit": 0,
                         "mutant_exit": exit_code,
                         "original_sha256": hashlib.sha256(originals[path]).hexdigest(),
