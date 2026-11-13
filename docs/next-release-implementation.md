@@ -835,3 +835,40 @@ Two independent mutations cover the expiration case: losing creation metadata
 and resolving the destination again. Earlier receipts keep their original
 source/binary identities. No performance percentage is attributed to these
 correctness changes; installed-game and performance validation remain open.
+
+
+### Retaining destination keys after same-pool reads
+
+Kilo's review of `c03259f8` found that retaining the destination pointer alone
+could lose its logical key. With a one-slot spatial pool, resolving destination
+D=(65,0,0) rekeys the slot from S=(64,0,0) to D. The later source-stride lookup
+rekeys it back to S; the cached setter previously never reinstated D. A read at
+E=(66,0,0) then misses despite being within radius one of D. FIFO pools with
+allocation on missing reads can similarly retain the source's key.
+
+The [pre-fix reproduction](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43385080898)
+compiled on x64 and Win32. The prior 47 cases passed, while both new cases failed
+their final SRV binding after an intervening same-pool source lookup. The
+spatial keys are independent bit literals for the three specified cells; the
+FIFO case disables missing-read allocation before checking the destination.
+Both use production commands and verify the seeded buffer's identity and values.
+
+`fb75210c` retains the evaluated destination ID and root pool alongside the
+physical resource. Reusing that pointer for an assignment restores its key on
+the same slot, refreshes assignment expiration and preserves resource-element
+semantics. If a source read mapped that key elsewhere, its stale reverse mapping
+is cleared. Restoring a selected slot does not allocate another FIFO slot or
+advance its replacement cursor, and never reevaluates the destination expression.
+
+Verification for runtime, native and mutation snapshot `fb75210c`:
+
+- [49 native cases on x64/Win32, 50 compiling deliberate breaks, restored production and cleanup checks](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43385661991).
+- [Ordinary/strict Release and Zip Release, formatting, scripts and shaders](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43385678378).
+- [Sonar and changed-source clang-tidy against `origin/develop`](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43385692261).
+
+The earlier 47-case/48-mutation receipt remains pinned to `4bbd54ba`. All earlier
+receipts and performance figures retain their original identities. Across the
+reviews, nineteen Kilo items warranted changes (eighteen defects and one coverage
+suggestion); the pinned-formatter claim required no change. Three additional
+Sonar findings were repaired without suppressions. No new game performance
+claim is made; installed-game smoke and frame-time validation remain open.
