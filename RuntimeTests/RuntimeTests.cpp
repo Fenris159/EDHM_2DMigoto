@@ -385,6 +385,36 @@ void metadata_queries_do_not_extend_pool_lifetime()
 	fixture.require_no_errors();
 }
 
+void skipped_copies_do_not_evaluate_nested_destination_indexes()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	for (bool cached : {false, true})
+	{
+		const wchar_t *pool_name = cached ? L"poolcachednested" : L"poolfreshnested";
+		auto &pool = make_pool(pool_name, 3.0f);
+		pool.expiration_timeout_frames = 5;
+		pool.read_refreshes_expiration = true;
+		pool.Initialize(2);
+		G->frame_no = 10;
+		pool.GetVariable(0, false, true, true)->fval = 9.0f;
+		const wchar_t *source_name = cached ? L"resourcecachedmissing" : L"resourcefreshmissing";
+		customResources[source_name].substantiated = cached;
+		CommandList commands;
+		const std::wstring destination = std::wstring(pool_name) + L"[$" + pool_name + L"[0]]";
+		const std::wstring source = std::wstring(L"ref unless_null ") + source_name;
+		parse_copy(commands, destination.c_str(), source.c_str());
+		G->frame_no = 14;
+		for (const auto &command : commands.commands)
+			command->run(&fixture.state);
+		G->frame_no = 17;
+		pool.read_refreshes_expiration = false;
+		require(pool.GetVariable(0, false, true, false)->fval == 3.0f,
+		        "skipped copy refreshed expiration through its nested destination index");
+	}
+	fixture.require_no_errors();
+}
+
 void missing_resource_metadata_has_no_bind_flags()
 {
 	CommandListState state;
@@ -2103,6 +2133,7 @@ int main(int argc, char **argv)
 	             {"reference-cycles", terminates_incompatible_reference_cycles},
 	             {"pool-metadata", metadata_queries_do_not_extend_pool_lifetime},
 	             {"missing-metadata", missing_resource_metadata_has_no_bind_flags},
+	             {"nested-metadata", skipped_copies_do_not_evaluate_nested_destination_indexes},
 	             {"pool-identifiers", accepts_pool_identifier_grammar},
 	             {"store-values", stores_typed_and_structured_values},
 	             {"store-views", releases_store_views_on_success_and_failure},
