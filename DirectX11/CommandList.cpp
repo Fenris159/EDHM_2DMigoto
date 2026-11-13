@@ -6507,7 +6507,7 @@ void CustomResource::CopyMetadataFrom(const CustomResource &src)
 	initial_data_size = src.initial_data_size;
 }
 
-std::unique_ptr<CustomResource> CustomResource::CloneForMetadata() const
+std::unique_ptr<CustomResource> CustomResource::CloneForMetadata(bool include_runtime) const
 {
 	auto result = std::make_unique<CustomResource>();
 	result->CopyMetadataFrom(*this);
@@ -6515,6 +6515,12 @@ std::unique_ptr<CustomResource> CustomResource::CloneForMetadata() const
 	result->name = name;
 	result->pool = pool;
 	result->pool_index = pool_index;
+	if (!include_runtime)
+		return result;
+	result->metadata_original_resource = resource;
+	result->metadata_original_view = view;
+	result->metadata_original_device = device;
+	result->metadata_original_substantiated = substantiated;
 	result->resource = resource;
 	if (resource)
 		resource->AddRef();
@@ -6550,8 +6556,14 @@ void CustomResource::PrepareMetadataInitialData()
 
 void CustomResource::AdoptMetadataResource(CustomResource &preview)
 {
-	if (substantiated || resource || view || !preview.substantiated)
+	if (!preview.substantiated || resource != preview.metadata_original_resource ||
+	    view != preview.metadata_original_view || device != preview.metadata_original_device ||
+	    substantiated != preview.metadata_original_substantiated)
 		return;
+	if (resource)
+		resource->Release();
+	if (view)
+		view->Release();
 	resource = preview.resource;
 	preview.resource = nullptr;
 	view = preview.view;
@@ -7429,7 +7441,7 @@ void CustomResourcePool::InitializeResource(size_t pool_index)
 
 		if (metadata_preview)
 		{
-			auto resource = resource_template->CloneForMetadata();
+			auto resource = resource_template->CloneForMetadata(false);
 			element.resource = resource.get();
 			preview_resources.push_back(std::move(resource));
 		}

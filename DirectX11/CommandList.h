@@ -579,6 +579,10 @@ class CustomResource
 	size_t initial_data_size;
 	bool owns_preview_initial_data = false;
 	bool metadata_preview = false;
+	ID3D11Resource *metadata_original_resource = nullptr;
+	ID3D11View *metadata_original_view = nullptr;
+	ID3D11Device *metadata_original_device = nullptr;
+	bool metadata_original_substantiated = false;
 
 	CustomResource();
 	~CustomResource();
@@ -595,7 +599,7 @@ class CustomResource
 	void OverrideOutOfBandInfo(DXGI_FORMAT *format, UINT *stride);
 	void ResetRuntimeState();
 	void CopyMetadataFrom(const CustomResource &src);
-	std::unique_ptr<CustomResource> CloneForMetadata() const;
+	std::unique_ptr<CustomResource> CloneForMetadata(bool include_runtime = true) const;
 	void AdoptMetadataResource(CustomResource &preview);
 	void expire(ID3D11Device *mOrigDevice1, ID3D11DeviceContext *mOrigContext1);
 
