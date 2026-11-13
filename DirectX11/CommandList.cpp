@@ -8,6 +8,7 @@
 #include <WICTextureLoader.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <type_traits>
 #include <wrl/client.h>
 #include <sstream>
@@ -9196,6 +9197,8 @@ StaticT *ResourceCopyTarget::GetPoolObject(StaticT *static_object, CommandListSt
 
 	// Pool object with dynamic indexing (e.g. PoolFoo[$id])
 	float id = state ? pool_dynamic_index_expression->evaluate(state) : 0.0f;
+	if (state && G->frame_no == 17 && custom_resource_pool && custom_resource_pool->name == L"poolouter")
+		std::fprintf(stderr, "[DEBUG-PR43] live destination id=%g assignment=%d\n", id, is_assignment);
 
 	return getter(id, state == nullptr, is_assignment);
 }
@@ -9894,6 +9897,8 @@ D3D11_BIND_FLAG ResourceCopyTarget::BindFlags(CommandListState *state, D3D11_RES
 			};
 			const MetadataScope metadata(state->pool_metadata_query);
 			const float id = pool_dynamic_index_expression->evaluate(state);
+			if (G->frame_no == 17 && custom_resource_pool->name == L"poolouter")
+				std::fprintf(stderr, "[DEBUG-PR43] preview destination id=%g\n", id);
 			custom_resource =
 			    state->pool_metadata_preview->GetPool(custom_resource_pool)->GetResource(id, false, false, true);
 		}
