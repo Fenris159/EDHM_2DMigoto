@@ -584,6 +584,15 @@ class CustomResource
 	ID3D11Device *metadata_original_device = nullptr;
 	bool metadata_original_substantiated = false;
 	bool metadata_adopted = false;
+	struct MetadataCreationInfo
+	{
+		UINT stride;
+		UINT offset;
+		UINT buf_size;
+		DXGI_FORMAT format;
+		bool is_null;
+	};
+	std::optional<MetadataCreationInfo> metadata_creation_info;
 
 	CustomResource();
 	~CustomResource();
@@ -606,6 +615,7 @@ class CustomResource
 
   private:
 	void PrepareMetadataInitialData();
+	void CaptureMetadataCreationInfo();
 	void LoadFromFile(ID3D11Device *mOrigDevice);
 	void LoadBufferFromFile(ID3D11Device *mOrigDevice);
 	void SubstantiateBuffer(ID3D11Device *mOrigDevice, void **buf, DWORD size);

@@ -6066,6 +6066,7 @@ void CustomResource::Substantiate(ID3D11Device *mOrigDevice1, D3D11_BIND_FLAG bi
 	}
 
 	UnlockResourceCreationMode();
+	CaptureMetadataCreationInfo();
 }
 
 void CustomResource::LoadBufferFromFile(ID3D11Device *mOrigDevice1)
@@ -6570,6 +6571,12 @@ void CustomResource::PrepareMetadataInitialData()
 	}
 }
 
+void CustomResource::CaptureMetadataCreationInfo()
+{
+	if (metadata_preview)
+		metadata_creation_info = MetadataCreationInfo{stride, offset, buf_size, format, is_null};
+}
+
 void CustomResource::AdoptMetadataResource(CustomResource &preview)
 {
 	if (preview.metadata_adopted || !preview.substantiated || resource != preview.metadata_original_resource ||
@@ -6581,6 +6588,8 @@ void CustomResource::AdoptMetadataResource(CustomResource &preview)
 	// provisionally created or replaced runtime state needs transferring.
 	if ((resource || view) && resource == preview.resource && view == preview.view)
 		return;
+	const MetadataCreationInfo created = preview.metadata_creation_info.value_or(
+	    MetadataCreationInfo{preview.stride, preview.offset, preview.buf_size, preview.format, preview.is_null});
 	if (resource)
 		resource->Release();
 	if (view)
@@ -6592,14 +6601,14 @@ void CustomResource::AdoptMetadataResource(CustomResource &preview)
 	if (preview.handle_info && !GetHandleInfo())
 		handle_info = std::move(preview.handle_info);
 	device = preview.device;
-	is_null = preview.is_null;
+	is_null = created.is_null;
 	substantiated = preview.substantiated;
 	bind_flags = preview.bind_flags;
 	misc_flags = preview.misc_flags;
-	stride = preview.stride;
-	offset = preview.offset;
-	buf_size = preview.buf_size;
-	format = preview.format;
+	stride = created.stride;
+	offset = created.offset;
+	buf_size = created.buf_size;
+	format = created.format;
 	source_stride = preview.source_stride;
 }
 
@@ -6986,6 +6995,7 @@ void CustomResource::expire(ID3D11Device *mOrigDevice1, ID3D11DeviceContext *mOr
 		// re-substantiation (if possible for this resource):
 		is_null = true;
 	}
+	CaptureMetadataCreationInfo();
 }
 
 #pragma endregion CustomResource

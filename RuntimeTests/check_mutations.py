@@ -311,14 +311,26 @@ def get_mutations(command_list, settings, profiling):
         (
             "metadata-cached-spatial",
             command_list,
-            "cached.cached_data = handle_info->cached_data;",
-            "cached.cached_data.reset();",
+            "cached.cached_data_offset = handle_info->cached_data_offset;",
+            "cached.cached_data_offset = 0;",
         ),
         (
             "metadata-static-pin",
             command_list,
-            "CustomResource *GetResource(CustomResource *resource)\n\t{\n\t\tif (!resource)\n\t\t\treturn nullptr;\n",
-            "CustomResource *GetResource(CustomResource *resource)\n\t{\n\t\tif (!resource)\n\t\t\treturn nullptr;\n\t\tif (resource->pool)\n\t\t\treturn GetPool(resource->pool)->MetadataResource(resource->pool_index);\n",
+            "if (owner && owner->ResolvePool() == owner && owner->MetadataResource(resource->pool_index) == resource)",
+            "if (owner)",
+        ),
+        (
+            "metadata-alias",
+            command_list,
+            "\t\tCustomResourcePool *owner = resource->pool;\n\t\tif (owner && owner->ResolvePool() == owner && owner->MetadataResource(resource->pool_index) == resource)\n\t\t\treturn GetPool(owner)->MetadataResource(resource->pool_index);\n",
+            "",
+        ),
+        (
+            "metadata-alias-expiration",
+            command_list,
+            "const MetadataCreationInfo created = preview.metadata_creation_info.value_or(",
+            "preview.metadata_creation_info.reset();\n\tconst MetadataCreationInfo created = preview.metadata_creation_info.value_or(",
         ),
     ]
 
