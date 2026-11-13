@@ -1705,6 +1705,220 @@ void failed_view_creation_preserves_bindings_and_selected_metrics()
 
 // Mechanism benchmarks use real interpreter/D3D boundaries. They are separate
 // from regression cases and keep timings out of pass/fail expectations.
+
+void copies_smaller_constant_buffer_regions()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	float values[256]{};
+	values[0] = 3;
+	values[63] = 7;
+	values[64] = 11;
+	values[127] = 13;
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = sizeof(values);
+	desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	D3D11_SUBRESOURCE_DATA initial{};
+	initial.pSysMem = values;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+	require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &initial, &buffer)), "small-region source CB failed");
+	auto *binding = buffer.Get();
+	fixture.context->VSSetConstantBuffers(0, 1, &binding);
+	for (bool offset : {false, true})
+	{
+		CommandList commands;
+		parse_copy(commands, L"cs-cb1", offset ? L"copy vs-cb0->region(256,256)" : L"copy vs-cb0->region(0,256)");
+		for (const auto &command : commands.commands)
+			command->run(&fixture.state);
+		Microsoft::WRL::ComPtr<ID3D11Buffer> copied;
+		fixture.context->CSGetConstantBuffers(1, 1, &copied);
+		require(copied != nullptr, "small CB region did not bind a destination");
+		std::vector<float> expected(64, 0.0f);
+		expected.front() = offset ? 11.0f : 3.0f;
+		expected.back() = offset ? 13.0f : 7.0f;
+		require(read_buffer(fixture, copied.Get()) == expected, "small CB region did not copy the requested bytes");
+	}
+	fixture.require_no_errors();
+}
+
+void clears_saved_shader_resource_contents()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	customResources[L"resourcesaved"];
+	for (UINT writable : {UINT(D3D11_BIND_RENDER_TARGET), UINT(D3D11_BIND_UNORDERED_ACCESS)})
+	{
+		D3D11_TEXTURE2D_DESC desc{};
+		desc.Width = desc.Height = 2;
+		desc.MipLevels = desc.ArraySize = desc.SampleDesc.Count = 1;
+		desc.Format = DXGI_FORMAT_R32_FLOAT;
+		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | writable;
+		const float values[] = {2, 3, 5, 7};
+		D3D11_SUBRESOURCE_DATA initial{};
+		initial.pSysMem = values;
+		initial.SysMemPitch = 8;
+		Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+		require(SUCCEEDED(fixture.device->CreateTexture2D(&desc, &initial, &texture)), "clear source texture failed");
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> srv;
+		require(SUCCEEDED(fixture.device->CreateShaderResourceView(texture.Get(), nullptr, &srv)),
+		        "clear source SRV failed");
+		auto *binding = srv.Get();
+		fixture.context->PSSetShaderResources(0, 1, &binding);
+		CommandList commands;
+		parse_copy(commands, L"resourcesaved", L"ref ps-t0");
+		for (const auto &command : commands.commands)
+			command->run(&fixture.state);
+		binding = nullptr;
+		fixture.context->PSSetShaderResources(0, 1, &binding);
+		ClearViewCommand clear;
+		require(clear.target.ParseTarget(L"resourcesaved", true, &config_namespace, nullptr),
+		        "saved clear target rejected");
+		clear.fval[0] = 9.0f;
+		clear.run(&fixture.state);
+		desc.Usage = D3D11_USAGE_STAGING;
+		desc.BindFlags = 0;
+		desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+		Microsoft::WRL::ComPtr<ID3D11Texture2D> staging;
+		require(SUCCEEDED(fixture.device->CreateTexture2D(&desc, nullptr, &staging)), "clear staging texture failed");
+		fixture.context->CopyResource(staging.Get(), texture.Get());
+		D3D11_MAPPED_SUBRESOURCE mapped{};
+		require(SUCCEEDED(fixture.context->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped)), "clear readback failed");
+		const auto *row0 = static_cast<const float *>(mapped.pData);
+		const auto *row1 = reinterpret_cast<const float *>(static_cast<const char *>(mapped.pData) + mapped.RowPitch);
+		const bool correct = row0[0] == 9.0f && row0[1] == 9.0f && row1[0] == 9.0f && row1[1] == 9.0f;
+		fixture.context->Unmap(staging.Get(), 0);
+		require(correct, "saved SRV prevented clearing the underlying writable resource");
+	}
+	fixture.require_no_errors();
+}
+
+void preserves_learned_pool_flags_during_copy()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	auto &pool = make_pool(L"poollearned", 0.0f);
+	pool.resource_template->override_type = CustomResourceType::BUFFER;
+	pool.resource_template->override_format = DXGI_FORMAT_R32_FLOAT;
+	pool.resource_template->override_array = 4;
+	ResourceCopyTarget current;
+	current.type = ResourceCopyTargetType::SHADER_RESOURCE;
+	current.shader_type = L'p';
+	fixture.state.this_target = &current;
+	CommandList reference;
+	parse_copy(reference, L"this", L"ref poollearned[0]");
+	for (const auto &command : reference.commands)
+		command->run(&fixture.state);
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> first;
+	fixture.context->PSGetShaderResources(0, 1, &first);
+	require(first != nullptr, "pool element failed to learn its initial SRV usage");
+	const float values[] = {2, 3, 5, 7};
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = sizeof(values);
+	desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	D3D11_SUBRESOURCE_DATA initial{};
+	initial.pSysMem = values;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> source;
+	require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &initial, &source)), "pool VB source failed");
+	auto *binding = source.Get();
+	const UINT stride = 4, offset = 0;
+	fixture.context->IASetVertexBuffers(0, 1, &binding, &stride, &offset);
+	CommandList copy;
+	parse_copy(copy, L"poollearned[0]", L"copy vb0");
+	for (const auto &command : copy.commands)
+		command->run(&fixture.state);
+	ID3D11ShaderResourceView *empty = nullptr;
+	fixture.context->PSSetShaderResources(0, 1, &empty);
+	for (const auto &command : reference.commands)
+		command->run(&fixture.state);
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> result;
+	fixture.context->PSGetShaderResources(0, 1, &result);
+	require(result != nullptr, "pool copy discarded runtime-learned SRV binding support");
+	Microsoft::WRL::ComPtr<ID3D11Resource> resource;
+	result->GetResource(&resource);
+	require(read_buffer(fixture, resource.Get()) == std::vector<float>({2, 3, 5, 7}),
+	        "pool rebind exposed stale copied values");
+	fixture.state.this_target = nullptr;
+	fixture.require_no_errors();
+}
+
+void scalar_variables_keep_precedence_over_pool_names()
+{
+	ConfigFixture resources;
+	make_pool(L"poolfoo", 2.0f);
+	command_list_globals.emplace(L"$poolfoo", CommandListVariable(L"$poolfoo", 7.0f, VariableFlags::NONE));
+	CommandListVariable local(L"$poolfoo", 11.0f, VariableFlags::NONE);
+	CommandListScope scope;
+	scope.emplace_front();
+	scope.front().emplace(L"$poolfoo", &local);
+	CommandListState state;
+	CommandListExpression local_expression, global_expression, indexed_expression;
+	const std::wstring plain = L"$poolfoo", indexed = L"$poolfoo[0]";
+	require(local_expression.parse(&plain, &config_namespace, &scope), "local pool-prefixed scalar was rejected");
+	require(local_expression.evaluate(&state) == 11.0f, "pool name shadowed a local scalar");
+	scope.clear();
+	require(global_expression.parse(&plain, &config_namespace, &scope), "global pool-prefixed scalar was rejected");
+	require(global_expression.evaluate(&state) == 7.0f, "pool name shadowed a global scalar");
+	require(indexed_expression.parse(&indexed, &config_namespace, &scope), "indexed pool variable was rejected");
+	require(indexed_expression.evaluate(&state) == 2.0f, "indexed pool variable lost precedence");
+}
+
+void this_references_reuse_views_until_the_kind_changes()
+{
+	D3DFixture fixture;
+	BufferViewFixture input(fixture);
+	CustomResource source;
+	Microsoft::WRL::ComPtr<D3DDeviceBoundary> boundary;
+	boundary.Attach(new D3DDeviceBoundary(fixture.device.Get()));
+	fixture.state.mOrigDevice1 = boundary.Get();
+	ResourceCopyTarget current;
+	current.type = ResourceCopyTargetType::SHADER_RESOURCE;
+	current.shader_type = L'p';
+	fixture.state.this_target = &current;
+	ResourceCopyOperation operation;
+	operation.options = ResourceCopyOptions::REFERENCE;
+	operation.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+	operation.src.SetCustomResource(&source);
+	operation.dst.type = ResourceCopyTargetType::THIS_RESOURCE;
+	for (int i = 0; i < 3; ++i)
+		operation.CopyResourceToResource(&fixture.state, input.buffer.Get(), nullptr, 4, 0, DXGI_FORMAT_R32_FLOAT, 32);
+	require_buffer_view(fixture, input.buffer.Get(), DXGI_FORMAT_R32_FLOAT, 0, 8);
+	require(boundary->view_creations == 1, "stable this references recreated a matching view");
+	fixture.context->ClearState();
+	current.type = ResourceCopyTargetType::UNORDERED_ACCESS_VIEW;
+	current.shader_type = L'c';
+	operation.CopyResourceToResource(&fixture.state, input.buffer.Get(), nullptr, 4, 0, DXGI_FORMAT_R32_FLOAT, 32);
+	auto bound = bound_view(fixture, ResourceCopyTargetType::UNORDERED_ACCESS_VIEW);
+	require_view_resource(bound.Get(), input.buffer.Get());
+	Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> uav;
+	require(SUCCEEDED(bound.As(&uav)), "this reference retained the prior wrong-kind view");
+	require(boundary->view_creations == 2, "this kind change did not create exactly one required replacement view");
+	fixture.state.this_target = nullptr;
+	fixture.require_no_errors();
+}
+
+void zero_frame_updates_preserve_reload_measurements()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	SettingsConfigFixture files;
+	ProfilingFixture profiling;
+	std::ofstream(files.config) << "[Constants]\nglobal $initialized = 0\n$initialized = 7\n";
+	for (auto mode : {Profiling::Mode::SUMMARY, Profiling::Mode::TOP_COMMAND_LISTS, Profiling::Mode::TOP_COMMANDS})
+	{
+		Profiling::mode = mode;
+		LoadConfigFile();
+		RunLinkedCommandList initialization(&G->constants_command_list);
+		initialization.run(&fixture.state);
+		require(command_list_globals.at(L"$initialized").fval == 7.0f, "reload initialization did not execute");
+		Profiling::resource_full_copies = 3;
+		Profiling::update_txt();
+		require(Profiling::resource_full_copies == 3 && G->constants_command_list.executions == 1,
+		        "zero-frame overlay update discarded reload initialization measurements");
+		require(mode != Profiling::Mode::TOP_COMMANDS || command_lists_cmd_profiling.size() == 1,
+		        "zero-frame overlay update discarded initialized command registrations");
+	}
+}
+
 void benchmark_command_lists(int samples)
 {
 	HackerContext context(nullptr, nullptr);
@@ -1898,7 +2112,13 @@ int main(int argc, char **argv)
 	             {"view-descriptors", incompatible_views_use_correct_factory_descriptors},
 	             {"view-cache-metadata", cached_views_follow_changing_source_metadata},
 	             {"view-ownership", custom_references_retain_only_destination_ownership},
-	             {"view-failure", failed_view_creation_preserves_bindings_and_selected_metrics}};
+	             {"view-failure", failed_view_creation_preserves_bindings_and_selected_metrics},
+	             {"region-cb-small", copies_smaller_constant_buffer_regions},
+	             {"view-clear", clears_saved_shader_resource_contents},
+	             {"pool-learned-flags", preserves_learned_pool_flags_during_copy},
+	             {"pool-scalar-precedence", scalar_variables_keep_precedence_over_pool_names},
+	             {"view-this-cache", this_references_reuse_views_until_the_kind_changes},
+	             {"profiling-zero-frame", zero_frame_updates_preserve_reload_measurements}};
 	int failures = 0;
 	int selected = 0;
 	for (const auto &test : tests)

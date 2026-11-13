@@ -144,3 +144,22 @@ jobs:
             x32/Zip Release/d3d11.dll
           if-no-files-found: error
           retention-days: 14
+
+  ordinary-builds:
+    name: Ordinary ${{ matrix.configuration }} (x64)
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Release, Zip Release]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+        with:
+          vs-version: '[17.0,18.0)'
+      - name: Build with the default warning policy
+        shell: pwsh
+        run: >-
+          msbuild EDHM_2DMigoto.sln -target:Rebuild
+          '-property:Configuration=${{ matrix.configuration }}' -property:Platform=x64
+          -property:EdhmStrictBuild=false -nodeReuse:false -verbosity:minimal -restore:false
