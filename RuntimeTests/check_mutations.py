@@ -238,6 +238,7 @@ def get_mutations(command_list, settings, profiling):
         (
             "pool-learned-flags",
             command_list,
+            "const float id = pool_dynamic_index_expression->evaluate(state);\n\t\t\t"
             "custom_resource =\n\t\t\t    state->pool_metadata_preview->GetPool(custom_resource_pool)->GetResource(id, false, false, true);",
             "custom_resource = GetCustomResource(nullptr);",
         ),
