@@ -1,0 +1,68 @@
+name: Original 3Dmigoto component comparison
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: bo3b/3Dmigoto
+          ref: 4ce5f2f72b2777223d2e809dcdafec514ac98295
+          path: .quality/original-source
+      - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+        with:
+          vs-version: '[17.0,18.0)'
+      - name: Build original production components and shared workloads
+        run: python Benchmarks/build_original_comparison.py --source .quality/original-source --harness . --original
+      - name: Build develop production components and shared workloads
+        run: python Benchmarks/build_original_comparison.py --source . --harness .
+      - name: Alternate independent benchmark processes
+        shell: pwsh
+        run: |
+          $output = '.quality/original-comparison-results'
+          New-Item -ItemType Directory -Force -Path $output | Out-Null
+          $variants = @{
+            A = (Resolve-Path '.quality/original-source/.quality/original-comparison-build/OriginalComparison.exe').Path
+            B = (Resolve-Path '.quality/original-comparison-build/OriginalComparison.exe').Path
+          }
+          $order = @('A', 'B', 'B', 'A', 'B', 'A', 'A', 'B')
+          $metadata = @{
+            original_source = '4ce5f2f72b2777223d2e809dcdafec514ac98295'
+            develop_runtime_source = '5c74823ff0d21c662e2d659d04afc6624d245509'
+            harness_source = $env:GITHUB_SHA
+            processor = $env:PROCESSOR_IDENTIFIER
+            logical_processors = [Environment]::ProcessorCount
+            os = [Environment]::OSVersion.VersionString
+            runner_image = $env:ImageVersion
+            backend = 'WARP, debug layer disabled; no game'
+            view_boundary = 'ResourceCopyOperation.run, identical on both variants'
+            order = $order
+          }
+          foreach ($variant in $variants.Keys) {
+            $metadata[$variant] = @{ sha256 = (Get-FileHash $variants[$variant] -Algorithm SHA256).Hash }
+          }
+          $metadata | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 "$output/binaries.json"
+          for ($trial = 0; $trial -lt $order.Count; ++$trial) {
+            $variant = $order[$trial]
+            foreach ($mode in @('lists', 'views')) {
+              & $variants[$variant] $mode 11 | Set-Content -Encoding utf8 "$output/$mode-$trial-$variant.csv"
+              if ($LASTEXITCODE -ne 0) { throw "Benchmark failed: $variant/$mode" }
+            }
+          }
+      - name: Upload measurements and exact executables
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: original-component-comparison-${{ github.sha }}
+          path: |
+            .quality/original-comparison-results/
+            .quality/original-comparison-build/OriginalComparison.exe
+            .quality/original-source/.quality/original-comparison-build/OriginalComparison.exe
+          retention-days: 14
