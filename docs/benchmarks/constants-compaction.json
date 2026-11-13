@@ -1,0 +1,23 @@
+{
+  "baseline_source": "59779f926d9cbb43250b6080da16fea4082de70b",
+  "candidate_source": "bc778e4eb583dc998f031aafdcdf56aba64cb6ec",
+  "baseline_binary_sha256": "409226b12bd6a4a7956789445481e38decc0c72bf90834432a2f4fa50c737c75",
+  "candidate_binary_sha256": "c1d24ae60d1fbc45f901054ee70673e93a629fbda81dca1d823e71b6543349bb",
+  "input_files": 107,
+  "input_digest": "806c6515ed3d10f4147c2982a457fad8512adaa65a617ff5ccd8c9c090435e9c",
+  "wine": "wine-10.0 (Ubuntu 10.0~repack-12ubuntu1)",
+  "kernel": "7.0.0-42-generic",
+  "machine": "x86_64",
+  "sample_policy": "ABBABAAB; 11 loads per fresh process; exclude sample zero from warm statistics",
+  "baseline_warm_pooled_median_ms": 82.782,
+  "candidate_warm_pooled_median_ms": 74.59,
+  "median_reduction_ms": 8.192,
+  "pooled_reduction_percent": 9.895871083085694,
+  "process_bootstrap_95_change_percent": [
+    -11.989569397250865,
+    -6.9977292489005976
+  ],
+  "scope": "LoadConfigFile under Wine on an isolated installed EDHM config snapshot; logging, debug, warnings, hunting and dump_usage disabled. No game frames or GPU work measured.",
+  "status": "superseded parse-only experiment; not evidence for retaining the optimization",
+  "limitation": "Repeated LoadConfigFile calls skipped the normal optimizer cleanup and retained dynamically allocated command lists. This also used an earlier full IniHandler baseline instead of the corrected single-function baseline. Use startup-evaluations.json constants-compaction experiment for the retention decision."
+}

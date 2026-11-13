@@ -1,6 +1,8 @@
 #pragma once
 
 #include <memory>
+#include <optional>
+#include <cstdint>
 #include <array>
 #include <unordered_map>
 #include <unordered_set>
@@ -26,6 +28,7 @@ class HackerDevice;
 class HackerContext;
 enum class FrameAnalysisOptions;
 class ResourceCopyTarget;
+class PoolMetadataPreview;
 
 struct InputLayoutElementOverride
 {
@@ -62,6 +65,8 @@ class CommandListState
 	DrawCallInfo *call_info;
 	bool post;
 	bool aborted;
+	bool pool_metadata_query = false;
+	PoolMetadataPreview *pool_metadata_preview = nullptr;
 
 	bool scissor_valid;
 	D3D11_RECT scissor_rects[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE]{};
@@ -112,6 +117,7 @@ class CommandListCommand
 	LARGE_INTEGER post_time_spent{};
 	unsigned pre_executions{};
 	unsigned post_executions{};
+	uint64_t profiling_generation = 0;
 
 	virtual ~CommandListCommand() = default;
 
@@ -193,9 +199,10 @@ class CommandList
 	// For performance metrics:
 	wstring ini_section;
 	bool post;
-	LARGE_INTEGER time_spent_inclusive;
-	LARGE_INTEGER time_spent_exclusive;
-	unsigned executions;
+	LARGE_INTEGER time_spent_inclusive{};
+	LARGE_INTEGER time_spent_exclusive{};
+	unsigned executions{};
+	uint64_t profiling_generation = 0;
 
 	bool runtime_populated = false;
 
@@ -214,6 +221,7 @@ class CommandList
 extern std::vector<CommandList *> registered_command_lists;
 extern std::unordered_set<CommandList *> command_lists_profiling;
 extern std::unordered_set<CommandListCommand *> command_lists_cmd_profiling;
+void clear_command_list_profiling();
 
 // Forward declaration to avoid circular reference since Override.h includes
 // HackerDevice.h includes HackerContext.h includes CommandList.h
@@ -569,6 +577,22 @@ class CustomResource
 
 	void *initial_data;
 	size_t initial_data_size;
+	bool owns_preview_initial_data = false;
+	bool metadata_preview = false;
+	ID3D11Resource *metadata_original_resource = nullptr;
+	ID3D11View *metadata_original_view = nullptr;
+	ID3D11Device *metadata_original_device = nullptr;
+	bool metadata_original_substantiated = false;
+	bool metadata_adopted = false;
+	struct MetadataCreationInfo
+	{
+		UINT stride;
+		UINT offset;
+		UINT buf_size;
+		DXGI_FORMAT format;
+		bool is_null;
+	};
+	std::optional<MetadataCreationInfo> metadata_creation_info;
 
 	CustomResource();
 	~CustomResource();
@@ -585,9 +609,13 @@ class CustomResource
 	void OverrideOutOfBandInfo(DXGI_FORMAT *format, UINT *stride);
 	void ResetRuntimeState();
 	void CopyMetadataFrom(const CustomResource &src);
+	std::unique_ptr<CustomResource> CloneForMetadata(bool include_runtime = true) const;
+	void AdoptMetadataResource(CustomResource &preview);
 	void expire(ID3D11Device *mOrigDevice1, ID3D11DeviceContext *mOrigContext1);
 
   private:
+	void PrepareMetadataInitialData();
+	void CaptureMetadataCreationInfo();
 	void LoadFromFile(ID3D11Device *mOrigDevice);
 	void LoadBufferFromFile(ID3D11Device *mOrigDevice);
 	void SubstantiateBuffer(ID3D11Device *mOrigDevice, void **buf, DWORD size);
@@ -666,6 +694,9 @@ class CustomResourcePool
 
 	size_t GetElementIndex(float id, bool use_ring_index, bool is_assignment);
 	CustomResource *GetResource(float id, bool template_lookup, bool use_ring_index, bool is_assignment);
+	void RestoreResourceAssignment(float id, CustomResource *resource);
+	std::unique_ptr<CustomResourcePool> CreateMetadataPreview() const;
+	CustomResource *MetadataResource(int index) const;
 	CommandListVariable *GetVariable(float id, bool template_lookup, bool use_ring_index, bool is_assignment);
 	size_t GetPoolSize();
 	unsigned GetLastUpdateFrame(float id, bool use_ring_index);
@@ -702,10 +733,18 @@ class CustomResourcePool
 
 	size_t last_replacement_index = 0; // Ring pointer for FIFO eviction
 	unsigned last_expiration_run = UINT32_MAX;
+	bool metadata_preview = false;
+	std::vector<std::unique_ptr<CustomResource>> preview_resources;
+	std::vector<std::unique_ptr<CommandListVariable>> preview_variables;
 };
 
 typedef std::unordered_map<std::wstring, CustomResourcePool> CustomResourcePools;
 extern CustomResourcePools customResourcePools;
+
+// Resolve resource-reference metadata after all command lists have been parsed.
+// Clear the edges before discarding the referenced configuration resources.
+void ClearDeferredBindFlags();
+void PropagateDeferredBindFlags();
 
 // Forward declaration since TextureOverride also contains a command list
 struct TextureOverride;
@@ -998,6 +1037,20 @@ static EnumName_t<const wchar_t *, ResourceCopyOptions> ResourceCopyOptionNames[
 
 class ResourceCopyOperation : public CommandListCommand
 {
+	struct ViewCacheParameters
+	{
+		UINT stride, offset, extent;
+		DXGI_FORMAT format;
+		ResourceCopyTargetType target;
+		bool raw;
+		bool operator==(const ViewCacheParameters &other) const
+		{
+			return stride == other.stride && offset == other.offset && extent == other.extent &&
+			       format == other.format && target == other.target && raw == other.raw;
+		}
+	};
+	std::optional<ViewCacheParameters> cached_view_parameters;
+
   public:
 	ResourceCopyTarget src;
 	ResourceCopyTarget dst;
@@ -1517,7 +1570,7 @@ class ClearViewCommand : public CommandListCommand
 
 	ID3D11View *create_best_view(ID3D11Resource *resource, CommandListState *state, UINT stride, UINT offset,
 	                             DXGI_FORMAT format, UINT buf_src_size);
-	void clear_unknown_view(ID3D11View *, CommandListState *state);
+	bool clear_unknown_view(ID3D11View *, CommandListState *state);
 
 	void run(CommandListState *) override;
 };

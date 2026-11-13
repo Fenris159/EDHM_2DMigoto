@@ -2,6 +2,7 @@
 
 #include <wrl.h>
 #include <string>
+#include <cstdint>
 
 namespace Profiling
 {
@@ -65,6 +66,7 @@ static inline typename T::iterator lookup_map(T &map, typename T::key_type key, 
 	return ret;
 }
 
+void next_mode();
 void update_txt();
 void update_cto_warning(bool warn);
 void clear();
@@ -90,6 +92,12 @@ extern Overhead shaderoverride_lookup_overhead;
 extern Overhead texture_handle_info_lookup_overhead;
 extern Overhead textureoverride_lookup_overhead;
 extern Overhead resource_pool_lookup_overhead;
+extern Overhead texture_override_match_overhead;
+extern Overhead texture_override_fuzzy_match_overhead;
+extern Overhead resource_view_creation_overhead;
+extern uint64_t fuzzy_candidates_tested;
+extern unsigned source_views_reused;
+extern unsigned cached_views_reused;
 
 extern unsigned resource_full_copies;
 extern unsigned resource_reference_copies;

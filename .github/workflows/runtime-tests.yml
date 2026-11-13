@@ -1,0 +1,135 @@
+name: Runtime regression checks
+
+on:
+  push:
+    branches: [upstream-improvements]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      mutation_checks:
+        description: Deliberately break each repaired behavior and verify detection
+        type: boolean
+        default: false
+      mechanism_benchmarks:
+        description: Capture interpreter and WARP view CPU mechanism measurements
+        type: boolean
+        default: false
+      benchmark_baseline_run:
+        description: Optional successful same-repository run with a matching x64 benchmark executable
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  runtime-tests:
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [x64, Win32]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+        with:
+          vs-version: '[17.0,18.0)'
+      - name: Verify mutation runner failure cleanup
+        run: python -m unittest discover -s RuntimeTests -p test_mutation_cleanup.py -v
+      - name: Build native runtime checks
+        shell: pwsh
+        run: >-
+          msbuild DirectX11/RuntimeTests.vcxproj
+          -property:Configuration=Release -property:Platform=${{ matrix.platform }}
+          -property:SolutionDir="$pwd/" -property:EdhmStrictBuild=true
+          -target:Build -nodeReuse:false -verbosity:minimal -restore:false
+      - name: Exercise runtime behavior
+        shell: pwsh
+        env:
+          TEST_PLATFORM: ${{ matrix.platform }}
+        run: |
+          $exe = ".quality/runtime-tests/$env:TEST_PLATFORM/Release/RuntimeTests.exe"
+          $failures = @()
+          foreach ($case in @('empty-groups', 'leading-dot', 'pending-save', 'pool-reset', 'constant-stride', 'reference-order', 'reference-cycles', 'pool-metadata', 'missing-metadata', 'nested-metadata', 'metadata-resource', 'metadata-resource-identity', 'metadata-lazy-index', 'metadata-fifo', 'metadata-expiration', 'metadata-hot-identity', 'metadata-cached-spatial', 'metadata-static-pin', 'metadata-alias', 'metadata-alias-expiration', 'metadata-destination-key-spatial', 'metadata-destination-key-fifo', 'pool-identifiers', 'store-values', 'store-views', 'store-failure', 'region-copy', 'region-views', 'region-cb', 'settings-atomic', 'settings-lifecycle', 'constants-order', 'ini-sections', 'if-conditions', 'expression-grammar', 'profiling-collections', 'profiling-reload', 'matching-diagnostics', 'view-reuse', 'view-descriptors', 'view-cache-metadata', 'view-ownership', 'view-failure', 'region-cb-small', 'view-clear', 'pool-learned-flags', 'pool-scalar-precedence', 'view-this-cache', 'profiling-zero-frame')) {
+            & $exe $case
+            if ($LASTEXITCODE -ne 0) { $failures += "$case (exit $LASTEXITCODE)" }
+          }
+          if ($failures.Count -ne 0) { throw "Runtime regression checks failed: $($failures -join ', ')" }
+      - name: Verify regression sensitivity
+        if: inputs.mutation_checks && matrix.platform == 'x64'
+        run: python RuntimeTests/check_mutations.py
+      - name: Measure CPU mechanisms without the debug layer
+        if: inputs.mechanism_benchmarks && matrix.platform == 'x64'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BENCHMARK_BASELINE_RUN: ${{ inputs.benchmark_baseline_run }}
+        run: |
+          $output = '.quality/runtime-benchmarks'
+          New-Item -ItemType Directory -Force -Path $output | Out-Null
+          $candidate = (Resolve-Path '.quality/runtime-tests/x64/Release/RuntimeTests.exe').Path
+          $variants = @{ B = $candidate }
+          $order = @('B')
+          $run = $null
+          if ($env:BENCHMARK_BASELINE_RUN) {
+            if ($env:BENCHMARK_BASELINE_RUN -notmatch '^[0-9]+$') { throw 'Baseline run must be a numeric run ID' }
+            $run = & gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:BENCHMARK_BASELINE_RUN" |
+              ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or $run.conclusion -ne 'success' -or
+                $run.head_repository.full_name -ne $env:GITHUB_REPOSITORY -or
+                $run.event -notin @('push', 'workflow_dispatch')) {
+              throw 'Baseline must be a successful trusted push/manual run from this repository'
+            }
+            & gh run download $env:BENCHMARK_BASELINE_RUN -R $env:GITHUB_REPOSITORY `
+              -p 'runtime-checks-x64-*' -D '.quality/benchmark-baseline'
+            if ($LASTEXITCODE -ne 0) { throw 'Could not download baseline executable' }
+            $baseline = @(Get-ChildItem '.quality/benchmark-baseline' -Recurse -Filter 'RuntimeTests.exe')
+            if ($baseline.Count -ne 1) { throw 'Expected exactly one baseline executable' }
+            $variants.A = $baseline[0].FullName
+            $order = @('A', 'B', 'B', 'A', 'B', 'A', 'A', 'B')
+          }
+          $metadata = @{
+            candidate_source = $env:GITHUB_SHA
+            baseline_source = $(if ($run) { $run.head_sha } else { $null })
+            baseline_run = $env:BENCHMARK_BASELINE_RUN
+            processor = $env:PROCESSOR_IDENTIFIER
+            logical_processors = [Environment]::ProcessorCount
+            os = [Environment]::OSVersion.VersionString
+            runner_image = $env:ImageVersion
+            order = $order
+          }
+          foreach ($variant in $variants.Keys) {
+            $metadata[$variant] = @{ sha256 = (Get-FileHash $variants[$variant] -Algorithm SHA256).Hash }
+          }
+          $metadata | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 "$output/binaries.json"
+          for ($trial = 0; $trial -lt $order.Count; ++$trial) {
+            $variant = $order[$trial]
+            foreach ($mode in @('lists', 'views')) {
+              & $variants[$variant] "benchmark-$mode" 11 |
+                Set-Content -Encoding utf8 "$output/$mode-$trial-$variant.csv"
+              if ($LASTEXITCODE -ne 0) { throw "Benchmark failed: $variant/$mode" }
+            }
+          }
+      - name: Upload validated native test executable and mutation evidence
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: runtime-checks-${{ matrix.platform }}-${{ github.sha }}
+          path: |
+            .quality/runtime-tests/${{ matrix.platform }}/Release/RuntimeTests.exe
+            .quality/runtime-mutations/
+            .quality/runtime-benchmarks/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload failure evidence without an executable
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: runtime-failure-evidence-${{ matrix.platform }}-${{ github.sha }}
+          path: |
+            .quality/runtime-mutations/
+            .quality/runtime-benchmarks/
+          if-no-files-found: ignore
+          retention-days: 14

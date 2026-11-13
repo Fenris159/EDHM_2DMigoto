@@ -7,6 +7,9 @@
 #include <DDSTextureLoader.h>
 #include <WICTextureLoader.h>
 #include <algorithm>
+#include <cmath>
+#include <type_traits>
+#include <wrl/client.h>
 #include <sstream>
 #include "HackerDevice.h"
 #include "HackerContext.h"
@@ -70,17 +73,27 @@ struct command_list_profiling_state
 	LARGE_INTEGER saved_recursive_time;
 };
 
+// A collection has stable command identities until clear/reload. Register each
+// identity once; repeated executions need only a generation comparison.
+static uint64_t profiling_generation = 1;
+
+void clear_command_list_profiling()
+{
+	command_lists_profiling.clear();
+	command_lists_cmd_profiling.clear();
+	++profiling_generation;
+}
+
 static inline void profile_command_list_start(CommandList *command_list, CommandListState *state,
                                               command_list_profiling_state *profiling_state)
 {
-	bool inserted;
-
 	if ((Profiling::mode != Profiling::Mode::SUMMARY) && (Profiling::mode != Profiling::Mode::TOP_COMMAND_LISTS))
 		return;
 
-	inserted = command_lists_profiling.insert(command_list).second;
-	if (inserted)
+	if (command_list->profiling_generation != profiling_generation)
 	{
+		command_list->profiling_generation = profiling_generation;
+		command_lists_profiling.insert(command_list);
 		command_list->time_spent_inclusive.QuadPart = 0;
 		command_list->time_spent_exclusive.QuadPart = 0;
 		command_list->executions = 0;
@@ -111,14 +124,13 @@ static inline void profile_command_list_end(CommandList *command_list, CommandLi
 static inline void profile_command_list_cmd_start(CommandListCommand *cmd,
                                                   command_list_profiling_state *profiling_state)
 {
-	bool inserted;
-
 	if (Profiling::mode != Profiling::Mode::TOP_COMMANDS)
 		return;
 
-	inserted = command_lists_cmd_profiling.insert(cmd).second;
-	if (inserted)
+	if (cmd->profiling_generation != profiling_generation)
 	{
+		cmd->profiling_generation = profiling_generation;
+		command_lists_cmd_profiling.insert(cmd);
 		cmd->pre_time_spent.QuadPart = 0;
 		cmd->post_time_spent.QuadPart = 0;
 		cmd->pre_executions = 0;
@@ -1755,60 +1767,75 @@ void DrawCommand::run(CommandListState *state)
 
 void StoreCommand::run(CommandListState *state)
 {
-	HackerContext *mHackerContext = state->mHackerContext;
-	ID3D11DeviceContext *mOrigContext1 = state->mOrigContext1;
-
-	ID3D11View *src_view = nullptr;
-	ID3D11Resource *src_resource = src.GetResource(state, &src_view, nullptr, nullptr, nullptr, nullptr, nullptr);
-
+	Microsoft::WRL::ComPtr<ID3D11View> src_view;
+	Microsoft::WRL::ComPtr<ID3D11Resource> src_resource;
+	src_resource.Attach(src.GetResource(state, src_view.GetAddressOf(), nullptr, nullptr, nullptr, nullptr, nullptr));
 	if (!src_resource)
 	{
 		LogInfo("StoreCommand: Failed to acquire source resource\n");
 		return;
 	}
 
-	// Acquire a cached staging buffer. Buffers are pooled by size and reused
-	// across calls to avoid repeated CreateBuffer() overhead.
-	ID3D11Buffer *staging = mHackerContext->GetReadbackBuffer(sizeof(float));
+	D3D11_RESOURCE_DIMENSION dimension = D3D11_RESOURCE_DIMENSION_UNKNOWN;
+	src_resource->GetType(&dimension);
+	if (dimension != D3D11_RESOURCE_DIMENSION_BUFFER)
+	{
+		LogInfo("StoreCommand: Source is not a buffer\n");
+		return;
+	}
 
+	// The offset is a flat float index for both typed and structured buffers.
+	// Validate the floating-point value before any conversion to an integer.
+	const double index = offset_expression->evaluate(state);
+	if (!std::isfinite(index) || index < 0 || index > UINT_MAX)
+		return;
+
+	D3D11_BUFFER_DESC desc{};
+	static_cast<ID3D11Buffer *>(src_resource.Get())->GetDesc(&desc);
+	const UINT64 value_offset = static_cast<UINT64>(static_cast<UINT>(index)) * sizeof(float);
+	const UINT64 value_end = value_offset + sizeof(float);
+	UINT64 copy_offset = value_offset;
+	UINT64 copy_end = value_end;
+
+	if (desc.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED)
+	{
+		const UINT stride = desc.StructureByteStride;
+		if (!stride)
+			return;
+		// D3D11 requires complete structure elements in the source copy box.
+		copy_offset = (value_offset / stride) * stride;
+		copy_end = ((value_end + stride - 1) / stride) * stride;
+	}
+	if (copy_end > desc.ByteWidth)
+		return;
+
+	// The bounds check above also proves both UINT conversions fit.
+	const UINT copy_size = static_cast<UINT>(copy_end - copy_offset);
+	ID3D11Buffer *staging = state->mHackerContext->GetReadbackBuffer(copy_size);
 	if (!staging)
 	{
 		LogInfo("StoreCommand: Failed to acquire readback buffer\n");
-		src_resource->Release();
 		return;
 	}
 
-	UINT offset = static_cast<UINT>(offset_expression->evaluate(state));
-
-	// Copy the requested float into the staging buffer for CPU readback.
-	D3D11_BOX box = {};
-	box.left = offset * sizeof(float);
-	box.right = box.left + sizeof(float);
-	box.top = 0;
+	D3D11_BOX box{};
+	box.left = static_cast<UINT>(copy_offset);
+	box.right = static_cast<UINT>(copy_end);
 	box.bottom = 1;
-	box.front = 0;
 	box.back = 1;
+	state->mOrigContext1->CopySubresourceRegion(staging, 0, 0, 0, 0, src_resource.Get(), 0, &box);
 
-	mOrigContext1->CopySubresourceRegion(staging, 0, 0, 0, 0, src_resource, 0, &box);
-
-	// Map the staging buffer so the copied value can be read by the CPU.
-	D3D11_MAPPED_SUBRESOURCE map = {};
-
-	HRESULT hr = mOrigContext1->Map(staging, 0, D3D11_MAP_READ, 0, &map);
-
+	D3D11_MAPPED_SUBRESOURCE mapped{};
+	const HRESULT hr = state->mOrigContext1->Map(staging, 0, D3D11_MAP_READ, 0, &mapped);
 	if (FAILED(hr))
 	{
 		LogInfo("StoreCommand: Map(D3D11_MAP_READ) failed (hr=0x%08X)\n", hr);
-		src_resource->Release();
 		return;
 	}
 
-	// Read the value before unmapping, as the mapped pointer becomes invalid once Unmap() is called.
-	var->fval = *reinterpret_cast<float *>(map.pData);
-
-	mOrigContext1->Unmap(staging, 0);
-
-	src_resource->Release();
+	const auto *data = static_cast<const uint8_t *>(mapped.pData);
+	memcpy(&var->fval, data + (value_offset - copy_offset), sizeof(float));
+	state->mOrigContext1->Unmap(staging, 0);
 }
 
 void SkipCommand::run(CommandListState *state)
@@ -1860,7 +1887,7 @@ bool FrameAnalysisChangeOptionsCommand::noop(bool post [[maybe_unused]], bool ig
 }
 
 static void FillInMissingInfo(ResourceCopyTargetType type, ID3D11Resource *resource, ID3D11View *view, UINT *stride,
-                              UINT *offset, UINT *buf_size, DXGI_FORMAT *format)
+                              UINT *offset, UINT *buf_size, DXGI_FORMAT *format, UINT fallback_stride = 0)
 {
 	D3D11_RESOURCE_DIMENSION dimension;
 	D3D11_BUFFER_DESC buf_desc;
@@ -1988,9 +2015,9 @@ static void FillInMissingInfo(ResourceCopyTargetType type, ID3D11Resource *resou
 
 		// This will catch constant buffers, which are not structured
 		// and don't have either a view or format, so set the stride to
-		// the size of the whole buffer:
+		// the size of the selected region, or the whole buffer otherwise:
 		if (!*stride)
-			*stride = *buf_size;
+			*stride = fallback_stride ? fallback_stride : *buf_size;
 	}
 }
 
@@ -4599,7 +4626,7 @@ static void tokenise(const wstring *expression, CommandListSyntaxTree *tree, con
 		size_t len_target = 0;
 
 		// Numeric Literal
-		if (std::isdigit(remain[0]))
+		if (std::isdigit(remain[0]) || remain[0] == L'.')
 		{
 			// - Supported inputs: DECIMAL 0.0001, HEX 0x0001, BIN 0b0001.
 			// - Must tokenise subtraction operation first.
@@ -4623,11 +4650,22 @@ static void tokenise(const wstring *expression, CommandListSyntaxTree *tree, con
 		// Variable
 		if (has_variable_prefix)
 		{
-			size_t len = FindVariableTokenEnd(remain, 1);
+			if (remain.size() >= 6 && remain.compare(0, 5, L"$pool") == 0)
+			{
+				// Pool identifiers also allow namespace characters, hyphens and Unicode.
+				const size_t pool_length = FindResourceCopyTargetTokenEnd(remain, 1);
+				if (pool_length && remain[pool_length - 1] == L']')
+				{
+					token = remain.substr(0, pool_length);
+					if (operand->parse_target(&token, ini_namespace, scope))
+					{
+						pos += pool_length;
+						goto import_operand;
+					}
+				}
+			}
 
-			// Skip handling variable pool (e.g. `$PoolFoo[0]`).
-			if (len && len < remain.size() && remain[len] == L'[')
-				len = 0;
+			size_t len = FindVariableTokenEnd(remain, 1);
 
 			if (len)
 			{
@@ -4639,9 +4677,8 @@ static void tokenise(const wstring *expression, CommandListSyntaxTree *tree, con
 					pos += len;
 					goto import_operand;
 				}
-
-				throw CommandListSyntaxError(L"Variable not recognized: " + remain, friendly_pos);
 			}
+			throw CommandListSyntaxError(L"Variable not recognized: " + remain, friendly_pos);
 		}
 
 		has_prefix = has_variable_prefix || remain[0] == L'@' || remain[0] == L'#';
@@ -5016,6 +5053,9 @@ static void transform_operators_visit(CommandListSyntaxTree *tree, CommandListOp
 
 	if (!tree)
 		return;
+
+	if (tree->tokens.empty())
+		throw CommandListSyntaxError(L"Expression inside parentheses must not be empty", 0);
 
 	if (right_associative)
 	{
@@ -5730,7 +5770,14 @@ bool ParseCommandListVariableAssignment(const wchar_t *section, const wchar_t *k
 
 	CommandListVariable *var = nullptr;
 
-	if (!args.GetVariable(var, false, CommandArgumentReader::PeekMode::Argument))
+	const bool variable_found = args.GetVariable(var, false, CommandArgumentReader::PeekMode::Argument);
+	if (ini_namespace && !G->user_config.empty() && *ini_namespace == G->user_config && var &&
+	    (!(var->flags & VariableFlags::PERSIST) || (var->flags & VariableFlags::LOCKED)))
+	{
+		G->user_config_dirty |= 2;
+		return true;
+	}
+	if (!variable_found)
 	{
 		// Report only "locked" variable error for now to avoid `d3dx_user.ini` error spam.
 		// Future work: Refactor syntax parsing errors reporting.
@@ -5871,7 +5918,7 @@ CustomResource::~CustomResource()
 		resource->Release();
 	if (view)
 		view->Release();
-	if (pool_index < 0)
+	if ((pool_index < 0 && !metadata_preview) || owns_preview_initial_data)
 		free(initial_data);
 }
 
@@ -5881,45 +5928,21 @@ bool CustomResource::AddFlags(D3D11_BIND_FLAG extra_bind_flags, D3D11_RESOURCE_M
 	if (pool && recursive)
 		return pool->PropagateFlags(extra_bind_flags, extra_misc_flags);
 
-	misc_flags = (D3D11_RESOURCE_MISC_FLAG)(misc_flags | extra_misc_flags);
-
-	// Enforce uniqueness of D3D11_BIND_CONSTANT_BUFFER flag (it's incompatible with other flags).
-	if (extra_bind_flags & D3D11_BIND_CONSTANT_BUFFER)
+	const auto combined_flags = static_cast<D3D11_BIND_FLAG>(bind_flags | extra_bind_flags);
+	if ((combined_flags & D3D11_BIND_CONSTANT_BUFFER) && combined_flags != D3D11_BIND_CONSTANT_BUFFER)
 	{
-
-		// CBs are incompatible with every other bind flags.
-		if (bind_flags != static_cast<D3D11_BIND_FLAG>(0) && bind_flags != D3D11_BIND_CONSTANT_BUFFER)
-		{
-			LogOverlayW(
-			    LOG_WARNING,
-			    L"Cannot add bind flag 'constant_buffer' to resource because it has incompatible bind flags '%ls'\n - "
-			    L"[%ls]",
-			    name.c_str(),
-			    lookup_enum_bit_names(CustomResourceBindFlagNames, (CustomResourceBindFlags)bind_flags).c_str());
-			return false;
-		}
-		bind_flags = D3D11_BIND_CONSTANT_BUFFER;
-
-		// Structured/raw buffer flags are meaningless for CBs.
-		misc_flags = (D3D11_RESOURCE_MISC_FLAG)(misc_flags & ~(D3D11_RESOURCE_MISC_BUFFER_STRUCTURED |
-		                                                       D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS));
-
-		return true;
-	}
-
-	// Don't add non-CB flags to an existing CB resource.
-	if (bind_flags & D3D11_BIND_CONSTANT_BUFFER)
-	{
-		LogOverlayW(
-		    LOG_WARNING,
-		    L"Cannot add bind flags '%ls' to resource '%ls' because it has incompatible bind flag 'constant_buffer'",
-		    lookup_enum_bit_names(CustomResourceBindFlagNames, (CustomResourceBindFlags)extra_bind_flags).c_str(),
-		    name.c_str());
+		LogOverlayW(LOG_WARNING, L"Cannot combine constant_buffer with other bind flags for resource '%ls'\n",
+		            name.c_str());
 		return false;
 	}
 
-	bind_flags = (D3D11_BIND_FLAG)(bind_flags | extra_bind_flags);
-
+	// A zero-flag destination is a compatible reference, including when the
+	// source is already a constant buffer. Rejected combinations change neither set.
+	bind_flags = combined_flags;
+	misc_flags = static_cast<D3D11_RESOURCE_MISC_FLAG>(misc_flags | extra_misc_flags);
+	if (bind_flags & D3D11_BIND_CONSTANT_BUFFER)
+		misc_flags = static_cast<D3D11_RESOURCE_MISC_FLAG>(
+		    misc_flags & ~(D3D11_RESOURCE_MISC_BUFFER_STRUCTURED | D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS));
 	return true;
 }
 
@@ -5993,6 +6016,7 @@ void CustomResource::Substantiate(ID3D11Device *mOrigDevice1, D3D11_BIND_FLAG bi
 	// won't overwrite it:
 	if (resource || view)
 		return;
+	PrepareMetadataInitialData();
 
 	Profiling::resources_created++;
 
@@ -6042,6 +6066,7 @@ void CustomResource::Substantiate(ID3D11Device *mOrigDevice1, D3D11_BIND_FLAG bi
 	}
 
 	UnlockResourceCreationMode();
+	CaptureMetadataCreationInfo();
 }
 
 void CustomResource::LoadBufferFromFile(ID3D11Device *mOrigDevice1)
@@ -6483,6 +6508,110 @@ void CustomResource::CopyMetadataFrom(const CustomResource &src)
 	initial_data_size = src.initial_data_size;
 }
 
+std::unique_ptr<CustomResource> CustomResource::CloneForMetadata(bool include_runtime) const
+{
+	auto result = std::make_unique<CustomResource>();
+	result->CopyMetadataFrom(*this);
+	result->metadata_preview = true;
+	result->name = name;
+	result->pool = pool;
+	result->pool_index = pool_index;
+	if (!include_runtime)
+		return result;
+	result->metadata_original_resource = resource;
+	result->metadata_original_view = view;
+	result->metadata_original_device = device;
+	result->metadata_original_substantiated = substantiated;
+	result->resource = resource;
+	if (resource)
+		resource->AddRef();
+	result->view = view;
+	if (view)
+		view->AddRef();
+	result->device = device;
+	result->is_null = is_null;
+	result->substantiated = substantiated;
+	result->stride = stride;
+	result->offset = offset;
+	result->buf_size = buf_size;
+	result->format = format;
+	result->source_stride = source_stride;
+	if (handle_info)
+	{
+		result->handle_info = std::make_unique<ResourceHandleInfo>();
+		auto &cached = *result->handle_info;
+		cached.type = handle_info->type;
+		cached.hash = handle_info->hash;
+		cached.orig_hash = handle_info->orig_hash;
+		cached.data_hash = handle_info->data_hash;
+		cached.cached_data = handle_info->cached_data;
+		cached.cached_data_offset = handle_info->cached_data_offset;
+		cached.cached_data_size = handle_info->cached_data_size;
+		if (cached.type == D3D11_RESOURCE_DIMENSION_TEXTURE2D)
+			cached.desc2D = handle_info->desc2D;
+		else if (cached.type == D3D11_RESOURCE_DIMENSION_TEXTURE3D)
+			cached.desc3D = handle_info->desc3D;
+	}
+	return result;
+}
+
+void CustomResource::PrepareMetadataInitialData()
+{
+	if (!metadata_preview || owns_preview_initial_data)
+		return;
+	const void *borrowed = initial_data;
+	initial_data = nullptr;
+	owns_preview_initial_data = true;
+	if (borrowed && initial_data_size)
+	{
+		initial_data = malloc(initial_data_size);
+		if (!initial_data)
+			throw std::bad_alloc();
+		memcpy(initial_data, borrowed, initial_data_size);
+	}
+}
+
+void CustomResource::CaptureMetadataCreationInfo()
+{
+	if (metadata_preview)
+		metadata_creation_info = MetadataCreationInfo{stride, offset, buf_size, format, is_null};
+}
+
+void CustomResource::AdoptMetadataResource(CustomResource &preview)
+{
+	if (preview.metadata_adopted || !preview.substantiated || resource != preview.metadata_original_resource ||
+	    view != preview.metadata_original_view || device != preview.metadata_original_device ||
+	    substantiated != preview.metadata_original_substantiated)
+		return;
+	preview.metadata_adopted = true;
+	// Existing GPU objects and their live caches stay in place. Only
+	// provisionally created or replaced runtime state needs transferring.
+	if ((resource || view) && resource == preview.resource && view == preview.view)
+		return;
+	const MetadataCreationInfo created = preview.metadata_creation_info.value_or(
+	    MetadataCreationInfo{preview.stride, preview.offset, preview.buf_size, preview.format, preview.is_null});
+	if (resource)
+		resource->Release();
+	if (view)
+		view->Release();
+	resource = preview.resource;
+	preview.resource = nullptr;
+	view = preview.view;
+	preview.view = nullptr;
+	if (preview.handle_info && !GetHandleInfo())
+		handle_info = std::move(preview.handle_info);
+	device = preview.device;
+	is_null = created.is_null;
+	substantiated = preview.substantiated;
+	bind_flags = preview.bind_flags;
+	misc_flags = preview.misc_flags;
+	stride = created.stride;
+	offset = created.offset;
+	buf_size = created.buf_size;
+	format = created.format;
+	source_stride = preview.source_stride;
+}
+
 // Returns 1 for definite dsv formats
 // Returns 2 for typeless variants of dsv formats (have a stencil buffer)
 // Returns -1 for possible typecast depth formats, but with no stencil buffer they may not be
@@ -6866,6 +6995,7 @@ void CustomResource::expire(ID3D11Device *mOrigDevice1, ID3D11DeviceContext *mOr
 		// re-substantiation (if possible for this resource):
 		is_null = true;
 	}
+	CaptureMetadataCreationInfo();
 }
 
 #pragma endregion CustomResource
@@ -7099,6 +7229,63 @@ size_t CustomResourcePool::GetElementIndex(float id, bool use_ring_index, bool i
 	}
 }
 
+std::unique_ptr<CustomResourcePool> CustomResourcePool::CreateMetadataPreview() const
+{
+	if (source_pool)
+		return source_pool->CreateMetadataPreview();
+	auto result = std::make_unique<CustomResourcePool>();
+	result->name = name;
+	result->index_type = index_type;
+	result->lazy_initialization = lazy_initialization;
+	result->element_type_switch_reset = element_type_switch_reset;
+	result->allocate_slot_on_missing = allocate_slot_on_missing;
+	result->expiration_timeout_frames = expiration_timeout_frames;
+	result->reset_expired_elements = reset_expired_elements;
+	result->read_refreshes_expiration = read_refreshes_expiration;
+	result->spatial_radius = spatial_radius;
+	result->pool_size = pool_size;
+	result->index_table = index_table;
+	if (index_map)
+		result->index_map = std::make_unique<FlatHashMap<uint32_t, size_t>>(*index_map);
+	result->last_replacement_index = last_replacement_index;
+	result->last_expiration_run = last_expiration_run;
+	result->metadata_preview = true;
+	if (resource_template)
+	{
+		auto resource = resource_template->CloneForMetadata();
+		resource->pool = result.get();
+		result->resource_template = resource.get();
+		result->preview_resources.push_back(std::move(resource));
+	}
+	if (variable_template)
+		result->variable_template = std::make_unique<CommandListVariable>(*variable_template);
+	result->elements = elements;
+	for (PoolElement &element : result->elements)
+	{
+		if (element.resource)
+		{
+			auto resource = element.resource->CloneForMetadata();
+			resource->pool = result.get();
+			element.resource = resource.get();
+			result->preview_resources.push_back(std::move(resource));
+		}
+		if (element.variable)
+		{
+			auto variable = std::make_unique<CommandListVariable>(*element.variable);
+			element.variable = variable.get();
+			result->preview_variables.push_back(std::move(variable));
+		}
+	}
+	return result;
+}
+
+CustomResource *CustomResourcePool::MetadataResource(int index) const
+{
+	if (index < 0)
+		return resource_template;
+	return static_cast<size_t>(index) < elements.size() ? elements[index].resource : nullptr;
+}
+
 CustomResource *CustomResourcePool::GetResource(float id, bool template_lookup, bool use_ring_index, bool is_assignment)
 {
 	if (source_pool)
@@ -7123,6 +7310,33 @@ CustomResource *CustomResourcePool::GetResource(float id, bool template_lookup, 
 		InitializeResource(pool_index);
 
 	return element.resource;
+}
+
+void CustomResourcePool::RestoreResourceAssignment(float id, CustomResource *resource)
+{
+	// A copy pins its physical destination before reading its source. Those
+	// reads can rekey the same pool; commit the evaluated destination key to
+	// the pinned slot without evaluating the expression or choosing a new slot.
+	if (!resource || resource->pool != this || resource->pool_index < 0)
+		return;
+	const size_t slot = static_cast<size_t>(resource->pool_index);
+	if (slot >= pool_size || elements[slot].resource != resource)
+		return;
+
+	const uint32_t key = BitCastToUint(id);
+	if ((index_type & PoolIndexType::INDEX_TABLE_MASK) && index_table[slot].key != key)
+	{
+		size_t displaced;
+		if (index_map->find(key, displaced) && displaced != slot)
+			index_table[displaced].key = UINT32_MAX;
+		AssignSlot(slot, key, true);
+		// Restoring an existing slot does not allocate another FIFO slot.
+	}
+	else if (expiration_timeout_frames != UINT32_MAX)
+		PostponeExpiration(index_table[slot], true);
+
+	SwitchElementType(elements[slot],
+	                  element_type_switch_reset ? PoolElement::Type::Resource : PoolElement::Type::Mixed);
 }
 
 CommandListVariable *CustomResourcePool::GetVariable(float id, bool template_lookup, bool use_ring_index,
@@ -7156,10 +7370,12 @@ unsigned CustomResourcePool::GetLastUpdateFrame(float id, bool use_ring_index)
 {
 	if (source_pool)
 		return source_pool->GetLastUpdateFrame(id, use_ring_index);
+	if (!pool_size)
+		return 0;
 
 	size_t pool_index = GetElementIndex(id, use_ring_index, false);
 
-	if (pool_index == SIZE_MAX)
+	if (pool_index >= index_table.size())
 		return 0;
 
 	PoolSlot &slot = index_table[pool_index];
@@ -7282,14 +7498,22 @@ void CustomResourcePool::InitializeResource(size_t pool_index)
 	{
 		wstring resource_id = wstring(name) + L"_" + std::to_wstring(pool_index);
 
-		element.resource = &customResources[resource_id];
+		if (metadata_preview)
+		{
+			auto resource = resource_template->CloneForMetadata(false);
+			element.resource = resource.get();
+			preview_resources.push_back(std::move(resource));
+		}
+		else
+			element.resource = &customResources[resource_id];
 
 		element.resource->name = resource_id;
 		element.resource->pool = this;
 		element.resource->pool_index = static_cast<int>(pool_index);
 	}
 
-	element.resource->CopyMetadataFrom(*resource_template);
+	if (!metadata_preview)
+		element.resource->CopyMetadataFrom(*resource_template);
 }
 
 void CustomResourcePool::InitializeVariable(size_t pool_index)
@@ -7299,7 +7523,15 @@ void CustomResourcePool::InitializeVariable(size_t pool_index)
 	if (!element.variable)
 	{
 		wstring variable_id = L"$" + name + L"[" + std::to_wstring(pool_index) + L"]";
-		element.variable = RegisterGlobalVariable(variable_id, &variable_template->fval, variable_template->flags);
+		if (metadata_preview)
+		{
+			auto variable =
+			    std::make_unique<CommandListVariable>(variable_id, variable_template->fval, variable_template->flags);
+			element.variable = variable.get();
+			preview_variables.push_back(std::move(variable));
+		}
+		else
+			element.variable = RegisterGlobalVariable(variable_id, &variable_template->fval, variable_template->flags);
 	}
 	else
 	{
@@ -8070,6 +8302,44 @@ bool ResourceCopyTarget::ParseTarget(const wchar_t *target, bool is_source, cons
 
 #pragma endregion ParseResourceCopyTarget
 
+// Reference edges are valid only during the current configuration load.
+static std::vector<std::pair<CustomResource *, CustomResource *>> deferred_bind_flags;
+
+static void DeferBindFlagsPropagation(CustomResource *src, CustomResource *dst)
+{
+	if (src && dst && src != dst)
+		deferred_bind_flags.emplace_back(src, dst);
+}
+
+void ClearDeferredBindFlags()
+{
+	deferred_bind_flags.clear();
+}
+
+void PropagateDeferredBindFlags()
+{
+	bool changed;
+	do
+	{
+		changed = false;
+		for (const auto &edge : deferred_bind_flags)
+		{
+			CustomResource *src = edge.first;
+			CustomResource *dst = edge.second;
+			if (!(dst->bind_flags & ~src->bind_flags) && !(dst->misc_flags & ~src->misc_flags))
+				continue;
+
+			const D3D11_BIND_FLAG old_bind_flags = src->bind_flags;
+			const D3D11_RESOURCE_MISC_FLAG old_misc_flags = src->misc_flags;
+			// Rejected combinations must leave both sets unchanged to keep
+			// propagation monotonic, including cycles involving constant buffers.
+			src->AddFlags(dst->bind_flags, dst->misc_flags, true);
+			changed |= src->bind_flags != old_bind_flags || src->misc_flags != old_misc_flags;
+		}
+	} while (changed);
+	deferred_bind_flags.clear();
+}
+
 #pragma region PoolCopyOperation
 
 static CommandListCommand *parse_pool_copy_operation(const wchar_t *section, ResourceCopyTarget &dst,
@@ -8097,6 +8367,8 @@ static CommandListCommand *parse_pool_copy_operation(const wchar_t *section, Res
 		}
 		src.custom_resource_pool->PropagateFlags(dst.custom_resource_pool->resource_template->bind_flags,
 		                                         dst.custom_resource_pool->resource_template->misc_flags);
+		DeferBindFlagsPropagation(src.custom_resource_pool->resource_template,
+		                          dst.custom_resource_pool->resource_template);
 		break;
 
 	case ResourceCopyTargetType::EMPTY:
@@ -8220,17 +8492,9 @@ static CommandListCommand *parse_resource_copy_operation(const wchar_t *section,
 			options |= ResourceCopyOptions::COPY;
 	}
 
-	// Known limitation: If custom resources are copied to other custom resources by
-	// reference that are in turn bound to the pipeline we may not
-	// propagate all the bind flags correctly depending on the order
-	// everything is parsed. We'd need to construct a dependency graph
-	// to fix this, but it's not clear that this combination would really
-	// be used in practice, so for now this will do. Update: We now
-	// or in the bind flags in use when the custom resource is first
-	// Substantiate()ed, which will cover most of these missing cases - the
-	// remaining exceptions would be where differing bind flags are used at
-	// different times and we still can't deduce it here
-	// Known limitation: The constant buffer bind flag can't be combined with others
+	// Resolve statically known reference chains after parsing; runtime-only
+	// destinations still add their usage during Substantiate(). Constant-buffer
+	// usage remains incompatible with other bind flags and requires an explicit copy.
 	if (src.type == ResourceCopyTargetType::CUSTOM_RESOURCE && (options & ResourceCopyOptions::REFERENCE))
 	{
 		CustomResource *src_custom_resource = src.GetCustomResource(nullptr, true);
@@ -8244,6 +8508,8 @@ static CommandListCommand *parse_resource_copy_operation(const wchar_t *section,
 			            section, ini_namespace->c_str());
 			return nullptr;
 		}
+		if (dst.type == ResourceCopyTargetType::CUSTOM_RESOURCE || dst.type == ResourceCopyTargetType::POOL)
+			DeferBindFlagsPropagation(src_custom_resource, dst.GetCustomResource(nullptr));
 	}
 
 	auto *operation = new ResourceCopyOperation();
@@ -8507,6 +8773,12 @@ bool ParseCommandListResourceCopyTargetDirective(const wchar_t *section, const w
 
 	if (dst.type == ResourceCopyTargetType::VARIABLE)
 	{
+		if (ini_namespace && !G->user_config.empty() && *ini_namespace == G->user_config && dst.custom_resource_pool &&
+		    !(dst.custom_resource_pool->variable_template->flags & VariableFlags::PERSIST))
+		{
+			G->user_config_dirty |= 2;
+			return true;
+		}
 		// Pool Variable - Copy Exression Result To Pool Variable
 		// $PoolFoo[0] = $PoolBar[0] + $var + 1
 		operation = parse_pool_variable_operation(section, dst, val, command_list, ini_namespace);
@@ -8527,7 +8799,7 @@ bool ParseCommandListResourceCopyTargetDirective(const wchar_t *section, const w
 
 		if (dst.type == ResourceCopyTargetType::POOL)
 		{
-			if (src.type == ResourceCopyTargetType::POOL) // PoolFoo = ref PoolBar
+			if (src.type == ResourceCopyTargetType::POOL || src.type == ResourceCopyTargetType::EMPTY)
 			{
 				// Pool - Copy Pool To Pool (`ref` and `copy_desc`)
 				operation = parse_pool_copy_operation(section, dst, src, options, command_list, ini_namespace);
@@ -8857,6 +9129,100 @@ bool CommandPlaceholder::noop(bool post [[maybe_unused]], bool ignore_cto_pre [[
 
 #pragma region ResourceCopyTarget
 
+// A cold source may need destination flags before it can be created. Evaluate
+// nested pool reads against detached state using the real lookup rules. Keep
+// provisional GPU resources until the assignment's ordinary reads can adopt
+// them, so resource identities remain stable without mutating a skipped copy.
+class PoolMetadataPreview
+{
+  public:
+	explicit PoolMetadataPreview(CommandListState &state, ResourceCopyTarget *destination_target = nullptr)
+	    : state(state), previous(state.pool_metadata_preview), destination(destination_target)
+	{
+		state.pool_metadata_preview = this;
+	}
+	~PoolMetadataPreview()
+	{
+		state.pool_metadata_preview = previous;
+	}
+	CustomResource *GetDestination(ResourceCopyTarget *target) const
+	{
+		return target == destination ? resolved_destination : nullptr;
+	}
+	void ResolveDestination(ResourceCopyTarget *target, CustomResource *resource)
+	{
+		if (target == destination)
+			resolved_destination = resource;
+	}
+	void RememberDestinationIndex(ResourceCopyTarget *target, CustomResourcePool *pool, float id)
+	{
+		if (target != destination)
+			return;
+		destination_pool = pool->ResolvePool();
+		destination_id = id;
+	}
+	void RestoreDestination(ResourceCopyTarget *target)
+	{
+		if (target == destination && destination_pool)
+			destination_pool->RestoreResourceAssignment(destination_id, resolved_destination);
+	}
+	CustomResourcePool *GetPool(CustomResourcePool *pool)
+	{
+		pool = pool->ResolvePool();
+		if (!contents)
+			contents = std::make_unique<Contents>();
+		auto &preview = contents->pools[pool];
+		if (!preview)
+			preview = pool->CreateMetadataPreview();
+		return preview.get();
+	}
+	CustomResource *GetResource(CustomResource *resource)
+	{
+		if (!resource)
+			return nullptr;
+		CustomResourcePool *owner = resource->pool;
+		if (owner && owner->ResolvePool() == owner && owner->MetadataResource(resource->pool_index) == resource)
+			return GetPool(owner)->MetadataResource(resource->pool_index);
+		if (!contents)
+			contents = std::make_unique<Contents>();
+		auto &preview = contents->resources[resource];
+		if (!preview)
+			preview = resource->CloneForMetadata();
+		return preview.get();
+	}
+	void AdoptResource(CustomResource *resource)
+	{
+		if (!resource || !contents)
+			return;
+		CustomResource *preview = nullptr;
+		const auto pinned = contents->resources.find(resource);
+		if (pinned != contents->resources.end())
+			preview = pinned->second.get();
+		else if (resource->pool)
+		{
+			const auto found = contents->pools.find(resource->pool);
+			if (found != contents->pools.end())
+				preview = found->second->MetadataResource(resource->pool_index);
+		}
+		if (preview)
+			resource->AdoptMetadataResource(*preview);
+	}
+
+  private:
+	CommandListState &state;
+	PoolMetadataPreview *previous;
+	ResourceCopyTarget *destination;
+	CustomResource *resolved_destination = nullptr;
+	CustomResourcePool *destination_pool = nullptr;
+	float destination_id = 0.0f;
+	struct Contents
+	{
+		std::unordered_map<CustomResourcePool *, std::unique_ptr<CustomResourcePool>> pools;
+		std::unordered_map<CustomResource *, std::unique_ptr<CustomResource>> resources;
+	};
+	std::unique_ptr<Contents> contents;
+};
+
 void ResourceCopyTarget::SetCustomResource(CustomResource *resource)
 {
 	static_custom_resource = resource;
@@ -8891,10 +9257,37 @@ CustomResource *ResourceCopyTarget::GetCustomResource(CommandListState *state, b
 {
 	if (!static_custom_resource && !custom_resource_pool)
 		return nullptr;
+	if (pool_dynamic_index_expression && state && !state->pool_metadata_query && state->pool_metadata_preview)
+	{
+		if (CustomResource *resolved = state->pool_metadata_preview->GetDestination(this))
+		{
+			if (is_assignment)
+				state->pool_metadata_preview->RestoreDestination(this);
+			return resolved;
+		}
+	}
+	if (static_custom_resource && state && state->pool_metadata_query)
+		return state->pool_metadata_preview->GetResource(static_custom_resource);
 
-	return GetPoolObject(static_custom_resource, state, is_assignment,
-	                     [this](float id, bool template_lookup, bool assign)
-	                     { return custom_resource_pool->GetResource(id, template_lookup, false, assign); });
+	CustomResource *resource =
+	    GetPoolObject(static_custom_resource, state, is_assignment,
+		              [this, state](float id, bool template_lookup, bool assign)
+		              {
+		                  if (state && state->pool_metadata_query)
+			                  return state->pool_metadata_preview->GetPool(custom_resource_pool)
+							      ->GetResource(id, template_lookup, false, assign);
+		                  if (state && state->pool_metadata_preview && !template_lookup)
+			                  state->pool_metadata_preview->RememberDestinationIndex(this, custom_resource_pool, id);
+		                  return custom_resource_pool->GetResource(id, template_lookup, false, assign);
+	                  });
+	if (state && !state->pool_metadata_query && state->pool_metadata_preview)
+	{
+		if (!is_assignment)
+			state->pool_metadata_preview->AdoptResource(resource);
+		if (pool_dynamic_index_expression)
+			state->pool_metadata_preview->ResolveDestination(this, resource);
+	}
+	return resource;
 }
 
 CommandListVariable *ResourceCopyTarget::GetPoolVariable(CommandListState *state, bool is_assignment)
@@ -8902,8 +9295,14 @@ CommandListVariable *ResourceCopyTarget::GetPoolVariable(CommandListState *state
 	if (!static_pool_variable && !custom_resource_pool)
 		return nullptr;
 
-	return GetPoolObject(static_pool_variable, state, is_assignment, [this](float id, bool template_lookup, bool assign)
-	                     { return custom_resource_pool->GetVariable(id, template_lookup, false, assign); });
+	return GetPoolObject(static_pool_variable, state, is_assignment,
+	                     [this, state](float id, bool template_lookup, bool assign)
+	                     {
+		                     if (state && state->pool_metadata_query)
+			                     return state->pool_metadata_preview->GetPool(custom_resource_pool)
+								     ->GetVariable(id, template_lookup, false, assign);
+		                     return custom_resource_pool->GetVariable(id, template_lookup, false, assign);
+	                     });
 }
 
 ID3D11Resource *ResourceCopyTarget::GetResource(
@@ -9124,8 +9523,12 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 
 		custom_resource->expire(mOrigDevice1, mOrigContext1);
 
-		if (dst)
+		// Existing caches ignore creation flags. First-use sources still learn
+		// them, using non-mutating pool reads while resolving destination metadata.
+		if (dst && !custom_resource->substantiated && !custom_resource->resource && !custom_resource->view)
 			bind_flags = dst->BindFlags(state, &misc_flags);
+		if (!state->pool_metadata_query && state->pool_metadata_preview)
+			state->pool_metadata_preview->AdoptResource(custom_resource);
 
 		custom_resource->Substantiate(mOrigDevice1, bind_flags, misc_flags);
 
@@ -9537,10 +9940,37 @@ D3D11_BIND_FLAG ResourceCopyTarget::BindFlags(CommandListState *state, D3D11_RES
 	case ResourceCopyTargetType::CUSTOM_RESOURCE:
 	case ResourceCopyTargetType::POOL:
 	{
-		CustomResource *custom_resource = GetCustomResource(state);
+		// Metadata queries must not allocate a lazy pool element or refresh its
+		// expiration before an unless_null copy can decide to leave it alone.
+		std::optional<PoolMetadataPreview> local_preview;
+		const CustomResource *resolved =
+		    state && state->pool_metadata_preview ? state->pool_metadata_preview->GetDestination(this) : nullptr;
+		const CustomResource *custom_resource = resolved ? resolved : GetCustomResource(nullptr);
+		if (!resolved && state && pool_dynamic_index_expression)
+		{
+			if (!state->pool_metadata_preview)
+				local_preview.emplace(*state);
+			struct MetadataScope
+			{
+				bool &flag;
+				bool previous;
+				explicit MetadataScope(bool &metadata_flag) : flag(metadata_flag), previous(metadata_flag)
+				{
+					flag = true;
+				}
+				~MetadataScope()
+				{
+					flag = previous;
+				}
+			};
+			const MetadataScope metadata(state->pool_metadata_query);
+			const float id = pool_dynamic_index_expression->evaluate(state);
+			custom_resource =
+			    state->pool_metadata_preview->GetPool(custom_resource_pool)->GetResource(id, false, false, true);
+		}
 		if (misc_flags)
-			*misc_flags = custom_resource->misc_flags;
-		return custom_resource->bind_flags;
+			*misc_flags = custom_resource ? custom_resource->misc_flags : static_cast<D3D11_RESOURCE_MISC_FLAG>(0);
+		return custom_resource ? custom_resource->bind_flags : static_cast<D3D11_BIND_FLAG>(0);
 	}
 	case ResourceCopyTargetType::THIS_RESOURCE:
 		if (state)
@@ -10056,6 +10486,8 @@ float ResourceCopyTarget::GetPoolElementLastFrame(CommandListState *state)
 	float id = member_args[0].GetValue(state);
 
 	CustomResourcePool *pool = custom_resource_pool->ResolvePool();
+	if (state && state->pool_metadata_query)
+		pool = state->pool_metadata_preview->GetPool(pool);
 
 	return (float)pool->GetLastUpdateFrame(id, false);
 }
@@ -10130,75 +10562,43 @@ static ID3D11Buffer *RecreateCompatibleBuffer(wstring *ini_line,
 		new_desc.CPUAccessFlags = 0;
 	}
 
-	if (bind_flags & D3D11_BIND_CONSTANT_BUFFER || (src && src->type == ResourceCopyTargetType::CONSTANT_BUFFER))
+	const UINT requested_size = *buf_dst_size;
+	const UINT backing_size = new_desc.ByteWidth;
+	const bool src_is_cb = src && src->type == ResourceCopyTargetType::CONSTANT_BUFFER;
+	if (src_is_cb && *buf_src_size)
 	{
-		// Constant buffers created via SetConstantBuffer1 may have region size specified (derived from NumConstants).
-		// So we'll use source CB size whenever it's available, since other data is irrelevant for current shader call.
-		if ((src && src->type == ResourceCopyTargetType::CONSTANT_BUFFER) && (*buf_src_size))
-		{
-			*buf_dst_size = *buf_src_size;      // Set DST CB size to "visible region" size
-			*buf_src_size = new_desc.ByteWidth; // Set SRC CB size to its actual size
-			new_desc.ByteWidth = *buf_dst_size; // Set DST DESC size to "visible region" size
-		}
-
-		if (bind_flags & D3D11_BIND_CONSTANT_BUFFER)
-		{
-			// Constant buffers have additional limitations. The size must
-			// be a multiple of 16, so round up if necessary, and it cannot
-			// be larger than 4096 x 4 component x 4 byte constants.
-			dst_size = (new_desc.ByteWidth + 15) & ~0xf;
-			dst_size = min(dst_size, D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT * 16);
-
-			// Constant buffers cannot be structured, so clear that flag:
-			new_desc.MiscFlags &= ~D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-			// XXX: Should we clear StructureByteStride? Seems to work ok
-			// without clearing that.
-
-			// If the size of the new resource doesn't match the old or
-			// there is an offset we will have to perform a region copy
-			// instead of a regular copy:
-			if (offset || dst_size != new_desc.ByteWidth)
-			{
-				// It might be temping to take the offset into account
-				// here and make the buffer only as large as it need to
-				// be, but it's possible that the source offset might
-				// change much more often than the source buffer (just
-				// a guess), which could potentially lead us to
-				// constantly recreating the destination buffer.
-
-				// Note down the size of the source and destination:
-				*buf_dst_size = dst_size;
-				new_desc.ByteWidth = dst_size;
-			}
-		}
+		// The bound CB window supplies the default size. An explicit Region
+		// can address the larger backing buffer, whose extent remains separate.
+		*buf_dst_size = *buf_src_size;
+		new_desc.ByteWidth = *buf_src_size;
+		*buf_src_size = backing_size;
 	}
-	else if (IsConversionToStructuredBufferRequired(src_view, stride, offset, format, bind_flags))
+	dst_size = requested_size ? min(requested_size, backing_size) : new_desc.ByteWidth;
+	if (bind_flags & D3D11_BIND_CONSTANT_BUFFER)
+	{
+		// Clamp before rounding so a large byte count cannot overflow.
+		dst_size = min(dst_size, D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT * 16);
+		dst_size = (dst_size + 15) & ~0xf;
+		// Constant buffers have neither structured elements nor an element stride.
+		new_desc.MiscFlags &= ~D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+		new_desc.StructureByteStride = 0;
+	}
+	else if (!src_is_cb && IsConversionToStructuredBufferRequired(src_view, stride, offset, format, bind_flags))
 	{
 		new_desc.MiscFlags |= D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 		new_desc.StructureByteStride = stride;
-
-		// A structured buffer needs to be a multiple of it's stride,
-		// which may not be the case if we're converting a buffer to
-		// one. Round it down:
-		dst_size = new_desc.ByteWidth / stride * stride;
-		// For now always using the region copy if there's an offset.
-		// We might not need to do that if the offset is aligned to the
-		// stride (although we would need to recreate the view every
-		// time it changed), but for now it seems safest to use the
-		// region copy method whenever there is an offset:
-		if (offset || dst_size != new_desc.ByteWidth)
-		{
-			*buf_dst_size = dst_size;
-			new_desc.ByteWidth = dst_size;
-		}
+		dst_size = dst_size / stride * stride;
 	}
-	else if (!src_view && offset)
+	else if (src_view && !requested_size && !src_is_cb)
 	{
-		// No source view but we do have an offset - use the region
-		// copy to knock out the offset. We can probably assume the
-		// original resource met all the size and alignment
-		// constraints, so we shouldn't need to resize it.
-		*buf_dst_size = new_desc.ByteWidth;
+		// A compatible view retains its offset without requiring a region copy.
+		offset = 0;
+	}
+
+	if (requested_size || offset || dst_size != new_desc.ByteWidth)
+	{
+		*buf_dst_size = dst_size;
+		new_desc.ByteWidth = dst_size;
 	}
 
 	if (dst && dst->type == ResourceCopyTargetType::CUSTOM_RESOURCE)
@@ -10565,6 +10965,14 @@ static void FillOutBufferDescCommon(DescType *desc, UINT stride, UINT offset, DX
 		if (format != (DXGI_FORMAT)-1 && format != DXGI_FORMAT_UNKNOWN)
 		{
 			stride = dxgi_format_size(format);
+		}
+		if (!stride)
+		{
+			// Unsupported typed formats have no element size. The view factory
+			// rejects this empty descriptor without a CPU division by zero.
+			desc->FirstElement = 0;
+			desc->NumElements = 0;
+			return;
 		}
 		desc->FirstElement = offset / stride;
 		desc->NumElements = (buf_src_size - offset) / stride;
@@ -10942,11 +11350,28 @@ static D3D11_UNORDERED_ACCESS_VIEW_DESC *FillOutTex3DDesc(D3D11_UNORDERED_ACCESS
 
 #pragma endregion FillOutDesc
 
-template <typename ViewType, typename DescType,
-          HRESULT (__stdcall ID3D11Device::*CreateView)(THIS_ ID3D11Resource *pResource, const DescType *pDesc,
-                                                        ViewType **ppView)>
-static ID3D11View *_CreateCompatibleView(ID3D11Resource *resource, CommandListState *state, UINT stride, UINT offset,
-                                         DXGI_FORMAT format, UINT buf_src_size, ResourceCopyOptions options)
+static bool IsPlanarVideoFormat(DXGI_FORMAT format)
+{
+	switch (format)
+	{
+	case DXGI_FORMAT_NV12:
+	case DXGI_FORMAT_P010:
+	case DXGI_FORMAT_P016:
+	case DXGI_FORMAT_420_OPAQUE:
+	case DXGI_FORMAT_NV11:
+	case DXGI_FORMAT_P208:
+	case DXGI_FORMAT_V208:
+	case DXGI_FORMAT_V408:
+		return true;
+	default:
+		return false;
+	}
+}
+
+template <typename DescType>
+static DescType *FillResourceViewDesc(ID3D11Resource *resource, DescType &view_desc, UINT stride, UINT offset,
+                                      DXGI_FORMAT format, UINT buf_src_size, ResourceCopyOptions options,
+                                      bool *planar = nullptr)
 {
 	D3D11_RESOURCE_DIMENSION dimension;
 	ID3D11Buffer *buf;
@@ -10954,10 +11379,7 @@ static ID3D11View *_CreateCompatibleView(ID3D11Resource *resource, CommandListSt
 	ID3D11Texture2D *tex2d;
 	D3D11_TEXTURE1D_DESC tex1d_desc;
 	D3D11_TEXTURE2D_DESC tex2d_desc;
-	ViewType *view = nullptr;
-	DescType view_desc{}, *pDesc = nullptr;
-	HRESULT hr;
-
+	DescType *pDesc = nullptr;
 	resource->GetType(&dimension);
 	switch (dimension)
 	{
@@ -11000,6 +11422,8 @@ static ID3D11View *_CreateCompatibleView(ID3D11Resource *resource, CommandListSt
 	case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
 		tex2d = (ID3D11Texture2D *)resource;
 		tex2d->GetDesc(&tex2d_desc);
+		if (planar)
+			*planar = IsPlanarVideoFormat(tex2d_desc.Format);
 		pDesc = FillOutTex2DDesc(&view_desc, &tex2d_desc, format);
 		break;
 	case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
@@ -11007,7 +11431,34 @@ static ID3D11View *_CreateCompatibleView(ID3D11Resource *resource, CommandListSt
 		break;
 	}
 
+	return pDesc;
+}
+
+template <typename ViewType, typename DescType,
+          HRESULT (__stdcall ID3D11Device::*CreateView)(THIS_ ID3D11Resource *pResource, const DescType *pDesc,
+                                                        ViewType **ppView)>
+static ID3D11View *_CreateCompatibleView(ID3D11Resource *resource, CommandListState *state, UINT stride, UINT offset,
+                                         DXGI_FORMAT format, UINT buf_src_size, ResourceCopyOptions options)
+{
+	ViewType *view = nullptr;
+	DescType view_desc{};
+	DescType *pDesc = FillResourceViewDesc(resource, view_desc, stride, offset, format, buf_src_size, options);
+	HRESULT hr;
+
+	const bool profile = Profiling::mode == Profiling::Mode::SUMMARY;
+	Profiling::State timing{};
+	if (profile)
+	{
+		++Profiling::resource_view_creation_overhead.count;
+		Profiling::start(&timing);
+	}
 	hr = (state->mOrigDevice1->*CreateView)(resource, pDesc, &view);
+	if (profile)
+	{
+		Profiling::end(&timing, &Profiling::resource_view_creation_overhead);
+		if (SUCCEEDED(hr))
+			++Profiling::resource_view_creation_overhead.hits;
+	}
 	if (FAILED(hr))
 	{
 		LogInfo("Resource copy CreateCompatibleView failed: %x\n", hr);
@@ -11160,16 +11611,14 @@ static void ResolveMSAA(ID3D11Resource *dst_resource, ID3D11Resource *src_resour
 static void SpecialCopyBufferRegion(ID3D11Resource *dst_resource, ID3D11Resource *src_resource, CommandListState *state,
                                     UINT src_stride, UINT *src_offset, UINT buf_src_size, UINT buf_dst_size)
 {
-	// We are copying a buffer for use in a constant buffer and the size of
-	// the original buffer did not meet the constraints of a constant
-	// buffer.
 	D3D11_BOX src_box;
-
-	// We want to copy from the offset to the end of the source buffer, but
-	// cap it to the destination size to avoid "undefined behaviour". Keep
-	// in mind that this is "right", not "size":
+	// Subtraction after the bound check avoids both unsigned underflow and
+	// overflow when converting a requested byte count to an exclusive end.
+	if (*src_offset >= buf_src_size)
+		return;
+	const UINT copy_size = min(buf_dst_size, buf_src_size - *src_offset);
 	src_box.left = *src_offset;
-	src_box.right = min(buf_src_size, *src_offset + buf_dst_size);
+	src_box.right = *src_offset + copy_size;
 
 	if (src_stride)
 	{
@@ -11286,19 +11735,14 @@ ID3D11View *ClearViewCommand::create_best_view(ID3D11Resource *resource, Command
 	return nullptr;
 }
 
-void ClearViewCommand::clear_unknown_view(ID3D11View *view, CommandListState *state)
+bool ClearViewCommand::clear_unknown_view(ID3D11View *view, CommandListState *state)
 {
 	ID3D11RenderTargetView *rtv = nullptr;
 	ID3D11DepthStencilView *dsv = nullptr;
 	ID3D11UnorderedAccessView *uav = nullptr;
 
-	// We have a view, but we don't know what kind of view it is. We could
-	// infer that from the target type, but in the future CustomResource
-	// targets will return a cached view as well (they already have a view
-	// today, but if you follow the logic closely you will realise we don't
-	// have any code paths that will decide to use it), so to try to future
-	// proof this let's use QueryInterface() to see which interfaces the
-	// view supports to tell us what kind it is:
+	// Custom resources may retain readable or writable views. Query the
+	// writable interfaces rather than inferring one from the target type.
 	view->QueryInterface(__uuidof(ID3D11RenderTargetView), (void **)&rtv);
 	view->QueryInterface(__uuidof(ID3D11DepthStencilView), (void **)&dsv);
 	view->QueryInterface(__uuidof(ID3D11UnorderedAccessView), (void **)&uav);
@@ -11344,12 +11788,14 @@ void ClearViewCommand::clear_unknown_view(ID3D11View *view, CommandListState *st
 		Profiling::views_cleared++;
 	}
 
+	const bool cleared = rtv || dsv || uav;
 	if (rtv)
 		rtv->Release();
 	if (dsv)
 		dsv->Release();
 	if (uav)
 		uav->Release();
+	return cleared;
 }
 
 void ClearViewCommand::run(CommandListState *state)
@@ -11370,13 +11816,17 @@ void ClearViewCommand::run(CommandListState *state)
 		return;
 	}
 
-	if (!view)
+	if (!view || !clear_unknown_view(view, state))
+	{
+		// A retained SRV is readable but cannot be cleared. Build a writable view.
+		if (view)
+			view->Release();
 		view = create_best_view(resource, state, stride, offset, format, buf_src_size);
-
-	if (view)
-		clear_unknown_view(view, state);
-	else
-		COMMAND_LIST_LOG(state, "  No view and unable to create view to clear resource\n");
+		if (view)
+			clear_unknown_view(view, state);
+		else
+			COMMAND_LIST_LOG(state, "  No view and unable to create view to clear resource\n");
+	}
 
 	if (resource)
 		resource->Release();
@@ -11429,6 +11879,244 @@ static ResourceCopyTargetType EquivTarget(ResourceCopyTargetType type)
 	return type;
 }
 
+static ResourceCopyTargetType EffectiveViewTarget(ResourceCopyTarget *dst, CommandListState *state)
+{
+	if (dst->type == ResourceCopyTargetType::THIS_RESOURCE && state->this_target)
+		return EquivTarget(state->this_target->type);
+	return EquivTarget(dst->type);
+}
+
+template <typename DescType> static void CanonicalizeViewDesc(DescType &desc, ID3D11Resource *resource)
+{
+	if constexpr (std::is_same_v<DescType, D3D11_SHADER_RESOURCE_VIEW_DESC>)
+	{
+		if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE1D ||
+		    desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE1DARRAY)
+		{
+			D3D11_TEXTURE1D_DESC texture{};
+			static_cast<ID3D11Texture1D *>(resource)->GetDesc(&texture);
+			if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE1D)
+				desc.Texture1D.MipLevels = texture.MipLevels;
+			else
+				desc.Texture1DArray.MipLevels = texture.MipLevels;
+		}
+		else if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE2D ||
+		         desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE2DARRAY ||
+		         desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURECUBE ||
+		         desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURECUBEARRAY)
+		{
+			D3D11_TEXTURE2D_DESC texture{};
+			static_cast<ID3D11Texture2D *>(resource)->GetDesc(&texture);
+			switch (desc.ViewDimension)
+			{
+			case D3D11_SRV_DIMENSION_TEXTURE2D:
+				desc.Texture2D.MipLevels = texture.MipLevels;
+				break;
+			case D3D11_SRV_DIMENSION_TEXTURE2DARRAY:
+				desc.Texture2DArray.MipLevels = texture.MipLevels;
+				break;
+			case D3D11_SRV_DIMENSION_TEXTURECUBE:
+				desc.TextureCube.MipLevels = texture.MipLevels;
+				break;
+			case D3D11_SRV_DIMENSION_TEXTURECUBEARRAY:
+				desc.TextureCubeArray.MipLevels = texture.MipLevels;
+				break;
+			}
+		}
+		else if (desc.ViewDimension == D3D11_SRV_DIMENSION_TEXTURE3D)
+		{
+			D3D11_TEXTURE3D_DESC texture{};
+			static_cast<ID3D11Texture3D *>(resource)->GetDesc(&texture);
+			desc.Texture3D.MipLevels = texture.MipLevels;
+		}
+	}
+}
+
+template <typename T> static bool SameBufferElements(const T &a, const T &b)
+{
+	return a.FirstElement == b.FirstElement && a.NumElements == b.NumElements;
+}
+template <typename T> static bool SameMipRange(const T &a, const T &b)
+{
+	return a.MostDetailedMip == b.MostDetailedMip && a.MipLevels == b.MipLevels;
+}
+template <typename T> static bool SameArrayRange(const T &a, const T &b)
+{
+	return a.FirstArraySlice == b.FirstArraySlice && a.ArraySize == b.ArraySize;
+}
+template <typename T> static bool SameMipArray(const T &a, const T &b)
+{
+	return a.MipSlice == b.MipSlice && SameArrayRange(a, b);
+}
+template <typename T> static bool SameVolumeSlice(const T &a, const T &b)
+{
+	return a.MipSlice == b.MipSlice && a.FirstWSlice == b.FirstWSlice && a.WSize == b.WSize;
+}
+
+static bool SameViewDesc(const D3D11_SHADER_RESOURCE_VIEW_DESC &a, const D3D11_SHADER_RESOURCE_VIEW_DESC &b)
+{
+	if (a.Format != b.Format || a.ViewDimension != b.ViewDimension)
+		return false;
+	switch (a.ViewDimension)
+	{
+	case D3D11_SRV_DIMENSION_BUFFER:
+		return SameBufferElements(a.Buffer, b.Buffer);
+	case D3D11_SRV_DIMENSION_BUFFEREX:
+		return SameBufferElements(a.BufferEx, b.BufferEx) && a.BufferEx.Flags == b.BufferEx.Flags;
+	case D3D11_SRV_DIMENSION_TEXTURE1D:
+		return SameMipRange(a.Texture1D, b.Texture1D);
+	case D3D11_SRV_DIMENSION_TEXTURE1DARRAY:
+		return SameMipRange(a.Texture1DArray, b.Texture1DArray) && SameArrayRange(a.Texture1DArray, b.Texture1DArray);
+	case D3D11_SRV_DIMENSION_TEXTURE2D:
+		return SameMipRange(a.Texture2D, b.Texture2D);
+	case D3D11_SRV_DIMENSION_TEXTURE2DARRAY:
+		return SameMipRange(a.Texture2DArray, b.Texture2DArray) && SameArrayRange(a.Texture2DArray, b.Texture2DArray);
+	case D3D11_SRV_DIMENSION_TEXTURE2DMS:
+		return true;
+	case D3D11_SRV_DIMENSION_TEXTURE2DMSARRAY:
+		return SameArrayRange(a.Texture2DMSArray, b.Texture2DMSArray);
+	case D3D11_SRV_DIMENSION_TEXTURE3D:
+		return SameMipRange(a.Texture3D, b.Texture3D);
+	case D3D11_SRV_DIMENSION_TEXTURECUBE:
+		return SameMipRange(a.TextureCube, b.TextureCube);
+	case D3D11_SRV_DIMENSION_TEXTURECUBEARRAY:
+		return SameMipRange(a.TextureCubeArray, b.TextureCubeArray) &&
+		       a.TextureCubeArray.First2DArrayFace == b.TextureCubeArray.First2DArrayFace &&
+		       a.TextureCubeArray.NumCubes == b.TextureCubeArray.NumCubes;
+	default:
+		return false;
+	}
+}
+
+static bool SameViewDesc(const D3D11_RENDER_TARGET_VIEW_DESC &a, const D3D11_RENDER_TARGET_VIEW_DESC &b)
+{
+	if (a.Format != b.Format || a.ViewDimension != b.ViewDimension)
+		return false;
+	switch (a.ViewDimension)
+	{
+	case D3D11_RTV_DIMENSION_BUFFER:
+		return SameBufferElements(a.Buffer, b.Buffer);
+	case D3D11_RTV_DIMENSION_TEXTURE1D:
+		return a.Texture1D.MipSlice == b.Texture1D.MipSlice;
+	case D3D11_RTV_DIMENSION_TEXTURE1DARRAY:
+		return SameMipArray(a.Texture1DArray, b.Texture1DArray);
+	case D3D11_RTV_DIMENSION_TEXTURE2D:
+		return a.Texture2D.MipSlice == b.Texture2D.MipSlice;
+	case D3D11_RTV_DIMENSION_TEXTURE2DARRAY:
+		return SameMipArray(a.Texture2DArray, b.Texture2DArray);
+	case D3D11_RTV_DIMENSION_TEXTURE2DMS:
+		return true;
+	case D3D11_RTV_DIMENSION_TEXTURE2DMSARRAY:
+		return SameArrayRange(a.Texture2DMSArray, b.Texture2DMSArray);
+	case D3D11_RTV_DIMENSION_TEXTURE3D:
+		return SameVolumeSlice(a.Texture3D, b.Texture3D);
+	default:
+		return false;
+	}
+}
+
+static bool SameViewDesc(const D3D11_DEPTH_STENCIL_VIEW_DESC &a, const D3D11_DEPTH_STENCIL_VIEW_DESC &b)
+{
+	if (a.Format != b.Format || a.ViewDimension != b.ViewDimension || a.Flags != b.Flags)
+		return false;
+	switch (a.ViewDimension)
+	{
+	case D3D11_DSV_DIMENSION_TEXTURE1D:
+		return a.Texture1D.MipSlice == b.Texture1D.MipSlice;
+	case D3D11_DSV_DIMENSION_TEXTURE1DARRAY:
+		return SameMipArray(a.Texture1DArray, b.Texture1DArray);
+	case D3D11_DSV_DIMENSION_TEXTURE2D:
+		return a.Texture2D.MipSlice == b.Texture2D.MipSlice;
+	case D3D11_DSV_DIMENSION_TEXTURE2DARRAY:
+		return SameMipArray(a.Texture2DArray, b.Texture2DArray);
+	case D3D11_DSV_DIMENSION_TEXTURE2DMS:
+		return true;
+	case D3D11_DSV_DIMENSION_TEXTURE2DMSARRAY:
+		return SameArrayRange(a.Texture2DMSArray, b.Texture2DMSArray);
+	default:
+		return false;
+	}
+}
+
+static bool SameViewDesc(const D3D11_UNORDERED_ACCESS_VIEW_DESC &a, const D3D11_UNORDERED_ACCESS_VIEW_DESC &b)
+{
+	if (a.Format != b.Format || a.ViewDimension != b.ViewDimension)
+		return false;
+	switch (a.ViewDimension)
+	{
+	case D3D11_UAV_DIMENSION_BUFFER:
+		return SameBufferElements(a.Buffer, b.Buffer) && a.Buffer.Flags == b.Buffer.Flags;
+	case D3D11_UAV_DIMENSION_TEXTURE1D:
+		return a.Texture1D.MipSlice == b.Texture1D.MipSlice;
+	case D3D11_UAV_DIMENSION_TEXTURE1DARRAY:
+		return SameMipArray(a.Texture1DArray, b.Texture1DArray);
+	case D3D11_UAV_DIMENSION_TEXTURE2D:
+		return a.Texture2D.MipSlice == b.Texture2D.MipSlice;
+	case D3D11_UAV_DIMENSION_TEXTURE2DARRAY:
+		return SameMipArray(a.Texture2DArray, b.Texture2DArray);
+	case D3D11_UAV_DIMENSION_TEXTURE3D:
+		return SameVolumeSlice(a.Texture3D, b.Texture3D);
+	default:
+		return false;
+	}
+}
+
+template <typename ViewType, typename DescType>
+static Microsoft::WRL::ComPtr<ID3D11View> CompatibleSourceView(ID3D11View *source_view, ID3D11Resource *resource,
+                                                               UINT stride, UINT offset, DXGI_FORMAT format,
+                                                               UINT extent, ResourceCopyOptions options)
+{
+	Microsoft::WRL::ComPtr<ViewType> typed;
+	if (FAILED(source_view->QueryInterface(IID_PPV_ARGS(&typed))))
+		return {};
+	DescType expected{}, actual{};
+	bool planar = false;
+	if (!FillResourceViewDesc(resource, expected, stride, offset, format, extent, options, &planar) || planar)
+		return {};
+	CanonicalizeViewDesc(expected, resource);
+	typed->GetDesc(&actual);
+	// Compare only fields belonging to the active view dimension.
+	if (!SameViewDesc(actual, expected))
+		return {};
+	return typed;
+}
+
+static Microsoft::WRL::ComPtr<ID3D11View> CompatibleSourceView(ResourceCopyTargetType type, ID3D11View *view,
+                                                               ID3D11Resource *resource, UINT stride, UINT offset,
+                                                               DXGI_FORMAT format, UINT extent,
+                                                               ResourceCopyOptions options)
+{
+	if (!view || !ViewMatchesResource(view, resource))
+		return {};
+	switch (type)
+	{
+	case ResourceCopyTargetType::SHADER_RESOURCE:
+		return CompatibleSourceView<ID3D11ShaderResourceView, D3D11_SHADER_RESOURCE_VIEW_DESC>(
+		    view, resource, stride, offset, format, extent, options);
+	case ResourceCopyTargetType::RENDER_TARGET:
+		return CompatibleSourceView<ID3D11RenderTargetView, D3D11_RENDER_TARGET_VIEW_DESC>(
+		    view, resource, stride, offset, format, extent, options);
+	case ResourceCopyTargetType::DEPTH_STENCIL_TARGET:
+		return CompatibleSourceView<ID3D11DepthStencilView, D3D11_DEPTH_STENCIL_VIEW_DESC>(
+		    view, resource, stride, offset, format, extent, options);
+	case ResourceCopyTargetType::UNORDERED_ACCESS_VIEW:
+		return CompatibleSourceView<ID3D11UnorderedAccessView, D3D11_UNORDERED_ACCESS_VIEW_DESC>(
+		    view, resource, stride, offset, format, extent, options);
+	case ResourceCopyTargetType::CUSTOM_RESOURCE:
+		for (const auto kind :
+		     {ResourceCopyTargetType::SHADER_RESOURCE, ResourceCopyTargetType::RENDER_TARGET,
+		      ResourceCopyTargetType::DEPTH_STENCIL_TARGET, ResourceCopyTargetType::UNORDERED_ACCESS_VIEW})
+		{
+			auto compatible = CompatibleSourceView(kind, view, resource, stride, offset, format, extent, options);
+			if (compatible)
+				return compatible;
+		}
+		return {};
+	default:
+		return {};
+	}
+}
+
 void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D11Resource *src_resource,
                                                    ID3D11View *src_view, UINT stride, UINT offset, DXGI_FORMAT format,
                                                    UINT buf_src_size)
@@ -11446,6 +12134,37 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 			dst.SetResource(state, nullptr, nullptr, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
 		}
 		return;
+	}
+	std::optional<PoolMetadataPreview> local_preview;
+	if (!state->pool_metadata_preview)
+		local_preview.emplace(*state, &dst);
+
+	UINT region_offset = 0, region_size = 0, region_extent = 0;
+	if (src.evaluation_mode == ResourceCopyTargetEvaluationMode::RESOURCE_REGION)
+	{
+		const double requested_offset = src.member_args[0].GetValue(state);
+		const double requested_size = src.member_args[1].GetValue(state);
+		if (!std::isfinite(requested_offset) || !std::isfinite(requested_size) || requested_offset < 0 ||
+		    requested_offset > UINT_MAX || requested_size < 1 || requested_size > UINT_MAX)
+			return;
+		D3D11_RESOURCE_DIMENSION dimension = D3D11_RESOURCE_DIMENSION_UNKNOWN;
+		src_resource->GetType(&dimension);
+		if (dimension != D3D11_RESOURCE_DIMENSION_BUFFER)
+			return;
+		D3D11_BUFFER_DESC desc{};
+		static_cast<ID3D11Buffer *>(src_resource)->GetDesc(&desc);
+		region_offset = static_cast<UINT>(requested_offset);
+		region_size = static_cast<UINT>(requested_size);
+		region_extent = desc.ByteWidth;
+		if (static_cast<UINT64>(region_offset) + region_size > region_extent)
+			return;
+		if (dst.type == ResourceCopyTargetType::CONSTANT_BUFFER && (options & ResourceCopyOptions::REFERENCE) &&
+		    (region_offset % 256 || region_size % 256 || region_size > D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT * 16))
+			return;
+		if ((desc.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED) &&
+		    (!desc.StructureByteStride || region_offset % desc.StructureByteStride ||
+		     region_size % desc.StructureByteStride))
+			return;
 	}
 
 	CustomResource *dst_custom_resource = nullptr;
@@ -11498,14 +12217,29 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 		}
 	}
 
-	FillInMissingInfo(src.type, src_resource, src_view, &stride, &offset, &buf_src_size, &format);
+	FillInMissingInfo(src.type, src_resource, src_view, &stride, &offset, &buf_src_size, &format, region_size);
 
 	ID3D11Resource *dst_resource = nullptr;
 	ID3D11View *dst_view = nullptr;
-	UINT buf_dst_size = 0;
+	Microsoft::WRL::ComPtr<ID3D11View> reused_source_view;
+	bool validated_view = false;
+	UINT buf_dst_size = region_size;
+	if (region_size)
+	{
+		offset = region_offset;
+		buf_src_size = region_extent;
+	}
+
+	const ViewCacheParameters requested_view{stride,
+	                                         offset,
+	                                         region_size ? region_offset + region_size : buf_src_size,
+	                                         format,
+	                                         EffectiveViewTarget(&dst, state),
+	                                         !!(options & ResourceCopyOptions::RAW_VIEW)};
 
 	if (options & ResourceCopyOptions::COPY_MASK)
 	{
+		cached_view_parameters.reset();
 		RecreateCompatibleResource(&ini_line, &src, &dst, src_resource, pp_cached_resource, p_resource_pool, src_view,
 		                           pp_cached_view, state, options, stride, offset, format, &buf_src_size,
 		                           &buf_dst_size);
@@ -11554,23 +12288,48 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 	{
 		COMMAND_LIST_LOG(state, "  copying by reference\n");
 		Profiling::resource_reference_copies++;
-		if (src.evaluation_mode == ResourceCopyTargetEvaluationMode::RESOURCE_REGION)
-		{
-			offset = (UINT)src.member_args[0].GetValue(state);
-			buf_dst_size = (UINT)src.member_args[1].GetValue(state);
-		}
 		if (G->track_region_hashes && dst_custom_resource)
-			dst_custom_resource->SetHandleInfo(src_resource, offset, buf_src_size);
+			dst_custom_resource->SetHandleInfo(src_resource, offset, buf_dst_size ? buf_dst_size : buf_src_size);
 		dst_resource = src_resource;
-		if (src_view && (EquivTarget(src.type) == EquivTarget(dst.type)))
+		// A region can change while the backing resource stays the same. Neither
+		// its full source view nor a previous region's cached view proves a match.
+		if ((region_size ||
+		     (dst_custom_resource && (dst_custom_resource->override_format != static_cast<DXGI_FORMAT>(-1) ||
+		                              dst_custom_resource->override_stride != -1))) &&
+		    *pp_cached_view)
+		{
+			(*pp_cached_view)->Release();
+			*pp_cached_view = nullptr;
+		}
+		if (!region_size && !(options & ResourceCopyOptions::RAW_VIEW) && src_view &&
+		    (EquivTarget(src.type) == EquivTarget(dst.type)) &&
+		    (src.type != ResourceCopyTargetType::CUSTOM_RESOURCE || ViewMatchesResource(src_view, dst_resource)) &&
+		    (!dst_custom_resource || (dst_custom_resource->override_format == static_cast<DXGI_FORMAT>(-1) &&
+		                              dst_custom_resource->override_stride == -1)))
 		{
 			dst_view = src_view;
+			if (Profiling::mode == Profiling::Mode::SUMMARY)
+				++Profiling::source_views_reused;
 		}
 		else if (*pp_cached_view)
 		{
-			if (ViewMatchesResource(*pp_cached_view, dst_resource))
+			if (dst_custom_resource)
 			{
+				// Custom resources share their view across commands. Validate the
+				// current descriptor rather than trusting an operation-local key.
+				reused_source_view =
+				    CompatibleSourceView(EffectiveViewTarget(&dst, state), *pp_cached_view, dst_resource, stride,
+					                     offset, format, requested_view.extent, options);
+				dst_view = reused_source_view.Get();
+			}
+			else if (cached_view_parameters && *cached_view_parameters == requested_view &&
+			         ViewMatchesResource(*pp_cached_view, dst_resource))
 				dst_view = *pp_cached_view;
+			if (dst_view)
+			{
+				validated_view = true;
+				if (Profiling::mode == Profiling::Mode::SUMMARY)
+					++Profiling::cached_views_reused;
 			}
 			else
 			{
@@ -11579,19 +12338,40 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 				*pp_cached_view = nullptr;
 			}
 		}
-		// Future work: If we are referencing to/from a custom resource we
-		// currently don't reference the view, but we could so long as
-		// the bind flags from the original source are compatible with
-		// the bind flags in the final destination. If we implement
-		// this, go read the note in CustomResource::Substantiate()
+		if (!dst_view && !region_size &&
+		    (!dst_custom_resource || (dst_custom_resource->override_format == static_cast<DXGI_FORMAT>(-1) &&
+		                              dst_custom_resource->override_stride == -1)))
+		{
+			reused_source_view = CompatibleSourceView(EffectiveViewTarget(&dst, state), src_view, dst_resource, stride,
+			                                          offset, format, buf_src_size, options);
+			if (reused_source_view)
+			{
+				dst_view = reused_source_view.Get();
+				validated_view = true;
+				if (!dst_custom_resource)
+					*pp_cached_view = reused_source_view.Detach();
+				if (Profiling::mode == Profiling::Mode::SUMMARY)
+					++Profiling::source_views_reused;
+			}
+		}
 	}
 
 	if (!dst_view)
 	{
-		dst_view = CreateCompatibleView(&dst, dst_resource, state, stride, offset, format, buf_src_size, options);
-		// Not checking for nullptr return as view's are not applicable to
-		// all types. Legitimate failures are logged.
+		// View builders take an exclusive buffer extent; copy helpers take a
+		// byte count. A copied region starts at zero in its new buffer.
+		UINT view_extent = region_size ? region_offset + region_size : buf_src_size;
+		if ((options & ResourceCopyOptions::COPY_MASK) && buf_dst_size)
+			view_extent = buf_dst_size;
+		dst_view = CreateCompatibleView(&dst, dst_resource, state, stride, offset, format, view_extent, options);
+		const auto type = EffectiveViewTarget(&dst, state);
+		if (!dst_view &&
+		    (type == ResourceCopyTargetType::SHADER_RESOURCE || type == ResourceCopyTargetType::RENDER_TARGET ||
+		     type == ResourceCopyTargetType::DEPTH_STENCIL_TARGET ||
+		     type == ResourceCopyTargetType::UNORDERED_ACCESS_VIEW))
+			goto out_release;
 		*pp_cached_view = dst_view;
+		validated_view = dst_view != nullptr;
 	}
 
 	// SetResource supports branching to SetConstantBuffers1 when offset and buf_dst_size are specified.
@@ -11601,14 +12381,16 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 	//
 	// Here we ensure that SetConstantBuffers1 is never called for non-ref copies to CB.
 	if (dst.type == ResourceCopyTargetType::CONSTANT_BUFFER &&
-	    src.evaluation_mode != ResourceCopyTargetEvaluationMode::RESOURCE_REGION &&
-	    !(options & ResourceCopyOptions::COPY_MASK))
+	    ((options & ResourceCopyOptions::COPY_MASK) ||
+	     src.evaluation_mode != ResourceCopyTargetEvaluationMode::RESOURCE_REGION))
 	{
 		offset = 0;
 		buf_dst_size = 0;
 	}
 
 	dst.SetResource(state, dst_resource, dst_view, stride, offset, format, buf_dst_size);
+	if (!(options & ResourceCopyOptions::COPY_MASK) && !dst_custom_resource && validated_view)
+		cached_view_parameters = requested_view;
 
 	if (options & ResourceCopyOptions::SET_VIEWPORT)
 		SetViewportFromResource(state, dst_resource);
@@ -11619,6 +12401,7 @@ out_release:
 	{
 		(*pp_cached_view)->Release();
 		*pp_cached_view = nullptr;
+		cached_view_parameters.reset();
 	}
 }
 
@@ -11657,6 +12440,7 @@ void ResourceCopyOperation::run(CommandListState *state)
 		dst.SetResource(state, nullptr, nullptr, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
 		return;
 	}
+	PoolMetadataPreview metadata_preview(*state, &dst);
 
 	ID3D11Resource *src_resource = nullptr;
 	ID3D11View *src_view = nullptr;
@@ -11667,12 +12451,6 @@ void ResourceCopyOperation::run(CommandListState *state)
 
 	src_resource = src.GetResource(state, &src_view, &stride, &offset, &format, &buf_src_size,
 	                               ((options & ResourceCopyOptions::REFERENCE) ? &dst : nullptr));
-
-	if (src.evaluation_mode == ResourceCopyTargetEvaluationMode::RESOURCE_REGION)
-	{
-		offset = (UINT)src.member_args[0].GetValue(state);
-		buf_src_size = (UINT)src.member_args[1].GetValue(state);
-	}
 
 	switch (dst.type)
 	{

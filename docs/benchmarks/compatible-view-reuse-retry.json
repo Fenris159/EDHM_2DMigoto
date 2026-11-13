@@ -1,0 +1,185 @@
+{
+  "run_id": 43325158741,
+  "baseline_source": "82416bb15313d60d7d91c4a84c9e7bf96e74c6c6",
+  "candidate_source": "d593c71fa2c61c1139c5e4cb8d47532a4a59e0e5",
+  "native_metadata": {
+    "baseline_source": "82416bb15313d60d7d91c4a84c9e7bf96e74c6c6",
+    "baseline_run": "43321378220",
+    "os": "Microsoft Windows NT 10.0.20348.0",
+    "runner_image": "20261101.353.1",
+    "order": [
+      "A",
+      "B",
+      "B",
+      "A",
+      "B",
+      "A",
+      "A",
+      "B"
+    ],
+    "B": {
+      "sha256": "CE179EB228FD57FACD76E4F1DAE51134E52F7B3BD69753750E357D889961AE83"
+    },
+    "A": {
+      "sha256": "96C745A08E8E300CA3A014C7961ADFC04B177E83AD0977584345514BFBD641B6"
+    },
+    "candidate_source": "d593c71fa2c61c1139c5e4cb8d47532a4a59e0e5",
+    "logical_processors": 4,
+    "processor": "AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD"
+  },
+  "scope": "Native MSVC Release, Windows2022, same runner, four independent processes/variant,11 samples/mode/workload. Exclude sample0. View timing uses WARP without the debug layer. CPU mechanisms, no Elite frames.",
+  "comparisons": [
+    {
+      "workload": "churn",
+      "mode": 0,
+      "process_ns_per_run": {
+        "A": [
+          1450.47,
+          1425.17,
+          1442.725,
+          1429.69
+        ],
+        "B": [
+          120.19999999999999,
+          119.94,
+          118.71000000000001,
+          118.69
+        ]
+      },
+      "comparison": {
+        "baseline_process_median": 1436.2075,
+        "candidate_process_median": 119.325,
+        "change_percent": -91.69166015356416,
+        "bootstrap_95_change_percent": [
+          -91.79453856376773,
+          -91.58837911491283
+        ]
+      },
+      "create_calls_per_batch": {
+        "A": [
+          10000
+        ],
+        "B": [
+          0
+        ]
+      },
+      "bound_resource_results": [
+        "1"
+      ]
+    },
+    {
+      "workload": "churn",
+      "mode": 1,
+      "process_ns_per_run": {
+        "A": [
+          1433.6,
+          1412.1,
+          1418.53,
+          1437.5549999999998
+        ],
+        "B": [
+          119.075,
+          120.12,
+          118.38,
+          118.89500000000001
+        ]
+      },
+      "comparison": {
+        "baseline_process_median": 1426.065,
+        "candidate_process_median": 118.98500000000001,
+        "change_percent": -91.65641117340374,
+        "bootstrap_95_change_percent": [
+          -91.73590419186704,
+          -91.5368954040082
+        ]
+      },
+      "create_calls_per_batch": {
+        "A": [
+          10000
+        ],
+        "B": [
+          0
+        ]
+      },
+      "bound_resource_results": [
+        "1"
+      ]
+    },
+    {
+      "workload": "stable",
+      "mode": 0,
+      "process_ns_per_run": {
+        "A": [
+          53.055,
+          52.945,
+          51.81,
+          51.78
+        ],
+        "B": [
+          53.405,
+          53.34,
+          52.82,
+          54.35
+        ]
+      },
+      "comparison": {
+        "baseline_process_median": 52.3775,
+        "candidate_process_median": 53.3725,
+        "change_percent": 1.8996706601116964,
+        "bootstrap_95_change_percent": [
+          0.10837809819996824,
+          4.020658364707019
+        ]
+      },
+      "create_calls_per_batch": {
+        "A": [
+          1
+        ],
+        "B": [
+          0
+        ]
+      },
+      "bound_resource_results": [
+        "1"
+      ]
+    },
+    {
+      "workload": "stable",
+      "mode": 1,
+      "process_ns_per_run": {
+        "A": [
+          51.96,
+          53.535,
+          52.365,
+          54.655
+        ],
+        "B": [
+          53.66,
+          53.465,
+          54.06,
+          54.47
+        ]
+      },
+      "comparison": {
+        "baseline_process_median": 52.95,
+        "candidate_process_median": 53.86,
+        "change_percent": 1.7186024551463674,
+        "bootstrap_95_change_percent": [
+          -1.4545787210685224,
+          4.041570438799069
+        ]
+      },
+      "create_calls_per_batch": {
+        "A": [
+          1
+        ],
+        "B": [
+          0
+        ]
+      },
+      "bound_resource_results": [
+        "1"
+      ]
+    }
+  ]
+}

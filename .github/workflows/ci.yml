@@ -1,13 +1,19 @@
 # Validate tree and build d3d11.dll when the solution exists.
-# Runs when work lands on main (develop → main merge / push), not on every develop commit.
+# Runs for PRs into develop/main and pushes to main, not on every develop commit.
 name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
+    inputs:
+      zip_release:
+        description: Also validate strict Zip Release builds for x64 and Win32
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -115,3 +121,45 @@ jobs:
           path: x64/Release/d3d11.dll
           if-no-files-found: error
           retention-days: 14
+
+      - name: Build strict Zip Release configurations
+        if: inputs.zip_release && steps.sol.outputs.exists == 'true'
+        shell: pwsh
+        run: |
+          foreach ($platform in @('x64', 'Win32')) {
+            & msbuild EDHM_2DMigoto.sln -target:Rebuild `
+              '-property:Configuration=Zip Release' "-property:Platform=$platform" `
+              -property:EdhmStrictBuild=true -nodeReuse:false -verbosity:minimal -restore:false
+            if ($LASTEXITCODE -ne 0) { throw "Zip Release failed for $platform" }
+          }
+          Get-FileHash 'x64/Zip Release/d3d11.dll', 'x32/Zip Release/d3d11.dll' -Algorithm SHA256
+
+      - name: Upload Zip Release validation artifacts
+        if: inputs.zip_release && steps.sol.outputs.exists == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: d3d11-zip-release-validation-${{ github.sha }}
+          path: |
+            x64/Zip Release/d3d11.dll
+            x32/Zip Release/d3d11.dll
+          if-no-files-found: error
+          retention-days: 14
+
+  ordinary-builds:
+    name: Ordinary ${{ matrix.configuration }} (x64)
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Release, Zip Release]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+        with:
+          vs-version: '[17.0,18.0)'
+      - name: Build with the default warning policy
+        shell: pwsh
+        run: >-
+          msbuild EDHM_2DMigoto.sln -target:Rebuild
+          '-property:Configuration=${{ matrix.configuration }}' -property:Platform=x64
+          -property:EdhmStrictBuild=false -nodeReuse:false -verbosity:minimal -restore:false

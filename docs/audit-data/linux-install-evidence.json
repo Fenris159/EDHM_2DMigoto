@@ -1,0 +1,80 @@
+{
+  "audit_date": "2026-11-12",
+  "install_root": "/home/drew/.local/share/Steam/steamapps/common/Elite Dangerous/Products/elite-dangerous-odyssey-64",
+  "edhm_ini_resolved": "/home/drew/EDHM_UI/ODYSS/EDHM/EDHM-Ini",
+  "game_version": "2026.10.23.334925",
+  "steam_buildid": "26155938",
+  "installed_dll_sha256": "d1fca1312e4435634148c0e46341ac7306ac0f4e2c421d4788262631cbf214c2",
+  "installed_dll_size": 3198464,
+  "vendor_lfs_expected_sha256": "8f8dc2c40b8cfe16d4eb7aa80f5fba4b245d57847bda2004ba1667a9cd7a2a34",
+  "vendor_lfs_expected_size": 3156480,
+  "binary_provenance": "Installed DLL differs from vendor LFS object; version 0.1.3 alone cannot identify source commit",
+  "log_size_bytes": 9395916,
+  "log_start": "2026-11-10 23:27:38 (log-local time; timezone not recorded)",
+  "first_effective_settings": {
+    "Logging.enabled": "1",
+    "Logging.calls": "0",
+    "Logging.debug": "0",
+    "Logging.unbuffered": "0",
+    "Rendering.export_hlsl": "0",
+    "Rendering.dump_usage": "1",
+    "Hunting.hunting": "0"
+  },
+  "last_effective_settings": {
+    "Logging.enabled": "1",
+    "Logging.calls": "0",
+    "Logging.debug": "0",
+    "Logging.unbuffered": "0",
+    "Rendering.export_hlsl": "0",
+    "Rendering.dump_usage": "1",
+    "Hunting.hunting": "0"
+  },
+  "setting_values_seen": {
+    "Logging.enabled": [
+      "1"
+    ],
+    "Logging.calls": [
+      "0"
+    ],
+    "Logging.debug": [
+      "0"
+    ],
+    "Logging.unbuffered": [
+      "0"
+    ],
+    "Rendering.export_hlsl": [
+      "0"
+    ],
+    "Rendering.dump_usage": [
+      "1"
+    ],
+    "Hunting.hunting": [
+      "0",
+      "1"
+    ]
+  },
+  "wine_report": "Proton (Wine 11.0)",
+  "linux_safe_profile_reported": true,
+  "frame_analysis_capture_directories": 13,
+  "deduplicated_frame_analysis_directory": true,
+  "performance_summary_or_frame_time_lines_in_wrapper_log": 0,
+  "existing_frametime_capture": "None found in searched install, MangoHud config, Documents/Downloads/Desktop locations",
+  "game_process_running_when_inspected": false,
+  "mangohud_command_on_path": false,
+  "linux_perf_available": false,
+  "linux_perf_block_reason": "perf_event_paranoid=4; perf stat task-clock/cycles/instructions rejected",
+  "windows_desktop_mounts": "C and G CIFS access failed: No such device; host TCP22 timeout/TCP445 unreachable",
+  "game_install_modified_by_audit": false,
+  "validation": "Existing AdvancedHuntingTests compiled using MinGW-w64 GCC13 -std=c++17 -O2 -Wall -Wextra -Werror -static and passed under Wine10. Not MSVC or an in-game integration check.",
+  "launcher": "~/.local/bin/elite-gamescope-3.16.29 -> ~/.local/opt/elite-split-launcher/controller.py",
+  "launcher_source_settings": {
+    "output_width": 3840,
+    "output_height": 2160,
+    "render_width": 3840,
+    "render_height": 2160,
+    "refresh_argument": 120,
+    "backend": "wayland",
+    "RADV_DEBUG": "nodcc"
+  },
+  "source_settings_caveat": "These are launcher arguments observed in source, not measured FPS or proof of effective runtime graphics settings"
+}
