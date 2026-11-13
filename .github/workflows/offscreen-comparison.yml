@@ -36,7 +36,7 @@ jobs:
           gh release download 1.4.9 -R bo3b/3Dmigoto -p 3Dmigoto_v1.4.9.7z -D .quality/assets
           if ($LASTEXITCODE -ne 0) { throw 'Original download failed' }
           if ((Get-FileHash .quality/assets/3Dmigoto_v1.4.9.7z -Algorithm SHA256).Hash -ne 'D5D05E78F0F6DF7CCE8EF10C669C088DB6B8DBE1428CE783D8C3C93AC842DCE1') { throw 'Original archive hash mismatch' }
-          7z x -y .quality/assets/3Dmigoto_v1.4.9.7z -o.quality/assets/original
+          & 7z @('x', '-y', '.quality/assets/3Dmigoto_v1.4.9.7z', '-o.quality/assets/original', 'x64/d3d11.dll', 'x64/nvapi64.dll', 'x64/d3dcompiler_47.dll')
           if ($LASTEXITCODE -ne 0) { throw 'Original extraction failed' }
           gh run download 43441909497 -R Fenris159/EDHM_2DMigoto -n d3d11-release-x64-5c74823ff0d21c662e2d659d04afc6624d245509 -D .quality/assets/develop
           if ($LASTEXITCODE -ne 0) { throw 'Develop artifact download failed' }
