@@ -13,6 +13,7 @@
 | [building.md](building.md) | How to build `d3d11.dll` and package `d3dcompiler_47.dll` |
 | [linux-wine-compat.md](linux-wine-compat.md) | Standard EDHM setup for Proton and Wine |
 | [develop-vs-original-3dmigoto.md](develop-vs-original-3dmigoto.md) | Measured develop versus original 1.4.9: CPU costs, surfaces/memory, AMD/Proton execution and vendor technology limits; no FPS or live-game monitoring |
+| [ed-unofficial-patch-compatibility.md](ed-unofficial-patch-compatibility.md) | Source assessment of ED-UP AA/upscaling with this DLL: chaining, HUD/shader risks, Proton and conditional performance benefits |
 | [advanced-shader-hunting.md](advanced-shader-hunting.md) | Optional two-level shader and draw-context hunting workflow |
 | [upstream-delta-map.md](upstream-delta-map.md) | Function-level EDHM differences from `xxmi-base` |
 | [upstream-sync.md](upstream-sync.md) | Fetch and selectively merge XXMI / 3Dmigoto updates |
