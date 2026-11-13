@@ -9428,8 +9428,6 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 		// them, using non-mutating pool reads while resolving destination metadata.
 		if (dst && !custom_resource->substantiated && !custom_resource->resource && !custom_resource->view)
 			bind_flags = dst->BindFlags(state, &misc_flags);
-		if (!state->pool_metadata_query && state->pool_metadata_preview)
-			state->pool_metadata_preview->AdoptResource(custom_resource);
 
 		custom_resource->Substantiate(mOrigDevice1, bind_flags, misc_flags);
 
