@@ -403,7 +403,9 @@ void skipped_copies_do_not_evaluate_nested_destination_indexes()
 		pool.GetVariable(0, false, true, true)->fval = 9.0f;
 		const wchar_t *source_name = cached ? L"resourcecachedmissing" : L"resourcefreshmissing";
 		customResources[source_name].substantiated = cached;
+		CommandListScope scope;
 		CommandList commands;
+		commands.scope = &scope;
 		const std::wstring destination = std::wstring(pool_name) + L"[$" + pool_name + L"[0]]";
 		const std::wstring source = std::wstring(L"ref unless_null ") + source_name;
 		parse_copy(commands, destination.c_str(), source.c_str());
