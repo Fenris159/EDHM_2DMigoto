@@ -202,7 +202,7 @@ def get_mutations(command_list, settings, profiling):
             "view-descriptors",
             command_list,
             "if (!SameViewDesc(actual, expected))",
-            "if (false && !SameViewDesc(actual, expected))",
+            "if (actual.Format == DXGI_FORMAT_UNKNOWN && !SameViewDesc(actual, expected))",
         ),
         (
             "view-cache-metadata",
@@ -220,7 +220,7 @@ def get_mutations(command_list, settings, profiling):
             "view-failure",
             command_list,
             "const auto type = EffectiveViewTarget(&dst, state);",
-            "const auto type = ResourceCopyTargetType::CUSTOM_RESOURCE;",
+            "const auto type = dst_custom_resource ? EffectiveViewTarget(&dst, state) : ResourceCopyTargetType::CUSTOM_RESOURCE;",
         ),
     ]
 
