@@ -1,0 +1,5 @@
+{"metric":"runtime_load_and_device","sample":0,"iterations":1,"value":176.298,"unit":"ms"}
+{"metric":"adapter_vendor_id","sample":0,"iterations":1,"value":4098,"unit":"identifier"}
+{"metric":"adapter_device_id","sample":0,"iterations":1,"value":5510,"unit":"identifier"}
+{"metric":"process_private_before_runtime","sample":0,"iterations":1,"value":0,"unit":"bytes"}
+{"metric":"process_private_after_device","sample":0,"iterations":1,"value":0,"unit":"bytes"}

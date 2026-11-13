@@ -1,0 +1,134 @@
+{
+  "date_utc": "2026-11-13",
+  "target": "Elite Dangerous + EDHM; standalone synthetic/offscreen evidence only",
+  "develop": {
+    "source": "5c74823ff0d21c662e2d659d04afc6624d245509",
+    "package": "0.1.4-beta.1",
+    "dll_numeric_version": "0.1.4.0",
+    "build_run": 43441909497,
+    "dll_sha256": "bcad31bec60bd072ebcf5f1d152593ad8cf359d4ddfafbbb38fcb3a23611f7e9",
+    "dll_bytes": 3241472
+  },
+  "original_primary": {
+    "repository": "bo3b/3Dmigoto",
+    "tag": "1.4.9",
+    "prerelease": true,
+    "source": "4ce5f2f72b2777223d2e809dcdafec514ac98295",
+    "annotated_tag_object": "a18a5f15d07450fbcbff3a15d27c4d40ed503b53",
+    "asset_url": "https://github.com/bo3b/3Dmigoto/releases/download/1.4.9/3Dmigoto_v1.4.9.7z",
+    "archive_sha256": "d5d05e78f0f6df7cce8ef10c669c088db6b8dbe1428ce783d8c3c93ac842dce1",
+    "dll_sha256": "791aa68b9f8c0742c040f9ed5fa61aa0b4d3f9ee7b9e1865bf82ed6b2254378f",
+    "dll_bytes": 3338240
+  },
+  "original_stable_context": {
+    "tag": "1.3.16",
+    "source": "cbc4993ca67b6d639e06c578d4e3dc8b3780243f",
+    "asset_url": "https://github.com/bo3b/3Dmigoto/releases/download/1.3.16/3Dmigoto-1.3.16.zip",
+    "archive_sha256": "1e097eaed99270f2444e3a70eff68194b751f6be19d0edadc40a780074152558",
+    "dll_sha256": "a338374d1c1a335322d868a483369d8aa754ddbdc511ae48807662a7a9165f30",
+    "dll_bytes": 3275776,
+    "result": "Proton preflight exited 5 before emitting records. No accepted timings; cause not established."
+  },
+  "harness_repository": "https://github.com/Fenris159/EDHM_2DMigoto",
+  "harness_final_source": "c66db49af0602286ee448557ca2123e5a35d120c",
+  "components": {
+    "harness_source": "3f602441e9bc9ad3c8d44b99c72cafa54a74f3d0",
+    "workflow_run": 43447201014,
+    "metadata": "components/binaries.json",
+    "scope": "Original source and develop source rebuilt with MSVC v143 Release and C++17; common public ResourceCopyOperation.run boundary. Not shipped DLL timing."
+  },
+  "native_warp": {
+    "workflow_source": "d4461c1bc57a7381030d67ec9852b0a7c3c64df0",
+    "workflow_run": 43449364115,
+    "probe_source": "597195f9da57fde90db72f0a936e0f276d5bd16f",
+    "metadata": "native-warp/manifest.json"
+  },
+  "amd_proton": {
+    "probe_source": "597195f9da57fde90db72f0a936e0f276d5bd16f",
+    "metadata": "amd-proton/manifest.json",
+    "cpu": "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S",
+    "gpu_reported": "AMD Radeon Graphics (RADV STRIX_HALO)",
+    "pci_vendor_device": "1002:1586",
+    "vulkan_device_api": "1.4.335",
+    "mesa": "26.0.8-1ubuntu0.3",
+    "proton": "1791559474 proton-11.0-2e-x86_64",
+    "invocation": "runinprefix (standalone; not a full Steam game launch)",
+    "dxvk": "a6764047e587178283fcde4073ae6e1410af594f dxvk (v2.7.1-498-ga6764047e)",
+    "compiler": "x86_64-w64-mingw32-g++ (GCC) 13-posix",
+    "probe_compile_flags": "-std=c++17 -O2 -Wall -Wextra -Werror -static -municode; -lpsapi -ldxguid",
+    "environment": {
+      "PROTON_USE_XALIA": "0",
+      "WINEDEBUG": "-all",
+      "DXVK_LOG_LEVEL": "none",
+      "DXVK_FILTER_DEVICE_NAME": "AMD Radeon",
+      "WINEDLLOVERRIDES": "d3d11,dxgi=n;d3dcompiler_47=n,b",
+      "SteamAppId": "0",
+      "SteamGameId": "0",
+      "STEAM_COMPAT_APP_ID": "0",
+      "XDG_CACHE_HOME": "isolated output/cache",
+      "STEAM_COMPAT_DATA_PATH": "dedicated offscreen prefix"
+    },
+    "memory_limit": "PSAPI PrivateUsage returned zero: unavailable; no Wine RAM result."
+  },
+  "native_trace": {
+    "workflow_run": 43452193512,
+    "harness_source": "9549ff5035d53620ba05d3224d4b23c71a8f58b1",
+    "metadata": "native-trace/manifest.json",
+    "tracer": "apitrace 14.0 Windows x64",
+    "tracer_archive_sha256": "32c702683770ba00b06a12a95fe1afdd7d7353cf519adf2073e6433f78147dc3",
+    "chain": "caller -> A/B d3d11.dll -> local unrenamed dxgitrace.dll -> Windows system WARP; R loads tracer directly",
+    "timing_excluded": true,
+    "diagnostic_environment": {
+      "EDHM_PROBE_UNLOAD_RUNTIME": "1"
+    },
+    "shutdown": "Caller COM objects released; outer DLL explicitly unloaded before tracer exit. All five native runs exited zero."
+  },
+  "shared_shader_compiler": {
+    "source": "Original 1.4.9 asset x64/d3dcompiler_47.dll",
+    "sha256": "a05f99734f7c4822fefc12b367af21fd0976ed6608752fb1e1e80b6ece7ecbbb"
+  },
+  "sidecars": {
+    "original_1_4_9_nvapi64_sha256": "ec3c5bc83a36aae3f38f5497d15cef8910981fa21db3dd9990f6da33ddf26b0a",
+    "note": "Original fixture includes its shipped nvapi64.dll; develop has no linked NVAPI sidecar dependency."
+  },
+  "scope_exclusions": [
+    "No game launch or monitoring",
+    "No FPS or frame-time or Present-loop benchmark",
+    "No installed game or game prefix changes",
+    "No physical Windows GPU tests",
+    "No NVIDIA/Intel Linux execution",
+    "No VR, DLSS/FSR/XeSS/Reflex/frame-generation tests",
+    "No driver VRAM residency measurement"
+  ],
+  "excluded_attempts": [
+    {
+      "kind": "component fixture",
+      "runs": [
+        43444414804,
+        43446099645
+      ],
+      "reason": "Missing real HackerDevice owner, then incorrect source.device lifetime key. Corrected fixture; no failed timings used."
+    },
+    {
+      "kind": "native setup",
+      "reason": "Initial 7-Zip output argument split; fixed workflow quoting before accepted collection."
+    },
+    {
+      "kind": "Proton setup",
+      "reason": "Original DLL was outside executable directory (target guard); co-location fixed initialization. Initial Proton run wrapper suppressed console output; runinprefix used for accepted runs."
+    },
+    {
+      "kind": "historical stable",
+      "reason": "1.3.16 failed preflight before metrics; retained as context only."
+    },
+    {
+      "kind": "Linux trace diagnostics",
+      "reason": "Initial absolute proxy path failed startup. Later HUD original trace exited 9 during teardown after output checks; excluded. Clean native paired traces supply accepted counts. No production defect attribution."
+    },
+    {
+      "kind": "additional native timing run",
+      "run": 43452193617,
+      "reason": "Automatic retrigger after diagnostic-only unload addition; succeeded but not pooled with primary runner collection."
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+--- a/Benchmarks/SurfaceProbe.cpp
++++ b/Benchmarks/SurfaceProbe.cpp
+@@ -63,7 +63,7 @@
+ const char *shader_source = R"(
+ float4 VSMain(uint vertex : SV_VertexID) : SV_Position {
+     float2 p[3] = { float2(-1,-1), float2(-1,3), float2(3,-1) };
+-    return float4(p[vertex], 0.5, 1);
++    return float4(p[vertex], 0.25, 1);
+ }
+ float4 PSMain() : SV_Target { return float4(0,1,0,1); }
+ RWStructuredBuffer<uint> output : register(u0);

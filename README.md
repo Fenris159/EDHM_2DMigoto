@@ -31,6 +31,27 @@ An **[EDHM](https://github.com/psychicEgg/EDHM)** compatibility build of the
 The `d3d11.dll` remains 3Dmigoto-derived software and preserves upstream
 authorship, licensing, and attribution.
 
+## Measured example: develop versus original 3Dmigoto
+
+The [off-game comparison report](docs/develop-vs-original-3dmigoto.md) compares
+**develop 0.1.4-beta.1 (`5c74823f`)** with **original 3Dmigoto 1.4.9**. It includes
+raw samples, resource/surface traces, memory limits and NVIDIA/AMD/Intel technology
+eligibility alongside the combinations actually tested.
+
+| Standalone workload | Original 1.4.9 | Ours | Observed difference |
+| --- | ---: | ---: | --- |
+| Changing resource reference, production component, profiling off | 1,406.40 ns | 161.04 ns | **88.5% lower CPU cost** |
+| Changing HUD-like reference + draw, actual DLL, Windows WARP | 12.789 µs | 9.122 µs | **28.7% lower submission cost** |
+| Same HUD-like workload, AMD RADV + Proton/DXVK | 411.96 ns | 288.35 ns | **30.0% lower submission cost** |
+| Extra SRV creations above the shared fixture, native HUD trace | 65 | 0 | **65 view creations avoided** |
+| Stable passive resource binding, Windows WARP | 40.31 ns | 61.39 ns | **21.08 ns added cost** |
+
+These are synthetic CPU/submission measurements, with uncertainty intervals and
+other costs in the report. Stable references also cost more; the measurements do
+not establish an FPS or VRAM gain. Both DLLs preserved the tested offscreen
+color/depth/compute outputs and untouched state. AMD/Proton was exercised;
+physical NVIDIA/Intel and native Windows GPU combinations remain untested.
+
 <p align="center">
   <img src="docs/images/edhm-2dmigoto-benefits.png" alt="Comparison of traditional 3Dmigoto and the focused EDHM_2DMigoto shader-loader approach" width="900">
 </p>

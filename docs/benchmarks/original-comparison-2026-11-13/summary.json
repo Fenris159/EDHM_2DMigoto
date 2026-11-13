@@ -1,0 +1,1394 @@
+{
+  "method": "Median of post-warmup samples per process, then median of four processes per variant. Init/memory retain their single observations. Exact independent n=4 bootstrap median ratios; 65,536 combinations; interpolated percentile 95% intervals. Descriptive, one-host intervals, not multiplicity-adjusted or a cross-hardware population estimate. Negative change means lower cost.",
+  "components": {
+    "lists/scalar_increment/profiling_0": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        19.8177,
+        19.772199999999998,
+        19.6212,
+        19.7132
+      ],
+      "develop_process_medians": [
+        19.3404,
+        19.151699999999998,
+        18.877499999999998,
+        19.1393
+      ],
+      "original_median": 19.7427,
+      "develop_median": 19.1455,
+      "status": "measured",
+      "delta": -0.5972000000000008,
+      "percent_change": -3.0249155384015403,
+      "percent_change_95_interval": [
+        -4.38237930982085,
+        -1.9119625710965926
+      ]
+    },
+    "lists/scalar_increment/profiling_1": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        69.1601,
+        68.9342,
+        68.4509,
+        68.18270000000001
+      ],
+      "develop_process_medians": [
+        58.925,
+        58.2745,
+        56.817,
+        58.4788
+      ],
+      "original_median": 68.69255000000001,
+      "develop_median": 58.37665,
+      "status": "measured",
+      "delta": -10.315900000000013,
+      "percent_change": -15.017494619139937,
+      "percent_change_95_interval": [
+        -17.28797373223153,
+        -14.051440777905578
+      ]
+    },
+    "lists/scalar_increment/profiling_2": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        69.6325,
+        68.6529,
+        68.46690000000001,
+        68.3336
+      ],
+      "develop_process_medians": [
+        58.807199999999995,
+        58.6452,
+        56.897499999999994,
+        58.7241
+      ],
+      "original_median": 68.5599,
+      "develop_median": 58.684650000000005,
+      "status": "measured",
+      "delta": -9.875249999999994,
+      "percent_change": -14.403827893564603,
+      "percent_change_95_interval": [
+        -17.03392812264387,
+        -14.06262804828079
+      ]
+    },
+    "lists/scalar_increment/profiling_3": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        70.6867,
+        70.3713,
+        70.3905,
+        70.3218
+      ],
+      "develop_process_medians": [
+        57.5334,
+        56.2175,
+        55.3707,
+        56.4096
+      ],
+      "original_median": 70.3809,
+      "develop_median": 56.31355,
+      "status": "measured",
+      "delta": -14.067349999999998,
+      "percent_change": -19.987453982543556,
+      "percent_change_95_interval": [
+        -21.32709300392578,
+        -18.254242273116706
+      ]
+    },
+    "views/churn/profiling_0": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        1447.92,
+        1407.915,
+        1404.88,
+        1380.98
+      ],
+      "develop_process_medians": [
+        162.3,
+        159.39,
+        159.775,
+        251.45499999999998
+      ],
+      "original_median": 1406.3975,
+      "develop_median": 161.03750000000002,
+      "status": "measured",
+      "delta": -1245.3600000000001,
+      "percent_change": -88.54964545940959,
+      "percent_change_95_interval": [
+        -88.87801121608928,
+        -82.12063090271421
+      ],
+      "create_calls_per_10000_operations": {
+        "A": [
+          10000
+        ],
+        "B": [
+          0
+        ]
+      }
+    },
+    "views/churn/profiling_1": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        1407.595,
+        1395.73,
+        1424.1999999999998,
+        1384.8049999999998
+      ],
+      "develop_process_medians": [
+        160.02499999999998,
+        158.26999999999998,
+        159.445,
+        157.255
+      ],
+      "original_median": 1401.6625,
+      "develop_median": 158.8575,
+      "status": "measured",
+      "delta": -1242.8049999999998,
+      "percent_change": -88.66649425236103,
+      "percent_change_95_interval": [
+        -88.88147732060104,
+        -88.50758771090514
+      ],
+      "create_calls_per_10000_operations": {
+        "A": [
+          10000
+        ],
+        "B": [
+          0
+        ]
+      }
+    },
+    "views/stable/profiling_0": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        75.00999999999999,
+        73.31,
+        74.025,
+        73.785
+      ],
+      "develop_process_medians": [
+        89.205,
+        88.4,
+        89.02000000000001,
+        137.095
+      ],
+      "original_median": 73.905,
+      "develop_median": 89.11250000000001,
+      "status": "measured",
+      "delta": 15.20750000000001,
+      "percent_change": 20.577092212976122,
+      "percent_change_95_interval": [
+        18.67750966537798,
+        85.5016575333198
+      ],
+      "create_calls_per_10000_operations": {
+        "A": [
+          1
+        ],
+        "B": [
+          0
+        ]
+      }
+    },
+    "views/stable/profiling_1": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        105.38,
+        73.765,
+        74.755,
+        73.39500000000001
+      ],
+      "develop_process_medians": [
+        88.785,
+        87.275,
+        88.345,
+        86.525
+      ],
+      "original_median": 74.25999999999999,
+      "develop_median": 87.81,
+      "status": "measured",
+      "delta": 13.550000000000011,
+      "percent_change": 18.246700781039603,
+      "percent_change_95_interval": [
+        -16.672992977794642,
+        20.36558847512908
+      ],
+      "create_calls_per_10000_operations": {
+        "A": [
+          1
+        ],
+        "B": [
+          0
+        ]
+      }
+    }
+  },
+  "native_warp": {
+    "hud/bind_churn": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        43.075,
+        47.575,
+        45.025,
+        49.325
+      ],
+      "develop_process_medians": [
+        69.25,
+        68.95,
+        68.4,
+        66.075
+      ],
+      "original_median": 46.3,
+      "develop_median": 68.67500000000001,
+      "status": "measured",
+      "delta": 22.375000000000014,
+      "percent_change": 48.326133909287286,
+      "percent_change_95_interval": [
+        38.672072985301575,
+        59.431224608241465
+      ]
+    },
+    "hud/bind_stable": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        35.65,
+        36.075,
+        38.225,
+        38.425
+      ],
+      "develop_process_medians": [
+        56.825,
+        57.025,
+        56.125,
+        57.875
+      ],
+      "original_median": 37.150000000000006,
+      "develop_median": 56.925,
+      "status": "measured",
+      "delta": 19.77499999999999,
+      "percent_change": 53.230148048452186,
+      "percent_change_95_interval": [
+        47.23487312947301,
+        60.42966042966042
+      ]
+    },
+    "hud/copy_and_readback_256_bytes": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        81594.53125,
+        106901.5625,
+        74646.875,
+        101130.46875
+      ],
+      "develop_process_medians": [
+        102144.53125,
+        104772.65625,
+        103391.40625,
+        102478.125
+      ],
+      "original_median": 91362.5,
+      "develop_median": 102934.765625,
+      "status": "measured",
+      "delta": 11572.265625,
+      "percent_change": 12.666318921877128,
+      "percent_change_95_interval": [
+        -3.710700556879143,
+        37.895612676351156
+      ]
+    },
+    "hud/create_release_buffer": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        9104.6875,
+        8996.484375,
+        9028.90625,
+        8984.375
+      ],
+      "develop_process_medians": [
+        8972.65625,
+        9555.46875,
+        9279.6875,
+        9362.109375
+      ],
+      "original_median": 9012.6953125,
+      "develop_median": 9320.8984375,
+      "status": "measured",
+      "delta": 308.203125,
+      "percent_change": 3.4196554339581686,
+      "percent_change_95_interval": [
+        -0.4442518149311958,
+        6.022320944847759
+      ]
+    },
+    "hud/hud_reference_churn": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        15318.4,
+        12324.65,
+        13097.125,
+        12481.675
+      ],
+      "develop_process_medians": [
+        9011.2,
+        9148.075,
+        9096.375,
+        9372.875
+      ],
+      "original_median": 12789.4,
+      "develop_median": 9122.225,
+      "status": "measured",
+      "delta": -3667.1749999999993,
+      "percent_change": -28.67354997106979,
+      "percent_change_95_interval": [
+        -40.44923099018174,
+        -25.07190873574503
+      ]
+    },
+    "hud/hud_reference_stable": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        7004.975,
+        6746.299999999999,
+        6674.175,
+        6912.175
+      ],
+      "develop_process_medians": [
+        7465.075,
+        7463.0,
+        7487.799999999999,
+        7513.25
+      ],
+      "original_median": 6829.237499999999,
+      "develop_median": 7476.4375,
+      "status": "measured",
+      "delta": 647.2000000000007,
+      "percent_change": 9.47689987352176,
+      "percent_change_95_interval": [
+        6.730395183423199,
+        12.02039952503493
+      ]
+    },
+    "hud/process_private_after_device": {
+      "unit": "bytes",
+      "original_process_medians": [
+        3735552,
+        3743744,
+        3751936,
+        3751936
+      ],
+      "develop_process_medians": [
+        3387392,
+        3391488,
+        3395584,
+        3395584
+      ],
+      "original_median": 3747840.0,
+      "develop_median": 3393536.0,
+      "status": "measured",
+      "delta": -354304.0,
+      "percent_change": -9.453551912568303,
+      "percent_change_95_interval": [
+        -9.661572052401745,
+        -9.15570175438597
+      ]
+    },
+    "hud/process_private_after_workload": {
+      "unit": "bytes",
+      "original_process_medians": [
+        11403264,
+        13967360,
+        10833920,
+        13873152
+      ],
+      "develop_process_medians": [
+        10911744,
+        13041664,
+        12877824,
+        11517952
+      ],
+      "original_median": 12638208.0,
+      "develop_median": 12197888.0,
+      "status": "measured",
+      "delta": -440320.0,
+      "percent_change": -3.4840382433965367,
+      "percent_change_95_interval": [
+        -19.435044872737972,
+        16.559219009025593
+      ]
+    },
+    "hud/process_private_before_runtime": {
+      "unit": "bytes",
+      "original_process_medians": [
+        1773568,
+        1159168,
+        1794048,
+        1785856
+      ],
+      "develop_process_medians": [
+        1769472,
+        1777664,
+        1777664,
+        1781760
+      ],
+      "original_median": 1779712.0,
+      "develop_median": 1777664.0,
+      "status": "measured",
+      "delta": -2048.0,
+      "percent_change": -0.11507479861909697,
+      "percent_change_95_interval": [
+        -0.917431192660545,
+        53.35689045936396
+      ]
+    },
+    "hud/runtime_load_and_device": {
+      "unit": "ms",
+      "original_process_medians": [
+        71.3105,
+        79.4456,
+        70.2716,
+        77.6942
+      ],
+      "develop_process_medians": [
+        75.9772,
+        81.0905,
+        85.3037,
+        75.4872
+      ],
+      "original_median": 74.50235,
+      "develop_median": 78.53385,
+      "status": "measured",
+      "delta": 4.031499999999994,
+      "percent_change": 5.411238705893151,
+      "percent_change_95_interval": [
+        -3.6116884455751896,
+        17.524884854794486
+      ]
+    },
+    "passive/bind_churn": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        48.4,
+        44.75,
+        47.425,
+        44.125
+      ],
+      "develop_process_medians": [
+        68.975,
+        71.30000000000001,
+        68.05000000000001,
+        69.625
+      ],
+      "original_median": 46.0875,
+      "develop_median": 69.3,
+      "status": "measured",
+      "delta": 23.2125,
+      "percent_change": 50.36615134255491,
+      "percent_change_95_interval": [
+        42.51033057851239,
+        58.95184135977338
+      ],
+      "raw_system_process_medians": [
+        42.125,
+        42.175
+      ]
+    },
+    "passive/bind_stable": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        40.4,
+        38.3,
+        40.225,
+        40.7
+      ],
+      "develop_process_medians": [
+        60.45,
+        67.7,
+        61.599999999999994,
+        61.175
+      ],
+      "original_median": 40.3125,
+      "develop_median": 61.387499999999996,
+      "status": "measured",
+      "delta": 21.074999999999996,
+      "percent_change": 52.279069767441854,
+      "percent_change_95_interval": [
+        49.62871287128714,
+        68.30329397141082
+      ],
+      "raw_system_process_medians": [
+        38.625,
+        37.275000000000006
+      ]
+    },
+    "passive/copy_and_readback_256_bytes": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        105714.0625,
+        101410.9375,
+        104232.03125,
+        106607.8125
+      ],
+      "develop_process_medians": [
+        104739.84375,
+        102981.25,
+        106803.125,
+        105301.5625
+      ],
+      "original_median": 104973.046875,
+      "develop_median": 105020.703125,
+      "status": "measured",
+      "delta": 47.65625,
+      "percent_change": 0.04539855840970386,
+      "percent_change_95_interval": [
+        -2.313532368934035,
+        3.8364944609648344
+      ],
+      "raw_system_process_medians": [
+        104012.5,
+        101275.0
+      ]
+    },
+    "passive/create_release_buffer": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        7961.328125,
+        8408.59375,
+        8551.953125,
+        7985.15625
+      ],
+      "develop_process_medians": [
+        7802.34375,
+        8671.875,
+        8415.234375,
+        8019.140625
+      ],
+      "original_median": 8196.875,
+      "develop_median": 8217.1875,
+      "status": "measured",
+      "delta": 20.3125,
+      "percent_change": 0.24780785360274393,
+      "percent_change_95_interval": [
+        -6.71595384509086,
+        7.15283051221125
+      ],
+      "raw_system_process_medians": [
+        7501.5625,
+        7117.1875
+      ]
+    },
+    "passive/process_private_after_device": {
+      "unit": "bytes",
+      "original_process_medians": [
+        3784704,
+        3731456,
+        3751936,
+        3739648
+      ],
+      "develop_process_medians": [
+        3428352,
+        3436544,
+        3403776,
+        3461120
+      ],
+      "original_median": 3745792.0,
+      "develop_median": 3432448.0,
+      "status": "measured",
+      "delta": -313344.0,
+      "percent_change": -8.365226899945322,
+      "percent_change_95_interval": [
+        -9.41558441558441,
+        -7.574094401756315
+      ],
+      "raw_system_process_medians": [
+        2666496,
+        2633728
+      ]
+    },
+    "passive/process_private_after_workload": {
+      "unit": "bytes",
+      "original_process_medians": [
+        7839744,
+        7827456,
+        8060928,
+        7835648
+      ],
+      "develop_process_medians": [
+        7213056,
+        7774208,
+        7495680,
+        7475200
+      ],
+      "original_median": 7837696.0,
+      "develop_median": 7485440.0,
+      "status": "measured",
+      "delta": -352256.0,
+      "percent_change": -4.49438202247191,
+      "percent_change_95_interval": [
+        -7.993730407523514,
+        -0.810033969166446
+      ],
+      "raw_system_process_medians": [
+        6221824,
+        6123520
+      ]
+    },
+    "passive/process_private_before_runtime": {
+      "unit": "bytes",
+      "original_process_medians": [
+        1826816,
+        1773568,
+        1785856,
+        1773568
+      ],
+      "develop_process_medians": [
+        1806336,
+        1781760,
+        1785856,
+        1839104
+      ],
+      "original_median": 1779712.0,
+      "develop_median": 1796096.0,
+      "status": "measured",
+      "delta": 16384.0,
+      "percent_change": 0.9205983889528202,
+      "percent_change_95_interval": [
+        -1.681614349775784,
+        3.3371691599539677
+      ],
+      "raw_system_process_medians": [
+        1810432,
+        1777664
+      ]
+    },
+    "passive/runtime_load_and_device": {
+      "unit": "ms",
+      "original_process_medians": [
+        167.2792,
+        83.3102,
+        80.1738,
+        74.2037
+      ],
+      "develop_process_medians": [
+        95.5353,
+        86.387,
+        86.9379,
+        88.5668
+      ],
+      "original_median": 81.74199999999999,
+      "develop_median": 87.75235,
+      "status": "measured",
+      "delta": 6.010350000000017,
+      "percent_change": 7.352829634704339,
+      "percent_change_95_interval": [
+        -47.54138589854566,
+        19.356312421078737
+      ],
+      "raw_system_process_medians": [
+        7.1814,
+        7.2332
+      ]
+    }
+  },
+  "amd_proton": {
+    "hud/bind_churn": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        12.2,
+        12.225000000000001,
+        12.15,
+        12.1
+      ],
+      "develop_process_medians": [
+        26.9,
+        24.825000000000003,
+        24.825000000000003,
+        26.025
+      ],
+      "original_median": 12.175,
+      "develop_median": 25.425,
+      "status": "measured",
+      "delta": 13.25,
+      "percent_change": 108.82956878850104,
+      "percent_change_95_interval": [
+        103.27533265097237,
+        120.94455852156054
+      ]
+    },
+    "hud/bind_stable": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        4.65,
+        4.625,
+        4.574999999999999,
+        4.55
+      ],
+      "develop_process_medians": [
+        17.4,
+        16.05,
+        16.05,
+        16.8
+      ],
+      "original_median": 4.6,
+      "develop_median": 16.425,
+      "status": "measured",
+      "delta": 11.825000000000001,
+      "percent_change": 257.0652173913044,
+      "percent_change_95_interval": [
+        246.09164420485175,
+        278.2608695652174
+      ]
+    },
+    "hud/copy_and_readback_256_bytes": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        41689.0625,
+        38171.09375,
+        49986.71875,
+        51268.75
+      ],
+      "develop_process_medians": [
+        39657.8125,
+        37301.5625,
+        42047.65625,
+        51317.96875
+      ],
+      "original_median": 45837.890625,
+      "develop_median": 40852.734375,
+      "status": "measured",
+      "delta": -4985.15625,
+      "percent_change": -10.875623162469639,
+      "percent_change_95_interval": [
+        -23.994845957394272,
+        19.16842342250149
+      ]
+    },
+    "hud/create_release_buffer": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        722.65625,
+        505.078125,
+        716.796875,
+        716.40625
+      ],
+      "develop_process_medians": [
+        553.90625,
+        492.96875,
+        500.78125,
+        683.984375
+      ],
+      "original_median": 716.6015625,
+      "develop_median": 527.34375,
+      "status": "measured",
+      "delta": -189.2578125,
+      "percent_change": -26.410466067048244,
+      "percent_change_95_interval": [
+        -31.226158038147133,
+        9.667440061871613
+      ]
+    },
+    "hud/hud_reference_churn": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        406.875,
+        413.3,
+        414.4,
+        410.625
+      ],
+      "develop_process_medians": [
+        300.625,
+        276.075,
+        274.575,
+        317.70000000000005
+      ],
+      "original_median": 411.9625,
+      "develop_median": 288.35,
+      "status": "measured",
+      "delta": -123.61249999999995,
+      "percent_change": -30.00576508784173,
+      "percent_change_95_interval": [
+        -33.47227256252266,
+        -22.881330218163043
+      ]
+    },
+    "hud/hud_reference_stable": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        100.95,
+        103.0,
+        100.15,
+        102.07499999999999
+      ],
+      "develop_process_medians": [
+        216.47500000000002,
+        205.25,
+        199.4,
+        236.325
+      ],
+      "original_median": 101.51249999999999,
+      "develop_median": 210.8625,
+      "status": "measured",
+      "delta": 109.35000000000002,
+      "percent_change": 107.72072404876249,
+      "percent_change_95_interval": [
+        96.42901120551659,
+        132.8038418913927
+      ]
+    },
+    "hud/process_private_after_device": {
+      "unit": "bytes",
+      "original_process_medians": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "develop_process_medians": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "original_median": 0.0,
+      "develop_median": 0.0,
+      "status": "unavailable",
+      "reason": "PrivateUsage returned zero under Wine"
+    },
+    "hud/process_private_after_workload": {
+      "unit": "bytes",
+      "original_process_medians": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "develop_process_medians": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "original_median": 0.0,
+      "develop_median": 0.0,
+      "status": "unavailable",
+      "reason": "PrivateUsage returned zero under Wine"
+    },
+    "hud/process_private_before_runtime": {
+      "unit": "bytes",
+      "original_process_medians": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "develop_process_medians": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "original_median": 0.0,
+      "develop_median": 0.0,
+      "status": "unavailable",
+      "reason": "PrivateUsage returned zero under Wine"
+    },
+    "hud/runtime_load_and_device": {
+      "unit": "ms",
+      "original_process_medians": [
+        214.6645,
+        202.5837,
+        214.6988,
+        205.7371
+      ],
+      "develop_process_medians": [
+        200.984,
+        193.1166,
+        199.0586,
+        191.8005
+      ],
+      "original_median": 210.20080000000002,
+      "develop_median": 196.0876,
+      "status": "measured",
+      "delta": -14.113200000000006,
+      "percent_change": -6.714151420927039,
+      "percent_change_95_interval": [
+        -10.351653250289438,
+        -2.027376513760737
+      ]
+    },
+    "passive/bind_churn": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        12.125,
+        12.15,
+        12.95,
+        13.9
+      ],
+      "develop_process_medians": [
+        24.85,
+        24.75,
+        24.8,
+        26.55
+      ],
+      "original_median": 12.55,
+      "develop_median": 24.825000000000003,
+      "status": "measured",
+      "delta": 12.275000000000002,
+      "percent_change": 97.80876494023904,
+      "percent_change_95_interval": [
+        78.5971223021583,
+        111.76470588235294
+      ],
+      "raw_system_process_medians": [
+        11.05,
+        11.399999999999999
+      ]
+    },
+    "passive/bind_stable": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        4.55,
+        4.525,
+        4.85,
+        5.45
+      ],
+      "develop_process_medians": [
+        16.1,
+        16.0,
+        16.025,
+        17.174999999999997
+      ],
+      "original_median": 4.699999999999999,
+      "develop_median": 16.0625,
+      "status": "measured",
+      "delta": 11.3625,
+      "percent_change": 241.75531914893625,
+      "percent_change_95_interval": [
+        194.7247706422018,
+        266.85082872928166
+      ],
+      "raw_system_process_medians": [
+        2.875,
+        3.0
+      ]
+    },
+    "passive/copy_and_readback_256_bytes": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        45191.40625,
+        35883.59375,
+        33329.6875,
+        35707.03125
+      ],
+      "develop_process_medians": [
+        39388.28125,
+        41789.0625,
+        45546.09375,
+        40925.0
+      ],
+      "original_median": 35795.3125,
+      "develop_median": 41357.03125,
+      "status": "measured",
+      "delta": 5561.71875,
+      "percent_change": 15.537561656990695,
+      "percent_change_95_interval": [
+        -8.484743711643183,
+        27.554972103708565
+      ],
+      "raw_system_process_medians": [
+        41975.78125,
+        49757.8125
+      ]
+    },
+    "passive/create_release_buffer": {
+      "unit": "ns_per_operation",
+      "original_process_medians": [
+        733.59375,
+        492.578125,
+        508.984375,
+        675.0
+      ],
+      "develop_process_medians": [
+        596.09375,
+        751.953125,
+        757.8125,
+        707.421875
+      ],
+      "original_median": 591.9921875,
+      "develop_median": 729.6875,
+      "status": "measured",
+      "delta": 137.6953125,
+      "percent_change": 23.25965028043551,
+      "percent_change_95_interval": [
+        -8.120340788072422,
+        50.741029641185655
+      ],
+      "raw_system_process_medians": [
+        531.640625,
+        501.953125
+      ]
+    },
+    "passive/process_private_after_device": {
+      "unit": "bytes",
+      "original_process_medians": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "develop_process_medians": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "original_median": 0.0,
+      "develop_median": 0.0,
+      "status": "unavailable",
+      "reason": "PrivateUsage returned zero under Wine",
+      "raw_system_process_medians": [
+        0,
+        0
+      ]
+    },
+    "passive/process_private_after_workload": {
+      "unit": "bytes",
+      "original_process_medians": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "develop_process_medians": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "original_median": 0.0,
+      "develop_median": 0.0,
+      "status": "unavailable",
+      "reason": "PrivateUsage returned zero under Wine",
+      "raw_system_process_medians": [
+        0,
+        0
+      ]
+    },
+    "passive/process_private_before_runtime": {
+      "unit": "bytes",
+      "original_process_medians": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "develop_process_medians": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "original_median": 0.0,
+      "develop_median": 0.0,
+      "status": "unavailable",
+      "reason": "PrivateUsage returned zero under Wine",
+      "raw_system_process_medians": [
+        0,
+        0
+      ]
+    },
+    "passive/runtime_load_and_device": {
+      "unit": "ms",
+      "original_process_medians": [
+        205.3649,
+        202.4543,
+        240.6442,
+        203.9058
+      ],
+      "develop_process_medians": [
+        184.3194,
+        190.4346,
+        188.3478,
+        200.2197
+      ],
+      "original_median": 204.63535000000002,
+      "develop_median": 189.3912,
+      "status": "measured",
+      "delta": -15.244150000000019,
+      "percent_change": -7.449421617526008,
+      "percent_change_95_interval": [
+        -21.298248617668747,
+        -2.1578138869946084
+      ],
+      "raw_system_process_medians": [
+        190.6207,
+        176.6509
+      ]
+    }
+  },
+  "native_trace": {
+    "hud-0-A": {
+      "method_calls": {
+        "AddRef": 194,
+        "CSSetShader": 1,
+        "CSSetUnorderedAccessViews": 2,
+        "ClearDepthStencilView": 1,
+        "ClearRenderTargetView": 1,
+        "ClearState": 1,
+        "CopyResource": 68,
+        "CreateBuffer": 162,
+        "CreateComputeShader": 1,
+        "CreateDepthStencilView": 1,
+        "CreatePixelShader": 1,
+        "CreateQuery": 1,
+        "CreateRasterizerState": 1,
+        "CreateRenderTargetView": 1,
+        "CreateShaderResourceView": 98,
+        "CreateTexture2D": 4,
+        "CreateTexture3D": 2,
+        "CreateUnorderedAccessView": 1,
+        "CreateVertexShader": 1,
+        "Dispatch": 1,
+        "Draw": 129,
+        "End": 14,
+        "Flush": 14,
+        "GetAdapter": 1,
+        "GetData": 919,
+        "GetDesc": 457,
+        "GetResource": 262,
+        "GetType": 324,
+        "IASetPrimitiveTopology": 1,
+        "Map": 68,
+        "OMSetRenderTargets": 2,
+        "PSGetShaderResources": 2,
+        "PSSetShader": 1,
+        "PSSetShaderResources": 259,
+        "QueryInterface": 336,
+        "RSSetState": 1,
+        "RSSetViewports": 1,
+        "Release": 917,
+        "SetPrivateData": 1,
+        "SetPrivateDataInterface": 168,
+        "Unmap": 68,
+        "VSGetShader": 1,
+        "VSGetShaderResources": 129,
+        "VSSetShader": 1,
+        "VSSetShaderResources": 129
+      },
+      "shader_resource_bindings": {
+        "PSSetShaderResources/start_0/count_1": 258,
+        "PSSetShaderResources/start_1/count_1": 1,
+        "VSSetShaderResources/start_0/count_1": 129
+      }
+    },
+    "hud-1-B": {
+      "method_calls": {
+        "AddRef": 391,
+        "CSSetShader": 1,
+        "CSSetUnorderedAccessViews": 2,
+        "ClearDepthStencilView": 1,
+        "ClearRenderTargetView": 1,
+        "ClearState": 1,
+        "CopyResource": 68,
+        "CreateBuffer": 162,
+        "CreateComputeShader": 1,
+        "CreateDepthStencilView": 1,
+        "CreatePixelShader": 1,
+        "CreateQuery": 1,
+        "CreateRasterizerState": 1,
+        "CreateRenderTargetView": 1,
+        "CreateShaderResourceView": 33,
+        "CreateTexture2D": 4,
+        "CreateTexture3D": 2,
+        "CreateUnorderedAccessView": 1,
+        "CreateVertexShader": 1,
+        "Dispatch": 1,
+        "Draw": 129,
+        "End": 14,
+        "Flush": 14,
+        "GetAdapter": 1,
+        "GetData": 855,
+        "GetDesc": 849,
+        "GetResource": 649,
+        "GetType": 591,
+        "IASetPrimitiveTopology": 1,
+        "Map": 68,
+        "OMSetRenderTargets": 2,
+        "PSGetShaderResources": 2,
+        "PSSetShader": 1,
+        "PSSetShaderResources": 259,
+        "QueryInterface": 530,
+        "RSSetState": 1,
+        "RSSetViewports": 1,
+        "Release": 1629,
+        "SetPrivateData": 1,
+        "SetPrivateDataInterface": 168,
+        "Unmap": 68,
+        "VSGetShader": 1,
+        "VSGetShaderResources": 129,
+        "VSSetShader": 1,
+        "VSSetShaderResources": 129
+      },
+      "shader_resource_bindings": {
+        "PSSetShaderResources/start_0/count_1": 258,
+        "PSSetShaderResources/start_1/count_1": 1,
+        "VSSetShaderResources/start_0/count_1": 129
+      }
+    },
+    "passive-0-A": {
+      "method_calls": {
+        "CSSetShader": 1,
+        "CSSetUnorderedAccessViews": 2,
+        "ClearDepthStencilView": 1,
+        "ClearRenderTargetView": 1,
+        "ClearState": 1,
+        "CopyResource": 68,
+        "CreateBuffer": 162,
+        "CreateComputeShader": 1,
+        "CreateDepthStencilView": 1,
+        "CreatePixelShader": 1,
+        "CreateQuery": 1,
+        "CreateRasterizerState": 1,
+        "CreateRenderTargetView": 1,
+        "CreateShaderResourceView": 33,
+        "CreateTexture2D": 4,
+        "CreateTexture3D": 2,
+        "CreateUnorderedAccessView": 1,
+        "CreateVertexShader": 1,
+        "Dispatch": 1,
+        "Draw": 1,
+        "End": 10,
+        "Flush": 10,
+        "GetAdapter": 1,
+        "GetData": 530,
+        "GetDesc": 4,
+        "GetResource": 4,
+        "GetType": 1,
+        "IASetPrimitiveTopology": 1,
+        "Map": 68,
+        "OMSetRenderTargets": 2,
+        "PSGetShaderResources": 2,
+        "PSSetShader": 1,
+        "PSSetShaderResources": 130,
+        "QueryInterface": 336,
+        "RSSetState": 1,
+        "RSSetViewports": 1,
+        "Release": 273,
+        "SetPrivateData": 1,
+        "SetPrivateDataInterface": 168,
+        "Unmap": 68,
+        "VSGetShader": 1,
+        "VSSetShader": 1,
+        "VSSetShaderResources": 1
+      },
+      "shader_resource_bindings": {
+        "PSSetShaderResources/start_0/count_1": 129,
+        "PSSetShaderResources/start_1/count_1": 1,
+        "VSSetShaderResources/start_0/count_1": 1
+      }
+    },
+    "passive-1-B": {
+      "method_calls": {
+        "AddRef": 3,
+        "CSSetShader": 1,
+        "CSSetUnorderedAccessViews": 2,
+        "ClearDepthStencilView": 1,
+        "ClearRenderTargetView": 1,
+        "ClearState": 1,
+        "CopyResource": 68,
+        "CreateBuffer": 162,
+        "CreateComputeShader": 1,
+        "CreateDepthStencilView": 1,
+        "CreatePixelShader": 1,
+        "CreateQuery": 1,
+        "CreateRasterizerState": 1,
+        "CreateRenderTargetView": 1,
+        "CreateShaderResourceView": 33,
+        "CreateTexture2D": 4,
+        "CreateTexture3D": 2,
+        "CreateUnorderedAccessView": 1,
+        "CreateVertexShader": 1,
+        "Dispatch": 1,
+        "Draw": 1,
+        "End": 10,
+        "Flush": 10,
+        "GetAdapter": 1,
+        "GetData": 697,
+        "GetDesc": 73,
+        "GetResource": 4,
+        "GetType": 139,
+        "IASetPrimitiveTopology": 1,
+        "Map": 68,
+        "OMSetRenderTargets": 2,
+        "PSGetShaderResources": 2,
+        "PSSetShader": 1,
+        "PSSetShaderResources": 130,
+        "QueryInterface": 336,
+        "RSSetState": 1,
+        "RSSetViewports": 1,
+        "Release": 273,
+        "SetPrivateData": 1,
+        "SetPrivateDataInterface": 168,
+        "Unmap": 68,
+        "VSGetShader": 1,
+        "VSSetShader": 1,
+        "VSSetShaderResources": 1
+      },
+      "shader_resource_bindings": {
+        "PSSetShaderResources/start_0/count_1": 129,
+        "PSSetShaderResources/start_1/count_1": 1,
+        "VSSetShaderResources/start_0/count_1": 1
+      }
+    },
+    "passive-2-R": {
+      "method_calls": {
+        "CSSetShader": 1,
+        "CSSetUnorderedAccessViews": 2,
+        "ClearDepthStencilView": 1,
+        "ClearRenderTargetView": 1,
+        "ClearState": 1,
+        "CopyResource": 68,
+        "CreateBuffer": 162,
+        "CreateComputeShader": 1,
+        "CreateDepthStencilView": 1,
+        "CreatePixelShader": 1,
+        "CreateQuery": 1,
+        "CreateRasterizerState": 1,
+        "CreateRenderTargetView": 1,
+        "CreateShaderResourceView": 33,
+        "CreateTexture2D": 4,
+        "CreateTexture3D": 2,
+        "CreateUnorderedAccessView": 1,
+        "CreateVertexShader": 1,
+        "Dispatch": 1,
+        "Draw": 1,
+        "End": 10,
+        "Flush": 10,
+        "GetAdapter": 1,
+        "GetData": 418,
+        "GetDesc": 4,
+        "IASetPrimitiveTopology": 1,
+        "Map": 68,
+        "OMSetRenderTargets": 2,
+        "PSGetShaderResources": 2,
+        "PSSetShader": 1,
+        "PSSetShaderResources": 130,
+        "QueryInterface": 1,
+        "RSSetState": 1,
+        "RSSetViewports": 1,
+        "Release": 216,
+        "Unmap": 68,
+        "VSGetShader": 1,
+        "VSSetShader": 1,
+        "VSSetShaderResources": 1
+      },
+      "shader_resource_bindings": {
+        "PSSetShaderResources/start_0/count_1": 129,
+        "PSSetShaderResources/start_1/count_1": 1,
+        "VSSetShaderResources/start_0/count_1": 1
+      }
+    }
+  }
+}

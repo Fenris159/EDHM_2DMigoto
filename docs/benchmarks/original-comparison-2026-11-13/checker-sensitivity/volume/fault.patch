@@ -1,0 +1,11 @@
+--- a/Benchmarks/SurfaceProbe.cpp
++++ b/Benchmarks/SurfaceProbe.cpp
+@@ -274,6 +274,8 @@
+ 		auto *write = uav.Get();
+ 		context->CSSetUnorderedAccessViews(0, 1, &write, nullptr);
+ 		context->Dispatch(8, 1, 1);
++		std::array<uint32_t, 64> corrupted{};
++		context->UpdateSubresource(volume.Get(), 0, nullptr, corrupted.data(), 16, 64);
+ 		ID3D11UnorderedAccessView *empty = nullptr;
+ 		context->CSSetUnorderedAccessViews(0, 1, &empty, nullptr);
+ 		drain();

@@ -1,0 +1,3 @@
+ntsync: up and running.
+Unable to read VR Path Registry from C:\users\steamuser\AppData\Local\openvr\openvrpaths.vrpath
+FAIL: offscreen color differs from expected opaque green
