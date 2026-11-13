@@ -29,7 +29,7 @@
 // with 3Dmigoto; EDHM_2DMigoto is the repository and distribution name.
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 1
-#define VERSION_REVISION 3
+#define VERSION_REVISION 4
 
 #define STRINGIZE2(s) #s
 #define STRINGIZE(s) STRINGIZE2(s)

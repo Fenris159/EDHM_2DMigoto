@@ -14,6 +14,12 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 ## [Unreleased]
 
+### Planned
+
+- Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
+
+## [0.1.4-beta.1] - 2026-11-13
+
 ### Fixed
 
 - Reject empty expression groups and accept leading-dot float literals.
@@ -49,7 +55,8 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 - Preserve hot resources and cached spatial data during preview adoption, and
   retain statically pinned resource targets after pool proxy changes.
 - Share provisional resources across aliases of one root slot and reuse the
-  resolved destination throughout a copy, including when index reads expire a resource.
+  resolved destination and logical key throughout a copy, including index-read
+  expiration and same-pool source lookups.
 - Restore production binaries after failed mutation checks and exclude unverified
   executables from failure artifacts.
 
@@ -72,9 +79,11 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 - Add native runtime regression checks, deliberate-break verification and
   optional strict Zip Release validation for both Windows architectures.
 
-### Planned
+### Notes
 
-- Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
+- Development beta; installed Elite Dangerous + EDHM smoke testing and game
+  frame-time validation remain pending. See [the implementation and validation
+  report](https://github.com/Fenris159/EDHM_2DMigoto/blob/develop/docs/next-release-implementation.md).
 
 ## [0.1.3] - 2026-09-21
 
@@ -430,7 +439,8 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 - `d3dcompiler_47.dll` remains the Microsoft redistributable (SDK / EDHM package)
 - Stereo features remain stripped (2Dmigoto); XXMI performance-oriented code paths retained
 
-[Unreleased]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/Fenris159/EDHM_2DMigoto/compare/aa68c0ccc51b088740f6eecaba1f3582cc507f04...HEAD
+[0.1.4-beta.1]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.3...aa68c0ccc51b088740f6eecaba1f3582cc507f04
 [0.1.3]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.3
 [0.1.3-alpha.6]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.3-alpha.6
 [0.1.3-alpha.5]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.3-alpha.5
