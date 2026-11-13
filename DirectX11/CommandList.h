@@ -28,6 +28,7 @@ class HackerDevice;
 class HackerContext;
 enum class FrameAnalysisOptions;
 class ResourceCopyTarget;
+class PoolMetadataPreview;
 
 struct InputLayoutElementOverride
 {
@@ -65,6 +66,7 @@ class CommandListState
 	bool post;
 	bool aborted;
 	bool pool_metadata_query = false;
+	PoolMetadataPreview *pool_metadata_preview = nullptr;
 
 	bool scissor_valid;
 	D3D11_RECT scissor_rects[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE]{};
@@ -575,6 +577,8 @@ class CustomResource
 
 	void *initial_data;
 	size_t initial_data_size;
+	bool owns_preview_initial_data = false;
+	bool metadata_preview = false;
 
 	CustomResource();
 	~CustomResource();
@@ -591,9 +595,12 @@ class CustomResource
 	void OverrideOutOfBandInfo(DXGI_FORMAT *format, UINT *stride);
 	void ResetRuntimeState();
 	void CopyMetadataFrom(const CustomResource &src);
+	std::unique_ptr<CustomResource> CloneForMetadata() const;
+	void AdoptMetadataResource(CustomResource &preview);
 	void expire(ID3D11Device *mOrigDevice1, ID3D11DeviceContext *mOrigContext1);
 
   private:
+	void PrepareMetadataInitialData();
 	void LoadFromFile(ID3D11Device *mOrigDevice);
 	void LoadBufferFromFile(ID3D11Device *mOrigDevice);
 	void SubstantiateBuffer(ID3D11Device *mOrigDevice, void **buf, DWORD size);
@@ -671,14 +678,12 @@ class CustomResourcePool
 	bool PropagateFlags(D3D11_BIND_FLAG bind_flags, D3D11_RESOURCE_MISC_FLAG misc_flags);
 
 	size_t GetElementIndex(float id, bool use_ring_index, bool is_assignment);
-	CustomResource *GetResource(float id, bool template_lookup, bool use_ring_index, bool is_assignment,
-	                            bool metadata_only = false);
-	CustomResource *PeekResource(float id) const;
-	CommandListVariable *PeekVariable(float id) const;
-	CommandListVariable *GetVariable(float id, bool template_lookup, bool use_ring_index, bool is_assignment,
-	                                 bool metadata_only = false);
+	CustomResource *GetResource(float id, bool template_lookup, bool use_ring_index, bool is_assignment);
+	std::unique_ptr<CustomResourcePool> CreateMetadataPreview() const;
+	CustomResource *MetadataResource(int index) const;
+	CommandListVariable *GetVariable(float id, bool template_lookup, bool use_ring_index, bool is_assignment);
 	size_t GetPoolSize();
-	unsigned GetLastUpdateFrame(float id, bool use_ring_index, bool metadata_only = false);
+	unsigned GetLastUpdateFrame(float id, bool use_ring_index);
 
 	bool SetSourcePool(CustomResourcePool *source);
 	CustomResourcePool *ResolvePool();
@@ -688,7 +693,6 @@ class CustomResourcePool
 	void ResetPool(bool reset_elements = true);
 
   private:
-	size_t PeekElementIndex(float id) const;
 	void InitializeResource(size_t pool_index);
 	void InitializeVariable(size_t pool_index);
 
@@ -713,6 +717,9 @@ class CustomResourcePool
 
 	size_t last_replacement_index = 0; // Ring pointer for FIFO eviction
 	unsigned last_expiration_run = UINT32_MAX;
+	bool metadata_preview = false;
+	std::vector<std::unique_ptr<CustomResource>> preview_resources;
+	std::vector<std::unique_ptr<CommandListVariable>> preview_variables;
 };
 
 typedef std::unordered_map<std::wstring, CustomResourcePool> CustomResourcePools;

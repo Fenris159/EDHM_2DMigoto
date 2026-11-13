@@ -431,7 +431,8 @@ void skipped_copies_do_not_evaluate_nested_destination_indexes()
 		require(pool.GetVariable(0, false, true, false)->fval == 11.0f,
 		        "metadata evaluation disabled expiration refresh for a subsequent normal read");
 		G->frame_no = 31;
-		require(pool.GetVariable(0, false, false, false, true)->fval == 3.0f && retained->fval == 11.0f,
+		auto preview = pool.CreateMetadataPreview();
+		require(preview->GetVariable(0, false, false, false)->fval == 3.0f && retained->fval == 11.0f,
 		        "metadata read did not expose the expired default without resetting stored data");
 	}
 	fixture.require_no_errors();
@@ -2074,6 +2075,13 @@ void metadata_resource_identities_survive_acceptance()
 	require(boundary->buffer_creations == 2, "accepted preview created a second GPU identity for its nested resource");
 	fixture.execute(L"this", L"ref poolouter[@poolkeys[1]]");
 	fixture.require_binding(&fresh);
+	auto &self = customResources[L"resourcepreviewself"];
+	MetadataFixture::configure_buffer(self);
+	self.bind_flags = D3D11_BIND_SHADER_RESOURCE;
+	fixture.execute(L"poolouter[@resourcepreviewself]", L"ref resourcepreviewself");
+	require(boundary->buffer_creations == 3, "self-indexed source creation changed its GPU identity");
+	fixture.execute(L"this", L"ref poolouter[@resourcepreviewself]");
+	fixture.require_binding(&self);
 	fixture.d3d.require_no_errors();
 }
 

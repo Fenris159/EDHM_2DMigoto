@@ -86,8 +86,8 @@ def get_mutations(command_list, settings, profiling):
         (
             "pool-metadata",
             command_list,
-            "custom_resource = custom_resource_pool->PeekResource(pool_dynamic_index_expression->evaluate(state));",
-            "custom_resource = custom_resource_pool->GetResource(pool_dynamic_index_expression->evaluate(state), false, false, false);",
+            "custom_resource =\n\t\t\t    state->pool_metadata_preview->GetPool(custom_resource_pool)->GetResource(id, false, false, true);",
+            "custom_resource = custom_resource_pool->GetResource(id, false, false, false);",
         ),
         (
             "pool-identifiers",
@@ -238,7 +238,7 @@ def get_mutations(command_list, settings, profiling):
         (
             "pool-learned-flags",
             command_list,
-            "custom_resource = custom_resource_pool->PeekResource(pool_dynamic_index_expression->evaluate(state));",
+            "custom_resource =\n\t\t\t    state->pool_metadata_preview->GetPool(custom_resource_pool)->GetResource(id, false, false, true);",
             "custom_resource = GetCustomResource(nullptr);",
         ),
         (
@@ -270,6 +270,36 @@ def get_mutations(command_list, settings, profiling):
             command_list,
             "const MetadataScope metadata(state->pool_metadata_query);",
             "// Deliberate break: evaluate nested indexes with ordinary pool reads.",
+        ),
+        (
+            "metadata-resource",
+            command_list,
+            "return state->pool_metadata_preview->GetPool(custom_resource_pool)\n\t\t\t\t\t\t\t      ->GetResource(id, template_lookup, false, assign);",
+            "return custom_resource_pool->resource_template;",
+        ),
+        (
+            "metadata-lazy-index",
+            command_list,
+            "element.resource->pool_index = static_cast<int>(pool_index);",
+            "element.resource->pool_index = metadata_preview ? -1 : static_cast<int>(pool_index);",
+        ),
+        (
+            "metadata-fifo",
+            command_list,
+            "result->allocate_slot_on_missing = allocate_slot_on_missing;",
+            "result->allocate_slot_on_missing = false;",
+        ),
+        (
+            "metadata-expiration",
+            command_list,
+            "result->last_expiration_run = last_expiration_run;",
+            "result->last_expiration_run = UINT32_MAX;",
+        ),
+        (
+            "metadata-resource-identity",
+            command_list,
+            "resource->AdoptMetadataResource(*preview);",
+            "static_cast<void>(preview);",
         ),
     ]
 

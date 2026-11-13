@@ -5918,7 +5918,7 @@ CustomResource::~CustomResource()
 		resource->Release();
 	if (view)
 		view->Release();
-	if (pool_index < 0)
+	if ((pool_index < 0 && !metadata_preview) || owns_preview_initial_data)
 		free(initial_data);
 }
 
@@ -6016,6 +6016,7 @@ void CustomResource::Substantiate(ID3D11Device *mOrigDevice1, D3D11_BIND_FLAG bi
 	// won't overwrite it:
 	if (resource || view)
 		return;
+	PrepareMetadataInitialData();
 
 	Profiling::resources_created++;
 
@@ -6504,6 +6505,68 @@ void CustomResource::CopyMetadataFrom(const CustomResource &src)
 
 	initial_data = src.initial_data;
 	initial_data_size = src.initial_data_size;
+}
+
+std::unique_ptr<CustomResource> CustomResource::CloneForMetadata() const
+{
+	auto result = std::make_unique<CustomResource>();
+	result->CopyMetadataFrom(*this);
+	result->metadata_preview = true;
+	result->name = name;
+	result->pool = pool;
+	result->pool_index = pool_index;
+	result->resource = resource;
+	if (resource)
+		resource->AddRef();
+	result->view = view;
+	if (view)
+		view->AddRef();
+	result->device = device;
+	result->is_null = is_null;
+	result->substantiated = substantiated;
+	result->stride = stride;
+	result->offset = offset;
+	result->buf_size = buf_size;
+	result->format = format;
+	result->source_stride = source_stride;
+	return result;
+}
+
+void CustomResource::PrepareMetadataInitialData()
+{
+	if (!metadata_preview || owns_preview_initial_data)
+		return;
+	const void *borrowed = initial_data;
+	initial_data = nullptr;
+	owns_preview_initial_data = true;
+	if (borrowed && initial_data_size)
+	{
+		initial_data = malloc(initial_data_size);
+		if (!initial_data)
+			throw std::bad_alloc();
+		memcpy(initial_data, borrowed, initial_data_size);
+	}
+}
+
+void CustomResource::AdoptMetadataResource(CustomResource &preview)
+{
+	if (substantiated || resource || view || !preview.substantiated)
+		return;
+	resource = preview.resource;
+	preview.resource = nullptr;
+	view = preview.view;
+	preview.view = nullptr;
+	handle_info = std::move(preview.handle_info);
+	device = preview.device;
+	is_null = preview.is_null;
+	substantiated = preview.substantiated;
+	bind_flags = preview.bind_flags;
+	misc_flags = preview.misc_flags;
+	stride = preview.stride;
+	offset = preview.offset;
+	buf_size = preview.buf_size;
+	format = preview.format;
+	source_stride = preview.source_stride;
 }
 
 // Returns 1 for definite dsv formats
@@ -7122,80 +7185,72 @@ size_t CustomResourcePool::GetElementIndex(float id, bool use_ring_index, bool i
 	}
 }
 
-size_t CustomResourcePool::PeekElementIndex(float id) const
+std::unique_ptr<CustomResourcePool> CustomResourcePool::CreateMetadataPreview() const
 {
-	if (index_type == PoolIndexType::RING || index_type == PoolIndexType::STATIC)
-		return ((int)id % pool_size + pool_size) % pool_size;
-	if (!index_map)
-		return SIZE_MAX;
-	const auto live = [this](size_t index)
+	if (source_pool)
+		return source_pool->CreateMetadataPreview();
+	auto result = std::make_unique<CustomResourcePool>();
+	result->name = name;
+	result->index_type = index_type;
+	result->lazy_initialization = lazy_initialization;
+	result->element_type_switch_reset = element_type_switch_reset;
+	result->allocate_slot_on_missing = allocate_slot_on_missing;
+	result->expiration_timeout_frames = expiration_timeout_frames;
+	result->reset_expired_elements = reset_expired_elements;
+	result->read_refreshes_expiration = read_refreshes_expiration;
+	result->spatial_radius = spatial_radius;
+	result->pool_size = pool_size;
+	result->index_table = index_table;
+	if (index_map)
+		result->index_map = std::make_unique<FlatHashMap<uint32_t, size_t>>(*index_map);
+	result->last_replacement_index = last_replacement_index;
+	result->last_expiration_run = last_expiration_run;
+	result->metadata_preview = true;
+	if (resource_template)
 	{
-		const unsigned updated = index_table[index].last_update_frame;
-		return expiration_timeout_frames == UINT32_MAX || updated == UINT32_MAX ||
-		       G->frame_no - updated <= expiration_timeout_frames;
-	};
-	size_t slot = SIZE_MAX;
-	if (index_map->find(BitCastToUint(id), slot) && live(slot))
-		return slot;
-	if (index_type != PoolIndexType::SPATIAL)
-		return SIZE_MAX;
-
-	const GridPos query = UnpackCellCoords(BitCastToUint(id));
-	uint32_t closest = UINT32_MAX;
-	slot = SIZE_MAX;
-	for (size_t i = 0; i < index_table.size(); ++i)
+		auto resource = resource_template->CloneForMetadata();
+		resource->pool = result.get();
+		result->resource_template = resource.get();
+		result->preview_resources.push_back(std::move(resource));
+	}
+	if (variable_template)
+		result->variable_template = std::make_unique<CommandListVariable>(*variable_template);
+	result->elements = elements;
+	for (PoolElement &element : result->elements)
 	{
-		if (index_table[i].key == UINT32_MAX || !live(i))
-			continue;
-		const uint32_t distance = SpatialDistanceChebyshev(query, UnpackCellCoords(index_table[i].key));
-		if (distance <= spatial_radius && distance < closest)
+		if (element.resource)
 		{
-			closest = distance;
-			slot = i;
+			auto resource = element.resource->CloneForMetadata();
+			resource->pool = result.get();
+			element.resource = resource.get();
+			result->preview_resources.push_back(std::move(resource));
+		}
+		if (element.variable)
+		{
+			auto variable = std::make_unique<CommandListVariable>(*element.variable);
+			element.variable = variable.get();
+			result->preview_variables.push_back(std::move(variable));
 		}
 	}
-	return slot;
+	return result;
 }
 
-CustomResource *CustomResourcePool::PeekResource(float id) const
+CustomResource *CustomResourcePool::MetadataResource(int index) const
 {
-	if (source_pool)
-		return source_pool->PeekResource(id);
-	if (!pool_size)
+	if (index < 0)
 		return resource_template;
-	const size_t slot = PeekElementIndex(id);
-	// Observe existing metadata without expiration, allocation, type switches or re-keying.
-	return slot != SIZE_MAX && elements[slot].resource ? elements[slot].resource : resource_template;
+	return static_cast<size_t>(index) < elements.size() ? elements[index].resource : nullptr;
 }
 
-CommandListVariable *CustomResourcePool::PeekVariable(float id) const
+CustomResource *CustomResourcePool::GetResource(float id, bool template_lookup, bool use_ring_index, bool is_assignment)
 {
 	if (source_pool)
-		return source_pool->PeekVariable(id);
-	if (!pool_size)
-		return variable_template.get();
-	const size_t slot = PeekElementIndex(id);
-	if (slot == SIZE_MAX || !elements[slot].variable)
-		return variable_template.get();
-	if (reset_expired_elements && expiration_timeout_frames != UINT32_MAX &&
-	    index_table[slot].last_update_frame != UINT32_MAX &&
-	    G->frame_no - index_table[slot].last_update_frame > expiration_timeout_frames)
-		return variable_template.get();
-	return elements[slot].variable;
-}
-
-CustomResource *CustomResourcePool::GetResource(float id, bool template_lookup, bool use_ring_index, bool is_assignment,
-                                                bool metadata_only)
-{
-	if (source_pool)
-		return source_pool->GetResource(id, template_lookup, use_ring_index, is_assignment, metadata_only);
+		return source_pool->GetResource(id, template_lookup, use_ring_index, is_assignment);
 
 	// During static evaluation (parsing time) we cannot evaluate dynamic indexes
 	// So parsing-time config has to be applied to the entire pool
 	if (template_lookup)
 		return resource_template;
-	if (metadata_only)
-		return PeekResource(id);
 
 	size_t pool_index = GetElementIndex(id, use_ring_index, is_assignment);
 
@@ -7214,17 +7269,15 @@ CustomResource *CustomResourcePool::GetResource(float id, bool template_lookup, 
 }
 
 CommandListVariable *CustomResourcePool::GetVariable(float id, bool template_lookup, bool use_ring_index,
-                                                     bool is_assignment, bool metadata_only)
+                                                     bool is_assignment)
 {
 	if (source_pool)
-		return source_pool->GetVariable(id, template_lookup, use_ring_index, is_assignment, metadata_only);
+		return source_pool->GetVariable(id, template_lookup, use_ring_index, is_assignment);
 
 	// During static evaluation (parsing time) we cannot evaluate dynamic indexes
 	// So parsing-time config has to be applied to the entire pool
 	if (template_lookup)
 		return variable_template.get();
-	if (metadata_only)
-		return PeekVariable(id);
 
 	size_t pool_index = GetElementIndex(id, use_ring_index, is_assignment);
 
@@ -7242,23 +7295,20 @@ CommandListVariable *CustomResourcePool::GetVariable(float id, bool template_loo
 	return element.variable;
 }
 
-unsigned CustomResourcePool::GetLastUpdateFrame(float id, bool use_ring_index, bool metadata_only)
+unsigned CustomResourcePool::GetLastUpdateFrame(float id, bool use_ring_index)
 {
 	if (source_pool)
-		return source_pool->GetLastUpdateFrame(id, use_ring_index, metadata_only);
+		return source_pool->GetLastUpdateFrame(id, use_ring_index);
 	if (!pool_size)
 		return 0;
 
-	size_t pool_index = metadata_only ? PeekElementIndex(id) : GetElementIndex(id, use_ring_index, false);
+	size_t pool_index = GetElementIndex(id, use_ring_index, false);
 
 	if (pool_index >= index_table.size())
 		return 0;
 
 	PoolSlot &slot = index_table[pool_index];
 
-	if (metadata_only && expiration_timeout_frames != UINT32_MAX && slot.last_update_frame != UINT32_MAX &&
-	    G->frame_no - slot.last_update_frame > expiration_timeout_frames)
-		return UINT32_MAX;
 	return slot.last_update_frame;
 }
 
@@ -7377,14 +7427,22 @@ void CustomResourcePool::InitializeResource(size_t pool_index)
 	{
 		wstring resource_id = wstring(name) + L"_" + std::to_wstring(pool_index);
 
-		element.resource = &customResources[resource_id];
+		if (metadata_preview)
+		{
+			auto resource = resource_template->CloneForMetadata();
+			element.resource = resource.get();
+			preview_resources.push_back(std::move(resource));
+		}
+		else
+			element.resource = &customResources[resource_id];
 
 		element.resource->name = resource_id;
 		element.resource->pool = this;
 		element.resource->pool_index = static_cast<int>(pool_index);
 	}
 
-	element.resource->CopyMetadataFrom(*resource_template);
+	if (!metadata_preview)
+		element.resource->CopyMetadataFrom(*resource_template);
 }
 
 void CustomResourcePool::InitializeVariable(size_t pool_index)
@@ -7394,7 +7452,15 @@ void CustomResourcePool::InitializeVariable(size_t pool_index)
 	if (!element.variable)
 	{
 		wstring variable_id = L"$" + name + L"[" + std::to_wstring(pool_index) + L"]";
-		element.variable = RegisterGlobalVariable(variable_id, &variable_template->fval, variable_template->flags);
+		if (metadata_preview)
+		{
+			auto variable =
+			    std::make_unique<CommandListVariable>(variable_id, variable_template->fval, variable_template->flags);
+			element.variable = variable.get();
+			preview_variables.push_back(std::move(variable));
+		}
+		else
+			element.variable = RegisterGlobalVariable(variable_id, &variable_template->fval, variable_template->flags);
 	}
 	else
 	{
@@ -8992,6 +9058,76 @@ bool CommandPlaceholder::noop(bool post [[maybe_unused]], bool ignore_cto_pre [[
 
 #pragma region ResourceCopyTarget
 
+// A cold source may need destination flags before it can be created. Evaluate
+// nested pool reads against detached state using the real lookup rules. Keep
+// provisional GPU resources until the assignment's ordinary reads can adopt
+// them, so resource identities remain stable without mutating a skipped copy.
+class PoolMetadataPreview
+{
+  public:
+	explicit PoolMetadataPreview(CommandListState &state) : state(state), previous(state.pool_metadata_preview)
+	{
+		state.pool_metadata_preview = this;
+	}
+	~PoolMetadataPreview()
+	{
+		state.pool_metadata_preview = previous;
+	}
+	CustomResourcePool *GetPool(CustomResourcePool *pool)
+	{
+		pool = pool->ResolvePool();
+		if (!contents)
+			contents = std::make_unique<Contents>();
+		auto &preview = contents->pools[pool];
+		if (!preview)
+			preview = pool->CreateMetadataPreview();
+		return preview.get();
+	}
+	CustomResource *GetResource(CustomResource *resource)
+	{
+		if (!resource)
+			return nullptr;
+		if (resource->pool)
+			return GetPool(resource->pool)->MetadataResource(resource->pool_index);
+		if (!contents)
+			contents = std::make_unique<Contents>();
+		auto &preview = contents->resources[resource];
+		if (!preview)
+			preview = resource->CloneForMetadata();
+		return preview.get();
+	}
+	void AdoptResource(CustomResource *resource)
+	{
+		if (!resource || !contents)
+			return;
+		CustomResource *preview = nullptr;
+		if (resource->pool)
+		{
+			const auto found = contents->pools.find(resource->pool->ResolvePool());
+			if (found != contents->pools.end())
+				preview = found->second->MetadataResource(resource->pool_index);
+		}
+		else
+		{
+			const auto found = contents->resources.find(resource);
+			if (found != contents->resources.end())
+				preview = found->second.get();
+		}
+		if (preview)
+			resource->AdoptMetadataResource(*preview);
+	}
+
+  private:
+	CommandListState &state;
+	PoolMetadataPreview *previous;
+	struct Contents
+	{
+		std::unordered_map<CustomResourcePool *, std::unique_ptr<CustomResourcePool>> pools;
+		std::unordered_map<CustomResource *, std::unique_ptr<CustomResource>> resources;
+	};
+	std::unique_ptr<Contents> contents;
+};
+
 void ResourceCopyTarget::SetCustomResource(CustomResource *resource)
 {
 	static_custom_resource = resource;
@@ -9026,13 +9162,21 @@ CustomResource *ResourceCopyTarget::GetCustomResource(CommandListState *state, b
 {
 	if (!static_custom_resource && !custom_resource_pool)
 		return nullptr;
+	if (static_custom_resource && state && state->pool_metadata_query)
+		return state->pool_metadata_preview->GetResource(static_custom_resource);
 
-	return GetPoolObject(static_custom_resource, state, is_assignment,
-	                     [this, state](float id, bool template_lookup, bool assign)
-	                     {
-		                     return custom_resource_pool->GetResource(id, template_lookup, false, assign,
-							                                          state && state->pool_metadata_query);
-	                     });
+	CustomResource *resource =
+	    GetPoolObject(static_custom_resource, state, is_assignment,
+		              [this, state](float id, bool template_lookup, bool assign)
+		              {
+		                  if (state && state->pool_metadata_query)
+			                  return state->pool_metadata_preview->GetPool(custom_resource_pool)
+							      ->GetResource(id, template_lookup, false, assign);
+		                  return custom_resource_pool->GetResource(id, template_lookup, false, assign);
+	                  });
+	if (state && !state->pool_metadata_query && state->pool_metadata_preview && !is_assignment)
+		state->pool_metadata_preview->AdoptResource(resource);
+	return resource;
 }
 
 CommandListVariable *ResourceCopyTarget::GetPoolVariable(CommandListState *state, bool is_assignment)
@@ -9043,8 +9187,10 @@ CommandListVariable *ResourceCopyTarget::GetPoolVariable(CommandListState *state
 	return GetPoolObject(static_pool_variable, state, is_assignment,
 	                     [this, state](float id, bool template_lookup, bool assign)
 	                     {
-		                     return custom_resource_pool->GetVariable(id, template_lookup, false, assign,
-							                                          state && state->pool_metadata_query);
+		                     if (state && state->pool_metadata_query)
+			                     return state->pool_metadata_preview->GetPool(custom_resource_pool)
+								     ->GetVariable(id, template_lookup, false, assign);
+		                     return custom_resource_pool->GetVariable(id, template_lookup, false, assign);
 	                     });
 }
 
@@ -9270,6 +9416,8 @@ ID3D11Resource *ResourceCopyTarget::GetResource(
 		// them, using non-mutating pool reads while resolving destination metadata.
 		if (dst && !custom_resource->substantiated && !custom_resource->resource && !custom_resource->view)
 			bind_flags = dst->BindFlags(state, &misc_flags);
+		if (!state->pool_metadata_query && state->pool_metadata_preview)
+			state->pool_metadata_preview->AdoptResource(custom_resource);
 
 		custom_resource->Substantiate(mOrigDevice1, bind_flags, misc_flags);
 
@@ -9683,9 +9831,12 @@ D3D11_BIND_FLAG ResourceCopyTarget::BindFlags(CommandListState *state, D3D11_RES
 	{
 		// Metadata queries must not allocate a lazy pool element or refresh its
 		// expiration before an unless_null copy can decide to leave it alone.
+		std::optional<PoolMetadataPreview> local_preview;
 		const CustomResource *custom_resource = GetCustomResource(nullptr);
 		if (state && pool_dynamic_index_expression)
 		{
+			if (!state->pool_metadata_preview)
+				local_preview.emplace(*state);
 			struct MetadataScope
 			{
 				bool &flag;
@@ -9700,7 +9851,9 @@ D3D11_BIND_FLAG ResourceCopyTarget::BindFlags(CommandListState *state, D3D11_RES
 				}
 			};
 			const MetadataScope metadata(state->pool_metadata_query);
-			custom_resource = custom_resource_pool->PeekResource(pool_dynamic_index_expression->evaluate(state));
+			const float id = pool_dynamic_index_expression->evaluate(state);
+			custom_resource =
+			    state->pool_metadata_preview->GetPool(custom_resource_pool)->GetResource(id, false, false, true);
 		}
 		if (misc_flags)
 			*misc_flags = custom_resource ? custom_resource->misc_flags : static_cast<D3D11_RESOURCE_MISC_FLAG>(0);
@@ -10220,8 +10373,10 @@ float ResourceCopyTarget::GetPoolElementLastFrame(CommandListState *state)
 	float id = member_args[0].GetValue(state);
 
 	CustomResourcePool *pool = custom_resource_pool->ResolvePool();
+	if (state && state->pool_metadata_query)
+		pool = state->pool_metadata_preview->GetPool(pool);
 
-	return (float)pool->GetLastUpdateFrame(id, false, state && state->pool_metadata_query);
+	return (float)pool->GetLastUpdateFrame(id, false);
 }
 
 #pragma endregion ResourceCopyTarget
@@ -12169,6 +12324,7 @@ void ResourceCopyOperation::run(CommandListState *state)
 		dst.SetResource(state, nullptr, nullptr, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
 		return;
 	}
+	PoolMetadataPreview metadata_preview(*state);
 
 	ID3D11Resource *src_resource = nullptr;
 	ID3D11View *src_view = nullptr;
