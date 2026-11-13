@@ -2225,7 +2225,7 @@ void verify_shared_alias(bool expire_on_dynamic_read)
 	CommandListScope scope;
 	CommandList commands;
 	commands.scope = &scope;
-	parse_copy(commands, L"poolouter[!(@poolstaticalias[0]-@pooldynamicalias[0])]", L"ref resourcepreviewfresh");
+	parse_copy(commands, L"poolouter[!(@poolstaticalias[0] - @pooldynamicalias[0])]", L"ref resourcepreviewfresh");
 	G->frame_no = expire_on_dynamic_read ? 17 : 10;
 	for (const auto &command : commands.commands)
 		command->run(&fixture.d3d.state);
