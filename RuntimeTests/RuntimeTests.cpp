@@ -2149,19 +2149,33 @@ void metadata_spatial_reads_preserve_cached_ranges()
 	key.handle_info->InitializeDataCache(12, 4);
 	key.handle_info->cached_data = source_cache.cached_data;
 	CommandListScope scope;
-	CommandListExpression query;
+	CommandListExpression query, coarse_query;
 	const std::wstring expression = L"resourcecachedkey->spatialhash(0,1,2,1)";
 	require(query.parse(&expression, &config_namespace, &scope), "cached spatial query was rejected");
-	// Unit cells at (64,2,3), packed into the 12/8/12-bit grid.
-	require(BitCastToUint(query.evaluate(&fixture.d3d.state)) == 0x04002003U,
+	const std::wstring coarse = L"resourcecachedkey->spatialhash(0,1,2,2)";
+	require(coarse_query.parse(&coarse, &config_namespace, &scope), "coarse cached query was rejected");
+	require(BitCastToUint(coarse_query.evaluate(&fixture.d3d.state)) == 0x02001001U,
 	        "cached spatial fixture has the wrong key");
-	fixture.prepare_outer(L"ref poolouter[0]");
-	customResourcePools[L"poolouter"].Initialize(4);
+	auto &outer = make_pool(L"poolouter", 0.0f);
+	outer.index_type = PoolIndexType::FIFO;
+	MetadataFixture::configure_buffer(*outer.resource_template);
+	outer.Initialize(2);
+	// Dropping the cache offset reads (99,64,2); that key must have no SRV support.
+	outer.GetResource(BitCastToFloat(0x06340002U), false, false, true);
+	CustomResource *correct = outer.GetResource(BitCastToFloat(0x04002003U), false, false, true);
+	ResourceCopyOperation learn;
+	learn.src.type = ResourceCopyTargetType::CUSTOM_RESOURCE;
+	learn.src.SetCustomResource(correct);
+	learn.dst.type = ResourceCopyTargetType::THIS_RESOURCE;
+	learn.options = ResourceCopyOptions::REFERENCE;
+	learn.run(&fixture.d3d.state);
+	MetadataFixture::configure_buffer(customResources[L"resourcepreviewfresh"]);
 	fixture.execute(L"poolouter[resourcecachedkey->spatialhash(0,1,2,1)]", L"ref resourcepreviewfresh");
 	fixture.require_fresh_flags();
+	// Unit cells at (64,2,3), packed into the 12/8/12-bit grid.
 	require(BitCastToUint(query.evaluate(&fixture.d3d.state)) == 0x04002003U,
 	        "metadata adoption lost cached data ownership or its range");
-	fixture.execute(L"this", L"ref poolouter[0]");
+	fixture.execute(L"this", L"ref poolouter[resourcecachedkey->spatialhash(0,1,2,1)]");
 	fixture.require_binding(&customResources[L"resourcepreviewfresh"]);
 	fixture.d3d.require_no_errors();
 }
@@ -2183,6 +2197,28 @@ void metadata_static_resources_remain_pinned_after_proxy_changes()
 		command->run(&fixture.d3d.state);
 	fixture.require_fresh_flags();
 	fixture.execute(L"this", L"ref poolouter[0]");
+	fixture.require_binding(&customResources[L"resourcepreviewfresh"]);
+	fixture.d3d.require_no_errors();
+}
+
+void metadata_static_and_dynamic_aliases_share_one_resource()
+{
+	MetadataFixture fixture;
+	Microsoft::WRL::ComPtr<D3DDeviceBoundary> boundary;
+	boundary.Attach(new D3DDeviceBoundary(fixture.d3d.device.Get()));
+	HackerContext context(boundary.Get(), fixture.d3d.context.Get());
+	fixture.d3d.state.mOrigDevice1 = boundary.Get();
+	fixture.d3d.state.mHackerContext = &context;
+	auto &pinned = make_pool(L"poolstaticalias", 0.0f);
+	pinned.index_type = PoolIndexType::STATIC;
+	MetadataFixture::configure_buffer(*pinned.resource_template);
+	auto &dynamic = make_pool(L"pooldynamicalias", 0.0f);
+	require(dynamic.SetSourcePool(&pinned), "dynamic alias was rejected");
+	fixture.prepare_outer(L"ref poolouter[1]");
+	fixture.execute(L"poolouter[!(@poolstaticalias[0]-@pooldynamicalias[0])]", L"ref resourcepreviewfresh");
+	require(boundary->buffer_creations == 3, "aliases created separate provisional GPU resources for one slot");
+	fixture.require_fresh_flags();
+	fixture.execute(L"this", L"ref poolouter[1]");
 	fixture.require_binding(&customResources[L"resourcepreviewfresh"]);
 	fixture.d3d.require_no_errors();
 }
@@ -2465,6 +2501,7 @@ int main(int argc, char **argv)
 	             {"metadata-hot-identity", metadata_hot_resources_keep_their_identity},
 	             {"metadata-cached-spatial", metadata_spatial_reads_preserve_cached_ranges},
 	             {"metadata-static-pin", metadata_static_resources_remain_pinned_after_proxy_changes},
+	             {"metadata-alias", metadata_static_and_dynamic_aliases_share_one_resource},
 	             {"pool-identifiers", accepts_pool_identifier_grammar},
 	             {"store-values", stores_typed_and_structured_values},
 	             {"store-views", releases_store_views_on_success_and_failure},
