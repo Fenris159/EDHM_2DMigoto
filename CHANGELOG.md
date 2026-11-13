@@ -48,6 +48,8 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
   metadata previews, and preserve resource identities when a copy is accepted.
 - Preserve hot resources and cached spatial data during preview adoption, and
   retain statically pinned resource targets after pool proxy changes.
+- Share provisional resources across aliases of one root slot and reuse the
+  resolved destination throughout a copy, including when index reads expire a resource.
 - Restore production binaries after failed mutation checks and exclude unverified
   executables from failure artifacts.
 

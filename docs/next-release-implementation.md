@@ -795,3 +795,43 @@ Verification for runtime/test and mutation snapshot `9a43e4c5`:
 The earlier 35/37/42-case receipts retain their original sources and binaries.
 These lifetime repairs have no new performance measurement. Installed-game smoke
 and frame-time validation remain open.
+
+### Shared aliases and one destination per copy
+
+Kilo's review of `730ce6b5` added an alias warning and a valid test-coverage
+suggestion. A STATIC pin and a dynamic alias of the same cold root slot could
+create separate provisional GPUs. The [corrected control](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43376792457)
+reproduces the extra creation on both architectures. Initial alias harness runs
+stopped at parsing because subtraction lacked separating spaces; those were not
+credited as runtime reproductions.
+
+Pins now share the owning slot's snapshot when that owner is still the root and
+the physical slot matches the pinned object. Pins whose pool has redirected
+elsewhere continue to use their original object. The cached-range test now uses
+different FIFO keys for the correct `0x04002003` and incorrectly offset
+`0x06340002` data, with SRV support on only the correct entry. Its deliberate
+break zeros the copied offset, so the test protects the preview range directly.
+
+An additional expiration boundary checks both operand arrangements and verifies
+that the GPU supports the SRV or UAV slot actually written. It assumes no
+arithmetic operand evaluation order. The [valid failing run](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43378780324)
+exposed a mismatch. Creation metadata is now captured before virtual expiration
+can reset it. A [separate trace](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43381362157)
+then showed preview index 0, first live index 0 and a later setter index 1.
+
+`4bbd54ba` retains the resolved dynamic destination for the command's lifetime.
+The setter reuses that resource, and copy creation uses its known flags.
+Skipped `unless_null` copies still avoid live destination resolution. Full-pool
+copies keep their existing per-slot handling. Trace instrumentation remains on
+the separate control branch and is absent from the repaired source.
+
+Verification for runtime/native and mutation snapshot `4bbd54ba`:
+
+- [47 native cases, 48 compiling deliberate breaks, restored production and cleanup checks](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43381953009).
+- [Ordinary/strict Release and Zip Release, formatting, scripts and shaders](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43381965227).
+- [Sonar and changed-source clang-tidy against `origin/develop`](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43381995938).
+
+Two independent mutations cover the expiration case: losing creation metadata
+and resolving the destination again. Earlier receipts keep their original
+source/binary identities. No performance percentage is attributed to these
+correctness changes; installed-game and performance validation remain open.

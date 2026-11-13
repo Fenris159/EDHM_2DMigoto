@@ -26,7 +26,7 @@ bounds, CB ranges, and INI/optimizer ordering and reload semantics. A real devic
 boundary records submitted buffer descriptors and can fail staging allocation;
 this catches errors that WARP normalizes in a completed buffer description.
 
-The 45 cases also cover monitor-mode/window/reload transitions and recursive or
+The 47 cases also cover monitor-mode/window/reload transitions and recursive or
 shared command counts; summary-only matching/view diagnostics; hash-first and
 ordered dual matching; documented expression operators; all four view kinds,
 resource/descriptor/raw/override fallbacks, changing `this` targets, warm-cache
@@ -46,11 +46,18 @@ live templates; accepted nested and self-indexed reads preserve one GPU identity
 Hot resource reads retain their identity across repeated adoption. Spatial
 previews preserve shared CPU data and its range, and STATIC targets keep their
 parsed resource when the owning pool later becomes a proxy.
+STATIC and dynamic aliases of one root slot share a provisional resource.
+The cache-range case uses distinct FIFO keys so dropping the preview offset
+changes required binding flags. Expiring aliases check actual SRV/UAV capability
+and data in both operand orders, without assuming an evaluation order.
 CPU timing is never a regression threshold.
 
 ## Regression sensitivity
 
 The manual **Runtime regression checks** workflow accepts `mutation_checks=true`.
+The 47 cases have 48 deliberate breaks: the expiring-alias case independently
+breaks resource-creation metadata and reuse of the resolved destination. Mutation
+labels distinguish those two runs while invoking the same native case.
 Its disposable checkout builds each deliberate behavior break, requires the
 focused case to fail, restores the exact source bytes, then rebuilds and reruns
 the restored cases. Local use requires a clean isolated worktree because the

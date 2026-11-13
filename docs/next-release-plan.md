@@ -1,6 +1,6 @@
 # Next release implementation plan
 
-**Prepared:** 2026-11-12. **Status:** first wave native validated; follow-up profiler/parser/view candidate implemented on `upstream-improvements`, with PR #43 review repairs and 45 native cases covering detached metadata lookup and resource lifetimes; the game gate remains open.
+**Prepared:** 2026-11-12. **Updated:** 2026-11-13. **Status:** first wave native validated; follow-up profiler/parser/view candidate implemented on `upstream-improvements`, with PR #43 review repairs and 47 native cases covering detached metadata lookup, aliases and resource lifetimes; the game gate remains open.
 **Next work:** review PR #43 and its analysis results, then installed-game smoke and frame-time validation before promotion. The execution log records accepted and deferred items;
 [the implementation report](next-release-implementation.md) records the evidence.
 
@@ -381,3 +381,10 @@ Three subsequent warnings add protection for repeated adoption of hot resources,
 cached spatial data with a nonzero range, and STATIC operands pinned before
 proxy changes. The report's hot-resource section records the 45-case validation
 and lifetime corrections. The earlier 42-case receipt remains a fixed checkpoint.
+
+The next review's alias and range-coverage findings add shared physical-slot
+previews, a FIFO range discriminator and an expiring-alias boundary. Creation
+metadata is preserved before virtual expiration changes it, and a copy reuses
+its resolved destination rather than evaluating that index again. The 47 native
+cases have 48 compiling deliberate breaks; the report records their validation
+and retains earlier 35/37/42/45-case receipts as historical evidence.
