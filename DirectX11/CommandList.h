@@ -583,6 +583,7 @@ class CustomResource
 	ID3D11View *metadata_original_view = nullptr;
 	ID3D11Device *metadata_original_device = nullptr;
 	bool metadata_original_substantiated = false;
+	bool metadata_adopted = false;
 
 	CustomResource();
 	~CustomResource();

@@ -302,6 +302,24 @@ def get_mutations(command_list, settings, profiling):
             "resource->AdoptMetadataResource(*preview);",
             "static_cast<void>(preview);",
         ),
+        (
+            "metadata-hot-identity",
+            command_list,
+            "\tif (preview.metadata_adopted || !preview.substantiated || resource != preview.metadata_original_resource ||\n\t    view != preview.metadata_original_view || device != preview.metadata_original_device ||\n\t    substantiated != preview.metadata_original_substantiated)\n\t\treturn;\n\tpreview.metadata_adopted = true;\n\t// Existing GPU objects and their live caches stay in place. Only\n\t// provisionally created or replaced runtime state needs transferring.\n\tif ((resource || view) && resource == preview.resource && view == preview.view)\n\t\treturn;\n",
+            "\tif (!preview.substantiated || resource != preview.metadata_original_resource ||\n\t    view != preview.metadata_original_view || device != preview.metadata_original_device ||\n\t    substantiated != preview.metadata_original_substantiated)\n\t\treturn;\n",
+        ),
+        (
+            "metadata-cached-spatial",
+            command_list,
+            "cached.cached_data = handle_info->cached_data;",
+            "cached.cached_data.reset();",
+        ),
+        (
+            "metadata-static-pin",
+            command_list,
+            "CustomResource *GetResource(CustomResource *resource)\n\t{\n\t\tif (!resource)\n\t\t\treturn nullptr;\n",
+            "CustomResource *GetResource(CustomResource *resource)\n\t{\n\t\tif (!resource)\n\t\t\treturn nullptr;\n\t\tif (resource->pool)\n\t\t\treturn GetPool(resource->pool)->MetadataResource(resource->pool_index);\n",
+        ),
     ]
 
 

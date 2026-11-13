@@ -6535,6 +6535,22 @@ std::unique_ptr<CustomResource> CustomResource::CloneForMetadata(bool include_ru
 	result->buf_size = buf_size;
 	result->format = format;
 	result->source_stride = source_stride;
+	if (handle_info)
+	{
+		result->handle_info = std::make_unique<ResourceHandleInfo>();
+		auto &cached = *result->handle_info;
+		cached.type = handle_info->type;
+		cached.hash = handle_info->hash;
+		cached.orig_hash = handle_info->orig_hash;
+		cached.data_hash = handle_info->data_hash;
+		cached.cached_data = handle_info->cached_data;
+		cached.cached_data_offset = handle_info->cached_data_offset;
+		cached.cached_data_size = handle_info->cached_data_size;
+		if (cached.type == D3D11_RESOURCE_DIMENSION_TEXTURE2D)
+			cached.desc2D = handle_info->desc2D;
+		else if (cached.type == D3D11_RESOURCE_DIMENSION_TEXTURE3D)
+			cached.desc3D = handle_info->desc3D;
+	}
 	return result;
 }
 
@@ -6556,9 +6572,14 @@ void CustomResource::PrepareMetadataInitialData()
 
 void CustomResource::AdoptMetadataResource(CustomResource &preview)
 {
-	if (!preview.substantiated || resource != preview.metadata_original_resource ||
+	if (preview.metadata_adopted || !preview.substantiated || resource != preview.metadata_original_resource ||
 	    view != preview.metadata_original_view || device != preview.metadata_original_device ||
 	    substantiated != preview.metadata_original_substantiated)
+		return;
+	preview.metadata_adopted = true;
+	// Existing GPU objects and their live caches stay in place. Only
+	// provisionally created or replaced runtime state needs transferring.
+	if ((resource || view) && resource == preview.resource && view == preview.view)
 		return;
 	if (resource)
 		resource->Release();
@@ -6568,7 +6589,8 @@ void CustomResource::AdoptMetadataResource(CustomResource &preview)
 	preview.resource = nullptr;
 	view = preview.view;
 	preview.view = nullptr;
-	handle_info = std::move(preview.handle_info);
+	if (preview.handle_info && !GetHandleInfo())
+		handle_info = std::move(preview.handle_info);
 	device = preview.device;
 	is_null = preview.is_null;
 	substantiated = preview.substantiated;
@@ -9099,8 +9121,6 @@ class PoolMetadataPreview
 	{
 		if (!resource)
 			return nullptr;
-		if (resource->pool)
-			return GetPool(resource->pool)->MetadataResource(resource->pool_index);
 		if (!contents)
 			contents = std::make_unique<Contents>();
 		auto &preview = contents->resources[resource];
@@ -9113,17 +9133,14 @@ class PoolMetadataPreview
 		if (!resource || !contents)
 			return;
 		CustomResource *preview = nullptr;
-		if (resource->pool)
+		const auto pinned = contents->resources.find(resource);
+		if (pinned != contents->resources.end())
+			preview = pinned->second.get();
+		else if (resource->pool)
 		{
-			const auto found = contents->pools.find(resource->pool->ResolvePool());
+			const auto found = contents->pools.find(resource->pool);
 			if (found != contents->pools.end())
 				preview = found->second->MetadataResource(resource->pool_index);
-		}
-		else
-		{
-			const auto found = contents->resources.find(resource);
-			if (found != contents->resources.end())
-				preview = found->second.get();
 		}
 		if (preview)
 			resource->AdoptMetadataResource(*preview);
