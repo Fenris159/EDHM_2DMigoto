@@ -2201,7 +2201,7 @@ void metadata_static_resources_remain_pinned_after_proxy_changes()
 	fixture.d3d.require_no_errors();
 }
 
-void verify_shared_alias(bool expire_on_dynamic_read)
+void verify_shared_alias(bool expire_on_dynamic_read, bool reverse_operands = false)
 {
 	MetadataFixture fixture;
 	G->frame_no = 10;
@@ -2221,18 +2221,62 @@ void verify_shared_alias(bool expire_on_dynamic_read)
 	}
 	auto &dynamic = make_pool(L"pooldynamicalias", 0.0f);
 	require(dynamic.SetSourcePool(&pinned), "dynamic alias was rejected");
-	fixture.prepare_outer(expire_on_dynamic_read ? L"ref poolouter[0]" : L"ref poolouter[1]");
+	if (expire_on_dynamic_read)
+	{
+		auto &outer = make_pool(L"poolouter", 0.0f);
+		MetadataFixture::configure_buffer(*outer.resource_template);
+		outer.GetResource(0, false, false, true)->bind_flags = D3D11_BIND_SHADER_RESOURCE;
+		outer.GetResource(1, false, false, true)->bind_flags = D3D11_BIND_UNORDERED_ACCESS;
+		MetadataFixture::configure_buffer(customResources[L"resourcepreviewfresh"]);
+	}
+	else
+		fixture.prepare_outer(L"ref poolouter[1]");
 	CommandListScope scope;
 	CommandList commands;
 	commands.scope = &scope;
-	parse_copy(commands, L"poolouter[!(@poolstaticalias[0] - @pooldynamicalias[0])]", L"ref resourcepreviewfresh");
+	parse_copy(commands,
+	           reverse_operands ? L"poolouter[!(@pooldynamicalias[0] - @poolstaticalias[0])]"
+	                            : L"poolouter[!(@poolstaticalias[0] - @pooldynamicalias[0])]",
+	           L"ref resourcepreviewfresh");
 	G->frame_no = expire_on_dynamic_read ? 17 : 10;
 	for (const auto &command : commands.commands)
 		command->run(&fixture.d3d.state);
-	require(boundary->buffer_creations == 3, "aliases created separate provisional GPU resources for one slot");
-	fixture.require_fresh_flags();
-	fixture.execute(L"this", expire_on_dynamic_read ? L"ref poolouter[0]" : L"ref poolouter[1]");
-	fixture.require_binding(&customResources[L"resourcepreviewfresh"]);
+	require(boundary->buffer_creations == (expire_on_dynamic_read ? 2U : 3U),
+	        "aliases created separate provisional GPU resources for one slot");
+	auto &fresh = customResources[L"resourcepreviewfresh"];
+	if (expire_on_dynamic_read)
+	{
+		auto &outer = customResourcePools[L"poolouter"];
+		const bool slot0 = outer.GetResource(0, false, false, false)->resource == fresh.resource;
+		const bool slot1 = outer.GetResource(1, false, false, false)->resource == fresh.resource;
+		require(fresh.resource != nullptr && slot0 != slot1, "expiring alias copy did not write one destination");
+		D3D11_BUFFER_DESC desc{};
+		static_cast<ID3D11Buffer *>(fresh.resource)->GetDesc(&desc);
+		require(desc.BindFlags == (slot0 ? D3D11_BIND_SHADER_RESOURCE : D3D11_BIND_UNORDERED_ACCESS),
+		        "expiring alias preview omitted its actual destination's binding capability");
+		if (slot1)
+		{
+			fixture.current.type = ResourceCopyTargetType::UNORDERED_ACCESS_VIEW;
+			fixture.current.shader_type = L'c';
+			fixture.execute(L"this", L"ref poolouter[1]");
+			Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> view;
+			fixture.d3d.context->CSGetUnorderedAccessViews(0, 1, &view);
+			require_view_resource(view.Get(), fresh.resource);
+			require(read_buffer(fixture.d3d, fresh.resource) == std::vector<float>({11, 13, 17, 19}),
+			        "expiring alias UAV exposed the wrong data");
+		}
+		else
+		{
+			fixture.execute(L"this", L"ref poolouter[0]");
+			fixture.require_binding(&fresh);
+		}
+	}
+	else
+	{
+		fixture.require_fresh_flags();
+		fixture.execute(L"this", L"ref poolouter[1]");
+		fixture.require_binding(&fresh);
+	}
 	fixture.d3d.require_no_errors();
 }
 
@@ -2243,7 +2287,8 @@ void metadata_static_and_dynamic_aliases_share_one_resource()
 
 void metadata_aliases_preserve_expiration_order()
 {
-	verify_shared_alias(true);
+	for (bool reverse : {false, true})
+		verify_shared_alias(true, reverse);
 }
 
 void metadata_expiration_matches_same_frame_reset()
