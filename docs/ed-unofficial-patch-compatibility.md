@@ -65,6 +65,14 @@ the installer was not exercised here.
 [installer recognition](https://github.com/characterecho-sean/ed-unofficial-patch/blob/aa765cd9b90d9b3027c6505157c607d151eeaef5/src/installer/probe.cpp#L405),
 [our version resource](https://github.com/Fenris159/EDHM_2DMigoto/blob/4c953f29127b1d13301c733f157f0850cc2eb309/DirectX11/DirectX11.rc#L83).
 
+The rename also activates the inherited `HookD3D11` branch in `DllMain`, which
+detours create-device exports in the module named `d3d11.dll`, normally ED-UP.
+Original 1.4.9 has the same branch. Setting `load_library_redirect=0` does not
+disable those entry detours, the loader hook or DXGI factory hooks. This is an
+initialization/routing boundary to validate, not a demonstrated failure. The
+[maintainer report](edup-maintainer-report.md#2-surface-area-what-changes-and-what-remains-shared)
+records the source paths and ED-UP's relevant recursion/attachment guards.
+
 ## Configuration I recommend for this pairing
 
 These are proposed settings, not changes made to an installation.
