@@ -124,9 +124,6 @@ void run(const char *mode)
 			          &swap_chain, &device, nullptr, &context);
 			require(SUCCEEDED(hr), "device and swap-chain creation failed");
 			require(swap_chain != nullptr, "creation returned no swap chain");
-			DXGI_SWAP_CHAIN_DESC actual = {};
-			require(SUCCEEDED(swap_chain->GetDesc(&actual)), "swap-chain description unavailable");
-			require(actual.BufferCount == buffers, "proxy swap-chain policy was bypassed");
 		}
 		else
 		{
@@ -135,6 +132,12 @@ void run(const char *mode)
 			require(SUCCEEDED(hr), "device creation failed");
 		}
 		check_device(device.Get(), wanted);
+		if (swap_chain)
+		{
+			DXGI_SWAP_CHAIN_DESC actual = {};
+			require(SUCCEEDED(swap_chain->GetDesc(&actual)), "swap-chain description unavailable");
+			require(actual.BufferCount == buffers, "proxy swap-chain policy was bypassed");
+		}
 		require(context != nullptr, "creation returned no context");
 		context->ClearState();
 		if (edup && swap_chain)

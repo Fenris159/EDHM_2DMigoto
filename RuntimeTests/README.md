@@ -97,8 +97,10 @@ DLL hashes.
 
 `proxy_chain_downstream_baseline_run` supplies a build that preserves the outer
 proxy but loses the explicitly configured downstream proxy. Its three combined
-chain cases must fail on the missing public device/swap-chain policy. This
-control uses the same fixtures and assertions as the repaired build.
+chain cases must fail with device flags `0x20` instead of `0x21`: the outer BGRA
+policy survives while the downstream single-threaded policy is missing. An
+outer-proxy bypass cannot satisfy this control. The repaired build must retain
+both policies and the downstream swap-chain buffer count.
 
 ## Regression sensitivity
 

@@ -105,7 +105,8 @@ def main():
             (directory / "stderr.txt").write_text(completed.stderr, encoding="utf-8")
             expected_creations = 1 if case == "edup" else 4
             completed_creations = sum(line.startswith(f"PASS {case} creation ") for line in completed.stdout.splitlines())
-            record = {"case": case, "exit_code": completed.returncode, "completed_creations": completed_creations}
+            record = {"case": case, "exit_code": completed.returncode,
+                      "completed_creations": completed_creations, "passed": False}
             records.append(record)
             if case == "edup":
                 logs = "\n".join(path.read_text(encoding="utf-8", errors="replace")
@@ -120,19 +121,30 @@ def main():
                                     and record["edup_chain_selected"]
                                     and record["edup_device_attached"] == wanted
                                     and record["edup_present_active"] == wanted)
-            elif control:
+            elif args.expect_downstream_bypass:
+                # The outer BGRA policy must survive while only the child
+                # single-threaded policy disappears. An outer bypass is a
+                # different regression and must not satisfy this control.
+                record["outer_only_device_policy"] = (
+                    "Device policy: wanted 0x21, received 0x20" in completed.stderr.splitlines()
+                )
+                record["passed"] = (completed.returncode == 1 and record["outer_only_device_policy"]
+                                    and "proxy device policy was bypassed" in completed.stderr)
+            elif args.expect_bypass:
                 record["passed"] = completed.returncode == 1 and (
                     "proxy device policy was bypassed" in completed.stderr
                     or "proxy swap-chain policy was bypassed" in completed.stderr
                 )
             else:
-                record["passed"] = completed.returncode == 0 and completed_creations == expected_creations
+                creations_ok = completed.returncode == 0 and completed_creations == expected_creations
                 if case == "invalid-proxy":
                     log = (directory / "d3d11_log.txt").read_text(encoding="utf-8", errors="replace")
                     record["invalid_proxy_machine"] = pe_machine(directory / "invalid.dll")
                     record["missing_exports_rejected"] = "Rejected chained d3d11: required exports are missing" in log
-                    record["passed"] = (record["passed"] and record["invalid_proxy_machine"] == target_machine
+                    record["passed"] = (creations_ok and record["invalid_proxy_machine"] == target_machine
                                         and record["missing_exports_rejected"])
+                else:
+                    record["passed"] = creations_ok
             print(f"{'PASS' if record['passed'] else 'FAIL'} {case}: exit {completed.returncode}", flush=True)
             if not record["passed"]:
                 raise RuntimeError(f"{case}: {completed.stdout}\n{completed.stderr}")
