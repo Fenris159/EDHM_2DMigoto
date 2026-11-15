@@ -26,6 +26,16 @@ The manifest also supplies `schema_version` (currently `1`), `channel`
 `release_url` and `source_url`. GitHub's latest-stable route excludes
 prereleases. Explicit tag URLs can be used for testing or rollback.
 
+## EDUP integration
+
+EDUP's maintainer can fetch this manifest and its pinned DLL while preparing
+an EDUP release, or add this source to the updater's dependency handling.
+Keep EDUP's existing signed-manifest verification for its release payloads.
+This runtime's `edup-runtime.json` describes the EDHM dependency; EDUP's
+[`ed-up-manifest.json` and signature](https://github.com/characterecho-sean/ed-unofficial-patch/blob/v0.22.2/src/installer/updater.h)
+remain under EDUP's release process. Publishing these assets does not configure
+an existing EDUP installation to update this dependency automatically.
+
 ## Repository mirror
 
 | File | Contents |
