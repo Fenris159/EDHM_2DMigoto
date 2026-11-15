@@ -1331,9 +1331,11 @@ void frame_analysis_input_keeps_configuration_ownership()
 		analysis.CSSetConstantBuffers(0, 1, &binding);
 		G->check_foreground_window = true;
 		G->analyse_frame = true;
-		auto options = FrameAnalysisOptions::HOLD | FrameAnalysisOptions::DUMP_CB | FrameAnalysisOptions::FMT_BUF_BIN |
-		               FrameAnalysisOptions::MONO |
-		               (route == 3 ? FrameAnalysisOptions::DEFRD_CTX_DELAY : FrameAnalysisOptions::DEFRD_CTX_IMM);
+		auto options = FrameAnalysisOptions::HOLD;
+		options |= FrameAnalysisOptions::DUMP_CB;
+		options |= FrameAnalysisOptions::FMT_BUF_BIN;
+		options |= FrameAnalysisOptions::MONO;
+		options |= route == 3 ? FrameAnalysisOptions::DEFRD_CTX_DELAY : FrameAnalysisOptions::DEFRD_CTX_IMM;
 		if (route == 1)
 			options |= FrameAnalysisOptions::DUMP_ON_UPDATE;
 		G->cur_analyse_options = G->def_analyse_options = options;

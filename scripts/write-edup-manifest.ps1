@@ -40,7 +40,7 @@ $manifest = [ordered]@{
     release_url    = $ReleaseUrl
     source_url     = "$repositoryUrl/tree/$tagText"
 }
-$destination = [System.IO.Path]::GetFullPath($OutFile)
+$destination = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutFile)
 [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($destination)) | Out-Null
 $json = ($manifest | ConvertTo-Json -Depth 4) -replace "`r`n", "`n"
 [System.IO.File]::WriteAllText($destination, $json + "`n", [System.Text.UTF8Encoding]::new($false))

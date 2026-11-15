@@ -329,6 +329,30 @@ def get_mutations(command_list, settings, profiling):
             "if (!clear_uav_uint)",
         ),
         (
+            "analysis-reload--draw",
+            ROOT / "DirectX11" / "FrameAnalysis.cpp",
+            '\tconst ConfigurationReadLock configuration;\n\tupdate_per_draw_analyse_options();',
+            '\tupdate_per_draw_analyse_options();',
+        ),
+        (
+            "analysis-reload--update",
+            ROOT / "DirectX11" / "FrameAnalysis.cpp",
+            '\tconst ConfigurationReadLock configuration;\n\twchar_t filename[MAX_PATH];\n\tHRESULT hr;\n\n\tanalyse_options = G->cur_analyse_options;',
+            '\twchar_t filename[MAX_PATH];\n\tHRESULT hr;\n\n\tanalyse_options = G->cur_analyse_options;',
+        ),
+        (
+            "analysis-reload--explicit",
+            ROOT / "DirectX11" / "FrameAnalysis.cpp",
+            '\tconst ConfigurationReadLock configuration;\n\twchar_t filename[MAX_PATH];\n\tHRESULT hr;\n\n\tanalyse_options = options;',
+            '\twchar_t filename[MAX_PATH];\n\tHRESULT hr;\n\n\tanalyse_options = options;',
+        ),
+        (
+            "analysis-reload--playback",
+            ROOT / "DirectX11" / "FrameAnalysis.cpp",
+            '\tconst ConfigurationReadLock configuration;\n\tFrameAnalysisDeferredBuffersPtr deferred_buffers = nullptr;',
+            '\tFrameAnalysisDeferredBuffersPtr deferred_buffers = nullptr;',
+        ),
+        (
             "missing-metadata",
             command_list,
             "*misc_flags = custom_resource ? custom_resource->misc_flags : static_cast<D3D11_RESOURCE_MISC_FLAG>(0);",
