@@ -14,15 +14,44 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 ## [Unreleased]
 
+### Planned
+
+- Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
+
+## [0.1.4-beta.2] - 2026-11-15
+
 ### Fixed
 
 - Keep installed device-creation hook continuations separate from selected
   backend exports, so renamed chain loading preserves both an outer proxy such
   as EDUP and an explicitly configured downstream proxy.
 
-### Planned
+### Added
 
-- Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
+- Product-DLL proxy-chain checks for both device-creation APIs, early and lazy
+  initialization, repeated calls, combined outer/downstream proxies and
+  missing/self/invalid proxy fallback on x64 and Win32. Invalid-proxy checks
+  require a matching architecture and the missing-export rejection diagnostic.
+- A pinned EDUP 0.22.1 before/after startup check: the old DLL selects the chain
+  while leaving EDUP's device and Present path inactive; the repaired DLL
+  activates both and registers its F8 menu binding.
+- Separate regression controls for outer-proxy and downstream-proxy bypass.
+  Failed or incomplete rejection evidence remains failed in the JSON receipts.
+
+### Changed
+
+- Scope Actions read permissions to the workflow jobs that consume them.
+- Document rebuilding the product DLL before running proxy-chain checks.
+
+### Notes
+
+- An external tester reported an earlier repaired test build working in-game
+  with EDUP and EDHM. Native Windows/MSVC/WARP checks of the final routing fix
+  remain separate from that report and do not establish Elite AA or VR output.
+- When pairing with EDUP, retain EDUP's `d3d11.dll` and install this release's
+  DLL as `d3d11_edhm.dll`. Set `[advanced] real_dll=d3d11_edhm.dll` in EDUP's
+  configuration and `[System] load_library_redirect=0` in our `d3dx.ini`. See
+  [the configuration guide](https://github.com/Fenris159/EDHM_2DMigoto/blob/develop/docs/ed-unofficial-patch-compatibility.md#configuration-i-recommend-for-this-pairing).
 
 ## [0.1.4-beta.1] - 2026-11-13
 
@@ -445,7 +474,8 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 - `d3dcompiler_47.dll` remains the Microsoft redistributable (SDK / EDHM package)
 - Stereo features remain stripped (2Dmigoto); XXMI performance-oriented code paths retained
 
-[Unreleased]: https://github.com/Fenris159/EDHM_2DMigoto/compare/aa68c0ccc51b088740f6eecaba1f3582cc507f04...HEAD
+[Unreleased]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.4-beta.2...HEAD
+[0.1.4-beta.2]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.4-beta.1...v0.1.4-beta.2
 [0.1.4-beta.1]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.3...aa68c0ccc51b088740f6eecaba1f3582cc507f04
 [0.1.3]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.3
 [0.1.3-alpha.6]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.3-alpha.6
