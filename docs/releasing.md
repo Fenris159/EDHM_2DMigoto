@@ -53,8 +53,10 @@ Before a cut, update **CHANGELOG** (move Unreleased items into a version section
    - Commit + push if needed
    - Create annotated tag
    - Build **Zip Release | x64**
-   - Publish GitHub Release with `d3d11.dll`, zip, and SHA256 files
-   - Commit **`vendor/edhm-runtime/`** (DLL via Git LFS + metadata) on the same branch
+   - Publish GitHub Release with `d3d11.dll`, `d3d11_edhm.dll`,
+     `edup-runtime.json`, ZIP and SHA256 files
+   - Update **`vendor/edhm-runtime/`** and **`vendor/edup-runtime/`**
+     (DLLs via Git LFS + metadata) on the selected branch when permitted
 
 Tags are repository-wide. Never reuse an existing release or pre-release tag.
 The preserved `linux-compatibility` branch is the source for the stacked review
@@ -137,21 +139,26 @@ Configured for the four long-lived branches (`main`, `develop`, `xxmi-base`, `ba
 
 **xxmi-base:** GitHub personal repos cannot restrict pushes to “Actions only” the way org rulesets can. Protection blocks **deletion** and a workflow **fails any PR targeting `xxmi-base`**. Treat the branch as read-only comparison code: never land EDHM features there.
 
-## Vendor cache (`vendor/edhm-runtime`)
+## Vendor caches
 
-After a **non-draft** Release succeeds, the same workflow (when `update_vendor_cache` is true, default) commits:
+After a **non-draft** Release succeeds, the same workflow (when `update_vendor_cache` is true, default) updates both folders:
 
 | Path | Contents |
 |------|----------|
 | `vendor/edhm-runtime/d3d11.dll` | Built DLL (**Git LFS**) |
 | `vendor/edhm-runtime/d3d11.dll.sha256` | Checksum |
+| `vendor/edup-runtime/d3d11_edhm.dll` | Identical DLL with EDUP chain filename (**Git LFS**) |
+| `vendor/edup-runtime/d3d11_edhm.dll.sha256` | Checksum with renamed filename |
+| `vendor/edup-runtime/manifest.json` | Same content as the published `edup-runtime.json` |
 | `vendor/edhm-runtime/VERSION` | SemVer without `v` |
 | `vendor/edhm-runtime/SOURCE_TAG` | e.g. `v0.1.0-beta.1` |
 | `vendor/edhm-runtime/CHANNEL` | `release` or `prerelease` |
 | `vendor/edhm-runtime/RELEASE_URL` | GitHub Release URL |
 
-- Pre-releases update the cache on **`develop`**
-- Stable releases update the cache on **`main`**
+- Prereleases update both caches on **`develop`**
+- Stable releases update both caches on **`main`** through the protected cache PR
+The `VERSION`, `SOURCE_TAG`, `CHANNEL` and `RELEASE_URL` metadata appears in both folders.
+
 - GitHub **Release assets** remain the distribution source of truth; vendor is a convenience mirror
 
 Local helper (after a manual build):
