@@ -34,7 +34,7 @@
 #define INI_FILENAME L"d3dx.ini"
 
 static PersistentSettingsState persistent_settings_state;
-static std::recursive_mutex persistent_settings_save_mutex;
+static std::mutex persistent_settings_save_mutex;
 
 static bool GetMigotoDirectory(wchar_t *path, size_t path_size)
 {
@@ -2605,8 +2605,9 @@ static void ParseCommandList(const wchar_t *id, CommandList *pre_command_list, C
 
 CommandListVariable *RegisterGlobalVariable(wstring &name, float *fval, VariableFlags flags)
 {
+	const std::lock_guard<std::mutex> lock(persistent_variables_mutex);
 	std::pair<CommandListVariables::iterator, bool> inserted =
-	    command_list_globals.emplace(name, CommandListVariable{name, fval ? *fval : 0.0f, flags});
+	    command_list_globals.try_emplace(name, name, fval ? *fval : 0.0f, flags);
 	if (!inserted.second)
 	{
 		return nullptr;
@@ -5508,10 +5509,9 @@ void LoadProfileManagerConfig(const wchar_t *config_dir)
 	LogInfo("\n");
 }
 
-bool SavePersistentSettings()
+// Caller owns persistent_settings_save_mutex, including for a clean preflight.
+static bool SavePersistentSettingsUnlocked()
 {
-	// Even a clean preflight must wait for an earlier snapshot to reach disk.
-	const std::lock_guard<std::recursive_mutex> save_lock(persistent_settings_save_mutex);
 	G->gSettingsSaveTime = G->gTime;
 	if (!G->user_config_dirty)
 		return true;
@@ -5539,8 +5539,11 @@ bool SavePersistentSettings()
 	pending.dirty = G->user_config_dirty.exchange(0);
 	settings_path = G->user_config;
 	snapshot = persistent_settings_state.UnknownValues();
-	for (const auto *variable : persistent_variables)
-		snapshot[variable->name] = variable->fval;
+	{
+		const std::lock_guard<std::mutex> lock(persistent_variables_mutex);
+		for (const auto *variable : persistent_variables)
+			snapshot[variable->name] = variable->fval;
+	}
 
 	struct RestoreLocale
 	{
@@ -5611,9 +5614,14 @@ bool SavePersistentSettings()
 	return true;
 }
 
-bool WipeUserConfig()
+bool SavePersistentSettings()
 {
-	const std::lock_guard<std::recursive_mutex> save_lock(persistent_settings_save_mutex);
+	const std::lock_guard<std::mutex> save_lock(persistent_settings_save_mutex);
+	return SavePersistentSettingsUnlocked();
+}
+
+static bool WipeUserConfigUnlocked()
+{
 	if (!DeleteFileW(G->user_config.c_str()))
 	{
 		const DWORD error = GetLastError();
@@ -5625,6 +5633,12 @@ bool WipeUserConfig()
 	persistent_settings_state.Clear();
 	LogOverlayW(LOG_INFO, L"> Wiped user config file d3dx_user.ini\n");
 	return true;
+}
+
+bool WipeUserConfig()
+{
+	const std::lock_guard<std::mutex> save_lock(persistent_settings_save_mutex);
+	return WipeUserConfigUnlocked();
 }
 
 static void MarkAllShadersDeferredUnprocessed()
@@ -5657,11 +5671,11 @@ void ReloadConfig(HackerDevice *device)
 		return;
 	}
 	// Serialize the complete save/load transaction with other saves and wipes.
-	const std::lock_guard<std::recursive_mutex> settings_lock(persistent_settings_save_mutex);
+	const std::lock_guard<std::mutex> settings_lock(persistent_settings_save_mutex);
 
 	// Failed saves must not be followed by a reload that discards the pending
 	// in-memory values and replaces them with the previous complete disk file.
-	if ((G->gWipeUserConfig && !WipeUserConfig()) || !SavePersistentSettings())
+	if ((G->gWipeUserConfig && !WipeUserConfigUnlocked()) || !SavePersistentSettingsUnlocked())
 	{
 		G->gReloadConfigPending = false;
 		LogInfo("Config reload canceled because user settings could not be saved or wiped; retry after resolving the "
@@ -5732,7 +5746,7 @@ void ReloadConfig(HackerDevice *device)
 
 	setlocale(LC_CTYPE, G->gDefaultLocale.c_str());
 	if (G->user_config_dirty & 2)
-		SavePersistentSettings();
+		SavePersistentSettingsUnlocked();
 
 	auto stop = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<float> duration = stop - start;

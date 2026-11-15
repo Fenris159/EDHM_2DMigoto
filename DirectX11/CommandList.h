@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <atomic>
+#include <mutex>
 #include <optional>
 #include <cstdint>
 #include <array>
@@ -160,29 +161,10 @@ class CommandListVariable
 	VariableFlags flags;
 
 	CommandListVariable(wstring name, float fval, VariableFlags flags) : name(name), fval(fval), flags(flags) {}
-	CommandListVariable(const CommandListVariable &other)
-	    : name(other.name), fval(other.fval.load(std::memory_order_relaxed)), flags(other.flags)
+	std::unique_ptr<CommandListVariable> CloneForMetadata() const
 	{
+		return std::make_unique<CommandListVariable>(name, fval.load(), flags);
 	}
-	CommandListVariable(CommandListVariable &&other) noexcept
-	    : name(std::move(other.name)), fval(other.fval.load(std::memory_order_relaxed)), flags(other.flags)
-	{
-	}
-	CommandListVariable &operator=(const CommandListVariable &other)
-	{
-		name = other.name;
-		fval.store(other.fval.load(std::memory_order_relaxed), std::memory_order_relaxed);
-		flags = other.flags;
-		return *this;
-	}
-	CommandListVariable &operator=(CommandListVariable &&other) noexcept
-	{
-		name = std::move(other.name);
-		fval.store(other.fval.load(std::memory_order_relaxed), std::memory_order_relaxed);
-		flags = other.flags;
-		return *this;
-	}
-	~CommandListVariable() = default;
 
 	void CopyStateFrom(const CommandListVariable &src);
 	void SetValue(float value);
@@ -191,6 +173,7 @@ class CommandListVariable
 typedef std::unordered_map<std::wstring, class CommandListVariable> CommandListVariables;
 extern CommandListVariables command_list_globals;
 extern std::vector<CommandListVariable *> persistent_variables;
+extern std::mutex persistent_variables_mutex;
 
 // The scope object is used to declare local variables in a command list. The
 // multiple levels are to isolate variables declared inside if blocks from

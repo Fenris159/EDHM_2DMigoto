@@ -30,11 +30,13 @@ class MutationCleanupTests(unittest.TestCase):
             settings.write_bytes(b"settings fixture\r\n")
             profiling = root / "DirectX11" / "profiling.cpp"
             profiling.write_bytes(b"profiling fixture\r\n")
+            context_header = root / "DirectX11" / "HackerContext.h"
+            context_header.write_bytes(b"context fixture\r\n")
             executable = root / "RuntimeTests.exe"
             executable.write_bytes(b"production\n")
             hashing = root / "DirectX11" / "ResourceHash.cpp"
             hashing.write_bytes(b"hashing fixture\r\n")
-            originals = {p: p.read_bytes() for p in (source, settings, profiling, hashing)}
+            originals = {p: p.read_bytes() for p in (source, settings, profiling, hashing, context_header)}
             mutant_built = False
             timeout_error = subprocess.TimeoutExpired(["fixture-compiler"], 300, output=b"partial build\n")
 
@@ -44,7 +46,8 @@ class MutationCleanupTests(unittest.TestCase):
                     if source.read_bytes() != original:
                         mutant_built = True
                         executable.write_bytes(b"mutant\n")
-                        if mode == "build-times-out":
+                        if mode in ("build-times-out", "unsafe-timeout-log-fails"):
+                            timeout_error.process_tree_cleanup_failed = mode == "unsafe-timeout-log-fails"
                             raise timeout_error
                         return subprocess.CompletedProcess(command, 7 if mode == "build-fails" else 0, b"", b"")
                     if mutant_built and mode == "restoration-fails":
@@ -59,25 +62,36 @@ class MutationCleanupTests(unittest.TestCase):
                 if mode == "build-fails"
                 else "Regression check did not detect mutation: empty-groups"
             )
+            original_write = Path.write_bytes
+
+            def filesystem_boundary(path, content):
+                if mode == "unsafe-timeout-log-fails" and path.name == "empty-groups-build.log":
+                    raise PermissionError("fixture log is unwritable")
+                return original_write(path, content)
+
             with (
+                patch.object(Path, "write_bytes", filesystem_boundary),
                 patch.object(runner, "ROOT", root),
                 patch.object(runner, "OUTPUT", root / "evidence"),
                 patch.object(runner, "EXE", executable),
                 patch.object(runner, "BUILD", ["fixture-compiler"]),
                 patch.object(runner, "run_process", side_effect=process_boundary),
             ):
-                if mode == "build-times-out":
+                if mode in ("build-times-out", "unsafe-timeout-log-fails"):
                     with self.assertRaises(subprocess.TimeoutExpired) as raised:
                         runner.main()
                     self.assertIs(raised.exception, timeout_error)
-                    self.assertEqual((root / "evidence" / "empty-groups-build.log").read_bytes(), b"partial build\n")
+                    if mode == "unsafe-timeout-log-fails":
+                        self.assertTrue(raised.exception.process_tree_cleanup_failed)
+                    else:
+                        self.assertEqual((root / "evidence" / "empty-groups-build.log").read_bytes(), b"partial build\n")
                 else:
                     with self.assertRaisesRegex(RuntimeError, expected_error):
                         runner.main()
             self.assertTrue(mutant_built, "the mutation failure was never reached")
             for path, content in originals.items():
                 self.assertEqual(path.read_bytes(), content, "cleanup changed original source bytes")
-            if mode == "restoration-fails":
+            if mode in ("restoration-fails", "unsafe-timeout-log-fails"):
                 self.assertFalse(executable.exists(), "a failed restoration left an untrusted executable")
             else:
                 self.assertEqual(executable.read_bytes(), b"production\n", "cleanup left the mutant executable")
@@ -90,6 +104,9 @@ class MutationCleanupTests(unittest.TestCase):
 
     def test_timed_out_mutant_build_restores_production_and_preserves_timeout(self):
         self.exercise_failure("build-times-out")
+
+    def test_unwritable_timeout_log_preserves_unsafe_cleanup_marker(self):
+        self.exercise_failure("unsafe-timeout-log-fails")
 
     def test_failed_restoration_quarantines_binary_and_preserves_original_error(self):
         self.exercise_failure("restoration-fails")

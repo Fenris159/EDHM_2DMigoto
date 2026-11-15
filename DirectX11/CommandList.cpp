@@ -28,24 +28,26 @@ CustomShaders customShaders;
 ExplicitCommandListSections explicitCommandListSections;
 CommandListVariables command_list_globals;
 std::vector<CommandListVariable *> persistent_variables;
+std::mutex persistent_variables_mutex;
 
 void CommandListVariable::SetValue(float value)
 {
 	if (flags & VariableFlags::PERSIST)
 	{
-		const float previous = fval.exchange(value, std::memory_order_relaxed);
+		const float previous = fval.exchange(value);
 		G->user_config_dirty |= (previous != value);
 	}
 	else
-		fval.store(value, std::memory_order_relaxed);
+		fval.store(value);
 }
 
 void CommandListVariable::CopyStateFrom(const CommandListVariable &src)
 {
+	const std::lock_guard<std::mutex> lock(persistent_variables_mutex);
 	const bool was_persist = !!(flags & VariableFlags::PERSIST);
 	const bool now_persist = !!(src.flags & VariableFlags::PERSIST);
 
-	fval.store(src.fval.load(std::memory_order_relaxed), std::memory_order_relaxed);
+	fval.store(src.fval.load());
 	flags = src.flags;
 
 	if (now_persist && !was_persist)
@@ -5499,7 +5501,7 @@ void VariableAssignment::run(CommandListState *state)
 
 	var->SetValue(expression.evaluate(state));
 
-	COMMAND_LIST_LOG(state, "  = %f\n", var->fval.load(std::memory_order_relaxed));
+	COMMAND_LIST_LOG(state, "  = %f\n", var->fval.load());
 }
 
 bool AssignmentCommand::optimise(HackerDevice *device)
@@ -7267,7 +7269,7 @@ std::unique_ptr<CustomResourcePool> CustomResourcePool::CreateMetadataPreview() 
 		result->preview_resources.push_back(std::move(resource));
 	}
 	if (variable_template)
-		result->variable_template = std::make_unique<CommandListVariable>(*variable_template);
+		result->variable_template = variable_template->CloneForMetadata();
 	result->elements = elements;
 	for (PoolElement &element : result->elements)
 	{
@@ -7280,7 +7282,7 @@ std::unique_ptr<CustomResourcePool> CustomResourcePool::CreateMetadataPreview() 
 		}
 		if (element.variable)
 		{
-			auto variable = std::make_unique<CommandListVariable>(*element.variable);
+			auto variable = element.variable->CloneForMetadata();
 			element.variable = variable.get();
 			result->preview_variables.push_back(std::move(variable));
 		}
@@ -7552,14 +7554,13 @@ void CustomResourcePool::InitializeVariable(size_t pool_index)
 		}
 		else
 		{
-			float value = variable_template->fval.load(std::memory_order_relaxed);
+			float value = variable_template->fval.load();
 			element.variable = RegisterGlobalVariable(variable_id, &value, variable_template->flags);
 		}
 	}
 	else
 	{
-		element.variable->fval.store(variable_template->fval.load(std::memory_order_relaxed),
-		                             std::memory_order_relaxed);
+		element.variable->fval.store(variable_template->fval.load(), );
 		element.variable->flags = variable_template->flags;
 	}
 }
@@ -7621,7 +7622,7 @@ void CustomResourcePool::ResetVariable(CommandListVariable *variable)
 	if (!variable)
 		return;
 
-	variable->fval.store(variable_template->fval.load(std::memory_order_relaxed), std::memory_order_relaxed);
+	variable->fval.store(variable_template->fval.load());
 }
 
 void CustomResourcePool::ResetElement(size_t pool_index)
@@ -8687,7 +8688,7 @@ void PoolVariableOperation::SetVariableValue(CommandListState *state, CommandLis
 
 	dst->SetValue(value);
 
-	COMMAND_LIST_LOG(state, "  = %f\n", dst->fval.load(std::memory_order_relaxed));
+	COMMAND_LIST_LOG(state, "  = %f\n", dst->fval.load());
 }
 
 void PoolVariableOperation::SetAllPoolVariables(CommandListState *state, float value)
@@ -9238,7 +9239,7 @@ class PoolMetadataPreview
 			contents = std::make_unique<Contents>();
 		auto &preview = contents->variables[variable];
 		if (!preview)
-			preview = std::make_unique<CommandListVariable>(*variable);
+			preview = variable->CloneForMetadata();
 		return preview.get();
 	}
 

@@ -14,6 +14,7 @@
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <thread>
 #include <d3d11sdklayers.h>
 #include <wrl/client.h>
 
@@ -455,7 +456,7 @@ void accepts_pool_identifier_grammar()
 	make_pool(L"poolhyphen-name", 2.5f);
 	make_pool(L"pool\\test.ini\\\u03b4-name", 4.0f);
 	make_pool(L"pool\u03b4", 6.0f);
-	command_list_globals.emplace(L"$pool_test", CommandListVariable(L"$pool_test", 8.0f, VariableFlags::NONE));
+	command_list_globals.try_emplace(L"$pool_test", L"$pool_test", 8.0f, VariableFlags::NONE);
 	CommandListState state;
 	CommandListScope scope;
 	const struct
@@ -763,8 +764,7 @@ void region_views_follow_changing_ranges()
 	        "full source view creation failed");
 	auto *binding = source_view.Get();
 	fixture.context->PSSetShaderResources(0, 1, &binding);
-	auto inserted =
-	    command_list_globals.emplace(L"$offset", CommandListVariable(L"$offset", 8.0f, VariableFlags::NONE));
+	auto inserted = command_list_globals.try_emplace(L"$offset", L"$offset", 8.0f, VariableFlags::NONE);
 	CommandList commands;
 	parse_copy(commands, L"ps-t1", L"ref ps-t0->region($offset, 8)");
 	for (float offset : {8.0f, 16.0f})
@@ -1023,6 +1023,183 @@ void saves_acknowledge_only_the_captured_settings()
 	        "next save did not commit the newer pending value");
 	assignment_during_replace = nullptr;
 	state_during_replace = nullptr;
+}
+
+void reload_defers_until_deferred_command_batches_finish()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	SettingsConfigFixture files;
+	std::ofstream(files.user) << "[Constants]\n$known = 7\n";
+	LoadConfigFile();
+	for (const auto &command : G->constants_command_list.commands)
+		command->run(&fixture.state);
+	HackerDevice device(fixture.device.Get(), fixture.context.Get());
+	device.SetHackerContext(fixture.hacker_context.get());
+	fixture.hacker_context->SetHackerDevice(&device, false);
+	Microsoft::WRL::ComPtr<ID3D11DeviceContext1> deferred;
+	require(SUCCEEDED(fixture.device->CreateDeferredContext1(0, &deferred)), "deferred context creation failed");
+	HackerContext deferred_context(fixture.device.Get(), deferred.Get());
+	CommandListState state;
+	state.mHackerContext = &deferred_context;
+	for (bool wipe : {false, true})
+	{
+		std::exception_ptr reload_error;
+		{
+			// This is the same batch object the production Dispatch entry point
+			// creates before borrowing the ShaderOverride and its command lists.
+			DispatchContext batch(1, 1, 1);
+			VariableAssignment assignment;
+			assignment.var = &command_list_globals.at(L"$known");
+			const std::wstring value = wipe ? L"13" : L"11";
+			require(assignment.expression.parse(&value, nullptr, nullptr), "deferred assignment rejected");
+			assignment.run(&state);
+			command_list_globals.at(L"$temporary").SetValue(9.0f);
+			G->gWipeUserConfig = wipe;
+			std::thread reload(
+			    [&]()
+			    {
+				    try
+				    {
+					    ReloadConfig(&device);
+				    }
+				    catch (...)
+				    {
+					    reload_error = std::current_exception();
+				    }
+			    });
+			reload.join();
+			if (reload_error)
+				std::rethrow_exception(reload_error);
+			require(G->gReloadConfigPending && command_list_globals.at(L"$temporary").fval == 9.0f,
+			        "reload replaced configuration owned by an active deferred batch");
+			require(command_list_globals.at(L"$known").fval == (wipe ? 13.0f : 11.0f),
+			        "deferred assignment changed during a deferred reload");
+			require(file_contents(files.user).find(wipe ? "$known = 11" : "$known = 7") != std::string::npos,
+			        "deferred reload changed the saved file before the batch finished");
+		}
+		ReloadConfig(&device);
+		require(!G->gReloadConfigPending && command_list_globals.at(L"$temporary").fval == 5.0f,
+		        "reload did not apply after the deferred batch finished");
+		require(command_list_globals.at(L"$known").fval == (wipe ? 1.0f : 11.0f),
+		        "reload lost its pending value or failed to apply the explicit wipe");
+		if (wipe)
+			require(!std::filesystem::exists(files.user), "preflight recreated settings after an explicit wipe");
+	}
+}
+
+HANDLE save_ready = nullptr;
+HANDLE finish_save = nullptr;
+std::atomic<DWORD> saving_thread{0};
+std::atomic<PSRWLOCK> save_file_lock{nullptr};
+decltype(&AcquireSRWLockExclusive) real_acquire_srw = nullptr;
+
+void WINAPI acquire_after_releasing_file_operation(PSRWLOCK lock)
+{
+	if (GetCurrentThreadId() == saving_thread.load())
+	{
+		PSRWLOCK empty = nullptr;
+		save_file_lock.compare_exchange_strong(empty, lock);
+	}
+	else if (lock == save_file_lock.load())
+		SetEvent(finish_save);
+	real_acquire_srw(lock);
+}
+
+BOOL WINAPI hold_first_file_replacement(LPCWSTR existing, LPCWSTR replacement, DWORD flags)
+{
+	if (GetCurrentThreadId() == saving_thread.load())
+	{
+		SetEvent(save_ready);
+		if (!save_file_lock.load())
+			return FALSE;
+		WaitForSingleObject(finish_save, INFINITE);
+	}
+	return real_move_file(existing, replacement, flags);
+}
+
+void reload_waits_for_an_inflight_autosave()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	SettingsConfigFixture files;
+	std::ofstream(files.user) << "[Constants]\n$known = 3\n";
+	LoadConfigFile();
+	for (const auto &command : G->constants_command_list.commands)
+		command->run(&fixture.state);
+	command_list_globals.at(L"$known").SetValue(7.0f);
+	HackerDevice device(fixture.device.Get(), fixture.context.Get());
+	device.SetHackerContext(fixture.hacker_context.get());
+	fixture.hacker_context->SetHackerDevice(&device, false);
+	struct CloseEvents
+	{
+		CloseEvents() = default;
+		CloseEvents(const CloseEvents &) = delete;
+		CloseEvents &operator=(const CloseEvents &) = delete;
+		CloseEvents(CloseEvents &&) = delete;
+		CloseEvents &operator=(CloseEvents &&) = delete;
+		~CloseEvents()
+		{
+			if (save_ready)
+				CloseHandle(save_ready);
+			if (finish_save)
+				CloseHandle(finish_save);
+			save_ready = finish_save = nullptr;
+			save_file_lock = nullptr;
+			saving_thread = 0;
+		}
+	} close_events;
+	save_ready = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+	finish_save = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+	require(save_ready && finish_save, "save boundary events unavailable");
+	auto address = GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "MoveFileExW");
+	memcpy(&real_move_file, &address, sizeof(address));
+	address = GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "AcquireSRWLockExclusive");
+	static_assert(sizeof(address) == sizeof(real_acquire_srw));
+	memcpy(&real_acquire_srw, &address, sizeof(address));
+	require(real_move_file && real_acquire_srw, "save boundary imports unavailable");
+	ImportBoundary file_boundary(GetModuleHandleW(nullptr), "MoveFileExW", &hold_first_file_replacement);
+	ImportBoundary lock_boundary(GetModuleHandleW(nullptr), "AcquireSRWLockExclusive",
+	                             &acquire_after_releasing_file_operation);
+	bool saved = false;
+	std::exception_ptr save_error;
+	std::thread worker(
+	    [&]()
+	    {
+		    saving_thread = GetCurrentThreadId();
+		    try
+		    {
+			    saved = SavePersistentSettings();
+		    }
+		    catch (...)
+		    {
+			    save_error = std::current_exception();
+			    SetEvent(save_ready);
+		    }
+		    SetEvent(save_ready);
+	    });
+	WaitForSingleObject(save_ready, INFINITE);
+	try
+	{
+		ReloadConfig(&device);
+	}
+	catch (...)
+	{
+		SetEvent(finish_save);
+		worker.join();
+		throw;
+	}
+	// A bypassed preflight reaches here while the old file is still in place;
+	// a correct preflight releases the filesystem boundary when it waits on
+	// the in-flight operation's real OS lock. No sleeps or clock thresholds.
+	SetEvent(finish_save);
+	worker.join();
+	if (save_error)
+		std::rethrow_exception(save_error);
+	require(saved && save_file_lock.load(), "in-flight save/lock boundary failed");
+	require(command_list_globals.at(L"$known").fval == 7.0f, "reload read the file before the autosave committed");
+	require(file_contents(files.user).find("$known = 7") != std::string::npos,
+	        "autosave did not preserve its snapshot");
 }
 
 void preserves_only_eligible_settings_across_reload()
@@ -2003,6 +2180,48 @@ void integer_clears_override_saved_render_target_views()
 	fixture.require_no_errors();
 }
 
+void hexadecimal_stencil_clear_keeps_its_explicit_view_kind()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	SettingsConfigFixture files;
+	std::ofstream(files.config) << "[Logging]\nenabled=0\nshow_warnings=0\n"
+	                               "[CommandListStencil]\nclear = od stencil 0xff\n";
+	LoadConfigFile();
+	D3D11_TEXTURE2D_DESC desc{};
+	desc.Width = desc.Height = 2;
+	desc.MipLevels = desc.ArraySize = desc.SampleDesc.Count = 1;
+	desc.Format = DXGI_FORMAT_R24G8_TYPELESS;
+	desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+	require(SUCCEEDED(fixture.device->CreateTexture2D(&desc, nullptr, &texture)), "stencil source texture failed");
+	D3D11_DEPTH_STENCIL_VIEW_DESC view_desc{};
+	view_desc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	view_desc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	Microsoft::WRL::ComPtr<ID3D11DepthStencilView> view;
+	require(SUCCEEDED(fixture.device->CreateDepthStencilView(texture.Get(), &view_desc, &view)), "stencil view failed");
+	fixture.context->ClearDepthStencilView(view.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 0.0f, 0x12);
+	fixture.context->OMSetRenderTargets(0, nullptr, view.Get());
+	RunLinkedCommandList clear(&explicitCommandListSections.at(L"commandliststencil").command_list);
+	clear.run(&fixture.state);
+	fixture.context->OMSetRenderTargets(0, nullptr, nullptr);
+	desc.Usage = D3D11_USAGE_STAGING;
+	desc.BindFlags = 0;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> staging;
+	require(SUCCEEDED(fixture.device->CreateTexture2D(&desc, nullptr, &staging)), "stencil staging texture failed");
+	fixture.context->CopyResource(staging.Get(), texture.Get());
+	D3D11_MAPPED_SUBRESOURCE mapped{};
+	require(SUCCEEDED(fixture.context->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped)), "stencil readback failed");
+	const auto *row0 = static_cast<const UINT *>(mapped.pData);
+	const auto *row1 = reinterpret_cast<const UINT *>(static_cast<const char *>(mapped.pData) + mapped.RowPitch);
+	const bool cleared =
+	    row0[0] == 0xff000000 && row0[1] == 0xff000000 && row1[0] == 0xff000000 && row1[1] == 0xff000000;
+	fixture.context->Unmap(staging.Get(), 0);
+	require(cleared, "hexadecimal stencil clear was treated as an integer UAV request or changed depth");
+	fixture.require_no_errors();
+}
+
 void preserves_learned_pool_flags_during_copy()
 {
 	D3DFixture fixture;
@@ -2450,9 +2669,9 @@ void verify_destination_key_after_source_lookup(bool spatial)
 	const float source = spatial ? BitCastToFloat(0x04000000U) : 1.0f;
 	const float destination = spatial ? BitCastToFloat(0x04100000U) : 2.0f;
 	const float probe = spatial ? BitCastToFloat(0x04200000U) : 2.0f;
-	command_list_globals.emplace(L"$s", CommandListVariable(L"$s", source, VariableFlags::NONE));
-	command_list_globals.emplace(L"$d", CommandListVariable(L"$d", destination, VariableFlags::NONE));
-	command_list_globals.emplace(L"$e", CommandListVariable(L"$e", probe, VariableFlags::NONE));
+	command_list_globals.try_emplace(L"$s", L"$s", source, VariableFlags::NONE);
+	command_list_globals.try_emplace(L"$d", L"$d", destination, VariableFlags::NONE);
+	command_list_globals.try_emplace(L"$e", L"$e", probe, VariableFlags::NONE);
 	auto &seed = customResources[L"resourcekeyseed"];
 	MetadataFixture::configure_buffer(seed);
 	seed.bind_flags = D3D11_BIND_SHADER_RESOURCE;
@@ -2560,7 +2779,7 @@ void scalar_variables_keep_precedence_over_pool_names()
 {
 	ConfigFixture resources;
 	make_pool(L"poolfoo", 2.0f);
-	command_list_globals.emplace(L"$poolfoo", CommandListVariable(L"$poolfoo", 7.0f, VariableFlags::NONE));
+	command_list_globals.try_emplace(L"$poolfoo", L"$poolfoo", 7.0f, VariableFlags::NONE);
 	CommandListVariable local(L"$poolfoo", 11.0f, VariableFlags::NONE);
 	CommandListScope scope;
 	scope.emplace_front();
@@ -2646,8 +2865,7 @@ void benchmark_command_lists(int samples)
 	HackerContext context(nullptr, nullptr);
 	CommandListState state;
 	state.mHackerContext = &context;
-	auto inserted =
-	    command_list_globals.emplace(L"$benchmark", CommandListVariable(L"$benchmark", 0.0f, VariableFlags::NONE));
+	auto inserted = command_list_globals.try_emplace(L"$benchmark", L"$benchmark", 0.0f, VariableFlags::NONE);
 	auto &value = inserted.first->second;
 	std::array<CommandList, 64> lists;
 	std::vector<RunLinkedCommandList> runners;
@@ -2840,6 +3058,8 @@ int main(int argc, char **argv)
 	             {"settings-lifecycle", preserves_only_eligible_settings_across_reload},
 	             {"settings-deferred", deferred_initialization_preserves_unloaded_settings},
 	             {"settings-save-update", saves_acknowledge_only_the_captured_settings},
+	             {"settings-batch-reload", reload_defers_until_deferred_command_batches_finish},
+	             {"settings-save-reload", reload_waits_for_an_inflight_autosave},
 	             {"constants-order", preserves_constants_declaration_and_execution_order},
 	             {"ini-sections", preserves_duplicate_sections_and_recursive_includes},
 	             {"if-conditions", preserves_static_and_dynamic_conditions_across_reload},
@@ -2855,6 +3075,7 @@ int main(int argc, char **argv)
 	             {"region-cb-small", copies_smaller_constant_buffer_regions},
 	             {"view-clear", clears_saved_shader_resource_contents},
 	             {"view-clear-integer", integer_clears_override_saved_render_target_views},
+	             {"view-clear-stencil", hexadecimal_stencil_clear_keeps_its_explicit_view_kind},
 	             {"metadata-static-variable", static_variable_metadata_matches_expiring_dynamic_aliases},
 	             {"pool-learned-flags", preserves_learned_pool_flags_during_copy},
 	             {"pool-scalar-precedence", scalar_variables_keep_precedence_over_pool_names},
