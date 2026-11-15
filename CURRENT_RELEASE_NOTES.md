@@ -1,33 +1,51 @@
-## EDHM_2DMigoto 0.1.4-beta.3
+## EDHM_2DMigoto 0.1.4
 
 Package build for Elite Dangerous HUD Mod (EDHM).
 Built from this repository's automated release workflow.
-## [0.1.4-beta.3] - 2026-11-15
+## [0.1.4] - 2026-11-15
 
 ### Added
 
-- `[Logging] show_reload_message=0` hides the completed config-reload
-  confirmation while retaining reloads, disk logging and independent warning
-  controls. The default remains enabled.
-- Product-DLL notification checks on x64 and Win32 inspect the rendered
-  confirmation and warning colors, read back reloaded GPU constants, and
-  require the completion entry in the disk log. A pinned beta.2 control must
-  fail the suppression cases on visible confirmation pixels.
+- Supported EDHM + EDUP chaining with the normal runtime DLL. The README links
+  the recommended wiki configuration, file layout and tested scope.
+- `[Logging] show_reload_message=0` hides the reload confirmation while keeping
+  configuration reloads and their disk log entry. Warning notices remain
+  independently controlled by the plural `show_warnings` key.
+- Resource matching/view diagnostics and native runtime, proxy-chain and
+  rendered-notification checks, including Windows x64/Win32 and pinned EDUP
+  0.22.1 startup checks.
+
+### Fixed
+
+- Preserve both the outer proxy's creation-hook continuation and an explicitly
+  configured downstream proxy when the EDHM DLL is renamed for chaining.
+- Preserve pending settings and the last complete file after failed saves;
+  retain temporarily unavailable persistent values for a reload grace period.
+- Resolve resource-reference chains after parsing, retain learned pool flags,
+  and keep metadata queries from allocating or refreshing live pool elements.
+- Correct typed/structured `store` reads, bounded `Region(offset,size)` copies
+  and views, smaller constant-buffer copies, saved SRV clears and view-cache
+  invalidation. Failed reads keep the previous value.
+- Preserve parser/namespace compatibility, stable `this` view reuse, profiler
+  reload measurements and production binaries after mutation-check failures.
 
 ### Changed
 
-- Make notification checks independent of real clock progress and retain partial
-  stdout/stderr with a failed receipt when a fixture times out.
+- Reuse compatible views and configuration-section lookups, and reduce enabled
+  profiler registration overhead. The dated off-game comparison report retains
+  its measured scope and limits; no combined EDUP FPS gain is claimed.
+- Require C++17 in ordinary and strict builds. Stabilize notification checks
+  with a controlled clock boundary and retain timeout diagnostics.
 
 ### Notes
 
-- Set `show_reload_message=0` in the root `d3dx.ini`. To hide warning notices
-  as well, use the separate, plural `show_warnings=0` key.
-- The option changes only the confirmation text. It leaves reload timing,
-  theme-file auto-refresh and EDUP chaining active. The specific cause of the
-  tester's transition-time reloads remains unconfirmed without their log.
-- Validation includes native Windows/MSVC/WARP checks and an off-game
-  Proton 11.0/DXVK/AMD check beneath EDUP 0.22.1. It does not establish
-  installed-game transition timing, AA/VR output or FPS gains.
+- Stable promotion of the 0.1.4 beta series. The beta sections below retain the
+  detailed change history and validation checkpoints.
+- With EDUP, keep its `d3d11.dll` and rename our DLL to `d3d11_edhm.dll`.
+  Follow the [recommended configuration](https://github.com/Fenris159/EDHM_2DMigoto/wiki/EDUP-Compatibility-and-Configuration#recommended-configuration).
+- Evidence includes native Windows/MSVC/WARP checks, off-game
+  Proton 11.0/DXVK/AMD checks with EDUP 0.22.1, and an external tester's report
+  about the earlier repaired build. This does not certify every GPU, AA/VR
+  engine or live-game transition. Reload scheduling remains unchanged.
 ---
 Full project history: [CHANGELOG.md](https://github.com/Fenris159/EDHM_2DMigoto/blob/HEAD/CHANGELOG.md)

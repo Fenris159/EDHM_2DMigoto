@@ -1,5 +1,11 @@
 # ED Unofficial Patch with EDHM_2DMigoto
 
+**Current setup:** the 0.1.4 runtime includes the repaired EDUP chain and the
+optional `show_reload_message` control. Use the
+[recommended wiki configuration](https://github.com/Fenris159/EDHM_2DMigoto/wiki/EDUP-Compatibility-and-Configuration#recommended-configuration)
+for installation and tested scope. The dated source assessment below and its
+PDF retain the evidence and limits of their original checkpoints.
+
 **15 November follow-up:** a tester reported EDHM colors working while EDUP and
 its F8 menu were inactive on the latest release, v0.22.1. Source comparison found
 a forwarding regression in our fork: backend validation overwrote the

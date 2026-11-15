@@ -31,6 +31,21 @@ An **[EDHM](https://github.com/psychicEgg/EDHM)** compatibility build of the
 The `d3d11.dll` remains 3Dmigoto-derived software and preserves upstream
 authorship, licensing, and attribution.
 
+## EDUP support
+
+**EDHM_2DMigoto 0.1.4 supports EDHM alongside
+[Elite Dangerous Unofficial Patch (EDUP)](https://github.com/characterecho-sean/ed-unofficial-patch).**
+Keep EDUP as `d3d11.dll` and use our normal release DLL as `d3d11_edhm.dll`.
+EDUP supplies AA/upscaling; our DLL runs EDHM's HUD configuration and overrides.
+
+Follow the **[recommended EDUP configuration](https://github.com/Fenris159/EDHM_2DMigoto/wiki/EDUP-Compatibility-and-Configuration#recommended-configuration)**
+for load order, both INI files, optional quiet reloads, and validation limits.
+The pairing was checked with EDUP **0.22.1**; see the guide for the evidence.
+
+The standalone measurements below show lower CPU cost for changing HUD-like
+references and fewer resource-view creations. Those savings may leave more CPU
+headroom for EDUP. Performance of the combined stack has not been measured.
+
 ## Measured example: develop versus original 3Dmigoto
 
 The [off-game comparison report](docs/develop-vs-original-3dmigoto.md) compares
@@ -68,6 +83,7 @@ and repository-specific guidance.
 |-------|-----------|
 | Overview & map | [Home](https://github.com/Fenris159/EDHM_2DMigoto/wiki) |
 | Install / use with EDHM | [Getting Started](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Getting-Started) |
+| EDHM with EDUP AA/upscaling | [EDUP Compatibility & Configuration](https://github.com/Fenris159/EDHM_2DMigoto/wiki/EDUP-Compatibility-and-Configuration) |
 | Build from source | [Building](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Building) |
 | Shader hunting | [Shader Hunting](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Shader-Hunting) |
 | Advanced dumps (`export_hlsl=3`, …) | [Advanced Hunting & Export](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Advanced-Hunting-and-Export) *(optional)* |
@@ -118,7 +134,7 @@ Game-specific shaders, configs, and mod assets are **not** automatically covered
 
 | Branch | Role |
 |--------|------|
-| `main` | **Stable releases** (after first merge from develop) |
+| `main` | **Stable releases** promoted from `develop` |
 | `develop` | Day-to-day work + **pre-release** builds |
 | `linux-compatibility` | Preserved alpha.5 source used to build the focused review PR stack |
 | `xxmi-base` | Clean full XXMI mirror (no EDHM patches) |
@@ -151,18 +167,20 @@ Click a badge for the GitHub compare view. Counts are approximate history diverg
 
 | Channel | Tag example | GitHub Release |
 |---------|-------------|----------------|
-| `main` | `v0.1.2` | Latest stable release |
-| `develop` | `vX.Y.Z-alpha.N` | Alpha release candidate |
+| `main` | `v0.1.4` | Stable release |
+| `develop` | `vX.Y.Z-beta.N` | Prerelease |
 
 ```text
 Actions → Release → Run workflow
   branch: main | develop
   version_action: use-current | bump-patch | bump-minor | bump-major | bump-prerelease
   create_tag: true
-  update_vendor_cache: true   # also commits vendor/edhm-runtime/d3d11.dll (LFS)
+  update_vendor_cache: true   # develop; use false for protected main (see guide)
 ```
 
 After a successful non-draft release, `vendor/edhm-runtime/` holds the same `d3d11.dll` as the Release asset (convenience mirror for clones/packaging). Prefer pinning by **Release tag** for production EDHM packaging.
+For protected `main`, the [release procedure](docs/releasing.md#stable-releases-with-protected-main)
+updates this cache through a follow-up PR.
 
 ## Repository layout (`develop`)
 
