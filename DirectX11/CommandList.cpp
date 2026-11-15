@@ -11651,12 +11651,16 @@ static void SpecialCopyBufferRegion(ID3D11Resource *dst_resource, ID3D11Resource
 	src_box.left = *src_offset;
 	src_box.right = *src_offset + copy_size;
 
-	D3D11_BUFFER_DESC destination_desc{};
+	D3D11_BUFFER_DESC source_desc{}, destination_desc{};
+	static_cast<ID3D11Buffer *>(src_resource)->GetDesc(&source_desc);
 	static_cast<ID3D11Buffer *>(dst_resource)->GetDesc(&destination_desc);
-	if ((destination_desc.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED) && destination_desc.StructureByteStride)
+	const UINT element_size =
+	    (source_desc.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED)        ? source_desc.StructureByteStride
+		: (destination_desc.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED) ? destination_desc.StructureByteStride
+		                                                                       : 0;
+	if (element_size)
 	{
 		// Vertex binding strides describe input assembly, not copy alignment.
-		const UINT element_size = destination_desc.StructureByteStride;
 		src_box.right = copy_size / element_size * element_size + src_box.left;
 	}
 
