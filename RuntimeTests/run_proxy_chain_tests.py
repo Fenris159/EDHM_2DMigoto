@@ -6,7 +6,26 @@ import json
 import os
 from pathlib import Path
 import shutil
+import struct
 import subprocess
+
+
+def pe_machine(path):
+    data = path.read_bytes()
+    if len(data) < 64 or data[:2] != b"MZ":
+        raise ValueError(f"Not a PE file: {path}")
+    header = struct.unpack_from("<I", data, 60)[0]
+    if header + 6 > len(data) or data[header:header + 4] != b"PE\0\0":
+        raise ValueError(f"Invalid PE header: {path}")
+    return struct.unpack_from("<H", data, header + 4)[0]
+
+
+def matching_version_library(system_root, target_machine):
+    for folder in ("system32", "SysWOW64", "Sysnative"):
+        candidate = system_root / folder / "version.dll"
+        if candidate.is_file() and pe_machine(candidate) == target_machine:
+            return candidate
+    raise RuntimeError(f"No loadable version.dll for PE machine 0x{target_machine:04x}")
 
 
 def main():
@@ -18,17 +37,22 @@ def main():
     parser.add_argument("--runner", default="")
     parser.add_argument("--system-root", type=Path)
     parser.add_argument("--edup", type=Path)
-    parser.add_argument("--expect-bypass", action="store_true")
+    controls = parser.add_mutually_exclusive_group()
+    controls.add_argument("--expect-bypass", action="store_true")
+    controls.add_argument("--expect-downstream-bypass", action="store_true")
     args = parser.parse_args()
     inputs = {name: getattr(args, name).resolve(strict=True) for name in ("dll", "fixture", "exe")}
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
-    cases = ["chain-lazy", "chain-early", "chain-swap-early"]
-    if not args.expect_bypass:
+    mixed_cases = ["chain-downstream-lazy", "chain-downstream-early", "chain-downstream-swap-early"]
+    control = args.expect_bypass or args.expect_downstream_bypass
+    cases = mixed_cases if args.expect_downstream_bypass else ["chain-lazy", "chain-early", "chain-swap-early"] + mixed_cases
+    if not control:
         cases += ["standalone", "downstream", "missing-proxy", "self-proxy", "invalid-proxy"]
     if args.edup:
         cases += ["edup"]
     records = []
+    target_machine = pe_machine(inputs["exe"])
     try:
         for case in cases:
             directory = output / case
@@ -47,7 +71,7 @@ def main():
                 for name in ("edvr.ini", "edvr-flat.ini"):
                     (directory / name).write_text(settings, encoding="utf-8")
             proxy = ""
-            if case == "downstream":
+            if "downstream" in case:
                 shutil.copy2(inputs["fixture"], directory / "downstream.dll")
                 proxy = "downstream.dll"
             elif case == "missing-proxy":
@@ -56,7 +80,7 @@ def main():
                 proxy = "d3d11.dll"
             elif case == "invalid-proxy":
                 # A real Windows library without the two required D3D11 exports.
-                system = (args.system_root or Path(os.environ["SystemRoot"])) / "system32" / "version.dll"
+                system = matching_version_library(args.system_root or Path(os.environ["SystemRoot"]), target_machine)
                 shutil.copy2(system, directory / "invalid.dll")
                 proxy = "invalid.dll"
             (directory / "d3dx.ini").write_text(
@@ -79,7 +103,9 @@ def main():
                 raise
             (directory / "stdout.txt").write_text(completed.stdout, encoding="utf-8")
             (directory / "stderr.txt").write_text(completed.stderr, encoding="utf-8")
-            record = {"case": case, "exit_code": completed.returncode}
+            expected_creations = 1 if case == "edup" else 4
+            completed_creations = sum(line.startswith(f"PASS {case} creation ") for line in completed.stdout.splitlines())
+            record = {"case": case, "exit_code": completed.returncode, "completed_creations": completed_creations}
             records.append(record)
             if case == "edup":
                 logs = "\n".join(path.read_text(encoding="utf-8", errors="replace")
@@ -90,16 +116,23 @@ def main():
                 record["edup_device_attached"] = "D3D11 device " in logs
                 record["edup_present_active"] = "Present is running on thread " in logs
                 wanted = not args.expect_bypass
-                record["passed"] = (completed.returncode == 0 and record["edup_chain_selected"]
+                record["passed"] = (completed.returncode == 0 and completed_creations == expected_creations
+                                    and record["edup_chain_selected"]
                                     and record["edup_device_attached"] == wanted
                                     and record["edup_present_active"] == wanted)
-            elif args.expect_bypass:
+            elif control:
                 record["passed"] = completed.returncode == 1 and (
                     "proxy device policy was bypassed" in completed.stderr
                     or "proxy swap-chain policy was bypassed" in completed.stderr
                 )
             else:
-                record["passed"] = completed.returncode == 0
+                record["passed"] = completed.returncode == 0 and completed_creations == expected_creations
+                if case == "invalid-proxy":
+                    log = (directory / "d3d11_log.txt").read_text(encoding="utf-8", errors="replace")
+                    record["invalid_proxy_machine"] = pe_machine(directory / "invalid.dll")
+                    record["missing_exports_rejected"] = "Rejected chained d3d11: required exports are missing" in log
+                    record["passed"] = (record["passed"] and record["invalid_proxy_machine"] == target_machine
+                                        and record["missing_exports_rejected"])
             print(f"{'PASS' if record['passed'] else 'FAIL'} {case}: exit {completed.returncode}", flush=True)
             if not record["passed"]:
                 raise RuntimeError(f"{case}: {completed.stdout}\n{completed.stderr}")
@@ -110,6 +143,8 @@ def main():
                 for name, path in inputs.items()
             },
             "expected_bypass": args.expect_bypass,
+            "expected_downstream_bypass": args.expect_downstream_bypass,
+            "target_machine": target_machine,
             "edup_sha256": hashlib.sha256(args.edup.read_bytes()).hexdigest() if args.edup else None,
             "cases": records,
         }

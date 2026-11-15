@@ -62,10 +62,17 @@ loads the actual product DLL beside its executable. The outer fixture changes
 public device flags and swap-chain buffer counts; those observable results must
 survive early initialization and repeated calls to both creation exports.
 Separate processes cover standalone loading, an explicit downstream proxy,
-and missing, self-referencing or invalid proxy fallback. The checks make WARP
+an outer proxy with a downstream proxy together, and missing, self-referencing
+or invalid proxy fallback. The invalid library matches the caller's PE
+architecture, and the check requires its missing-export rejection diagnostic.
+The checks make WARP
 devices and hidden swap chains; they do not benchmark frame presentation.
 
 ```powershell
+msbuild DirectX11/DirectX11.vcxproj -target:Build `
+  -property:Configuration=Release -property:Platform=x64 `
+  "-property:SolutionDir=$pwd/" -property:EdhmStrictBuild=true `
+  -nodeReuse:false -verbosity:minimal -restore:false
 msbuild RuntimeTests/ProxyChainTests.vcxproj -property:Configuration=Release -property:Platform=x64
 msbuild RuntimeTests/ProxyChainTests.vcxproj -property:Configuration=Release -property:Platform=x64 -property:EdhmChainFixture=true
 python RuntimeTests/run_proxy_chain_tests.py --dll x64/Release/d3d11.dll `
@@ -87,6 +94,11 @@ not count as detection. With the official EDUP DLL, the control must complete
 creation successfully while EDUP selects the chain but reports neither device
 attachment nor an active Present callback. JSON receipts include executable and
 DLL hashes.
+
+`proxy_chain_downstream_baseline_run` supplies a build that preserves the outer
+proxy but loses the explicitly configured downstream proxy. Its three combined
+chain cases must fail on the missing public device/swap-chain policy. This
+control uses the same fixtures and assertions as the repaired build.
 
 ## Regression sensitivity
 

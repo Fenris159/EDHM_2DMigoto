@@ -134,7 +134,7 @@ static HRESULT HookDXGIFactories()
 	return NOERROR;
 }
 
-static HRESULT HookD3D11(HINSTANCE our_dll)
+static HRESULT HookD3D11()
 {
 	HRESULT hr;
 
@@ -144,16 +144,15 @@ static HRESULT HookD3D11(HINSTANCE our_dll)
 	// use LoadLibrary() from DllMain. Does Nektra handle this somehow, or
 	// should we defer the hook until later (perhaps our LoadLibrary hook)?
 
-	hr = InstallHookDLLMain(L"d3d11.dll", "D3D11CreateDevice", (LPVOID *)&_D3D11CreateDevice, D3D11CreateDevice);
+	// Hook callbacks resume the intercepted module. Our public proxy exports
+	// forward to the selected backend instead, preserving both sides of a chain.
+	hr = InstallHookDLLMain(L"d3d11.dll", "D3D11CreateDevice", (LPVOID *)&fnOrigD3D11CreateDevice,
+	                        Hooked_D3D11CreateDevice);
 	if (FAILED(hr))
 		return E_FAIL;
 
-	// Directly using D3D11CreateDeviceAndSwapChain was giving an
-	// unresolved external - looks like the function signature doesn't
-	// quite match the prototype in the Win 10 SDK. Whatever - it's
-	// compatible, so just use GetProcAddress() rather than fight it.
-	hr = InstallHookDLLMain(L"d3d11.dll", "D3D11CreateDeviceAndSwapChain", (LPVOID *)&_D3D11CreateDeviceAndSwapChain,
-	                        GetProcAddress(our_dll, "D3D11CreateDeviceAndSwapChain"));
+	hr = InstallHookDLLMain(L"d3d11.dll", "D3D11CreateDeviceAndSwapChain",
+	                        (LPVOID *)&fnOrigD3D11CreateDeviceAndSwapChain, Hooked_D3D11CreateDeviceAndSwapChain);
 	if (FAILED(hr))
 		return E_FAIL;
 
@@ -370,7 +369,7 @@ BOOL WINAPI DllMain(_In_ HINSTANCE hinstDLL, _In_ DWORD fdwReason, _In_ LPVOID l
 		// d3d11.dll. I'm not positive if this is the "best"
 		// way to check for this, but it seems to work:
 		if (hinstDLL != GetModuleHandleA("d3d11.dll"))
-			HookD3D11(hinstDLL);
+			HookD3D11();
 
 		if (FAILED(HookLoadLibraryExW()))
 		{

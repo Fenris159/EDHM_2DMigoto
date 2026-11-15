@@ -3,8 +3,11 @@
 **15 November follow-up:** a tester reported EDHM colors working while EDUP and
 its F8 menu were inactive on the latest release, v0.22.1. Source comparison found
 a forwarding regression in our fork: backend validation overwrote the
-device-creation continuations installed for a renamed DLL. This change restores
-the original guarded assignments. The [product DLL proxy checks](../RuntimeTests/README.md#product-dll-proxy-chaining)
+device-creation continuations installed for a renamed DLL. The repair separates
+hook continuations from selected backend exports: hook callbacks resume the
+intercepted module, while our proxy exports forward to the configured backend.
+This also retains an explicitly configured downstream proxy when an outer proxy
+is present. The [product DLL proxy checks](../RuntimeTests/README.md#product-dll-proxy-chaining)
 cover the affected boundary. The dated assessment and PDF predate this repair;
 their configuration proposal alone does not establish compatibility for the
 unrepaired 0.1.4 candidate. An installed-game AA/F8 result remains separate from
@@ -79,8 +82,9 @@ The rename also activates the inherited `HookD3D11` branch in `DllMain`, which
 detours create-device exports in the module named `d3d11.dll`, normally ED-UP.
 Original 1.4.9 has the same branch, but preserves its saved continuation pointers
 when resolving the backend. Our chain-hardening change instead overwrote them,
-allowing later device creation to skip the outer proxy. Restoring those guards
-preserves the outer route while retaining backend-export validation. A call
+allowing later device creation to skip the outer proxy. Keeping hook callbacks
+and backend exports separate preserves both the outer route and an explicitly
+configured downstream proxy, while retaining backend-export validation. A call
 already executing inside EDUP can still complete its attachment, so the defect
 depends on startup order. Setting `load_library_redirect=0` does not disable
 these entry detours, the loader hook or DXGI factory hooks. The

@@ -41,6 +41,9 @@ void check_device(ID3D11Device *device, UINT wanted)
 {
 	require(device != nullptr, "creation returned no device");
 	constexpr UINT mask = D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_SINGLETHREADED;
+	if ((device->GetCreationFlags() & mask) != wanted)
+		std::fprintf(stderr, "Device policy: wanted 0x%02x, received 0x%02x\n", wanted,
+		             device->GetCreationFlags() & mask);
 	require((device->GetCreationFlags() & mask) == wanted, "proxy device policy was bypassed");
 	D3D11_BUFFER_DESC description = {};
 	description.ByteWidth = 64;
@@ -65,8 +68,8 @@ void run(const char *mode)
 	HMODULE proxy = LoadLibraryW(path);
 	require(proxy != nullptr, "could not load game-local proxy");
 	const bool chain = std::strncmp(mode, "chain-", 6) == 0;
-	const bool downstream = std::strcmp(mode, "downstream") == 0;
-	if (std::strcmp(mode, "chain-early") == 0 || std::strcmp(mode, "chain-swap-early") == 0)
+	const bool downstream = std::strstr(mode, "downstream") != nullptr;
+	if (std::strstr(mode, "early") != nullptr)
 	{
 		auto initialize = exported<BOOL(WINAPI *)()>(proxy, "ChainInitialize");
 		require(initialize() != FALSE, "early chain initialization failed");
@@ -83,9 +86,10 @@ void run(const char *mode)
 		                         &level, nullptr)),
 		        "capability-only probe failed");
 	}
-	const UINT wanted = chain ? D3D11_CREATE_DEVICE_BGRA_SUPPORT : downstream ? D3D11_CREATE_DEVICE_SINGLETHREADED : 0;
-	const UINT buffers = chain ? 2 : downstream ? 3 : 1;
-	const bool swap_first = edup || std::strcmp(mode, "chain-swap-early") == 0;
+	// The composed contract is BGRA (0x20) plus single-threaded (0x01).
+	const UINT wanted = chain && downstream ? 0x21 : chain ? 0x20 : downstream ? 0x01 : 0;
+	const UINT buffers = downstream ? 3 : chain ? 2 : 1;
+	const bool swap_first = edup || std::strstr(mode, "swap-early") != nullptr;
 	WNDCLASSW window_class = {};
 	window_class.lpfnWndProc = DefWindowProcW;
 	window_class.hInstance = GetModuleHandleW(nullptr);

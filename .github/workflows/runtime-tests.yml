@@ -23,6 +23,10 @@ on:
         description: Optional trusted x64 DLL build that must expose the pre-fix proxy bypass
         type: string
         default: ''
+      proxy_chain_downstream_baseline_run:
+        description: Optional trusted x64 build that must expose the combined downstream-proxy bypass
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -85,29 +89,39 @@ jobs:
             --fixture "$bin/ProxyChainFixture.dll" --exe "$bin/ProxyChainTests.exe" `
             --output "$bin/candidate-results" @extra
           if ($LASTEXITCODE -ne 0) { throw 'Proxy-chain behavior checks failed' }
-      - name: Require the pre-fix build to fail the same proxy policies
-        if: inputs.proxy_chain_baseline_run != '' && matrix.platform == 'x64'
+      - name: Require pre-fix builds to expose the proxy policy regressions
+        if: (inputs.proxy_chain_baseline_run != '' || inputs.proxy_chain_downstream_baseline_run != '') && matrix.platform == 'x64'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           BASELINE_RUN: ${{ inputs.proxy_chain_baseline_run }}
+          DOWNSTREAM_BASELINE_RUN: ${{ inputs.proxy_chain_downstream_baseline_run }}
         run: |
-          if ($env:BASELINE_RUN -notmatch '^[0-9]+$') { throw 'Baseline run must be numeric' }
-          $run = & gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:BASELINE_RUN" | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0 -or $run.conclusion -ne 'success' -or
-              $run.head_repository.full_name -ne $env:GITHUB_REPOSITORY -or
-              $run.event -notin @('push', 'workflow_dispatch')) { throw 'Baseline run is not trusted' }
-          & gh run download $env:BASELINE_RUN -R $env:GITHUB_REPOSITORY `
-            -p 'd3d11-release-x64-*' -D '.quality/proxy-chain/baseline'
-          if ($LASTEXITCODE -ne 0) { throw 'Could not obtain pre-fix DLL' }
-          $dll = @(Get-ChildItem '.quality/proxy-chain/baseline' -Recurse -Filter d3d11.dll)
-          if ($dll.Count -ne 1) { throw 'Expected one baseline DLL' }
-          & python RuntimeTests/run_proxy_chain_tests.py --dll $dll[0].FullName `
-            --fixture .quality/proxy-chain/x64/ProxyChainFixture.dll `
-            --exe .quality/proxy-chain/x64/ProxyChainTests.exe `
-            --output .quality/proxy-chain/x64/baseline-results --expect-bypass `
-            --edup .quality/edup-0.22.1/core/d3d11.dll
-          if ($LASTEXITCODE -ne 0) { throw 'Pre-fix bypass was not detected' }
+          $controls = @(
+            @{ run = $env:BASELINE_RUN; label = 'original'; mode = '--expect-bypass' },
+            @{ run = $env:DOWNSTREAM_BASELINE_RUN; label = 'downstream'; mode = '--expect-downstream-bypass' }
+          )
+          foreach ($control in $controls) {
+            $id = $control.run
+            if (-not $id) { continue }
+            if ($id -notmatch '^[0-9]+$') { throw 'Baseline run must be numeric' }
+            $run = & gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$id" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or $run.conclusion -ne 'success' -or
+                $run.head_repository.full_name -ne $env:GITHUB_REPOSITORY -or
+                $run.event -notin @('push', 'workflow_dispatch')) { throw 'Baseline run is not trusted' }
+            $directory = ".quality/proxy-chain/baseline-$($control.label)"
+            & gh run download $id -R $env:GITHUB_REPOSITORY -p 'd3d11-release-x64-*' -D $directory
+            if ($LASTEXITCODE -ne 0) { throw 'Could not obtain pre-fix DLL' }
+            $dll = @(Get-ChildItem $directory -Recurse -Filter d3d11.dll)
+            if ($dll.Count -ne 1) { throw 'Expected one baseline DLL' }
+            $extra = @($control.mode)
+            if ($control.label -eq 'original') { $extra += @('--edup', '.quality/edup-0.22.1/core/d3d11.dll') }
+            & python RuntimeTests/run_proxy_chain_tests.py --dll $dll[0].FullName `
+              --fixture .quality/proxy-chain/x64/ProxyChainFixture.dll `
+              --exe .quality/proxy-chain/x64/ProxyChainTests.exe `
+              --output ".quality/proxy-chain/x64/baseline-$($control.label)-results" @extra
+            if ($LASTEXITCODE -ne 0) { throw 'Pre-fix bypass was not detected' }
+          }
       - name: Upload proxy-chain evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

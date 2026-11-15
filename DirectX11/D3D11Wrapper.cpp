@@ -183,6 +183,8 @@ static tCreateDirect3D11SurfaceFromDXGISurface _CreateDirect3D11SurfaceFromDXGIS
 
 PFN_D3D11_CREATE_DEVICE _D3D11CreateDevice;
 PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN _D3D11CreateDeviceAndSwapChain;
+PFN_D3D11_CREATE_DEVICE fnOrigD3D11CreateDevice;
+PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN fnOrigD3D11CreateDeviceAndSwapChain;
 static INIT_ONCE d3d11_init_once = INIT_ONCE_STATIC_INIT;
 
 #ifdef NTDDI_WIN10
@@ -236,15 +238,10 @@ static HMODULE ValidateChainedD3D11Module(HMODULE hModule, const char *via)
 		return nullptr;
 	}
 
-	// HookD3D11 may already have saved continuations through an outer proxy
-	// (for example EDUP loading us as d3d11_edhm.dll). Keep those routes: replacing
-	// them with backend exports bypasses the outer proxy on later creation calls.
-	// The backend must still pass the validation above, even when hooks supply
-	// the creation routes. This matches the original 3Dmigoto initialization.
-	if (!_D3D11CreateDevice)
-		_D3D11CreateDevice = create_device;
-	if (!_D3D11CreateDeviceAndSwapChain)
-		_D3D11CreateDeviceAndSwapChain = create_device_and_swap_chain;
+	// Backend selection never changes the separately saved hook continuations.
+	// In particular, an explicit child proxy must coexist with an outer EDUP DLL.
+	_D3D11CreateDevice = create_device;
+	_D3D11CreateDeviceAndSwapChain = create_device_and_swap_chain;
 	LogChainedD3D11Module(hModule, via);
 	LogInfo("Chained d3d11 exports OK\n");
 	return hModule;
@@ -773,11 +770,12 @@ static HackerDevice *wrap_d3d11_device_and_context(ID3D11Device **ppDevice, ID3D
 //    calling one from the other, if the routines may have been hooked by an
 //    external tool (DLL exports or public COM methods).
 
-HRESULT WINAPI D3D11CreateDevice(_In_opt_ IDXGIAdapter *pAdapter, D3D_DRIVER_TYPE DriverType, HMODULE Software,
-                                 UINT Flags, _In_reads_opt_(FeatureLevels) const D3D_FEATURE_LEVEL *pFeatureLevels,
-                                 UINT FeatureLevels, UINT SDKVersion, _Out_opt_ ID3D11Device **ppDevice,
-                                 _Out_opt_ D3D_FEATURE_LEVEL *pFeatureLevel,
-                                 _Out_opt_ ID3D11DeviceContext **ppImmediateContext)
+static HRESULT CreateDeviceThrough(PFN_D3D11_CREATE_DEVICE *next, _In_opt_ IDXGIAdapter *pAdapter,
+                                   D3D_DRIVER_TYPE DriverType, HMODULE Software, UINT Flags,
+                                   _In_reads_opt_(FeatureLevels) const D3D_FEATURE_LEVEL *pFeatureLevels,
+                                   UINT FeatureLevels, UINT SDKVersion, _Out_opt_ ID3D11Device **ppDevice,
+                                   _Out_opt_ D3D_FEATURE_LEVEL *pFeatureLevel,
+                                   _Out_opt_ ID3D11DeviceContext **ppImmediateContext)
 {
 	if (ppDevice)
 		*ppDevice = nullptr;
@@ -794,8 +792,8 @@ HRESULT WINAPI D3D11CreateDevice(_In_opt_ IDXGIAdapter *pAdapter, D3D_DRIVER_TYP
 		//             when we have been injected from outside the game
 		//             directory. Cause of crash in DOA6:
 		//             https://github.com/bo3b/3Dmigoto/issues/106
-		return _D3D11CreateDevice(pAdapter, DriverType, Software, Flags, pFeatureLevels, FeatureLevels, SDKVersion,
-		                          ppDevice, pFeatureLevel, ppImmediateContext);
+		return (*next)(pAdapter, DriverType, Software, Flags, pFeatureLevels, FeatureLevels, SDKVersion, ppDevice,
+		               pFeatureLevel, ppImmediateContext);
 	}
 
 	InitD311();
@@ -812,8 +810,8 @@ HRESULT WINAPI D3D11CreateDevice(_In_opt_ IDXGIAdapter *pAdapter, D3D_DRIVER_TYP
 	if (!G->bIntendedTargetExe)
 	{
 		LogInfo("   Not intended target exe, passing through to real DX\n");
-		return _D3D11CreateDevice(pAdapter, DriverType, Software, Flags, pFeatureLevels, FeatureLevels, SDKVersion,
-		                          ppDevice, pFeatureLevel, ppImmediateContext);
+		return (*next)(pAdapter, DriverType, Software, Flags, pFeatureLevels, FeatureLevels, SDKVersion, ppDevice,
+		               pFeatureLevel, ppImmediateContext);
 	}
 
 	D3D_FEATURE_LEVEL forcedFeatureLevel;
@@ -825,8 +823,8 @@ HRESULT WINAPI D3D11CreateDevice(_In_opt_ IDXGIAdapter *pAdapter, D3D_DRIVER_TYP
 #endif
 
 	get_tls()->hooking_quirk_protection = true;
-	HRESULT ret = (*_D3D11CreateDevice)(pAdapter, DriverType, Software, Flags, pFeatureLevels, FeatureLevels,
-	                                    SDKVersion, ppDevice, pFeatureLevel, ppImmediateContext);
+	HRESULT ret = (*next)(pAdapter, DriverType, Software, Flags, pFeatureLevels, FeatureLevels, SDKVersion, ppDevice,
+	                      pFeatureLevel, ppImmediateContext);
 	get_tls()->hooking_quirk_protection = false;
 
 	if (FAILED(ret))
@@ -852,6 +850,23 @@ HRESULT WINAPI D3D11CreateDevice(_In_opt_ IDXGIAdapter *pAdapter, D3D_DRIVER_TYP
 	LogInfo("->D3D11CreateDevice result = %x\n", ret);
 
 	return ret;
+}
+
+HRESULT WINAPI D3D11CreateDevice(IDXGIAdapter *adapter, D3D_DRIVER_TYPE driverType, HMODULE software, UINT flags,
+                                 const D3D_FEATURE_LEVEL *featureLevels, UINT count, UINT sdkVersion,
+                                 ID3D11Device **device, D3D_FEATURE_LEVEL *featureLevel, ID3D11DeviceContext **context)
+{
+	return CreateDeviceThrough(&_D3D11CreateDevice, adapter, driverType, software, flags, featureLevels, count,
+	                           sdkVersion, device, featureLevel, context);
+}
+
+HRESULT WINAPI Hooked_D3D11CreateDevice(IDXGIAdapter *adapter, D3D_DRIVER_TYPE driverType, HMODULE software, UINT flags,
+                                        const D3D_FEATURE_LEVEL *featureLevels, UINT count, UINT sdkVersion,
+                                        ID3D11Device **device, D3D_FEATURE_LEVEL *featureLevel,
+                                        ID3D11DeviceContext **context)
+{
+	return CreateDeviceThrough(&fnOrigD3D11CreateDevice, adapter, driverType, software, flags, featureLevels, count,
+	                           sdkVersion, device, featureLevel, context);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -892,13 +907,12 @@ HRESULT WINAPI D3D11CreateDevice(_In_opt_ IDXGIAdapter *pAdapter, D3D_DRIVER_TYP
 // the call straight through to DirectX without the rest of the processing that
 // call would usually do, and we instead wrap the swap chain from here.
 
-HRESULT WINAPI D3D11CreateDeviceAndSwapChain(_In_opt_ IDXGIAdapter *pAdapter, D3D_DRIVER_TYPE DriverType,
-                                             HMODULE Software, UINT Flags,
-                                             _In_opt_ const D3D_FEATURE_LEVEL *pFeatureLevels, UINT FeatureLevels,
-                                             UINT SDKVersion, _In_opt_ DXGI_SWAP_CHAIN_DESC *pSwapChainDesc,
-                                             _Out_opt_ IDXGISwapChain **ppSwapChain, _Out_opt_ ID3D11Device **ppDevice,
-                                             _Out_opt_ D3D_FEATURE_LEVEL *pFeatureLevel,
-                                             _Out_opt_ ID3D11DeviceContext **ppImmediateContext)
+static HRESULT CreateDeviceAndSwapChainThrough(
+    PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN *next, _In_opt_ IDXGIAdapter *pAdapter, D3D_DRIVER_TYPE DriverType,
+    HMODULE Software, UINT Flags, _In_opt_ const D3D_FEATURE_LEVEL *pFeatureLevels, UINT FeatureLevels, UINT SDKVersion,
+    _In_opt_ DXGI_SWAP_CHAIN_DESC *pSwapChainDesc, _Out_opt_ IDXGISwapChain **ppSwapChain,
+    _Out_opt_ ID3D11Device **ppDevice, _Out_opt_ D3D_FEATURE_LEVEL *pFeatureLevel,
+    _Out_opt_ ID3D11DeviceContext **ppImmediateContext)
 {
 	if (ppSwapChain)
 		*ppSwapChain = nullptr;
@@ -915,9 +929,8 @@ HRESULT WINAPI D3D11CreateDeviceAndSwapChain(_In_opt_ IDXGIAdapter *pAdapter, D3
 		// Known case: DirectX implements D3D11CreateDevice by calling
 		//             D3D11CreateDeviceAndSwapChain, triggering this
 		//             if we call the former and have hooked the later.
-		return _D3D11CreateDeviceAndSwapChain(pAdapter, DriverType, Software, Flags, pFeatureLevels, FeatureLevels,
-		                                      SDKVersion, pSwapChainDesc, ppSwapChain, ppDevice, pFeatureLevel,
-		                                      ppImmediateContext);
+		return (*next)(pAdapter, DriverType, Software, Flags, pFeatureLevels, FeatureLevels, SDKVersion, pSwapChainDesc,
+		               ppSwapChain, ppDevice, pFeatureLevel, ppImmediateContext);
 	}
 
 	DXGI_SWAP_CHAIN_DESC origSwapChainDesc;
@@ -938,9 +951,8 @@ HRESULT WINAPI D3D11CreateDeviceAndSwapChain(_In_opt_ IDXGIAdapter *pAdapter, D3
 	if (!G->bIntendedTargetExe)
 	{
 		LogInfo("   Not intended target exe, passing through to real DX\n");
-		return _D3D11CreateDeviceAndSwapChain(pAdapter, DriverType, Software, Flags, pFeatureLevels, FeatureLevels,
-		                                      SDKVersion, pSwapChainDesc, ppSwapChain, ppDevice, pFeatureLevel,
-		                                      ppImmediateContext);
+		return (*next)(pAdapter, DriverType, Software, Flags, pFeatureLevels, FeatureLevels, SDKVersion, pSwapChainDesc,
+		               ppSwapChain, ppDevice, pFeatureLevel, ppImmediateContext);
 	}
 
 	D3D_FEATURE_LEVEL forcedFeatureLevel;
@@ -954,9 +966,8 @@ HRESULT WINAPI D3D11CreateDeviceAndSwapChain(_In_opt_ IDXGIAdapter *pAdapter, D3
 	override_swap_chain(pSwapChainDesc, &origSwapChainDesc);
 
 	get_tls()->hooking_quirk_protection = true;
-	HRESULT ret = (*_D3D11CreateDeviceAndSwapChain)(pAdapter, DriverType, Software, Flags, pFeatureLevels,
-	                                                FeatureLevels, SDKVersion, pSwapChainDesc, ppSwapChain, ppDevice,
-	                                                pFeatureLevel, ppImmediateContext);
+	HRESULT ret = (*next)(pAdapter, DriverType, Software, Flags, pFeatureLevels, FeatureLevels, SDKVersion,
+	                      pSwapChainDesc, ppSwapChain, ppDevice, pFeatureLevel, ppImmediateContext);
 	get_tls()->hooking_quirk_protection = false;
 
 	if (FAILED(ret))
@@ -986,6 +997,28 @@ HRESULT WINAPI D3D11CreateDeviceAndSwapChain(_In_opt_ IDXGIAdapter *pAdapter, D3
 	LogInfo("->D3D11CreateDeviceAndSwapChain result = %x\n", ret);
 
 	return ret;
+}
+
+HRESULT WINAPI D3D11CreateDeviceAndSwapChain(IDXGIAdapter *adapter, D3D_DRIVER_TYPE driverType, HMODULE software,
+                                             UINT flags, const D3D_FEATURE_LEVEL *featureLevels, UINT count,
+                                             UINT sdkVersion, DXGI_SWAP_CHAIN_DESC *description,
+                                             IDXGISwapChain **swapChain, ID3D11Device **device,
+                                             D3D_FEATURE_LEVEL *featureLevel, ID3D11DeviceContext **context)
+{
+	return CreateDeviceAndSwapChainThrough(&_D3D11CreateDeviceAndSwapChain, adapter, driverType, software, flags,
+	                                       featureLevels, count, sdkVersion, description, swapChain, device,
+	                                       featureLevel, context);
+}
+
+HRESULT WINAPI Hooked_D3D11CreateDeviceAndSwapChain(IDXGIAdapter *adapter, D3D_DRIVER_TYPE driverType, HMODULE software,
+                                                    UINT flags, const D3D_FEATURE_LEVEL *featureLevels, UINT count,
+                                                    UINT sdkVersion, DXGI_SWAP_CHAIN_DESC *description,
+                                                    IDXGISwapChain **swapChain, ID3D11Device **device,
+                                                    D3D_FEATURE_LEVEL *featureLevel, ID3D11DeviceContext **context)
+{
+	return CreateDeviceAndSwapChainThrough(&fnOrigD3D11CreateDeviceAndSwapChain, adapter, driverType, software, flags,
+	                                       featureLevels, count, sdkVersion, description, swapChain, device,
+	                                       featureLevel, context);
 }
 
 // -----------------------------------------------------------------------------------------------
