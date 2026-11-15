@@ -104,6 +104,26 @@ both policies and the downstream swap-chain buffer count.
 
 ## Regression sensitivity
 
+`ReloadNotificationTests.vcxproj` checks the actual product DLL's rendered
+notification pixels after one off-game correctness Present. A sequential swap
+chain retains the image for readback, as specified by
+[DXGI_SWAP_EFFECT_SEQUENTIAL](https://learn.microsoft.com/en-us/windows/win32/api/dxgi/ne-dxgi-dxgi_swap_effect).
+The three cases retain the default green confirmation, suppress it while the
+image stays black, and retain orange warnings with the confirmation suppressed.
+Each case also reads back the reloaded GPU constants and requires the reload
+entry in `d3d11_log.txt`. The disabled setting first appears in the reloaded
+file, protecting live changes to the option. Both architectures run these
+checks; x64 also requires the pinned beta.2 DLL to fail the suppression cases on
+the specific visible-pixel assertion. This is output validation, not a Present
+loop benchmark or a live-game check.
+
+```powershell
+msbuild RuntimeTests/ReloadNotificationTests.vcxproj -property:Configuration=Release -property:Platform=x64
+python RuntimeTests/run_reload_notification_tests.py --dll x64/Release/d3d11.dll `
+  --exe .quality/reload-notification/x64/ReloadNotificationTests.exe `
+  --output .quality/reload-notification/manual-results
+```
+
 The manual **Runtime regression checks** workflow accepts `mutation_checks=true`.
 The 49 cases have 50 deliberate breaks: the expiring-alias case independently
 breaks resource-creation metadata and reuse of the resolved destination. Mutation

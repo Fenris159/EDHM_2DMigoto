@@ -401,6 +401,7 @@ struct Globals
 	bool gWipeUserConfig;
 	bool gLogInput;
 	bool gShowWarnings;
+	bool gShowReloadMessage;
 	bool dump_all_profiles;
 	unsigned gSystemTickCount;
 	float gTime;
@@ -706,8 +707,8 @@ struct Globals
 	      load_library_redirect(2), enable_hooks(EnableHooks::INVALID), enable_check_interface(false),
 	      enable_create_device(0), enable_platform_update(false), gInitialized(false), bIntendedTargetExe(false),
 	      gReloadConfigPending(false), gConfigInitialized(false), gWipeUserConfig(false), user_config_dirty(0),
-	      gLogInput(false), gShowWarnings(true), gDllInitializationDelay(0), gSettingsAutoSaveInterval(0),
-	      gConfigInitializationDelay(0),
+	      gLogInput(false), gShowWarnings(true), gShowReloadMessage(true), gDllInitializationDelay(0),
+	      gSettingsAutoSaveInterval(0), gConfigInitializationDelay(0),
 	      // Classic 3Dmigoto / EDHM: load [Include] files on first parse.
 	      // XXMI defaulted this to true for launcher boot; that leaves EDHM's
 	      // EDHM-ini/* TextureOverrides and Constants unloaded until a delayed reload.

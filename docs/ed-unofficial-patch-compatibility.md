@@ -142,6 +142,29 @@ This is a precaution based on overlapping responsibilities, not an observed
 failure of that double-upscale configuration.
 [Our legacy upscaling path](https://github.com/Fenris159/EDHM_2DMigoto/blob/4c953f29127b1d13301c733f157f0850cc2eb309/DirectX11/HackerDXGI.cpp#L1079).
 
+## Reload confirmation messages
+
+The `> Reloaded config` message comes from our DLL. The EDUP v0.22.1 source
+does not directly request EDHM config reloads. Our reload triggers include the
+reload key, a one-time initialization reload, and a changed timestamp on the
+configured `auto_refresh_file_to_monitor` file. An on-screen message during a
+ship transition alone does not identify which trigger ran. In `d3d11_log.txt`,
+`auto_refresh_file_to_monitor changed - scheduling ReloadConfig` identifies the
+file-watcher path. Keep that path enabled for EDHM theme updates.
+
+In a build supporting `show_reload_message` (after v0.1.4-beta.2), place this in
+the root `d3dx.ini`:
+
+```ini
+[Logging]
+show_warnings = 0
+show_reload_message = 0
+```
+
+`show_warnings` is plural. It controls warning/notice overlays; the second option
+hides only the completed reload confirmation. Neither option disables config
+reloads. The confirmation remains in the log when logging is enabled.
+
 ## Compatibility risks and existing protections
 
 | Interaction | Finding and significance |

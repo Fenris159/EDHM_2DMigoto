@@ -127,6 +127,8 @@ Operational knobs, not per-draw commands. The important EDHM ones:
 |---------|-----|-----|
 | `[Logging]` | `enabled` | Open `d3d11_log.txt` without API spam. |
 | `[Logging]` | `calls` | Legacy verbose API log (slow). |
+| `[Logging]` | `show_warnings` | Default `1`; `0` hides warning/notice overlays and warning beeps. |
+| `[Logging]` | `show_reload_message` | Default `1`; `0` hides only the completed reload confirmation. Reloads and disk logging continue. |
 | `[System]` | `skip_early_includes_load` | EDHM default `0` so TextureOverrides exist before the first frame. |
 | `[System]` | `auto_refresh_file_to_monitor` | DLL-relative path; Present polls it and reloads config (EDHM_UI theme). |
 | `[System]` | `wine_compat` | Wine/Proton profile. |
@@ -134,6 +136,11 @@ Operational knobs, not per-draw commands. The important EDHM ones:
 | `[Rendering]` | `stereo_params` | EDHM default `-1` (no StereoParams). HUD uses `ini_params`. |
 | `[Rendering]` | `fuzzy_match_alongside_hash` | Off by default: hash TextureOverrides win before fuzzy match. |
 | `[Rendering]` | `track_region_hashes` | Enable region hashing (needed for `->HashRegion`). |
+
+Set these Logging options in the root `d3dx.ini`; they are read before included
+files. `show_warnings=0` leaves informational messages visible. To hide the
+reload confirmation as well, use `show_reload_message=0` (requires a build with
+this option; v0.1.4-beta.2 and earlier do not support it).
 
 ### `[Constants]` — command list at load / F10
 

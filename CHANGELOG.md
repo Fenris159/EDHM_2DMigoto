@@ -14,6 +14,12 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 ## [Unreleased]
 
+### Added
+
+- `[Logging] show_reload_message=0` hides the completed config-reload
+  confirmation while retaining reloads, disk logging and independent warning
+  controls. The default remains enabled.
+
 ### Planned
 
 - Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
