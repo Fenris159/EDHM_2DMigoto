@@ -1016,10 +1016,10 @@ void saves_acknowledge_only_the_captured_settings()
 		ImportBoundary boundary(GetModuleHandleW(nullptr), "MoveFileExW", &replace_with_pending_assignment);
 		require(SavePersistentSettings(), "first save failed");
 	}
-	require(file_contents(files.user).find("$test = 7\n") != std::string::npos, "save did not write its snapshot");
+	require(file_contents(files.user).find("$test = 7\r\n") != std::string::npos, "save did not write its snapshot");
 	require(variable.fval == 11.0f && G->user_config_dirty != 0, "completed save erased a newer pending change");
 	require(SavePersistentSettings(), "save of the newer change failed");
-	require(file_contents(files.user).find("$test = 11\n") != std::string::npos && G->user_config_dirty == 0,
+	require(file_contents(files.user).find("$test = 11\r\n") != std::string::npos && G->user_config_dirty == 0,
 	        "next save did not commit the newer pending value");
 	assignment_during_replace = nullptr;
 	state_during_replace = nullptr;
@@ -2509,7 +2509,9 @@ void verify_static_variable_metadata(bool reverse_operands)
 	outer.GetResource(0, false, false, true)->bind_flags = D3D11_BIND_SHADER_RESOURCE;
 	outer.GetResource(1, false, false, true)->bind_flags = D3D11_BIND_UNORDERED_ACCESS;
 	MetadataFixture::configure_buffer(customResources[L"resourcepreviewfresh"]);
+	CommandListScope scope;
 	CommandList commands;
+	commands.scope = &scope;
 	parse_copy(commands,
 	           reverse_operands ? L"poolouter[$poolstaticvars[0] + $pooldynamicvars[0]]"
 	                            : L"poolouter[$pooldynamicvars[0] + $poolstaticvars[0]]",
