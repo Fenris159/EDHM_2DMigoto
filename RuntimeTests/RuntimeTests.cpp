@@ -1278,6 +1278,9 @@ void frame_analysis_input_keeps_configuration_ownership()
 			FrameAnalysisOptions previous_default = G->def_analyse_options;
 			bool previous_foreground = G->check_foreground_window;
 			bool previous_analyzing = G->analyse_frame;
+			UINT previous_hunting = G->hunting;
+			ShaderMap previous_shaders = G->mShaders;
+			std::set<UINT64> previous_visited = G->mVisitedComputeShaders;
 			explicit RestoreAnalysis(const std::filesystem::path &directory) : directory(directory) {}
 			RestoreAnalysis(const RestoreAnalysis &) = delete;
 			RestoreAnalysis &operator=(const RestoreAnalysis &) = delete;
@@ -1286,6 +1289,9 @@ void frame_analysis_input_keeps_configuration_ownership()
 			~RestoreAnalysis()
 			{
 				G->analyse_frame = previous_analyzing;
+				G->hunting = previous_hunting;
+				G->mShaders = std::move(previous_shaders);
+				G->mVisitedComputeShaders = std::move(previous_visited);
 				G->cur_analyse_options = previous_current;
 				G->def_analyse_options = previous_default;
 				G->check_foreground_window = previous_foreground;
@@ -1326,6 +1332,9 @@ void frame_analysis_input_keeps_configuration_ownership()
 		initial.pSysMem = values;
 		Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
 		require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &initial, &buffer)), "analysis constant buffer failed");
+		// The raw D3D fixture needs the identity normally registered by HackerDevice.
+		G->mShaders[shader.Get()] = 0x1234;
+		G->hunting = HUNTING_MODE_ENABLED;
 		analysis.CSSetShader(shader.Get(), nullptr, 0);
 		auto *binding = buffer.Get();
 		analysis.CSSetConstantBuffers(0, 1, &binding);
