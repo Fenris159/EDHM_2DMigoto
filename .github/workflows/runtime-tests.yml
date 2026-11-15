@@ -47,6 +47,8 @@ jobs:
       - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
         with:
           vs-version: '[17.0,18.0)'
+      - name: Verify reload-runner timeout evidence
+        run: python -m unittest discover -s RuntimeTests -p test_reload_notification_runner.py -v
       - name: Build product and proxy boundary fixtures
         shell: pwsh
         env:
@@ -64,6 +66,10 @@ jobs:
               -nodeReuse:false -verbosity:minimal -restore:false
             if ($LASTEXITCODE -ne 0) { throw "Proxy fixture build failed: $fixture" }
           }
+          & msbuild RuntimeTests/ReloadNotificationTests.vcxproj -target:Build `
+            -property:Configuration=Release "-property:Platform=$env:TEST_PLATFORM" `
+            -property:EdhmStrictBuild=true -nodeReuse:false -verbosity:minimal -restore:false
+          if ($LASTEXITCODE -ne 0) { throw 'Reload notification fixture build failed' }
       - name: Obtain pinned EDUP release for the x64 integration check
         if: matrix.platform == 'x64'
         shell: pwsh
@@ -89,6 +95,29 @@ jobs:
             --fixture "$bin/ProxyChainFixture.dll" --exe "$bin/ProxyChainTests.exe" `
             --output "$bin/candidate-results" @extra
           if ($LASTEXITCODE -ne 0) { throw 'Proxy-chain behavior checks failed' }
+      - name: Check reload notification pixels and GPU constants
+        shell: pwsh
+        env:
+          TEST_PLATFORM: ${{ matrix.platform }}
+        run: |
+          $bin = ".quality/reload-notification/$env:TEST_PLATFORM"
+          & python RuntimeTests/run_reload_notification_tests.py `
+            --dll ".quality/proxy-chain/$env:TEST_PLATFORM/candidate-d3d11.dll" `
+            --exe "$bin/ReloadNotificationTests.exe" --output "$bin/candidate-results"
+          if ($LASTEXITCODE -ne 0) { throw 'Reload notification behavior checks failed' }
+      - name: Verify notification checks detect the previous visible behavior
+        if: matrix.platform == 'x64'
+        shell: pwsh
+        run: |
+          $baseline = '.quality/reload-notification/x64/previous-d3d11.dll'
+          Invoke-WebRequest 'https://github.com/Fenris159/EDHM_2DMigoto/releases/download/v0.1.4-beta.2/d3d11.dll' -OutFile $baseline
+          if ((Get-FileHash $baseline -Algorithm SHA256).Hash -ne '2cacf5a9bdc34955339cc72088225c83dd656fe97e329a1ee504c0145ae7a4ac') {
+            throw 'Previous release DLL checksum mismatch'
+          }
+          & python RuntimeTests/run_reload_notification_tests.py --dll $baseline `
+            --exe .quality/reload-notification/x64/ReloadNotificationTests.exe `
+            --output .quality/reload-notification/x64/baseline-results --expect-visible
+          if ($LASTEXITCODE -ne 0) { throw 'Previous visible notification behavior was not detected' }
       - name: Require pre-fix builds to expose the proxy policy regressions
         if: (inputs.proxy_chain_baseline_run != '' || inputs.proxy_chain_downstream_baseline_run != '') && matrix.platform == 'x64'
         shell: pwsh
@@ -133,6 +162,10 @@ jobs:
             .quality/proxy-chain/${{ matrix.platform }}/**/stderr.txt
             .quality/proxy-chain/${{ matrix.platform }}/**/d3d11_log.txt
             .quality/proxy-chain/${{ matrix.platform }}/**/edvr_logs/
+            .quality/reload-notification/${{ matrix.platform }}/**/results.json
+            .quality/reload-notification/${{ matrix.platform }}/**/stdout.txt
+            .quality/reload-notification/${{ matrix.platform }}/**/stderr.txt
+            .quality/reload-notification/${{ matrix.platform }}/**/d3d11_log.txt
           if-no-files-found: warn
           retention-days: 14
       - name: Upload validated product DLL

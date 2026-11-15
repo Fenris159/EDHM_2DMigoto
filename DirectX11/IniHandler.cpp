@@ -5001,6 +5001,7 @@ void LoadConfigFile()
 		enable_lock_dependency_checks();
 
 	G->gShowWarnings = GetIniBool(L"Logging", L"show_warnings", true, nullptr);
+	G->gShowReloadMessage = GetIniBool(L"Logging", L"show_reload_message", true, nullptr);
 
 	// Allows to delay DLL initialization by given ms count
 	G->gDllInitializationDelay = GetIniInt(L"System", L"dll_initialization_delay", 0, nullptr);
@@ -5697,5 +5698,8 @@ void ReloadConfig(HackerDevice *device)
 	auto stop = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<float> duration = stop - start;
 
-	LogOverlayW(LOG_INFO, L"> Reloaded config in %.3fs\n", duration.count());
+	if (G->gShowReloadMessage)
+		LogOverlayW(LOG_INFO, L"> Reloaded config in %.3fs\n", duration.count());
+	else
+		LogInfoW(L"> Reloaded config in %.3fs\n", duration.count());
 }
