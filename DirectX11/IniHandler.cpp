@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <strsafe.h>
 #include <fstream>
@@ -32,6 +33,7 @@
 #define INI_FILENAME L"d3dx.ini"
 
 static PersistentSettingsState persistent_settings_state;
+static std::mutex persistent_settings_save_mutex;
 
 static bool GetMigotoDirectory(wchar_t *path, size_t path_size)
 {
@@ -5506,6 +5508,7 @@ bool SavePersistentSettings()
 		return true;
 	PersistentSettingsState::Values snapshot;
 	std::wstring settings_path;
+	std::unique_lock<std::mutex> save_lock;
 	struct PendingSave
 	{
 		int dirty = 0;
@@ -5523,6 +5526,9 @@ bool SavePersistentSettings()
 	} pending;
 	{
 		const CriticalSectionLock lock(&G->mCriticalSection);
+		// Acquire in configuration-lock order, but retain only this file-write
+		// lock during I/O so two saves cannot replace newer data with an older snapshot.
+		save_lock = std::unique_lock<std::mutex>(persistent_settings_save_mutex);
 		if (!G->user_config_dirty)
 			return true;
 		settings_path = G->user_config;
@@ -5603,6 +5609,8 @@ bool SavePersistentSettings()
 
 bool WipeUserConfig()
 {
+	const CriticalSectionLock config_lock(&G->mCriticalSection);
+	const std::lock_guard<std::mutex> save_lock(persistent_settings_save_mutex);
 	if (!DeleteFileW(G->user_config.c_str()))
 	{
 		const DWORD error = GetLastError();
