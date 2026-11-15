@@ -85,7 +85,7 @@ void run(const char *mode)
 	}
 	const UINT wanted = chain ? D3D11_CREATE_DEVICE_BGRA_SUPPORT : downstream ? D3D11_CREATE_DEVICE_SINGLETHREADED : 0;
 	const UINT buffers = chain ? 2 : downstream ? 3 : 1;
-	const bool swap_first = std::strcmp(mode, "chain-swap-early") == 0;
+	const bool swap_first = edup || std::strcmp(mode, "chain-swap-early") == 0;
 	WNDCLASSW window_class = {};
 	window_class.lpfnWndProc = DefWindowProcW;
 	window_class.hInstance = GetModuleHandleW(nullptr);
@@ -94,7 +94,10 @@ void run(const char *mode)
 	HWND window = CreateWindowW(window_class.lpszClassName, L"EDHM off-game proxy check", WS_OVERLAPPEDWINDOW, 0, 0, 64,
 	                            64, nullptr, nullptr, window_class.hInstance, nullptr);
 	require(window != nullptr, "hidden test window unavailable");
-	for (unsigned pass = 0; pass < 4; ++pass)
+	// EDUP deliberately owns one rendering device per process. Its real-DLL
+	// check uses that one device; the boundary fixture covers repeated creation.
+	const unsigned passes = edup ? 1 : 4;
+	for (unsigned pass = 0; pass < passes; ++pass)
 	{
 		ComPtr<ID3D11Device> device;
 		ComPtr<ID3D11DeviceContext> context;
