@@ -2534,6 +2534,26 @@ void static_variable_metadata_matches_expiring_dynamic_aliases()
 {
 	for (bool reverse : {false, true})
 		verify_static_variable_metadata(reverse);
+	MetadataFixture fixture;
+	auto &pinned = make_pool(L"poolpinnedvars", 0.0f);
+	pinned.index_type = PoolIndexType::STATIC;
+	pinned.GetVariable(0, false, false, true)->fval = 1.0f;
+	auto &other = make_pool(L"poolothervars", 0.0f);
+	auto &outer = make_pool(L"poolouter", 0.0f);
+	MetadataFixture::configure_buffer(*outer.resource_template);
+	outer.GetResource(0, false, false, true)->bind_flags = D3D11_BIND_UNORDERED_ACCESS;
+	outer.GetResource(1, false, false, true)->bind_flags = D3D11_BIND_SHADER_RESOURCE;
+	MetadataFixture::configure_buffer(customResources[L"resourcepreviewfresh"]);
+	CommandListScope scope;
+	CommandList commands;
+	commands.scope = &scope;
+	parse_copy(commands, L"poolouter[$poolpinnedvars[0]]", L"ref resourcepreviewfresh");
+	require(pinned.SetSourcePool(&other), "STATIC variable proxy change rejected");
+	for (const auto &command : commands.commands)
+		command->run(&fixture.d3d.state);
+	fixture.execute(L"this", L"ref poolouter[1]");
+	fixture.require_binding(&customResources[L"resourcepreviewfresh"]);
+	fixture.d3d.require_no_errors();
 }
 
 void scalar_variables_keep_precedence_over_pool_names()

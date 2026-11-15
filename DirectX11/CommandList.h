@@ -161,6 +161,7 @@ class CommandListVariable
 	CommandListVariable(wstring name, float fval, VariableFlags flags) : name(name), fval(fval), flags(flags) {}
 
 	void CopyStateFrom(const CommandListVariable &src);
+	void SetValue(float value);
 };
 
 typedef std::unordered_map<std::wstring, class CommandListVariable> CommandListVariables;
@@ -697,6 +698,8 @@ class CustomResourcePool
 	void RestoreResourceAssignment(float id, CustomResource *resource);
 	std::unique_ptr<CustomResourcePool> CreateMetadataPreview() const;
 	CustomResource *MetadataResource(int index) const;
+	CommandListVariable *MetadataVariable(const CommandListVariable *variable,
+	                                      const CustomResourcePool &original) const;
 	CommandListVariable *GetVariable(float id, bool template_lookup, bool use_ring_index, bool is_assignment);
 	size_t GetPoolSize();
 	unsigned GetLastUpdateFrame(float id, bool use_ring_index);
@@ -977,6 +980,7 @@ class ResourceCopyTarget
 
 	CustomResource *static_custom_resource = nullptr; // Read access should go via GetCustomResource
 	CommandListVariable *static_pool_variable = nullptr;
+	CustomResourcePool *static_pool_variable_owner = nullptr;
 };
 
 enum class ResourceCopyOptions

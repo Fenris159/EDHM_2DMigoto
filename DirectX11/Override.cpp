@@ -734,12 +734,7 @@ void OverrideTransition::UpdateTransitions(HackerDevice *wrapper)
 		for (j = vars.begin(); j != vars.end();)
 		{
 			float val = _UpdateTransition(&j->second, now);
-			if (j->first->fval != val)
-			{
-				j->first->fval = val;
-				if (j->first->flags & VariableFlags::PERSIST)
-					G->user_config_dirty |= 1;
-			}
+			j->first->SetValue(val);
 			LogDebugNoNL("%S=%#.2g, ", j->first->name.c_str(), val);
 			if (j->second.time == -1)
 				j = vars.erase(j);

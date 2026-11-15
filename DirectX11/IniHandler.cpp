@@ -1709,17 +1709,12 @@ static void ParseIncludedIniFiles()
 	wstring ini_path;
 	wchar_t migoto_path[MAX_PATH];
 	vector<pcre2_code *> exclude;
-	DWORD attrib;
 
 	if (!GetMigotoDirectory(migoto_path, ARRAYSIZE(migoto_path)))
 	{
 		LogOverlay(LOG_WARNING, "Unable to resolve the 3Dmigoto DLL directory; skipping included ini files\n");
 		return;
 	}
-
-	// Grab the user_config path before the below code removes it from the
-	// ini_sections data structure:
-	GetUserConfigPath(migoto_path);
 
 	// Do this before removing [Include] from ini_sections. Future work: Allow
 	// recursively included files to modify the exclude mid-recursion:
@@ -1792,12 +1787,6 @@ static void ParseIncludedIniFiles()
 	} while (!include_sections.empty());
 
 	free_globbing_vector(exclude);
-
-	// User config is loaded very last to allow it to override all other
-	// ini files.
-	attrib = GetFileAttributes(G->user_config.c_str());
-	if (attrib != INVALID_FILE_ATTRIBUTES)
-		ParseNamespacedIniFile(G->user_config.c_str(), &G->user_config);
 }
 
 static void RegisterPresetKeyBindings()
@@ -5019,10 +5008,20 @@ void LoadConfigFile()
 		G->gConfigInitialized = true;
 	}
 
+	// Resolve and read persisted values even when ordinary includes are
+	// deferred. Otherwise a post-Constants write can block the first reload
+	// or overwrite settings belonging to includes that have not loaded yet.
+	wchar_t migoto_path[MAX_PATH];
+	if (!GetMigotoDirectory(migoto_path, ARRAYSIZE(migoto_path)))
+		DoubleBeepExit();
+	GetUserConfigPath(migoto_path);
 	if (G->gConfigInitialized || !G->gSkipEarlyIncludesLoad)
 	{
 		ParseIncludedIniFiles();
 	}
+	// Loaded last so saved assignments override the root and ordinary includes.
+	if (GetFileAttributesW(G->user_config.c_str()) != INVALID_FILE_ATTRIBUTES)
+		ParseNamespacedIniFile(G->user_config.c_str(), &G->user_config);
 
 	// [System]
 	LogInfo("[System]\n");
@@ -5505,6 +5504,33 @@ bool SavePersistentSettings()
 	G->gSettingsSaveTime = G->gTime;
 	if (!G->user_config_dirty)
 		return true;
+	PersistentSettingsState::Values snapshot;
+	std::wstring settings_path;
+	struct PendingSave
+	{
+		int dirty = 0;
+		bool committed = false;
+		PendingSave() = default;
+		PendingSave(const PendingSave &) = delete;
+		PendingSave &operator=(const PendingSave &) = delete;
+		PendingSave(PendingSave &&) = delete;
+		PendingSave &operator=(PendingSave &&) = delete;
+		~PendingSave()
+		{
+			if (!committed)
+				G->user_config_dirty |= dirty;
+		}
+	} pending;
+	{
+		const CriticalSectionLock lock(&G->mCriticalSection);
+		if (!G->user_config_dirty)
+			return true;
+		settings_path = G->user_config;
+		snapshot = persistent_settings_state.UnknownValues();
+		for (const auto *variable : persistent_variables)
+			snapshot[variable->name] = variable->fval;
+		pending.dirty = G->user_config_dirty.exchange(0);
+	}
 
 	struct RestoreLocale
 	{
@@ -5522,7 +5548,7 @@ bool SavePersistentSettings()
 	setlocale(LC_CTYPE, "en_US.UTF-8");
 
 	wchar_t destination[MAX_PATH];
-	const DWORD length = GetFullPathNameW(G->user_config.c_str(), ARRAYSIZE(destination), destination, nullptr);
+	const DWORD length = GetFullPathNameW(settings_path.c_str(), ARRAYSIZE(destination), destination, nullptr);
 	if (!length || length >= ARRAYSIZE(destination))
 		return false;
 	std::wstring directory(destination);
@@ -5533,7 +5559,7 @@ bool SavePersistentSettings()
 	wchar_t temporary[MAX_PATH];
 	if (!GetTempFileNameW(directory.c_str(), L"edh", 0, temporary))
 	{
-		LogInfo("Unable to create settings temporary file for %S\n", G->user_config.c_str());
+		LogInfo("Unable to create settings temporary file for %S\n", settings_path.c_str());
 		return false;
 	}
 
@@ -5555,9 +5581,7 @@ bool SavePersistentSettings()
 	      "[Constants]\n",
 	      f);
 
-	for (auto global : persistent_variables)
-		fprintf_s(f, "%ls = %.9g\n", global->name.c_str(), global->fval);
-	for (const auto &entry : persistent_settings_state.UnknownValues())
+	for (const auto &entry : snapshot)
 		fprintf_s(f, "%ls = %.9g\n", entry.first.c_str(), entry.second);
 
 	bool failed = ferror(f) != 0;
@@ -5569,11 +5593,11 @@ bool SavePersistentSettings()
 	if (failed)
 	{
 		DeleteFileW(temporary);
-		LogInfo("Unable to replace settings in %S; pending values retained\n", G->user_config.c_str());
+		LogInfo("Unable to replace settings in %S; pending values retained\n", settings_path.c_str());
 		return false;
 	}
-	G->user_config_dirty = 0;
-	LogInfo("Saved user settings to %S\n", G->user_config.c_str());
+	pending.committed = true;
+	LogInfo("Saved user settings to %S\n", settings_path.c_str());
 	return true;
 }
 
@@ -5615,6 +5639,9 @@ static void MarkAllShadersDeferredUnprocessed()
 void ReloadConfig(HackerDevice *device)
 {
 	auto start = std::chrono::high_resolution_clock::now();
+	// Keep persistent assignments out until the saved snapshot has been
+	// reloaded. Autosave alone releases this lock before writing to disk.
+	std::optional<CriticalSectionLock> config_lock(std::in_place, &G->mCriticalSection);
 
 	// Failed saves must not be followed by a reload that discards the pending
 	// in-memory values and replaces them with the previous complete disk file.
@@ -5631,11 +5658,6 @@ void ReloadConfig(HackerDevice *device)
 
 	G->gReloadConfigPending = false;
 	G->iniParamsReserved = 0;
-
-	// Lock the entire config reload as it touches many global structures
-	// that could potentially be accessed from other threads (e.g. deferred
-	// contexts) while we do this
-	EnterCriticalSectionPretty(&G->mCriticalSection);
 
 	// Clears any notices currently displayed on the overlay. This ensures
 	// that any notices that haven't timed out yet (e.g. from a previous
@@ -5663,7 +5685,7 @@ void ReloadConfig(HackerDevice *device)
 
 	MarkAllShadersDeferredUnprocessed();
 
-	LeaveCriticalSection(&G->mCriticalSection);
+	config_lock.reset();
 
 	// Execute the [Constants] command list in the immediate context to
 	// initialise iniParams and perform any other custom initialisation the

@@ -36,6 +36,7 @@ class MutationCleanupTests(unittest.TestCase):
             hashing.write_bytes(b"hashing fixture\r\n")
             originals = {p: p.read_bytes() for p in (source, settings, profiling, hashing)}
             mutant_built = False
+            timeout_error = subprocess.TimeoutExpired(["fixture-compiler"], 300, output=b"partial build\n")
 
             def process_boundary(command, **kwargs):
                 nonlocal mutant_built
@@ -43,6 +44,8 @@ class MutationCleanupTests(unittest.TestCase):
                     if source.read_bytes() != original:
                         mutant_built = True
                         executable.write_bytes(b"mutant\n")
+                        if mode == "build-times-out":
+                            raise timeout_error
                         return subprocess.CompletedProcess(command, 7 if mode == "build-fails" else 0, b"", b"")
                     if mutant_built and mode == "restoration-fails":
                         executable.write_bytes(b"incomplete\n")
@@ -61,10 +64,16 @@ class MutationCleanupTests(unittest.TestCase):
                 patch.object(runner, "OUTPUT", root / "evidence"),
                 patch.object(runner, "EXE", executable),
                 patch.object(runner, "BUILD", ["fixture-compiler"]),
-                patch.object(runner.subprocess, "run", side_effect=process_boundary),
+                patch.object(runner, "run_process", side_effect=process_boundary),
             ):
-                with self.assertRaisesRegex(RuntimeError, expected_error):
-                    runner.main()
+                if mode == "build-times-out":
+                    with self.assertRaises(subprocess.TimeoutExpired) as raised:
+                        runner.main()
+                    self.assertIs(raised.exception, timeout_error)
+                    self.assertEqual((root / "evidence" / "empty-groups-build.log").read_bytes(), b"partial build\n")
+                else:
+                    with self.assertRaisesRegex(RuntimeError, expected_error):
+                        runner.main()
             self.assertTrue(mutant_built, "the mutation failure was never reached")
             for path, content in originals.items():
                 self.assertEqual(path.read_bytes(), content, "cleanup changed original source bytes")
@@ -78,6 +87,9 @@ class MutationCleanupTests(unittest.TestCase):
 
     def test_failed_mutant_build_restores_production_binary(self):
         self.exercise_failure("build-fails")
+
+    def test_timed_out_mutant_build_restores_production_and_preserves_timeout(self):
+        self.exercise_failure("build-times-out")
 
     def test_failed_restoration_quarantines_binary_and_preserves_original_error(self):
         self.exercise_failure("restoration-fails")

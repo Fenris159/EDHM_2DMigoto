@@ -190,8 +190,8 @@ jobs:
       - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
         with:
           vs-version: '[17.0,18.0)'
-      - name: Verify mutation runner failure cleanup
-        run: python -m unittest discover -s RuntimeTests -p test_mutation_cleanup.py -v
+      - name: Verify Python runners and process-tree cleanup
+        run: python -m unittest discover -s RuntimeTests -p 'test_*.py' -v
       - name: Build native runtime checks
         shell: pwsh
         run: >-

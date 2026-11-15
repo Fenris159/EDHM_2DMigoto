@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <memory>
+#include <atomic>
 
 #include "DLLMainHook.h"
 #include "DirectXMath.h"
@@ -417,7 +418,7 @@ struct Globals
 	int load_library_redirect;
 
 	std::wstring user_config;
-	int user_config_dirty;
+	std::atomic<int> user_config_dirty;
 	bool clear_unknown_settings = true;
 
 	EnableHooks enable_hooks;

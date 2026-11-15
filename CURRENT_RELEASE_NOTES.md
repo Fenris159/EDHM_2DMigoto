@@ -21,11 +21,16 @@ Built from this repository's automated release workflow.
   configured downstream proxy when the EDHM DLL is renamed for chaining.
 - Preserve pending settings and the last complete file after failed saves;
   retain temporarily unavailable persistent values for a reload grace period.
+- Read saved settings before deferred include initialization; preserve changes
+  made during an autosave instead of clearing their pending state.
 - Resolve resource-reference chains after parsing, retain learned pool flags,
   and keep metadata queries from allocating or refreshing live pool elements.
 - Correct typed/structured `store` reads, bounded `Region(offset,size)` copies
   and views, smaller constant-buffer copies, saved SRV clears and view-cache
   invalidation. Failed reads keep the previous value.
+- Copy vertex-buffer byte regions independently of the binding stride, honor
+  explicit integer clears through retained RTVs, and share detached metadata
+  between STATIC pool-variable pins and dynamic aliases.
 - Preserve parser/namespace compatibility, stable `this` view reuse, profiler
   reload measurements and production binaries after mutation-check failures.
 
@@ -36,6 +41,8 @@ Built from this repository's automated release workflow.
   its measured scope and limits; no combined EDUP FPS gain is claimed.
 - Require C++17 in ordinary and strict builds. Stabilize notification checks
   with a controlled clock boundary and retain timeout diagnostics.
+- Stop timed-out mutation-build descendants before restoring source, rebuild
+  clean objects, and recognize lowercase Wine WoW64 library directories.
 
 ### Notes
 

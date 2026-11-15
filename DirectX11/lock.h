@@ -8,6 +8,25 @@
 #define EnterCriticalSectionPretty(lock) _EnterCriticalSectionPretty(lock, __FUNCTION__, __LINE__)
 void _EnterCriticalSectionPretty(CRITICAL_SECTION *lock, const char *function, int line);
 
+class CriticalSectionLock
+{
+	CRITICAL_SECTION *section;
+
+  public:
+	explicit CriticalSectionLock(CRITICAL_SECTION *section) : section(section)
+	{
+		EnterCriticalSectionPretty(section);
+	}
+	~CriticalSectionLock()
+	{
+		LeaveCriticalSection(section);
+	}
+	CriticalSectionLock(const CriticalSectionLock &) = delete;
+	CriticalSectionLock &operator=(const CriticalSectionLock &) = delete;
+	CriticalSectionLock(CriticalSectionLock &&) = delete;
+	CriticalSectionLock &operator=(CriticalSectionLock &&) = delete;
+};
+
 // Use this when initialising a critical section in 3DMigoto to give it a nice
 // name in lock stack dumps rather than using its address.
 //

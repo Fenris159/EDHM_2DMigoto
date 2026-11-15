@@ -21,7 +21,7 @@ def pe_machine(path):
 
 
 def matching_version_library(system_root, target_machine):
-    for folder in ("system32", "SysWOW64", "Sysnative"):
+    for folder in ("system32", "syswow64", "sysnative"):
         candidate = system_root / folder / "version.dll"
         if candidate.is_file() and pe_machine(candidate) == target_machine:
             return candidate

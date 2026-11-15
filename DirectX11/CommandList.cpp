@@ -29,6 +29,18 @@ ExplicitCommandListSections explicitCommandListSections;
 CommandListVariables command_list_globals;
 std::vector<CommandListVariable *> persistent_variables;
 
+void CommandListVariable::SetValue(float value)
+{
+	if (flags & VariableFlags::PERSIST)
+	{
+		const CriticalSectionLock lock(&G->mCriticalSection);
+		G->user_config_dirty |= (fval != value);
+		fval = value;
+	}
+	else
+		fval = value;
+}
+
 void CommandListVariable::CopyStateFrom(const CommandListVariable &src)
 {
 	const bool was_persist = !!(flags & VariableFlags::PERSIST);
@@ -5481,16 +5493,11 @@ void ParamOverride::run(CommandListState *state)
 
 void VariableAssignment::run(CommandListState *state)
 {
-	float orig = var->fval;
-
 	COMMAND_LIST_LOG(state, "%S\n", ini_line.c_str());
 
-	var->fval = expression.evaluate(state);
+	var->SetValue(expression.evaluate(state));
 
 	COMMAND_LIST_LOG(state, "  = %f\n", var->fval);
-
-	if (var->flags & VariableFlags::PERSIST)
-		G->user_config_dirty |= (var->fval != orig);
 }
 
 bool AssignmentCommand::optimise(HackerDevice *device)
@@ -7286,6 +7293,17 @@ CustomResource *CustomResourcePool::MetadataResource(int index) const
 	return static_cast<size_t>(index) < elements.size() ? elements[index].resource : nullptr;
 }
 
+CommandListVariable *CustomResourcePool::MetadataVariable(const CommandListVariable *variable,
+                                                          const CustomResourcePool &original) const
+{
+	if (variable == original.variable_template.get())
+		return variable_template.get();
+	for (size_t index = 0; index < original.elements.size() && index < elements.size(); ++index)
+		if (variable == original.elements[index].variable)
+			return elements[index].variable;
+	return nullptr;
+}
+
 CustomResource *CustomResourcePool::GetResource(float id, bool template_lookup, bool use_ring_index, bool is_assignment)
 {
 	if (source_pool)
@@ -8017,6 +8035,7 @@ IniParserResult ResourceCopyTarget::ParseTargetPool(const wchar_t *&target, size
 		case ResourceCopyTargetEvaluationMode::VARIABLE:
 			//LogInfo("ParseTargetPool: STATIC VARIABLE pool_index=%f\n", static_pool_index);
 			static_pool_variable = custom_resource_pool->GetVariable(static_pool_index, false, false, !is_source);
+			static_pool_variable_owner = custom_resource_pool->ResolvePool();
 			type = ResourceCopyTargetType::VARIABLE;
 			return IniParserResult::TOKEN_FOUND;
 
@@ -8658,16 +8677,11 @@ bail:
 
 void PoolVariableOperation::SetVariableValue(CommandListState *state, CommandListVariable *dst, float value)
 {
-	float orig = dst->fval;
-
 	COMMAND_LIST_LOG(state, "%S\n", ini_line.c_str());
 
-	dst->fval = value;
+	dst->SetValue(value);
 
 	COMMAND_LIST_LOG(state, "  = %f\n", dst->fval);
-
-	if (dst->flags & VariableFlags::PERSIST)
-		G->user_config_dirty |= (dst->fval != orig);
 }
 
 void PoolVariableOperation::SetAllPoolVariables(CommandListState *state, float value)
@@ -9207,6 +9221,20 @@ class PoolMetadataPreview
 		if (preview)
 			resource->AdoptMetadataResource(*preview);
 	}
+	CommandListVariable *GetVariable(CustomResourcePool *owner, CommandListVariable *variable)
+	{
+		if (owner && owner->ResolvePool() == owner)
+			if (auto *preview = GetPool(owner)->MetadataVariable(variable, *owner))
+				return preview;
+		// A pin whose owning pool became a proxy still names the old physical
+		// variable, just as ordinary STATIC evaluation does.
+		if (!contents)
+			contents = std::make_unique<Contents>();
+		auto &preview = contents->variables[variable];
+		if (!preview)
+			preview = std::make_unique<CommandListVariable>(*variable);
+		return preview.get();
+	}
 
   private:
 	CommandListState &state;
@@ -9219,6 +9247,7 @@ class PoolMetadataPreview
 	{
 		std::unordered_map<CustomResourcePool *, std::unique_ptr<CustomResourcePool>> pools;
 		std::unordered_map<CustomResource *, std::unique_ptr<CustomResource>> resources;
+		std::unordered_map<CommandListVariable *, std::unique_ptr<CommandListVariable>> variables;
 	};
 	std::unique_ptr<Contents> contents;
 };
@@ -9294,6 +9323,8 @@ CommandListVariable *ResourceCopyTarget::GetPoolVariable(CommandListState *state
 {
 	if (!static_pool_variable && !custom_resource_pool)
 		return nullptr;
+	if (static_pool_variable && state && state->pool_metadata_query)
+		return state->pool_metadata_preview->GetVariable(static_pool_variable_owner, static_pool_variable);
 
 	return GetPoolObject(static_pool_variable, state, is_assignment,
 	                     [this, state](float id, bool template_lookup, bool assign)
@@ -11609,7 +11640,7 @@ static void ResolveMSAA(ID3D11Resource *dst_resource, ID3D11Resource *src_resour
 }
 
 static void SpecialCopyBufferRegion(ID3D11Resource *dst_resource, ID3D11Resource *src_resource, CommandListState *state,
-                                    UINT src_stride, UINT *src_offset, UINT buf_src_size, UINT buf_dst_size)
+                                    UINT *src_offset, UINT buf_src_size, UINT buf_dst_size)
 {
 	D3D11_BOX src_box;
 	// Subtraction after the bound check avoids both unsigned underflow and
@@ -11620,11 +11651,13 @@ static void SpecialCopyBufferRegion(ID3D11Resource *dst_resource, ID3D11Resource
 	src_box.left = *src_offset;
 	src_box.right = *src_offset + copy_size;
 
-	if (src_stride)
+	D3D11_BUFFER_DESC destination_desc{};
+	static_cast<ID3D11Buffer *>(dst_resource)->GetDesc(&destination_desc);
+	if ((destination_desc.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED) && destination_desc.StructureByteStride)
 	{
-		// If we are copying to a structured resource, the source box
-		// must be a multiple of the stride, so round it down:
-		src_box.right = (src_box.right - src_box.left) / src_stride * src_stride + src_box.left;
+		// Vertex binding strides describe input assembly, not copy alignment.
+		const UINT element_size = destination_desc.StructureByteStride;
+		src_box.right = copy_size / element_size * element_size + src_box.left;
 	}
 
 	src_box.top = 0;
@@ -11743,9 +11776,12 @@ bool ClearViewCommand::clear_unknown_view(ID3D11View *view, CommandListState *st
 
 	// Custom resources may retain readable or writable views. Query the
 	// writable interfaces rather than inferring one from the target type.
-	view->QueryInterface(__uuidof(ID3D11RenderTargetView), (void **)&rtv);
-	view->QueryInterface(__uuidof(ID3D11DepthStencilView), (void **)&dsv);
-	view->QueryInterface(__uuidof(ID3D11UnorderedAccessView), (void **)&uav);
+	if (!clear_uav_uint && !clear_depth && !clear_stencil)
+		view->QueryInterface(__uuidof(ID3D11RenderTargetView), (void **)&rtv);
+	if (!clear_uav_uint)
+		view->QueryInterface(__uuidof(ID3D11DepthStencilView), (void **)&dsv);
+	if (!clear_depth && !clear_stencil)
+		view->QueryInterface(__uuidof(ID3D11UnorderedAccessView), (void **)&uav);
 
 	if (rtv)
 	{
@@ -12272,7 +12308,7 @@ void ResourceCopyOperation::CopyResourceToResource(CommandListState *state, ID3D
 			Profiling::buffer_region_copies++;
 			if (G->track_region_hashes && dst_custom_resource)
 				dst_custom_resource->SetHandleInfo(src_resource, offset, buf_dst_size);
-			SpecialCopyBufferRegion(dst_resource, src_resource, state, stride, &offset, buf_src_size, buf_dst_size);
+			SpecialCopyBufferRegion(dst_resource, src_resource, state, &offset, buf_src_size, buf_dst_size);
 		}
 		else
 		{

@@ -6,6 +6,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from process_tree import run as run_process
+
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / ".quality" / "runtime-mutations"
@@ -25,7 +27,11 @@ BUILD = [
 
 
 def run(command, log_name):
-    result = subprocess.run(command, cwd=ROOT, capture_output=True, timeout=300)
+    try:
+        result = run_process(command, cwd=ROOT, capture_output=True, timeout=300)
+    except subprocess.TimeoutExpired as error:
+        (OUTPUT / log_name).write_bytes((error.stdout or b"") + (error.stderr or b""))
+        raise
     output = result.stdout + result.stderr
     (OUTPUT / log_name).write_bytes(output)
     return result.returncode, output.decode(errors="replace")
@@ -264,6 +270,44 @@ def get_mutations(command_list, settings, profiling):
             "if (freeze)",
         ),
         (
+            "profiling-zero-frame--commands",
+            profiling,
+            "if (freeze || !frames)\n\t\treturn;",
+            "if (freeze || !frames)\n\t{\n\t\tfor (auto *command : command_lists_cmd_profiling)\n"
+            "\t\t\tcommand->pre_executions = 0;\n\t\treturn;\n\t}",
+        ),
+        (
+            "settings-deferred",
+            settings,
+            "\tGetUserConfigPath(migoto_path);",
+            "\tif (G->gConfigInitialized || !G->gSkipEarlyIncludesLoad)\n\t\tGetUserConfigPath(migoto_path);",
+        ),
+        (
+            "settings-save-update",
+            settings,
+            "pending.committed = true;",
+            "G->user_config_dirty = 0;\n\tpending.committed = true;",
+        ),
+        (
+            "region-vertex-bytes",
+            command_list,
+            "src_box.right = *src_offset + copy_size;",
+            "src_box.right = *src_offset;",
+        ),
+        (
+            "view-clear-integer",
+            command_list,
+            "if (!clear_uav_uint && !clear_depth && !clear_stencil)",
+            "if (!clear_depth && !clear_stencil)",
+        ),
+        (
+            "metadata-static-variable",
+            command_list,
+            "\tif (static_pool_variable && state && state->pool_metadata_query)\n"
+            "\t\treturn state->pool_metadata_preview->GetVariable(static_pool_variable_owner, static_pool_variable);\n",
+            "",
+        ),
+        (
             "missing-metadata",
             command_list,
             "*misc_flags = custom_resource ? custom_resource->misc_flags : static_cast<D3D11_RESOURCE_MISC_FLAG>(0);",
@@ -361,7 +405,11 @@ def restore_production(originals, mutations, evidence, original_failure):
         for path, content in originals.items():
             path.write_bytes(content)
         (OUTPUT / "results.json").write_text(json.dumps(evidence, indent=2) + "\n")
-        build_exit, _ = run(BUILD, "restored-build.log")
+        if getattr(original_failure, "process_tree_cleanup_failed", False):
+            raise RuntimeError("Build descendants could not be stopped; refusing to trust build outputs")
+        # Never reuse intermediate objects from an interrupted mutant build.
+        restored_build = ["-target:Rebuild" if argument == "-target:Build" else argument for argument in BUILD]
+        build_exit, _ = run(restored_build, "restored-build.log")
         if build_exit:
             raise RuntimeError("Restored production source did not build")
         for case, _, _, _ in mutations:

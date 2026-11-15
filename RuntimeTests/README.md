@@ -26,7 +26,7 @@ bounds, CB ranges, and INI/optimizer ordering and reload semantics. A real devic
 boundary records submitted buffer descriptors and can fail staging allocation;
 this catches errors that WARP normalizes in a completed buffer description.
 
-The 49 cases also cover monitor-mode/window/reload transitions and recursive or
+The 54 cases also cover monitor-mode/window/reload transitions and recursive or
 shared command counts; summary-only matching/view diagnostics; hash-first and
 ordered dual matching; documented expression operators; all four view kinds,
 resource/descriptor/raw/override fallbacks, changing `this` targets, warm-cache
@@ -35,6 +35,9 @@ The PR #43 cases additionally protect smaller constant-buffer region copies,
 clearing saved SRV-backed resources through writable views, runtime-learned pool
 bind flags, scalar/local variable precedence over pool names, stable `this`
 view-cache reuse with safe kind changes, and zero-frame reload measurements.
+Stable-release review checks add deferred startup with unread persistent values,
+changes made at the save-replacement boundary, byte-sized vertex copies,
+integer clears through saved RTVs, and expiring STATIC/dynamic variable aliases.
 View failures are injected at the D3D device boundary. Missing custom-resource metadata returns zero bind/misc flags without allocation.
 Skipped empty-source references preview nested indexes without allocating or
 refreshing pool slots. Normal reads resume their expiration behavior afterward;
@@ -137,14 +140,21 @@ python RuntimeTests/run_reload_notification_tests.py --dll x64/Release/d3d11.dll
 ```
 
 The manual **Runtime regression checks** workflow accepts `mutation_checks=true`.
-The 49 cases have 50 deliberate breaks: the expiring-alias case independently
-breaks resource-creation metadata and reuse of the resolved destination. Mutation
-labels distinguish those two runs while invoking the same native case.
+The 54 cases have 56 deliberate breaks: the expiring-alias case independently
+breaks resource-creation metadata and reuse of the resolved destination, and the
+zero-frame case independently breaks command measurements while retaining their
+registration. Mutation labels distinguish the runs invoking the same native case.
 Its disposable checkout builds each deliberate behavior break, requires the
 focused case to fail, restores the exact source bytes, then rebuilds and reruns
 the restored cases. Local use requires a clean isolated worktree because the
 runner temporarily rewrites the production command-list, configuration,
-resource-matching and profiling sources.
+resource-matching and profiling sources. Timed-out builds run in an owned Windows
+job (a process group on Linux); cleanup stops descendants before restoring source.
+The restored build uses Rebuild so mutant objects cannot be reused. If cleanup
+cannot establish a trusted executable, the runner removes it and preserves the
+original failure. Python checks exercise the process boundary with a controlled
+readiness handshake, including a real descendant, rather than waiting for time
+to elapse.
 
 ```powershell
 python RuntimeTests/check_mutations.py
