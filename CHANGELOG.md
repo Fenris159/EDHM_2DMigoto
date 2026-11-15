@@ -14,15 +14,37 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 ## [Unreleased]
 
+### Planned
+
+- Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
+
+## [0.1.4-beta.3] - 2026-11-15
+
 ### Added
 
 - `[Logging] show_reload_message=0` hides the completed config-reload
   confirmation while retaining reloads, disk logging and independent warning
   controls. The default remains enabled.
+- Product-DLL notification checks on x64 and Win32 inspect the rendered
+  confirmation and warning colors, read back reloaded GPU constants, and
+  require the completion entry in the disk log. A pinned beta.2 control must
+  fail the suppression cases on visible confirmation pixels.
 
-### Planned
+### Changed
 
-- Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
+- Make notification checks independent of real clock progress and retain partial
+  stdout/stderr with a failed receipt when a fixture times out.
+
+### Notes
+
+- Set `show_reload_message=0` in the root `d3dx.ini`. To hide warning notices
+  as well, use the separate, plural `show_warnings=0` key.
+- The option changes only the confirmation text. It leaves reload timing,
+  theme-file auto-refresh and EDUP chaining active. The specific cause of the
+  tester's transition-time reloads remains unconfirmed without their log.
+- Validation includes native Windows/MSVC/WARP checks and an off-game
+  Proton 11.0/DXVK/AMD check beneath EDUP 0.22.1. It does not establish
+  installed-game transition timing, AA/VR output or FPS gains.
 
 ## [0.1.4-beta.2] - 2026-11-15
 
@@ -480,7 +502,8 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 - `d3dcompiler_47.dll` remains the Microsoft redistributable (SDK / EDHM package)
 - Stereo features remain stripped (2Dmigoto); XXMI performance-oriented code paths retained
 
-[Unreleased]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.4-beta.2...HEAD
+[Unreleased]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.4-beta.3...HEAD
+[0.1.4-beta.3]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.4-beta.2...v0.1.4-beta.3
 [0.1.4-beta.2]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.4-beta.1...v0.1.4-beta.2
 [0.1.4-beta.1]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.3...aa68c0ccc51b088740f6eecaba1f3582cc507f04
 [0.1.3]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.3
