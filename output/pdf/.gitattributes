@@ -1,0 +1,2 @@
+# PDF streams and cross-reference offsets require exact binary preservation.
+*.pdf binary

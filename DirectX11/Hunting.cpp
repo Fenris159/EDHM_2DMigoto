@@ -1393,17 +1393,7 @@ static void AnalyseFrameStop(HackerDevice *device [[maybe_unused]], void *privat
 
 static void AnalysePerf(HackerDevice *device [[maybe_unused]], void *private_data [[maybe_unused]])
 {
-	Profiling::mode = (Profiling::Mode)((int)Profiling::mode + 1);
-
-	if (Profiling::mode == Profiling::Mode::CTO_WARNING &&
-	    (!G->implicit_post_checktextureoverride_used || Profiling::cto_warning.empty()))
-		Profiling::mode = (Profiling::Mode)((int)Profiling::mode + 1);
-
-	if (Profiling::mode == Profiling::Mode::INVALID)
-		Profiling::mode = Profiling::Mode::NONE;
-
-	Profiling::text.clear();
-	Profiling::clear();
+	Profiling::next_mode();
 }
 
 static void FreezePerf(HackerDevice *device [[maybe_unused]], void *private_data [[maybe_unused]])

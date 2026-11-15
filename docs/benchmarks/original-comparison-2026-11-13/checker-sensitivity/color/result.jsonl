@@ -1,0 +1,9 @@
+{"metric":"runtime_load_and_device","sample":0,"iterations":1,"value":190.9703,"unit":"ms"}
+{"metric":"adapter_vendor_id","sample":0,"iterations":1,"value":4098,"unit":"identifier"}
+{"metric":"adapter_device_id","sample":0,"iterations":1,"value":5510,"unit":"identifier"}
+{"metric":"process_private_before_runtime","sample":0,"iterations":1,"value":0,"unit":"bytes"}
+{"metric":"process_private_after_device","sample":0,"iterations":1,"value":0,"unit":"bytes"}
+{"metric":"targeted_and_untargeted_state","sample":0,"iterations":1,"value":1,"unit":"pass"}
+{"metric":"bind_stable","sample":0,"iterations":1,"value":200,"unit":"ns_per_operation"}
+{"metric":"bind_churn","sample":0,"iterations":1,"value":100,"unit":"ns_per_operation"}
+{"metric":"create_release_buffer","sample":0,"iterations":128,"value":453.90625,"unit":"ns_per_operation"}

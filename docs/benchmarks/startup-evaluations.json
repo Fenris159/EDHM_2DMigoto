@@ -1,0 +1,174 @@
+{
+  "date": "2026-11-12",
+  "input_files": 107,
+  "input_digest_sha256": "806c6515ed3d10f4147c2982a457fad8512adaa65a617ff5ccd8c9c090435e9c",
+  "wine": "wine-10.0 (Ubuntu 10.0~repack-12ubuntu1)",
+  "kernel": "7.0.0-42-generic",
+  "architecture": "x86_64",
+  "method": "Same snapshot directory and Wine prefix; alternate fresh processes; 11 load -> optimize cycles per process; exclude sample 0 from warm statistics; no device or game frames. First sample is process-cold, not filesystem-cold. Process-level bootstrap uses 20000 independent resamples and seed 20261112.",
+  "experiments": [
+    {
+      "experiment": "constants-compaction",
+      "decision": "deferred",
+      "order": "ABBABAABABBABAAB",
+      "variants": {
+        "A": {
+          "source": "1d78d5b0f32bff71e64fefbc911cb6387b74ffba",
+          "binary_sha256": "51868dd61de4c2d4be8922f87e4156aa2a7c0ebbe141863304afcdfc8be05b29",
+          "processes": 8,
+          "warm_samples": 80,
+          "first_sample_load_median_ms": 73.5885,
+          "warm_load_median_ms": 74.4845,
+          "warm_optimize_median_ms": 0.8325,
+          "warm_total_median_ms": 75.2325,
+          "warm_process_total_medians_ms": [
+            75.8865,
+            75.737,
+            74.803,
+            74.733,
+            74.883,
+            75.2545,
+            75.838,
+            74.7165
+          ]
+        },
+        "B": {
+          "source": "d55906888e805acc065fe24447bd728344d326ad",
+          "binary_sha256": "92a9526a301eec4f61a11ab9a9fd157051c8fe26fb192dde8cb81040bfad4d39",
+          "processes": 8,
+          "warm_samples": 80,
+          "first_sample_load_median_ms": 73.82,
+          "warm_load_median_ms": 74.1615,
+          "warm_optimize_median_ms": 0.818,
+          "warm_total_median_ms": 74.9365,
+          "warm_process_total_medians_ms": [
+            75.3245,
+            74.459,
+            74.3655,
+            73.787,
+            77.4565,
+            74.921,
+            74.888,
+            75.324
+          ]
+        }
+      },
+      "comparison": {
+        "pooled_load_reduction_ms": 0.3229999999999933,
+        "pooled_load_reduction_percent": 0.4336472688948656,
+        "pooled_total_reduction_ms": 0.2960000000000065,
+        "process_total_change_percent": -0.21879943385227918,
+        "bootstrap_95_process_total_change_percent": [
+          -1.5355099026872931,
+          0.6964961298343564
+        ]
+      }
+    },
+    {
+      "experiment": "section-reuse",
+      "decision": "retained",
+      "order": "ASSASAASASSASAAS",
+      "variants": {
+        "A": {
+          "source": "d55906888e805acc065fe24447bd728344d326ad",
+          "binary_sha256": "92a9526a301eec4f61a11ab9a9fd157051c8fe26fb192dde8cb81040bfad4d39",
+          "processes": 8,
+          "warm_samples": 80,
+          "first_sample_load_median_ms": 73.2935,
+          "warm_load_median_ms": 73.9705,
+          "warm_optimize_median_ms": 0.818,
+          "warm_total_median_ms": 74.792,
+          "warm_process_total_medians_ms": [
+            74.2115,
+            75.385,
+            75.0345,
+            74.473,
+            74.6845,
+            74.556,
+            75.5195,
+            75.437
+          ]
+        },
+        "S": {
+          "source": "0d87389c424b41cc81de6ac7dec36c05485b56f6",
+          "binary_sha256": "02f44de819703fe0babbde1e8ca567bbd7e2d1b201b9f4cfdc2457cbdebbd6eb",
+          "processes": 8,
+          "warm_samples": 80,
+          "first_sample_load_median_ms": 71.9225,
+          "warm_load_median_ms": 71.6245,
+          "warm_optimize_median_ms": 0.8305,
+          "warm_total_median_ms": 72.484,
+          "warm_process_total_medians_ms": [
+            71.626,
+            72.171,
+            71.7125,
+            71.9255,
+            72.5295,
+            74.4515,
+            73.256,
+            72.963
+          ]
+        }
+      },
+      "comparison": {
+        "pooled_load_reduction_ms": 2.3460000000000036,
+        "pooled_load_reduction_percent": 3.1715345982520127,
+        "pooled_total_reduction_ms": 2.308000000000007,
+        "process_total_change_percent": -3.351945978800275,
+        "bootstrap_95_process_total_change_percent": [
+          -4.544355493138763,
+          -1.9401523686893074
+        ]
+      }
+    },
+    {
+      "experiment": "static-if-memo",
+      "decision": "deferred",
+      "order": "AMMAAMMA",
+      "variants": {
+        "A": {
+          "source": "d55906888e805acc065fe24447bd728344d326ad",
+          "binary_sha256": "92a9526a301eec4f61a11ab9a9fd157051c8fe26fb192dde8cb81040bfad4d39",
+          "processes": 4,
+          "warm_samples": 40,
+          "first_sample_load_median_ms": 72.7435,
+          "warm_load_median_ms": 73.8035,
+          "warm_optimize_median_ms": 0.767,
+          "warm_total_median_ms": 74.6735,
+          "warm_process_total_medians_ms": [
+            73.2485,
+            74.7355,
+            74.2695,
+            75.621
+          ]
+        },
+        "M": {
+          "source": "24499e6a84012754bac929df0d9c217a901906c9",
+          "binary_sha256": "5779f68683f3f64b50f2be23f09aab63d7090f249464c9773ee6e424b625728f",
+          "processes": 4,
+          "warm_samples": 40,
+          "first_sample_load_median_ms": 73.9025,
+          "warm_load_median_ms": 74.4955,
+          "warm_optimize_median_ms": 0.756,
+          "warm_total_median_ms": 75.275,
+          "warm_process_total_medians_ms": [
+            74.9125,
+            75.4345,
+            75.1005,
+            75.5085
+          ]
+        }
+      },
+      "comparison": {
+        "pooled_load_reduction_ms": -0.6920000000000073,
+        "pooled_load_reduction_percent": -0.9376249093877798,
+        "pooled_total_reduction_ms": -0.6015000000000015,
+        "process_total_change_percent": 1.026811180832854,
+        "bootstrap_95_process_total_change_percent": [
+          -0.4674627418309707,
+          2.7563704376198706
+        ]
+      }
+    }
+  ]
+}

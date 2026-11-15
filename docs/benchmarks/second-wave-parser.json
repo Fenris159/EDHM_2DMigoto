@@ -1,0 +1,219 @@
+{
+  "scope": "CPU load -> optimize cycles under Wine10 in the unchanged isolated107-file EDHM snapshot. Same directory/prefix.11 cycles per fresh process; exclude sample0 from warm medians. No game frames.",
+  "snapshot_sha256": "806c6515ed3d10f4147c2982a457fad8512adaa65a617ff5ccd8c9c090435e9c",
+  "experiments": [
+    {
+      "name": "parser-screen",
+      "order": "AMMAAMMA",
+      "variants": {
+        "A": {
+          "source": "b14272fa74a3221092ccd6279e15a08463f864d6",
+          "binary_sha256": "b5daeae534a5c012bbe71387dabfc9e7ee64b64ace644b5cf5d7d0f887c65525",
+          "processes": 4,
+          "warm_load_median_ms": 71.6505,
+          "warm_optimize_median_ms": 0.864,
+          "process_total_medians_ms": [
+            72.32,
+            72.185,
+            73.1495,
+            72.584
+          ]
+        },
+        "M": {
+          "source": "eae48f282fcec3bc828b7fab093742705b360592",
+          "binary_sha256": "381a9d46b71da624d69cff192b072eb90f1f6a9b66d47e598f48dc909b20951d",
+          "processes": 4,
+          "warm_load_median_ms": 67.123,
+          "warm_optimize_median_ms": 0.829,
+          "process_total_medians_ms": [
+            67.4135,
+            67.767,
+            68.2295,
+            68.5445
+          ]
+        }
+      },
+      "comparison": {
+        "baseline_process_median": 72.452,
+        "candidate_process_median": 67.99825,
+        "change_percent": -6.147173300944075,
+        "bootstrap_95_change_percent": [
+          -7.3159665771862725,
+          -5.3050031429380695
+        ]
+      }
+    },
+    {
+      "name": "parser-confirmation",
+      "order": "AMMAMAAM",
+      "variants": {
+        "A": {
+          "source": "b14272fa74a3221092ccd6279e15a08463f864d6",
+          "binary_sha256": "b5daeae534a5c012bbe71387dabfc9e7ee64b64ace644b5cf5d7d0f887c65525",
+          "processes": 4,
+          "warm_load_median_ms": 72.253,
+          "warm_optimize_median_ms": 0.8395,
+          "process_total_medians_ms": [
+            74.3445,
+            72.5965,
+            73.374,
+            72.977
+          ]
+        },
+        "M": {
+          "source": "eae48f282fcec3bc828b7fab093742705b360592",
+          "binary_sha256": "381a9d46b71da624d69cff192b072eb90f1f6a9b66d47e598f48dc909b20951d",
+          "processes": 4,
+          "warm_load_median_ms": 66.72,
+          "warm_optimize_median_ms": 0.8015,
+          "process_total_medians_ms": [
+            67.857,
+            67.7645,
+            66.879,
+            67.2865
+          ]
+        }
+      },
+      "comparison": {
+        "baseline_process_median": 73.1755,
+        "candidate_process_median": 67.5255,
+        "change_percent": -7.721163504178319,
+        "bootstrap_95_change_percent": [
+          -9.446226687919069,
+          -6.8364090991835935
+        ]
+      }
+    },
+    {
+      "name": "traversal-alone",
+      "order": "ATTATAAT",
+      "variants": {
+        "A": {
+          "source": "b14272fa74a3221092ccd6279e15a08463f864d6",
+          "binary_sha256": "b5daeae534a5c012bbe71387dabfc9e7ee64b64ace644b5cf5d7d0f887c65525",
+          "processes": 4,
+          "warm_load_median_ms": 71.6505,
+          "warm_optimize_median_ms": 0.864,
+          "process_total_medians_ms": [
+            72.32,
+            72.185,
+            73.1495,
+            72.584
+          ]
+        },
+        "T": {
+          "source": "a90b523ef8a76627793f5df7a6aa184cc5b7ba58",
+          "binary_sha256": "2de8054740c48708fd55a3cbd46667e81ee0aa2b09bb831ad11b90b74559d0a7",
+          "processes": 4,
+          "warm_load_median_ms": 79.21,
+          "warm_optimize_median_ms": 0.865,
+          "process_total_medians_ms": [
+            79.7845,
+            79.7615,
+            80.3955,
+            80.6445
+          ]
+        }
+      },
+      "comparison": {
+        "baseline_process_median": 72.452,
+        "candidate_process_median": 80.09,
+        "change_percent": 10.542152045492204,
+        "bootstrap_95_change_percent": [
+          9.472381902815453,
+          11.442510639770243
+        ]
+      }
+    },
+    {
+      "name": "namespace-key",
+      "order": "ANNAANNA",
+      "variants": {
+        "A": {
+          "source": "b14272fa74a3221092ccd6279e15a08463f864d6",
+          "binary_sha256": "b5daeae534a5c012bbe71387dabfc9e7ee64b64ace644b5cf5d7d0f887c65525",
+          "processes": 4,
+          "warm_load_median_ms": 72.253,
+          "warm_optimize_median_ms": 0.8395,
+          "process_total_medians_ms": [
+            74.3445,
+            72.5965,
+            73.374,
+            72.977
+          ]
+        },
+        "N": {
+          "source": "5939c6d279d99f568c55f81b886d0e9c61076141",
+          "binary_sha256": "25c4d955409320b723587afb11339d4b530de5782e4e49873e31999ab0fe030e",
+          "processes": 4,
+          "warm_load_median_ms": 78.017,
+          "warm_optimize_median_ms": 0.8475,
+          "process_total_medians_ms": [
+            77.831,
+            79.377,
+            78.923,
+            79.8235
+          ]
+        }
+      },
+      "comparison": {
+        "baseline_process_median": 73.1755,
+        "candidate_process_median": 79.15,
+        "change_percent": 8.16461793906431,
+        "bootstrap_95_change_percent": [
+          6.0743587646850505,
+          9.360907033216858
+        ]
+      }
+    },
+    {
+      "name": "traversal-with-mask",
+      "order": "MCCMCMMCMCCMCMMC",
+      "variants": {
+        "M": {
+          "source": "eae48f282fcec3bc828b7fab093742705b360592",
+          "binary_sha256": "381a9d46b71da624d69cff192b072eb90f1f6a9b66d47e598f48dc909b20951d",
+          "processes": 8,
+          "warm_load_median_ms": 66.854,
+          "warm_optimize_median_ms": 0.8035,
+          "process_total_medians_ms": [
+            67.9475,
+            67.303,
+            68.276,
+            66.4,
+            69.343,
+            66.6125,
+            67.5785,
+            67.624
+          ]
+        },
+        "C": {
+          "source": "0bdd6b7689ada8f6cbd251a6745257e688a9d698",
+          "binary_sha256": "3e564397acf9b96d71593d1a16385b6801f3ad9298a429d3612509fbd8c74445",
+          "processes": 8,
+          "warm_load_median_ms": 66.414,
+          "warm_optimize_median_ms": 0.8,
+          "process_total_medians_ms": [
+            70.062,
+            67.5895,
+            66.8055,
+            67.598,
+            67.366,
+            66.7235,
+            66.6045,
+            67.448
+          ]
+        }
+      },
+      "comparison": {
+        "baseline_process_median": 67.60125,
+        "candidate_process_median": 67.407,
+        "change_percent": -0.2873467576413158,
+        "bootstrap_95_change_percent": [
+          -1.7410500754258873,
+          1.1927190842559554
+        ]
+      }
+    }
+  ]
+}

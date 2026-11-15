@@ -1,0 +1,51 @@
+{
+  "probe_sha256": "e3648d79f4f111d1eebf0d20833bf2cace3c076fdcbd0156c216790593f53ca3",
+  "compiler_sha256": "a05f99734f7c4822fefc12b367af21fd0976ed6608752fb1e1e80b6ece7ecbbb",
+  "backend": "hardware",
+  "proton": "proton",
+  "os": "Linux-7.0.0-42-generic-x86_64-with-glibc2.43",
+  "processor": "",
+  "samples": 7,
+  "iterations": 2000,
+  "profiling": "off",
+  "debug_layer": false,
+  "game": false,
+  "present": false,
+  "trace_proxy_sha256": null,
+  "variants": {
+    "A": {
+      "dll_sha256": "791aa68b9f8c0742c040f9ed5fa61aa0b4d3f9ee7b9e1865bf82ed6b2254378f",
+      "dll_bytes": 3338240
+    },
+    "B": {
+      "dll_sha256": "bcad31bec60bd072ebcf5f1d152593ad8cf359d4ddfafbbb38fcb3a23611f7e9",
+      "dll_bytes": 3241472
+    },
+    "S": {
+      "dll_sha256": "a338374d1c1a335322d868a483369d8aa754ddbdc511ae48807662a7a9165f30",
+      "dll_bytes": 3275776
+    },
+    "R": {
+      "runtime": "system"
+    }
+  },
+  "runs": [
+    {
+      "profile": "passive",
+      "trial": 0,
+      "variant": "R",
+      "exit": 0,
+      "pass": true,
+      "record_count": 41
+    },
+    {
+      "profile": "passive",
+      "trial": 1,
+      "variant": "S",
+      "exit": 5,
+      "pass": false,
+      "record_count": 0
+    }
+  ],
+  "status": "interrupted"
+}

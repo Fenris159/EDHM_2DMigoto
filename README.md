@@ -31,25 +31,67 @@ An **[EDHM](https://github.com/psychicEgg/EDHM)** compatibility build of the
 The `d3d11.dll` remains 3Dmigoto-derived software and preserves upstream
 authorship, licensing, and attribution.
 
+## EDUP support
+
+**EDHM_2DMigoto 0.1.4 supports EDHM alongside
+[Elite Dangerous Unofficial Patch (EDUP)](https://github.com/characterecho-sean/ed-unofficial-patch).**
+Keep EDUP as `d3d11.dll` and use our normal release DLL as `d3d11_edhm.dll`.
+EDUP supplies AA/upscaling; our DLL runs EDHM's HUD configuration and overrides.
+
+Follow the **[recommended EDUP configuration](https://github.com/Fenris159/EDHM_2DMigoto/wiki/EDUP-Compatibility-and-Configuration#recommended-configuration)**
+for load order, both INI files, optional quiet reloads, and validation limits.
+The pairing was checked with EDUP **0.22.1**; see the guide for the evidence.
+
+The standalone measurements below show lower CPU cost for changing HUD-like
+references and fewer resource-view creations. Those savings may leave more CPU
+headroom for EDUP. Performance of the combined stack has not been measured.
+
+## Measured example: develop versus original 3Dmigoto
+
+The [off-game comparison report](docs/develop-vs-original-3dmigoto.md) compares
+**develop 0.1.4-beta.1 (`5c74823f`)** with **original 3Dmigoto 1.4.9**. It includes
+raw samples, resource/surface traces, memory limits and NVIDIA/AMD/Intel technology
+eligibility alongside the combinations actually tested.
+
+| Standalone workload | Original 1.4.9 | Ours | Observed difference |
+| --- | ---: | ---: | --- |
+| Changing resource reference, production component, profiling off | 1,406.40 ns | 161.04 ns | **88.5% lower CPU cost** |
+| Changing HUD-like reference + draw, actual DLL, Windows WARP | 12.789 µs | 9.122 µs | **28.7% lower submission cost** |
+| Same HUD-like workload, AMD RADV + Proton/DXVK | 411.96 ns | 288.35 ns | **30.0% lower submission cost** |
+| Extra SRV creations above the shared fixture, native HUD trace | 65 | 0 | **65 view creations avoided** |
+| Stable passive resource binding, Windows WARP | 40.31 ns | 61.39 ns | **21.08 ns added cost** |
+
+These are synthetic CPU/submission measurements, with uncertainty intervals and
+other costs in the report. Stable references also cost more; the measurements do
+not establish an FPS or VRAM gain. Both DLLs preserved the tested offscreen
+color/depth/compute outputs and untouched state. AMD/Proton was exercised;
+physical NVIDIA/Intel and native Windows GPU combinations remain untested.
+
 <p align="center">
   <img src="docs/images/edhm-2dmigoto-benefits.png" alt="Comparison of traditional 3Dmigoto and the focused EDHM_2DMigoto shader-loader approach" width="900">
 </p>
 
 ## Documentation (start here)
 
-**Developer documentation lives on the [project Wiki](https://github.com/Fenris159/EDHM_2DMigoto/wiki):**
+**Contributors and coding agents:** start with [CONTRIBUTING.md](CONTRIBUTING.md)
+and the automatically discoverable [AGENTS.md](AGENTS.md) for the fork/PR workflow
+and repository-specific guidance.
+
+**Additional development and user guides are available on the [project Wiki](https://github.com/Fenris159/EDHM_2DMigoto/wiki):**
 
 | Topic | Wiki page |
 |-------|-----------|
 | Overview & map | [Home](https://github.com/Fenris159/EDHM_2DMigoto/wiki) |
 | Install / use with EDHM | [Getting Started](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Getting-Started) |
+| EDHM with EDUP AA/upscaling | [EDUP Compatibility & Configuration](https://github.com/Fenris159/EDHM_2DMigoto/wiki/EDUP-Compatibility-and-Configuration) |
 | Build from source | [Building](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Building) |
 | Shader hunting | [Shader Hunting](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Shader-Hunting) |
 | Advanced dumps (`export_hlsl=3`, …) | [Advanced Hunting & Export](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Advanced-Hunting-and-Export) *(optional)* |
 | Config / overrides | [Configuration Reference](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Configuration-Reference), [ShaderFixes & Overrides](https://github.com/Fenris159/EDHM_2DMigoto/wiki/ShaderFixes-and-Overrides) |
 | Releases & vendor cache | [Releasing & CI](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Releasing-and-CI), [Vendor Cache](https://github.com/Fenris159/EDHM_2DMigoto/wiki/Vendor-Cache-and-Releases) |
 
-In-tree `docs/` remains a short reference; the **wiki is canonical** for development how-tos.
+In-tree guides support offline and repository browsing. Contribution and agent
+instructions live in this checkout; the wiki provides extended project how-tos.
 
 This repository starts from [SpectrumQT/XXMI-Libs-Package](https://github.com/SpectrumQT/XXMI-Libs-Package) (itself a streamlined fork of [bo3b/3Dmigoto](https://github.com/bo3b/3Dmigoto/)) but is **not** registered as a GitHub fork of either project. It is maintained independently as an EDHM compatibility build while preserving upstream authorship and GPLv3 obligations; useful upstream fixes can still be pulled in selectively.
 
@@ -92,7 +134,7 @@ Game-specific shaders, configs, and mod assets are **not** automatically covered
 
 | Branch | Role |
 |--------|------|
-| `main` | **Stable releases** (after first merge from develop) |
+| `main` | **Stable releases** promoted from `develop` |
 | `develop` | Day-to-day work + **pre-release** builds |
 | `linux-compatibility` | Preserved alpha.5 source used to build the focused review PR stack |
 | `xxmi-base` | Clean full XXMI mirror (no EDHM patches) |
@@ -115,7 +157,7 @@ Click a badge for the GitHub compare view. Counts are approximate history diverg
 
 | Workflow | Purpose |
 |----------|---------|
-| [**CI**](.github/workflows/ci.yml) | On push/PR to **`main` only** (e.g. develop→main merge) + manual: meta checks + MSBuild |
+| [**CI**](.github/workflows/ci.yml) | PRs into **`develop`/`main`**, pushes to `main`, and manual: quality/meta checks, strict x64/Win32 builds, ordinary x64 Release/Zip Release builds |
 | [**Release**](.github/workflows/release.yml) | Manual: build from `main` (release) or `develop` (pre-release), optional SemVer tag, publish assets |
 | [**Update xxmi-base**](.github/workflows/update-xxmi-base.yml) | Keep the XXMI mirror current; open/refresh an `upstream-xxmi` review issue when it advances |
 | [**Branch status badges**](.github/workflows/branch-status-badges.yml) | Daily / after `main` push: refresh Shields JSON on the **`badges`** branch only |
@@ -125,18 +167,20 @@ Click a badge for the GitHub compare view. Counts are approximate history diverg
 
 | Channel | Tag example | GitHub Release |
 |---------|-------------|----------------|
-| `main` | `v0.1.2` | Latest stable release |
-| `develop` | `vX.Y.Z-alpha.N` | Alpha release candidate |
+| `main` | `v0.1.4` | Stable release |
+| `develop` | `vX.Y.Z-beta.N` | Prerelease |
 
 ```text
 Actions → Release → Run workflow
   branch: main | develop
   version_action: use-current | bump-patch | bump-minor | bump-major | bump-prerelease
   create_tag: true
-  update_vendor_cache: true   # also commits vendor/edhm-runtime/d3d11.dll (LFS)
+  update_vendor_cache: true   # develop; use false for protected main (see guide)
 ```
 
 After a successful non-draft release, `vendor/edhm-runtime/` holds the same `d3d11.dll` as the Release asset (convenience mirror for clones/packaging). Prefer pinning by **Release tag** for production EDHM packaging.
+For protected `main`, the [release procedure](docs/releasing.md#stable-releases-with-protected-main)
+updates this cache through a follow-up PR.
 
 ## Repository layout (`develop`)
 

@@ -1,0 +1,61 @@
+{
+  "scope": "Controlled output/state faults in probe copies, not mutations of a production DLL. Actual AMD/RADV with Proton11/DXVK. Timings excluded.",
+  "fixed_source_sha256": "afeeb69a4d7e4bc60c8e38bda8f84a8f41d40e97909a37b429169b4295598c35",
+  "compiler": "x86_64-w64-mingw32-g++ (GCC) 13-posix",
+  "faults": [
+    {
+      "case": "color",
+      "compiled": true,
+      "exit": 1,
+      "expected_failure": "offscreen color differs",
+      "detected": true,
+      "source_sha256": "965daece115c795904cded3fbde9359e12ae42c3fd8d370adea36be0385fd3f7",
+      "exe_sha256": "16447c9e2a04f578010275734e67bff746f837704ae6900c07d0a2961dc438f6"
+    },
+    {
+      "case": "depth",
+      "compiled": true,
+      "exit": 1,
+      "expected_failure": "offscreen depth differs",
+      "detected": true,
+      "source_sha256": "2bc7c8d02908253af1b0d3a7e4d77a89f81eb0e4a8a77f7edd4187df7313fe9e",
+      "exe_sha256": "0c3cb1b25603164c7a48e78fec88e6da55e59a46edeea3c5ba0a103708450490"
+    },
+    {
+      "case": "compute",
+      "compiled": true,
+      "exit": 1,
+      "expected_failure": "untargeted compute output changed",
+      "detected": true,
+      "source_sha256": "fe5833446bfc5dc6983e923d1b4408ddbb24daab95bc25e65ebbda6c9dea69cb",
+      "exe_sha256": "d7ea1f32f2107ed03415bb971743388a871ea62778a57df2348d429bc4a3a9be"
+    },
+    {
+      "case": "volume",
+      "compiled": true,
+      "exit": 1,
+      "expected_failure": "untargeted volume changed",
+      "detected": true,
+      "source_sha256": "3bf7356b5ea064d8c0dea14ffd1b886e78bfd2f4256d42c45205def79097d776",
+      "exe_sha256": "7b58bd9cd74b66cb11560c5e3134836afe939a15cd1bceba3c1533eb4840c5cb"
+    },
+    {
+      "case": "untargeted-slot",
+      "compiled": true,
+      "exit": 1,
+      "expected_failure": "untargeted PS slot changed",
+      "detected": true,
+      "source_sha256": "c1540b96a2c0adf297db21b2bcbba4acfcc6247b1d4ad7f1c8acb988d2fbb0a5",
+      "exe_sha256": "59e422248eafc6df53d62e97985f826fe6abce8605299ddeb3acd495b22d0f27"
+    },
+    {
+      "case": "hud-target",
+      "compiled": true,
+      "exit": 1,
+      "expected_failure": "configured HUD reference changed",
+      "detected": true,
+      "source_sha256": "d96022f56d55af19ce00a6ac0d7d86e17411b90617bfef0fdc1db43962b493a9",
+      "exe_sha256": "92d2d0ddcb08f3f8c39d0faa6327c841b2965cdd8f3f44dfa15c83f867ac7fe7"
+    }
+  ]
+}

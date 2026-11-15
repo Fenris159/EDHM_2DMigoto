@@ -1,0 +1,32 @@
+{
+  "scope": "CPU-only extracted map lookup, synthetic keys, not game/D3D11/FPS profiling",
+  "base_commit": "f8e7118a1220e43546e546efa31892b8304358df",
+  "current_commit": "34d92f27f588bbc3f72320c0fa17b674638698c6",
+  "base_extraction_sha256": "855746156276c9bdb56b36abbcd71fd26dfa76c2509ddf9f5b52234e824567dc",
+  "current_extraction_sha256": "d84fbee42571ae3d97fe760b693a90801035c3e26e33987ba922390c1ce31620",
+  "payload_extraction_sha256": "d796cdc373f66356e0b28d7cf497332b7f47ab822d6435f917da95a9e5c2ddd3",
+  "payload": "Current RegionCacheEntry: uint32_t hash, uint64_t version; same payload in every variant",
+  "lookup": "find_ptr + returned hash load; excludes GetRegionVersion and validation",
+  "harness_sha256": "8558e512b793091fd2e494889467ab684064d6b7807bddeb8e9aa1241a35d19f",
+  "compiler": "g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+  "flags": [
+    "-std=c++17",
+    "-O2",
+    "-DNDEBUG",
+    "-Wall",
+    "-Wextra",
+    "-Werror"
+  ],
+  "platform": "Linux-7.0.0-42-generic-x86_64-with-glibc2.43",
+  "cpu": "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S",
+  "pinned_cpu": 2,
+  "samples": 15,
+  "iterations_per_sample": 200000,
+  "order": "alternating forward/reverse, per variant warmup, fixed shuffle seed 0xED113D",
+  "capacity": "2 * entries, 0.5 load, preallocated; no allocation timed",
+  "variants": {
+    "xxmi_0.9.8": "original map + original hash",
+    "hash_only": "original map + current hash (single-change isolation)",
+    "edhm_head": "current map + current hash (bounds isolation vs hash_only)"
+  }
+}

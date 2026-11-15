@@ -1,0 +1,11 @@
+--- a/Benchmarks/SurfaceProbe.cpp
++++ b/Benchmarks/SurfaceProbe.cpp
+@@ -68,7 +68,7 @@
+ float4 PSMain() : SV_Target { return float4(0,1,0,1); }
+ RWStructuredBuffer<uint> output : register(u0);
+ [numthreads(8,1,1)] void CSMain(uint3 id : SV_DispatchThreadID) {
+-    if (id.x < 64) output[id.x] = id.x + 7;
++    if (id.x < 64) output[id.x] = id.x + 8;
+ }
+ )";
+ 

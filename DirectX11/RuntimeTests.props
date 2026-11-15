@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <TargetName>RuntimeTests</TargetName>
+    <OutDir>$(SolutionDir).quality\runtime-tests\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir).quality\runtime-tests\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <ModuleDefinitionFile></ModuleDefinitionFile>
+      <ForceSymbolReferences></ForceSymbolReferences>
+    </Link>
+    <PostBuildEvent><Command></Command></PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup><ClCompile Include="..\RuntimeTests\RuntimeTests.cpp" /></ItemGroup>
+</Project>

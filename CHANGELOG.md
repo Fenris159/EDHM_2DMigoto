@@ -18,6 +18,189 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 - Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
 
+## [0.1.4] - 2026-11-15
+
+### Added
+
+- Supported EDHM + EDUP chaining with the normal runtime DLL. The README links
+  the recommended wiki configuration, file layout and tested scope.
+- `[Logging] show_reload_message=0` hides the reload confirmation while keeping
+  configuration reloads and their disk log entry. Warning notices remain
+  independently controlled by the plural `show_warnings` key.
+- Resource matching/view diagnostics and native runtime, proxy-chain and
+  rendered-notification checks, including Windows x64/Win32 and pinned EDUP
+  0.22.1 startup checks.
+
+### Fixed
+
+- Preserve both the outer proxy's creation-hook continuation and an explicitly
+  configured downstream proxy when the EDHM DLL is renamed for chaining.
+- Preserve pending settings and the last complete file after failed saves;
+  retain temporarily unavailable persistent values for a reload grace period.
+- Read saved settings before deferred include initialization; preserve changes
+  made during an autosave instead of clearing their pending state.
+- Resolve resource-reference chains after parsing, retain learned pool flags,
+  and keep metadata queries from allocating or refreshing live pool elements.
+- Correct typed/structured `store` reads, bounded `Region(offset,size)` copies
+  and views, smaller constant-buffer copies, saved SRV clears and view-cache
+  invalidation. Failed reads keep the previous value.
+- Copy vertex-buffer byte regions independently of the binding stride, honor
+  explicit integer clears through retained RTVs, and share detached metadata
+  between STATIC pool-variable pins and dynamic aliases.
+- Preserve parser/namespace compatibility, stable `this` view reuse, profiler
+  reload measurements and production binaries after mutation-check failures.
+
+### Changed
+
+- Reuse compatible views and configuration-section lookups, and reduce enabled
+  profiler registration overhead. The dated off-game comparison report retains
+  its measured scope and limits; no combined EDUP FPS gain is claimed.
+- Require C++17 in ordinary and strict builds. Stabilize notification checks
+  with a controlled clock boundary and retain timeout diagnostics.
+- Stop timed-out mutation-build descendants before restoring source, rebuild
+  clean objects, and recognize lowercase Wine WoW64 library directories.
+
+### Notes
+
+- Stable promotion of the 0.1.4 beta series. The beta sections below retain the
+  detailed change history and validation checkpoints.
+- With EDUP, keep its `d3d11.dll` and rename our DLL to `d3d11_edhm.dll`.
+  Follow the [recommended configuration](https://github.com/Fenris159/EDHM_2DMigoto/wiki/EDUP-Compatibility-and-Configuration#recommended-configuration).
+- Evidence includes native Windows/MSVC/WARP checks, off-game
+  Proton 11.0/DXVK/AMD checks with EDUP 0.22.1, and an external tester's report
+  about the earlier repaired build. This does not certify every GPU, AA/VR
+  engine or live-game transition. Reload scheduling remains unchanged.
+
+## [0.1.4-beta.3] - 2026-11-15
+
+### Added
+
+- `[Logging] show_reload_message=0` hides the completed config-reload
+  confirmation while retaining reloads, disk logging and independent warning
+  controls. The default remains enabled.
+- Product-DLL notification checks on x64 and Win32 inspect the rendered
+  confirmation and warning colors, read back reloaded GPU constants, and
+  require the completion entry in the disk log. A pinned beta.2 control must
+  fail the suppression cases on visible confirmation pixels.
+
+### Changed
+
+- Make notification checks independent of real clock progress and retain partial
+  stdout/stderr with a failed receipt when a fixture times out.
+
+### Notes
+
+- Set `show_reload_message=0` in the root `d3dx.ini`. To hide warning notices
+  as well, use the separate, plural `show_warnings=0` key.
+- The option changes only the confirmation text. It leaves reload timing,
+  theme-file auto-refresh and EDUP chaining active. The specific cause of the
+  tester's transition-time reloads remains unconfirmed without their log.
+- Validation includes native Windows/MSVC/WARP checks and an off-game
+  Proton 11.0/DXVK/AMD check beneath EDUP 0.22.1. It does not establish
+  installed-game transition timing, AA/VR output or FPS gains.
+
+## [0.1.4-beta.2] - 2026-11-15
+
+### Fixed
+
+- Keep installed device-creation hook continuations separate from selected
+  backend exports, so renamed chain loading preserves both an outer proxy such
+  as EDUP and an explicitly configured downstream proxy.
+
+### Added
+
+- Product-DLL proxy-chain checks for both device-creation APIs, early and lazy
+  initialization, repeated calls, combined outer/downstream proxies and
+  missing/self/invalid proxy fallback on x64 and Win32. Invalid-proxy checks
+  require a matching architecture and the missing-export rejection diagnostic.
+- A pinned EDUP 0.22.1 before/after startup check: the old DLL selects the chain
+  while leaving EDUP's device and Present path inactive; the repaired DLL
+  activates both and registers its F8 menu binding.
+- Separate regression controls for outer-proxy and downstream-proxy bypass.
+  Failed or incomplete rejection evidence remains failed in the JSON receipts.
+
+### Changed
+
+- Scope Actions read permissions to the workflow jobs that consume them.
+- Document rebuilding the product DLL before running proxy-chain checks.
+
+### Notes
+
+- An external tester reported an earlier repaired test build working in-game
+  with EDUP and EDHM. Native Windows/MSVC/WARP checks of the final routing fix
+  remain separate from that report and do not establish Elite AA or VR output.
+- When pairing with EDUP, retain EDUP's `d3d11.dll` and install this release's
+  DLL as `d3d11_edhm.dll`. Set `[advanced] real_dll=d3d11_edhm.dll` in EDUP's
+  configuration and `[System] load_library_redirect=0` in our `d3dx.ini`. See
+  [the configuration guide](https://github.com/Fenris159/EDHM_2DMigoto/blob/develop/docs/ed-unofficial-patch-compatibility.md#configuration-i-recommend-for-this-pairing).
+
+## [0.1.4-beta.1] - 2026-11-13
+
+### Fixed
+
+- Reject empty expression groups and accept leading-dot float literals.
+- Preserve pending settings, locale and the last complete settings file after a
+  failed save; stop a reload that cannot save or wipe its settings.
+- Retain temporarily unavailable persistent values for one reload, with optional
+  indefinite retention through `clear_unknown_settings=0`; discard values after
+  persistence is removed.
+- Resolve custom-resource reference flags after all command lists are parsed,
+  including constant-buffer aliases and incompatible cycles. Read pool metadata
+  without allocating elements or refreshing their lifetime.
+- Route pool proxy resets correctly and preserve namespaced, Unicode and
+  hyphenated pool-variable identifiers.
+- Read complete structured elements for `store`, validate buffer types and
+  indices, preserve failed-read values, and release owned source views.
+- Interpret `Region(offset,size)` as a byte count, validate backing bounds,
+  create bounded views, and distinguish copied CBs from aligned CB references.
+- Rebuild a referenced view when its requested offset, extent, format, stride,
+  target kind or raw-view mode changes on the same resource.
+- Clear stale structured stride during CB recreation and guard unsupported
+  typed-buffer formats against division by zero.
+
+- Enable the required C++17 language mode in ordinary builds as well as strict builds.
+- Preserve smaller explicit CB copies, clear saved SRV-backed resources through
+  writable views, retain runtime-learned pool flags and scalar-variable precedence,
+  and keep valid warm views for `this` targets.
+- Retain reload initialization measurements until a completed frame can be reported.
+- Read nested pool indexes without changing pool state during metadata queries,
+  retain bind-flag learning for initially empty references, and skip unused
+  destination metadata for existing resource caches.
+- Match normal lazy-slot, FIFO and same-frame expiration behavior in detached
+  metadata previews, and preserve resource identities when a copy is accepted.
+- Preserve hot resources and cached spatial data during preview adoption, and
+  retain statically pinned resource targets after pool proxy changes.
+- Share provisional resources across aliases of one root slot and reuse the
+  resolved destination and logical key throughout a copy, including index-read
+  expiration and same-pool source lookups.
+- Restore production binaries after failed mutation checks and exclude unverified
+  executables from failure artifacts.
+
+### Added
+
+- Summary-mode CPU timing and counts for resource matching, fuzzy candidates,
+  view creation and view reuse; document how to capture the performance monitor.
+
+### Changed
+
+- Reuse the current INI section while parsing. In the isolated EDHM fixture,
+  median configuration loading fell from 73.971 ms to 71.625 ms under Wine;
+  this is a CPU load-time measurement. Constants compaction and static-condition
+  memoization were evaluated and deferred because useful gains were not established.
+- Register profiler command identities once per collection window, reducing
+  enabled-monitor overhead in the native interpreter fixture.
+- Reuse compatible source views after checking resource, interface and active
+  descriptor fields; retain factory fallback for regions, overrides and planar
+  video. Preserve existing pipeline bindings when required view creation fails.
+- Add native runtime regression checks, deliberate-break verification and
+  optional strict Zip Release validation for both Windows architectures.
+
+### Notes
+
+- Development beta; installed Elite Dangerous + EDHM smoke testing and game
+  frame-time validation remain pending. See [the implementation and validation
+  report](https://github.com/Fenris159/EDHM_2DMigoto/blob/develop/docs/next-release-implementation.md).
+
 ## [0.1.3] - 2026-09-21
 
 ### Added
@@ -372,7 +555,11 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 - `d3dcompiler_47.dll` remains the Microsoft redistributable (SDK / EDHM package)
 - Stereo features remain stripped (2Dmigoto); XXMI performance-oriented code paths retained
 
-[Unreleased]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.3...v0.1.4
+[0.1.4-beta.3]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.4-beta.2...v0.1.4-beta.3
+[0.1.4-beta.2]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.4-beta.1...v0.1.4-beta.2
+[0.1.4-beta.1]: https://github.com/Fenris159/EDHM_2DMigoto/compare/v0.1.3...aa68c0ccc51b088740f6eecaba1f3582cc507f04
 [0.1.3]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.3
 [0.1.3-alpha.6]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.3-alpha.6
 [0.1.3-alpha.5]: https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.3-alpha.5

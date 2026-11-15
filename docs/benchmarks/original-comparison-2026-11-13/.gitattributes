@@ -1,0 +1,11 @@
+# Preserve receipt bytes and checksums across Windows/Linux checkouts.
+* -text
+# Raw Windows receipts legitimately retain CRLF.
+*.csv whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+*.jsonl whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+*.json whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+*.ini whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+*.stderr whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+stderr.txt whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+# Unified-diff context prefixes are intentional receipt bytes, not source indent.
+*.patch -whitespace

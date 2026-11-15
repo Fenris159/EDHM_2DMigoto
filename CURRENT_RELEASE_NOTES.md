@@ -1,39 +1,58 @@
-## EDHM_2DMigoto 0.1.3
+## EDHM_2DMigoto 0.1.4
 
 Package build for Elite Dangerous HUD Mod (EDHM).
 Built from this repository's automated release workflow.
-## [0.1.3] - 2026-09-21
+## [0.1.4] - 2026-11-15
 
 ### Added
 
-- Optional two-level shader context hunting: keep a selected pixel or vertex
-  shader and cycle the distinct draw contexts that use it, then mark a
-  conservative `TextureOverride` candidate plus its parent `ShaderOverride`.
-  Disabled by default (`advanced_hunting=0`); see
-  `docs/advanced-shader-hunting.md`.
-
-### Changed
-
-- Promoted the 0.1.3-alpha train to a stable package tag. DLL file/product
-  version remains **0.1.3**.
-- Hardened hunting resource-state updates so setter-triggered refreshes run
-  only while a context-hunting session is active; the initial snapshot still
-  runs before the session starts.
-- Continued native quality modernization and SonarCloud history
-  reconciliation on the maintained DX11/EDHM paths.
+- Supported EDHM + EDUP chaining with the normal runtime DLL. The README links
+  the recommended wiki configuration, file layout and tested scope.
+- `[Logging] show_reload_message=0` hides the reload confirmation while keeping
+  configuration reloads and their disk log entry. Warning notices remain
+  independently controlled by the plural `show_warnings` key.
+- Resource matching/view diagnostics and native runtime, proxy-chain and
+  rendered-notification checks, including Windows x64/Win32 and pinned EDUP
+  0.22.1 startup checks.
 
 ### Fixed
 
-- Context hunting reports now switch back to decimal after writing the hex
-  resource hash, so `match_first_*` values stay numeric when `index_count` is 0.
-- Release `sync-notes` no longer fails when `CHANGELOG.md` contains blank
-  lines (PowerShell 7 rejected empty strings on a mandatory `[string[]]`).
+- Preserve both the outer proxy's creation-hook continuation and an explicitly
+  configured downstream proxy when the EDHM DLL is renamed for chaining.
+- Preserve pending settings and the last complete file after failed saves;
+  retain temporarily unavailable persistent values for a reload grace period.
+- Read saved settings before deferred include initialization; preserve changes
+  made during an autosave instead of clearing their pending state.
+- Resolve resource-reference chains after parsing, retain learned pool flags,
+  and keep metadata queries from allocating or refreshing live pool elements.
+- Correct typed/structured `store` reads, bounded `Region(offset,size)` copies
+  and views, smaller constant-buffer copies, saved SRV clears and view-cache
+  invalidation. Failed reads keep the previous value.
+- Copy vertex-buffer byte regions independently of the binding stride, honor
+  explicit integer clears through retained RTVs, and share detached metadata
+  between STATIC pool-variable pins and dynamic aliases.
+- Preserve parser/namespace compatibility, stable `this` view reuse, profiler
+  reload measurements and production binaries after mutation-check failures.
+
+### Changed
+
+- Reuse compatible views and configuration-section lookups, and reduce enabled
+  profiler registration overhead. The dated off-game comparison report retains
+  its measured scope and limits; no combined EDUP FPS gain is claimed.
+- Require C++17 in ordinary and strict builds. Stabilize notification checks
+  with a controlled clock boundary and retain timeout diagnostics.
+- Stop timed-out mutation-build descendants before restoring source, rebuild
+  clean objects, and recognize lowercase Wine WoW64 library directories.
 
 ### Notes
 
-- Latest previous package tag was **0.1.3-alpha.6**. This release is the
-  stable 0.1.3 cut of that train plus context hunting.
-- Hunting Level 2 is for shader authors. Normal play configs can leave
-  `advanced_hunting=0`.
+- Stable promotion of the 0.1.4 beta series. The beta sections below retain the
+  detailed change history and validation checkpoints.
+- With EDUP, keep its `d3d11.dll` and rename our DLL to `d3d11_edhm.dll`.
+  Follow the [recommended configuration](https://github.com/Fenris159/EDHM_2DMigoto/wiki/EDUP-Compatibility-and-Configuration#recommended-configuration).
+- Evidence includes native Windows/MSVC/WARP checks, off-game
+  Proton 11.0/DXVK/AMD checks with EDUP 0.22.1, and an external tester's report
+  about the earlier repaired build. This does not certify every GPU, AA/VR
+  engine or live-game transition. Reload scheduling remains unchanged.
 ---
 Full project history: [CHANGELOG.md](https://github.com/Fenris159/EDHM_2DMigoto/blob/HEAD/CHANGELOG.md)

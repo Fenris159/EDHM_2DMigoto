@@ -1,0 +1,49 @@
+{
+  "runtime_source": "b14272fa74a3221092ccd6279e15a08463f864d6",
+  "baseline_source": "1d78d5b0f32bff71e64fefbc911cb6387b74ffba",
+  "baseline_binary_sha256": "51868dd61de4c2d4be8922f87e4156aa2a7c0ebbe141863304afcdfc8be05b29",
+  "candidate_binary_sha256": "b5daeae534a5c012bbe71387dabfc9e7ee64b64ace644b5cf5d7d0f887c65525",
+  "scope": "Cumulative selected runtime against the correctness stack before startup optimizations; not against the untouched release. Same snapshot, prefix and load -> optimize lifecycle as startup-evaluations.json. Eight fresh processes per variant, 11 cycles each, first excluded from warm statistics.",
+  "order": "ACCACAACACCACAAC",
+  "variants": {
+    "A": {
+      "warm_load_median_ms": 74.0435,
+      "warm_optimize_median_ms": 0.79,
+      "warm_total_median_ms": 74.83,
+      "warm_process_total_medians_ms": [
+        75.3175,
+        74.9715,
+        74.4575,
+        74.931,
+        74.6385,
+        72.647,
+        74.7,
+        75.452
+      ]
+    },
+    "C": {
+      "warm_load_median_ms": 71.806,
+      "warm_optimize_median_ms": 0.7945,
+      "warm_total_median_ms": 72.624,
+      "warm_process_total_medians_ms": [
+        73.015,
+        72.754,
+        72.899,
+        72.2005,
+        73.907,
+        72.0495,
+        71.5765,
+        72.8545
+      ]
+    }
+  },
+  "comparison": {
+    "pooled_load_reduction_ms": 2.237499999999997,
+    "pooled_load_reduction_percent": 3.0218722777826557,
+    "pooled_total_reduction_ms": 2.206000000000003,
+    "bootstrap_95_process_total_change_percent": [
+      -3.8455378948632823,
+      -2.1218062863888276
+    ]
+  }
+}

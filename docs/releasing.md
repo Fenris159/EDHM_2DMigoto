@@ -60,6 +60,27 @@ Tags are repository-wide. Never reuse an existing release or pre-release tag.
 The preserved `linux-compatibility` branch is the source for the stacked review
 branches; it is not an additional release-workflow channel.
 
+## Stable releases with protected main
+
+`main` requires a PR and passing checks, including for repository administrators.
+Prepare the stable `VERSION`, its dated changelog section and matching
+`CURRENT_RELEASE_NOTES.md` on `develop`, then promote `develop` through a PR to
+`main`. Keep `version.h` at the same MAJOR.MINOR.PATCH as `VERSION`.
+
+Run **Release** from `main` with `branch=main`, `version_action=use-current`,
+`create_tag=true`, `draft=false`, and `update_vendor_cache=false`. Preparing the
+version and notes before promotion lets the workflow tag/build/publish without
+needing a direct version/notes commit to protected `main`.
+
+After publication, put the exact downloaded release DLL and its generated
+metadata in `vendor/edhm-runtime/` on a branch based on `main`. Open and check a
+follow-up PR to `main`, then merge it. Verify the cache's SHA256, tag, channel
+(`release`) and URL against the published assets. The normal main-to-develop
+sync includes both release-promotion and cache merge commits in `develop`.
+
+Prerelease cache updates on `develop` can continue using
+`update_vendor_cache=true`. Keep the branch protection enabled throughout.
+
 ## CI
 
 **Actions → CI** runs when work lands on **`main`** (push or PR targeting `main`, typically after merging `develop`), plus **workflow_dispatch**:

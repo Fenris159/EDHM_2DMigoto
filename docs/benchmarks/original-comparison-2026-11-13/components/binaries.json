@@ -1,0 +1,27 @@
+{
+  "backend": "WARP, debug layer disabled; no game",
+  "A": {
+    "sha256": "CB5BE213C94C8E66D281134B859FB592FF1A0E62A66F2E64847FBC6C94DBCE82"
+  },
+  "runner_image": "20261101.353.1",
+  "B": {
+    "sha256": "274D5A75C9CECCBC0AEE28E639A95CF407390A7D870BA5525E1EA6D7C707FDA8"
+  },
+  "order": [
+    "A",
+    "B",
+    "B",
+    "A",
+    "B",
+    "A",
+    "A",
+    "B"
+  ],
+  "processor": "AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD",
+  "harness_source": "3f602441e9bc9ad3c8d44b99c72cafa54a74f3d0",
+  "os": "Microsoft Windows NT 10.0.20348.0",
+  "develop_runtime_source": "5c74823ff0d21c662e2d659d04afc6624d245509",
+  "original_source": "4ce5f2f72b2777223d2e809dcdafec514ac98295",
+  "view_boundary": "ResourceCopyOperation.run, identical on both variants",
+  "logical_processors": 4
+}

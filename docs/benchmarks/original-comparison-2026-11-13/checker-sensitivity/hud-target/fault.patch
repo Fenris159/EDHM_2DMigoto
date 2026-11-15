@@ -1,0 +1,10 @@
+--- a/Benchmarks/SurfaceProbe.cpp
++++ b/Benchmarks/SurfaceProbe.cpp
+@@ -249,6 +249,7 @@
+ 		context->PSSetShaderResources(0, 1, &pixel);
+ 		context->PSSetShaderResources(1, 1, &sentinel);
+ 		context->Draw(3, 0);
++		context->PSSetShaderResources(0, 1, &pixel);
+ 		ComPtr<ID3D11ShaderResourceView> bound, preserved;
+ 		context->PSGetShaderResources(0, 1, &bound);
+ 		context->PSGetShaderResources(1, 1, &preserved);

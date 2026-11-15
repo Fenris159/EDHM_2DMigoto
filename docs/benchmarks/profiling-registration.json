@@ -1,0 +1,160 @@
+{
+  "run_id": 43322042136,
+  "baseline_source": "e2989c4081a4801b81e960664c6e55afdb796002",
+  "candidate_source": "19015113ac937b3963ff5cd6b685ea5e7b7c4df7",
+  "native_metadata": {
+    "A": {
+      "sha256": "B6378E46D9A7F47B4AB98E02D39CBB313AA49C58BBE0AC7D5D19D4C0DBB1FEAB"
+    },
+    "B": {
+      "sha256": "C0A46007B03221089AA06C9C4C43FE5CCCD03D1B22F6CBA931072CC7FD3D9878"
+    }
+  },
+  "scope": "Native MSVC Release, Windows2022, same runner, four independent processes/variant,11 samples/mode/workload. Exclude sample0. View timing uses WARP without the debug layer. CPU mechanisms, no Elite frames.",
+  "comparisons": [
+    {
+      "workload": "interpreter",
+      "mode": 0,
+      "process_ns_per_run": {
+        "A": [
+          20.7587,
+          20.609,
+          20.464599999999997,
+          20.7934
+        ],
+        "B": [
+          20.5883,
+          20.3206,
+          20.881500000000003,
+          21.429000000000002
+        ]
+      },
+      "comparison": {
+        "baseline_process_median": 20.68385,
+        "candidate_process_median": 20.734900000000003,
+        "change_percent": 0.24681091769667152,
+        "bootstrap_95_change_percent": [
+          -1.756201094090315,
+          3.60256915419519
+        ]
+      },
+      "observed_values": [
+        "500000"
+      ],
+      "registered_lists": [
+        "0"
+      ],
+      "registered_commands": [
+        "0"
+      ]
+    },
+    {
+      "workload": "interpreter",
+      "mode": 1,
+      "process_ns_per_run": {
+        "A": [
+          99.69290000000001,
+          92.94839999999999,
+          92.6118,
+          93.8511
+        ],
+        "B": [
+          78.55590000000001,
+          75.4596,
+          79.2463,
+          77.3377
+        ]
+      },
+      "comparison": {
+        "baseline_process_median": 93.39975,
+        "candidate_process_median": 77.9468,
+        "change_percent": -16.54495863211626,
+        "bootstrap_95_change_percent": [
+          -21.81308799322721,
+          -14.95902677406038
+        ]
+      },
+      "observed_values": [
+        "500000"
+      ],
+      "registered_lists": [
+        "64"
+      ],
+      "registered_commands": [
+        "0"
+      ]
+    },
+    {
+      "workload": "interpreter",
+      "mode": 2,
+      "process_ns_per_run": {
+        "A": [
+          92.00559999999999,
+          93.174,
+          92.8793,
+          93.3874
+        ],
+        "B": [
+          78.80520000000001,
+          75.3137,
+          79.51140000000001,
+          77.1889
+        ]
+      },
+      "comparison": {
+        "baseline_process_median": 93.02665,
+        "candidate_process_median": 77.99705,
+        "change_percent": -16.156230499539646,
+        "bootstrap_95_change_percent": [
+          -19.04072650149178,
+          -14.347387550322999
+        ]
+      },
+      "observed_values": [
+        "500000"
+      ],
+      "registered_lists": [
+        "64"
+      ],
+      "registered_commands": [
+        "0"
+      ]
+    },
+    {
+      "workload": "interpreter",
+      "mode": 3,
+      "process_ns_per_run": {
+        "A": [
+          97.97540000000001,
+          95.7596,
+          95.72370000000001,
+          95.1412
+        ],
+        "B": [
+          76.4957,
+          75.451,
+          77.7521,
+          78.01920000000001
+        ]
+      },
+      "comparison": {
+        "baseline_process_median": 95.74165,
+        "candidate_process_median": 77.12389999999999,
+        "change_percent": -19.44582112382648,
+        "bootstrap_95_change_percent": [
+          -21.859643345005043,
+          -18.386617969045126
+        ]
+      },
+      "observed_values": [
+        "500000"
+      ],
+      "registered_lists": [
+        "0"
+      ],
+      "registered_commands": [
+        "64"
+      ]
+    }
+  ]
+}

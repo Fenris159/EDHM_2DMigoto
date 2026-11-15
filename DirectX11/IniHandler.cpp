@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <strsafe.h>
 #include <fstream>
@@ -21,6 +22,8 @@
 #include "ShaderRegex.h"
 #include "cursor.h"
 #include "WineCompat.h"
+#include "PersistentSettingsState.h"
+#include <io.h>
 #include <chrono>
 
 #include "vector"
@@ -28,6 +31,9 @@
 #include <cmath>
 
 #define INI_FILENAME L"d3dx.ini"
+
+static PersistentSettingsState persistent_settings_state;
+static std::mutex persistent_settings_save_mutex;
 
 static bool GetMigotoDirectory(wchar_t *path, size_t path_size)
 {
@@ -445,17 +451,16 @@ static bool get_namespaced_section_path(const wchar_t *section, wstring *ret)
 }
 
 static void ParseIniSectionLine(wstring *wline, wstring *section, int *warn_duplicates, bool *warn_lines_without_equals,
-                                IniSectionVector **section_vector, const wstring *ini_namespace,
-                                const wstring *ini_path)
+                                IniSection **section_entry, const wstring *ini_namespace, const wstring *ini_path)
 {
 	bool allow_duplicate_sections = false;
 	size_t first;
 	size_t last;
-	bool inserted;
 	bool namespaced_section = false;
 
 	*warn_duplicates = 1;
 	*warn_lines_without_equals = true;
+	*section_entry = nullptr;
 
 	// To match the behaviour of GetPrivateProfileString, we use up until
 	// the first ] as the section name. If there is no ] character, we use
@@ -500,25 +505,25 @@ static void ParseIniSectionLine(wstring *wline, wstring *section, int *warn_dupl
 	// key matches, which would have to be handled elsewhere.  For now,
 	// continue warning about duplicate sections and match the old
 	// behaviour.
-	inserted = ini_sections.emplace(*section, IniSection{}).second;
-	if (!inserted && !allow_duplicate_sections)
+	const auto inserted = ini_sections.emplace(*section, IniSection{});
+	if (!inserted.second && !allow_duplicate_sections)
 	{
 		IniWarningW(L"Duplicate section found\n - [%ls]\n", section->c_str());
 		section->clear();
-		*section_vector = nullptr;
 		return;
 	}
 
-	*section_vector = &ini_sections[*section].kv_vec;
+	IniSection &entry = inserted.first->second;
+	*section_entry = &entry;
 
 	// Record the namespace so we can use it later when looking up any
 	// referenced sections. Only for namespaced sections, not global
 	// sections:
 	if (namespaced_section)
 	{
-		ini_sections[*section].ini_namespace = *ini_namespace;
+		entry.ini_namespace = *ini_namespace;
 		if (*ini_path != *ini_namespace)
-			ini_sections[*section].ini_path = *ini_path;
+			entry.ini_path = *ini_path;
 	}
 
 	// Sections that utilise a command list are allowed to have duplicate
@@ -606,7 +611,7 @@ static bool ParseIniPreamble(wstring *wline, wstring *ini_namespace)
 }
 
 static void ParseIniKeyValLine(wstring *wline, wstring *section, int warn_duplicates, bool warn_lines_without_equals,
-                               IniSectionVector *section_vector, const wstring *ini_namespace)
+                               IniSection *section_entry, const wstring *ini_namespace)
 {
 	size_t first;
 	size_t last;
@@ -615,7 +620,7 @@ static void ParseIniKeyValLine(wstring *wline, wstring *section, int warn_duplic
 	wstring val;
 	bool inserted;
 
-	if (section->empty() || section_vector == nullptr)
+	if (section->empty() || section_entry == nullptr)
 	{
 		IniWarningW(L"Entry outside of section: %ls\n - [%ls]\n", wline->c_str(), ini_namespace->c_str());
 		return;
@@ -642,7 +647,7 @@ static void ParseIniKeyValLine(wstring *wline, wstring *section, int warn_duplic
 		{
 			// Recursively loaded config files are permitted to
 			// override values from the main d3dx.ini:
-			ini_sections.at(*section).kv_map[key] = val;
+			section_entry->kv_map[key] = val;
 		}
 		else
 		{
@@ -653,7 +658,7 @@ static void ParseIniKeyValLine(wstring *wline, wstring *section, int warn_duplic
 			// first item with a given key is inserted to match the
 			// behaviour of GetPrivateProfileString for duplicate
 			// keys within a single section:
-			inserted = ini_sections.at(*section).kv_map.emplace(key, val).second;
+			inserted = section_entry->kv_map.emplace(key, val).second;
 			if ((warn_duplicates == 1) && !inserted && !whitelisted_duplicate_key(section->c_str(), key.c_str()))
 			{
 				IniWarningW(L"Duplicate key found: %ls\n - [%ls] @ [%ls]\n", key.c_str(), section->c_str(),
@@ -675,7 +680,7 @@ static void ParseIniKeyValLine(wstring *wline, wstring *section, int warn_duplic
 		}
 	}
 
-	section_vector->emplace_back(key, val, *wline, *ini_namespace);
+	section_entry->kv_vec.emplace_back(key, val, *wline, *ini_namespace);
 }
 
 static void ParseIniStream(wistream *stream, const wstring *_ini_namespace)
@@ -685,7 +690,7 @@ static void ParseIniStream(wistream *stream, const wstring *_ini_namespace)
 	wstring ini_path;
 	size_t first;
 	size_t last;
-	IniSectionVector *section_vector = nullptr;
+	IniSection *section_entry = nullptr;
 	int warn_duplicates = 1;
 	bool warn_lines_without_equals = true;
 	wstring ini_namespace;
@@ -726,7 +731,7 @@ static void ParseIniStream(wistream *stream, const wstring *_ini_namespace)
 		if (wline[0] == L'[')
 		{
 			preamble = false;
-			ParseIniSectionLine(&wline, &section, &warn_duplicates, &warn_lines_without_equals, &section_vector,
+			ParseIniSectionLine(&wline, &section, &warn_duplicates, &warn_lines_without_equals, &section_entry,
 			                    &ini_namespace, &ini_path);
 			continue;
 		}
@@ -738,8 +743,7 @@ static void ParseIniStream(wistream *stream, const wstring *_ini_namespace)
 			continue;
 		}
 
-		ParseIniKeyValLine(&wline, &section, warn_duplicates, warn_lines_without_equals, section_vector,
-		                   &ini_namespace);
+		ParseIniKeyValLine(&wline, &section, warn_duplicates, warn_lines_without_equals, section_entry, &ini_namespace);
 	}
 }
 
@@ -1687,6 +1691,7 @@ static void GetUserConfigPath(const wchar_t *migoto_path)
 		G->user_config = wstring(migoto_path) + rel_path;
 	else
 		G->user_config = rel_path;
+	persistent_settings_state.BeginLoad(G->user_config);
 }
 
 static void ParseIncludedIniFiles()
@@ -1706,17 +1711,12 @@ static void ParseIncludedIniFiles()
 	wstring ini_path;
 	wchar_t migoto_path[MAX_PATH];
 	vector<pcre2_code *> exclude;
-	DWORD attrib;
 
 	if (!GetMigotoDirectory(migoto_path, ARRAYSIZE(migoto_path)))
 	{
 		LogOverlay(LOG_WARNING, "Unable to resolve the 3Dmigoto DLL directory; skipping included ini files\n");
 		return;
 	}
-
-	// Grab the user_config path before the below code removes it from the
-	// ini_sections data structure:
-	GetUserConfigPath(migoto_path);
 
 	// Do this before removing [Include] from ini_sections. Future work: Allow
 	// recursively included files to modify the exclude mid-recursion:
@@ -1789,12 +1789,6 @@ static void ParseIncludedIniFiles()
 	} while (!include_sections.empty());
 
 	free_globbing_vector(exclude);
-
-	// User config is loaded very last to allow it to override all other
-	// ini files.
-	attrib = GetFileAttributes(G->user_config.c_str());
-	if (attrib != INVALID_FILE_ATTRIBUTES)
-		ParseNamespacedIniFile(G->user_config.c_str(), &G->user_config);
 }
 
 static void RegisterPresetKeyBindings()
@@ -2404,6 +2398,7 @@ static CustomResourcePool *ParseResourcePoolSection(const wchar_t *section_name)
 
 static void ParseResourceSections()
 {
+	ClearDeferredBindFlags();
 	customResourcePools.clear();
 	customResources.clear();
 
@@ -2577,29 +2572,15 @@ static void ParseCommandList(const wchar_t *id, CommandList *pre_command_list, C
 
 		if (entry->ini_namespace == G->user_config && !G->user_config.empty())
 		{
-			// Invalid command, but it is in the user config, which may happen
-			// if the user recently uninstalled/upgraded/etc a mod. We will flag
-			// the user config to be updated at the next save, but won't do this
-			// immediately just in case. Inform the user of what is happening.
-			if (!G->user_config_dirty)
-			{
-				LogOverlay(LOG_WARNING,
-				           "NOTICE: Unknown user settings will be removed from d3dx_user.ini\n"
-				           " This is normal if you recently removed/changed any mods\n"
-				           " Press %S to update the config now, or %S to reset all settings to default\n"
-				           " The first unrecognised entry was: \"%S\"\n",
-				           user_friendly_ini_key_binding(L"Hunting", L"reload_config").c_str(),
-				           user_friendly_ini_key_binding(L"Hunting", L"wipe_user_config").c_str(), raw_line->c_str());
-				// Once the [Constants] command list has finished running the
-				// low bit will be cleared to ensure that loading the user config
-				// itself cannot mark the user config as dirty. Set the second
-				// bit to indicate that it should be updated regardless:
+			// Generated user settings contain scalar assignments only. Preserve
+			// temporarily unavailable variables without executing unknown commands.
+			wchar_t *end = nullptr;
+			const float value = std::wcstof(val->c_str(), &end);
+			if (!key->empty() && (*key)[0] == L'$' && end != val->c_str() && *end == L'\0')
+				persistent_settings_state.Remember(*key, value);
+			else
 				G->user_config_dirty |= 2;
-			}
-			// There might be a lot of entries if a large mod was just
-			// uninstalled, so we only show the first bad setting on the
-			// overlay and log all other invalid settings to the log file:
-			LogInfoW(L"WARNING: Unrecognised entry in %ls: %ls\n", G->user_config.c_str(), raw_line->c_str());
+			LogInfoW(L"Unrecognised entry in %ls: %ls\n", G->user_config.c_str(), raw_line->c_str());
 			continue;
 		}
 
@@ -4891,6 +4872,9 @@ void BuildTextureOverrideDrawMaps()
 
 void LoadConfigFile()
 {
+	// Drop profiling pointers before parsing can replace command storage.
+	Profiling::clear();
+	Profiling::text.clear();
 	wchar_t iniFile[MAX_PATH];
 	wchar_t logFilename[MAX_PATH];
 	wchar_t setting[MAX_PATH];
@@ -5008,6 +4992,7 @@ void LoadConfigFile()
 		enable_lock_dependency_checks();
 
 	G->gShowWarnings = GetIniBool(L"Logging", L"show_warnings", true, nullptr);
+	G->gShowReloadMessage = GetIniBool(L"Logging", L"show_reload_message", true, nullptr);
 
 	// Allows to delay DLL initialization by given ms count
 	G->gDllInitializationDelay = GetIniInt(L"System", L"dll_initialization_delay", 0, nullptr);
@@ -5025,10 +5010,20 @@ void LoadConfigFile()
 		G->gConfigInitialized = true;
 	}
 
+	// Resolve and read persisted values even when ordinary includes are
+	// deferred. Otherwise a post-Constants write can block the first reload
+	// or overwrite settings belonging to includes that have not loaded yet.
+	wchar_t migoto_path[MAX_PATH];
+	if (!GetMigotoDirectory(migoto_path, ARRAYSIZE(migoto_path)))
+		DoubleBeepExit();
+	GetUserConfigPath(migoto_path);
 	if (G->gConfigInitialized || !G->gSkipEarlyIncludesLoad)
 	{
 		ParseIncludedIniFiles();
 	}
+	// Loaded last so saved assignments override the root and ordinary includes.
+	if (GetFileAttributesW(G->user_config.c_str()) != INVALID_FILE_ATTRIBUTES)
+		ParseNamespacedIniFile(G->user_config.c_str(), &G->user_config);
 
 	// [System]
 	LogInfo("[System]\n");
@@ -5101,6 +5096,7 @@ void LoadConfigFile()
 	}
 
 	// Allows to change interval between persistent vars autosaving to d3dx_user.ini (any negative number to disables it)
+	G->clear_unknown_settings = GetIniBool(L"System", L"clear_unknown_settings", true, nullptr);
 	G->gSettingsAutoSaveInterval = GetIniInt(L"System", L"settings_auto_save_interval", 60, nullptr);
 	if (G->gSettingsAutoSaveInterval < 0)
 	{
@@ -5439,6 +5435,9 @@ void LoadConfigFile()
 	G->post_clear_uav_float_command_list.clear();
 	ParseCommandList(L"ClearUnorderedAccessViewFloat", &G->clear_uav_float_command_list,
 	                 &G->post_clear_uav_float_command_list, nullptr);
+	PropagateDeferredBindFlags();
+	if (persistent_settings_state.FinishLoad(G->clear_unknown_settings))
+		G->user_config_dirty |= 2;
 
 	LogInfo("\n");
 
@@ -5502,29 +5501,81 @@ void LoadProfileManagerConfig(const wchar_t *config_dir)
 	LogInfo("\n");
 }
 
-void SavePersistentSettings()
+bool SavePersistentSettings()
 {
-	FILE *f;
-
 	G->gSettingsSaveTime = G->gTime;
-
 	if (!G->user_config_dirty)
-		return;
-	G->user_config_dirty = 0;
-
-	setlocale(LC_CTYPE, "en_US.UTF-8");
-
-	// Future work: Ability to update existing file rather than overwriting:
-	//wfopen_ensuring_access(&f, G->user_config.c_str(), L"r+");
-	//if (!f)
-	wfopen_ensuring_access(&f, G->user_config.c_str(), L"w");
-	if (!f)
+		return true;
+	PersistentSettingsState::Values snapshot;
+	std::wstring settings_path;
+	std::unique_lock<std::mutex> save_lock;
+	struct PendingSave
 	{
-		LogInfo("Unable to save settings in %S\n", G->user_config.c_str());
-		return;
+		int dirty = 0;
+		bool committed = false;
+		PendingSave() = default;
+		PendingSave(const PendingSave &) = delete;
+		PendingSave &operator=(const PendingSave &) = delete;
+		PendingSave(PendingSave &&) = delete;
+		PendingSave &operator=(PendingSave &&) = delete;
+		~PendingSave()
+		{
+			if (!committed)
+				G->user_config_dirty |= dirty;
+		}
+	} pending;
+	{
+		const CriticalSectionLock lock(&G->mCriticalSection);
+		// Acquire in configuration-lock order, but retain only this file-write
+		// lock during I/O so two saves cannot replace newer data with an older snapshot.
+		save_lock = std::unique_lock<std::mutex>(persistent_settings_save_mutex);
+		if (!G->user_config_dirty)
+			return true;
+		settings_path = G->user_config;
+		snapshot = persistent_settings_state.UnknownValues();
+		for (const auto *variable : persistent_variables)
+			snapshot[variable->name] = variable->fval;
+		pending.dirty = G->user_config_dirty.exchange(0);
 	}
 
-	LogInfo("Saving user settings to %S\n", G->user_config.c_str());
+	struct RestoreLocale
+	{
+		std::string previous = setlocale(LC_CTYPE, nullptr);
+		RestoreLocale() = default;
+		RestoreLocale(const RestoreLocale &) = delete;
+		RestoreLocale &operator=(const RestoreLocale &) = delete;
+		RestoreLocale(RestoreLocale &&) = delete;
+		RestoreLocale &operator=(RestoreLocale &&) = delete;
+		~RestoreLocale()
+		{
+			setlocale(LC_CTYPE, previous.c_str());
+		}
+	} restore_locale;
+	setlocale(LC_CTYPE, "en_US.UTF-8");
+
+	wchar_t destination[MAX_PATH];
+	const DWORD length = GetFullPathNameW(settings_path.c_str(), ARRAYSIZE(destination), destination, nullptr);
+	if (!length || length >= ARRAYSIZE(destination))
+		return false;
+	std::wstring directory(destination);
+	const size_t slash = directory.find_last_of(L'\\');
+	if (slash == std::wstring::npos)
+		return false;
+	directory.resize(slash + 1);
+	wchar_t temporary[MAX_PATH];
+	if (!GetTempFileNameW(directory.c_str(), L"edh", 0, temporary))
+	{
+		LogInfo("Unable to create settings temporary file for %S\n", settings_path.c_str());
+		return false;
+	}
+
+	FILE *f = nullptr;
+	wfopen_ensuring_access(&f, temporary, L"w");
+	if (!f)
+	{
+		DeleteFileW(temporary);
+		return false;
+	}
 
 	fputs("; AUTOMATICALLY GENERATED FILE - DO NOT EDIT\n"
 	      ";\n"
@@ -5536,20 +5587,41 @@ void SavePersistentSettings()
 	      "[Constants]\n",
 	      f);
 
-	for (auto global : persistent_variables)
-		fprintf_s(f, "%ls = %.9g\n", global->name.c_str(), global->fval);
+	for (const auto &entry : snapshot)
+		fprintf_s(f, "%ls = %.9g\n", entry.first.c_str(), entry.second);
 
-	fclose(f);
-
-	setlocale(LC_CTYPE, G->gDefaultLocale.c_str());
+	bool failed = ferror(f) != 0;
+	failed |= fflush(f) != 0;
+	failed |= _commit(_fileno(f)) != 0;
+	failed |= fclose(f) != 0;
+	if (!failed)
+		failed = !MoveFileExW(temporary, destination, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+	if (failed)
+	{
+		DeleteFileW(temporary);
+		LogInfo("Unable to replace settings in %S; pending values retained\n", settings_path.c_str());
+		return false;
+	}
+	pending.committed = true;
+	LogInfo("Saved user settings to %S\n", settings_path.c_str());
+	return true;
 }
 
-static void WipeUserConfig()
+bool WipeUserConfig()
 {
+	const CriticalSectionLock config_lock(&G->mCriticalSection);
+	const std::lock_guard<std::mutex> save_lock(persistent_settings_save_mutex);
+	if (!DeleteFileW(G->user_config.c_str()))
+	{
+		const DWORD error = GetLastError();
+		if (error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND)
+			return false;
+	}
 	G->gWipeUserConfig = false;
 	G->user_config_dirty = 0;
-
-	DeleteFile(G->user_config.c_str());
+	persistent_settings_state.Clear();
+	LogOverlayW(LOG_INFO, L"> Wiped user config file d3dx_user.ini\n");
+	return true;
 }
 
 static void MarkAllShadersDeferredUnprocessed()
@@ -5575,23 +5647,25 @@ static void MarkAllShadersDeferredUnprocessed()
 void ReloadConfig(HackerDevice *device)
 {
 	auto start = std::chrono::high_resolution_clock::now();
+	// Keep persistent assignments out until the saved snapshot has been
+	// reloaded. Autosave alone releases this lock before writing to disk.
+	std::optional<CriticalSectionLock> config_lock(std::in_place, &G->mCriticalSection);
 
+	// Failed saves must not be followed by a reload that discards the pending
+	// in-memory values and replaces them with the previous complete disk file.
+	if ((G->gWipeUserConfig && !WipeUserConfig()) || !SavePersistentSettings())
+	{
+		G->gReloadConfigPending = false;
+		LogInfo("Config reload canceled because user settings could not be saved or wiped; retry after resolving the "
+		        "write failure\n");
+		return;
+	}
 	HackerContext *mHackerContext = device->GetHackerContext();
-
-	if (G->gWipeUserConfig)
-		WipeUserConfig();
-
-	SavePersistentSettings();
 
 	LogInfoW(L"Reloading " INI_FILENAME L" (EXPERIMENTAL)...\n");
 
 	G->gReloadConfigPending = false;
 	G->iniParamsReserved = 0;
-
-	// Lock the entire config reload as it touches many global structures
-	// that could potentially be accessed from other threads (e.g. deferred
-	// contexts) while we do this
-	EnterCriticalSectionPretty(&G->mCriticalSection);
 
 	// Clears any notices currently displayed on the overlay. This ensures
 	// that any notices that haven't timed out yet (e.g. from a previous
@@ -5608,11 +5682,6 @@ void ReloadConfig(HackerDevice *device)
 	// many as possible inside LoadConfigFile() where they are set.
 	ClearKeyBindings();
 
-	// Clear active command lists set, as the pointers in this set will
-	// become invalid as the config is reloaded:
-	command_lists_profiling.clear();
-	command_lists_cmd_profiling.clear();
-
 	// Reset the counters on the global parameter save area:
 	OverrideSave.Reset(device);
 
@@ -5624,7 +5693,7 @@ void ReloadConfig(HackerDevice *device)
 
 	MarkAllShadersDeferredUnprocessed();
 
-	LeaveCriticalSection(&G->mCriticalSection);
+	config_lock.reset();
 
 	// Execute the [Constants] command list in the immediate context to
 	// initialise iniParams and perform any other custom initialisation the
@@ -5653,9 +5722,14 @@ void ReloadConfig(HackerDevice *device)
 	}
 
 	setlocale(LC_CTYPE, G->gDefaultLocale.c_str());
+	if (G->user_config_dirty & 2)
+		SavePersistentSettings();
 
 	auto stop = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<float> duration = stop - start;
 
-	LogOverlayW(LOG_INFO, L"> Reloaded config in %.3fs\n", duration.count());
+	if (G->gShowReloadMessage)
+		LogOverlayW(LOG_INFO, L"> Reloaded config in %.3fs\n", duration.count());
+	else
+		LogInfoW(L"> Reloaded config in %.3fs\n", duration.count());
 }
