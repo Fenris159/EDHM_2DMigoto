@@ -14,6 +14,12 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve installed device-creation detour continuations when validating the
+  D3D11 backend, so renamed chain loading does not bypass an outer proxy such as
+  EDUP after initialization.
+
 ### Planned
 
 - Further EDHM smoke validation against stock 3Dmigoto / EDHM packages

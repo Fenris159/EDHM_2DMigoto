@@ -236,8 +236,15 @@ static HMODULE ValidateChainedD3D11Module(HMODULE hModule, const char *via)
 		return nullptr;
 	}
 
-	_D3D11CreateDevice = create_device;
-	_D3D11CreateDeviceAndSwapChain = create_device_and_swap_chain;
+	// HookD3D11 may already have saved continuations through an outer proxy
+	// (for example EDUP loading us as d3d11_edhm.dll). Keep those routes: replacing
+	// them with backend exports bypasses the outer proxy on later creation calls.
+	// The backend must still pass the validation above, even when hooks supply
+	// the creation routes. This matches the original 3Dmigoto initialization.
+	if (!_D3D11CreateDevice)
+		_D3D11CreateDevice = create_device;
+	if (!_D3D11CreateDeviceAndSwapChain)
+		_D3D11CreateDeviceAndSwapChain = create_device_and_swap_chain;
 	LogChainedD3D11Module(hModule, via);
 	LogInfo("Chained d3d11 exports OK\n");
 	return hModule;

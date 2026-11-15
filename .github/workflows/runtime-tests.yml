@@ -19,12 +19,113 @@ on:
         description: Optional successful same-repository run with a matching x64 benchmark executable
         type: string
         default: ''
+      proxy_chain_baseline_run:
+        description: Optional trusted x64 DLL build that must expose the pre-fix proxy bypass
+        type: string
+        default: ''
 
 permissions:
   contents: read
   actions: read
 
 jobs:
+  proxy-chain:
+    name: Product DLL proxy chain (${{ matrix.platform }})
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [x64, Win32]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+        with:
+          vs-version: '[17.0,18.0)'
+      - name: Build product and proxy boundary fixtures
+        shell: pwsh
+        env:
+          TEST_PLATFORM: ${{ matrix.platform }}
+        run: |
+          & msbuild DirectX11/DirectX11.vcxproj -target:Build `
+            -property:Configuration=Release "-property:Platform=$env:TEST_PLATFORM" `
+            "-property:SolutionDir=$pwd/" -property:EdhmStrictBuild=true `
+            -nodeReuse:false -verbosity:minimal -restore:false
+          if ($LASTEXITCODE -ne 0) { throw 'Product DLL build failed' }
+          foreach ($fixture in @('false', 'true')) {
+            & msbuild RuntimeTests/ProxyChainTests.vcxproj -target:Build `
+              -property:Configuration=Release "-property:Platform=$env:TEST_PLATFORM" `
+              "-property:EdhmChainFixture=$fixture" -property:EdhmStrictBuild=true `
+              -nodeReuse:false -verbosity:minimal -restore:false
+            if ($LASTEXITCODE -ne 0) { throw "Proxy fixture build failed: $fixture" }
+          }
+      - name: Obtain pinned EDUP release for the x64 integration check
+        if: matrix.platform == 'x64'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force .quality/edup-0.22.1 | Out-Null
+          $archive = '.quality/edup-0.22.1/core.zip'
+          Invoke-WebRequest 'https://github.com/characterecho-sean/ed-unofficial-patch/releases/download/v0.22.1/ed-up-core-0.22.1.zip' -OutFile $archive
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne '4292718f50ad14bd40825697a2a75a83d4db3bc9e845dae6a3a04c11af6d11c4') {
+            throw 'EDUP release archive checksum mismatch'
+          }
+          Expand-Archive $archive .quality/edup-0.22.1/core
+      - name: Check product loading and proxy policies
+        shell: pwsh
+        env:
+          TEST_PLATFORM: ${{ matrix.platform }}
+        run: |
+          $bin = ".quality/proxy-chain/$env:TEST_PLATFORM"
+          $product = if ($env:TEST_PLATFORM -eq 'Win32') { 'x32' } else { 'x64' }
+          Copy-Item "$product/Release/d3d11.dll" "$bin/candidate-d3d11.dll"
+          $extra = @()
+          if ($env:TEST_PLATFORM -eq 'x64') { $extra = @('--edup', '.quality/edup-0.22.1/core/d3d11.dll') }
+          & python RuntimeTests/run_proxy_chain_tests.py --dll "$bin/candidate-d3d11.dll" `
+            --fixture "$bin/ProxyChainFixture.dll" --exe "$bin/ProxyChainTests.exe" `
+            --output "$bin/candidate-results" @extra
+          if ($LASTEXITCODE -ne 0) { throw 'Proxy-chain behavior checks failed' }
+      - name: Require the pre-fix build to fail the same proxy policies
+        if: inputs.proxy_chain_baseline_run != '' && matrix.platform == 'x64'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASELINE_RUN: ${{ inputs.proxy_chain_baseline_run }}
+        run: |
+          if ($env:BASELINE_RUN -notmatch '^[0-9]+$') { throw 'Baseline run must be numeric' }
+          $run = & gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:BASELINE_RUN" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $run.conclusion -ne 'success' -or
+              $run.head_repository.full_name -ne $env:GITHUB_REPOSITORY -or
+              $run.event -notin @('push', 'workflow_dispatch')) { throw 'Baseline run is not trusted' }
+          & gh run download $env:BASELINE_RUN -R $env:GITHUB_REPOSITORY `
+            -p 'd3d11-release-x64-*' -D '.quality/proxy-chain/baseline'
+          if ($LASTEXITCODE -ne 0) { throw 'Could not obtain pre-fix DLL' }
+          $dll = @(Get-ChildItem '.quality/proxy-chain/baseline' -Recurse -Filter d3d11.dll)
+          if ($dll.Count -ne 1) { throw 'Expected one baseline DLL' }
+          & python RuntimeTests/run_proxy_chain_tests.py --dll $dll[0].FullName `
+            --fixture .quality/proxy-chain/x64/ProxyChainFixture.dll `
+            --exe .quality/proxy-chain/x64/ProxyChainTests.exe `
+            --output .quality/proxy-chain/x64/baseline-results --expect-bypass
+          if ($LASTEXITCODE -ne 0) { throw 'Pre-fix bypass was not detected' }
+      - name: Upload proxy-chain evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: proxy-chain-evidence-${{ matrix.platform }}-${{ github.sha }}
+          path: |
+            .quality/proxy-chain/${{ matrix.platform }}/**/results.json
+            .quality/proxy-chain/${{ matrix.platform }}/**/stdout.txt
+            .quality/proxy-chain/${{ matrix.platform }}/**/stderr.txt
+            .quality/proxy-chain/${{ matrix.platform }}/**/d3d11_log.txt
+            .quality/proxy-chain/${{ matrix.platform }}/**/edvr_logs/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload validated product DLL
+        if: success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: proxy-chain-dll-${{ matrix.platform }}-${{ github.sha }}
+          path: .quality/proxy-chain/${{ matrix.platform }}/candidate-d3d11.dll
+          if-no-files-found: error
+          retention-days: 14
   runtime-tests:
     runs-on: windows-2022
     strategy:
