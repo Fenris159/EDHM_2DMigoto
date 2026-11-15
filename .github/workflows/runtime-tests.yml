@@ -26,11 +26,13 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
   proxy-chain:
     name: Product DLL proxy chain (${{ matrix.platform }})
+    permissions:
+      contents: read
+      actions: read
     runs-on: windows-2022
     strategy:
       fail-fast: false
@@ -128,6 +130,9 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   runtime-tests:
+    permissions:
+      contents: read
+      actions: read
     runs-on: windows-2022
     strategy:
       fail-fast: false
