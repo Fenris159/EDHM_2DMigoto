@@ -3,6 +3,7 @@
 #include "../DirectX11/IniHandler.h"
 #include "../DirectX11/globals.h"
 #include "D3DDeviceBoundary.h"
+#include "ImportBoundary.h"
 #include "../DirectX11/input.h"
 #include "../DirectX11/profiling.h"
 
@@ -712,6 +713,34 @@ void copies_region_byte_counts_and_preserves_invalid_destinations()
 	fixture.require_no_errors();
 }
 
+void vertex_regions_use_byte_counts_instead_of_binding_stride()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	const float values[] = {3, 5, 7, 11, 13, 17};
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = sizeof(values);
+	desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	D3D11_SUBRESOURCE_DATA initial{};
+	initial.pSysMem = values;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+	require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &initial, &buffer)), "vertex source creation failed");
+	ID3D11Buffer *binding = buffer.Get();
+	const UINT stride = 12, offset = 0;
+	fixture.context->IASetVertexBuffers(0, 1, &binding, &stride, &offset);
+	CommandList commands;
+	parse_copy(commands, L"vb1", L"copy vb0->region(0,4)");
+	for (const auto &command : commands.commands)
+		command->run(&fixture.state);
+	Microsoft::WRL::ComPtr<ID3D11Buffer> copied;
+	UINT copied_stride = 0, copied_offset = 0;
+	fixture.context->IAGetVertexBuffers(1, 1, &copied, &copied_stride, &copied_offset);
+	require(copied != nullptr, "vertex region did not bind a destination");
+	require(read_buffer(fixture, copied.Get()) == std::vector<float>({3}),
+	        "vertex binding stride truncated the requested four-byte copy");
+	fixture.require_no_errors();
+}
+
 void region_views_follow_changing_ranges()
 {
 	D3DFixture fixture;
@@ -921,6 +950,80 @@ struct SettingsConfigFixture
 			std::filesystem::remove(path, error);
 	}
 };
+
+void deferred_initialization_preserves_unloaded_settings()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	SettingsConfigFixture files;
+	const auto included = files.config.parent_path() / L"runtime-deferred.ini";
+	files.includes.push_back(included);
+	std::ofstream(included) << "[Constants]\nglobal persist $included = 2\n";
+	std::ofstream(files.user) << "[Constants]\n$boot = 7\n$included = 13\n";
+	std::ofstream(files.config) << "[Logging]\nenabled=0\nshow_warnings=0\n"
+	                               "[System]\nskip_early_includes_load=1\n"
+	                               "[Include]\nuser_config=runtime-user.ini\ninclude=runtime-deferred.ini\n"
+	                               "[Constants]\nglobal persist $boot = 0\npost $boot = 1\n";
+	G->user_config.clear();
+	G->gConfigInitialized = false;
+	LoadConfigFile();
+	for (const auto &command : G->constants_command_list.commands)
+		command->run(&fixture.state);
+	G->user_config_dirty &= ~1;
+	for (const auto &command : G->post_constants_command_list.commands)
+		command->run(&fixture.state);
+	require(G->user_config_dirty != 0, "post-Constants did not leave a pending startup change");
+	require(SavePersistentSettings(), "unresolved settings destination blocked deferred initialization");
+	G->gConfigInitialized = true;
+	LoadConfigFile();
+	for (const auto &command : G->constants_command_list.commands)
+		command->run(&fixture.state);
+	require(command_list_globals.at(L"$boot").fval == 1.0f, "deferred initialization lost the pending startup value");
+	require(command_list_globals.at(L"$included").fval == 13.0f,
+	        "startup save overwrote a persistent value whose include had not loaded yet");
+}
+
+VariableAssignment *assignment_during_replace = nullptr;
+CommandListState *state_during_replace = nullptr;
+decltype(&MoveFileExW) real_move_file = nullptr;
+
+BOOL WINAPI replace_with_pending_assignment(LPCWSTR existing, LPCWSTR replacement, DWORD flags)
+{
+	assignment_during_replace->run(state_during_replace);
+	return real_move_file(existing, replacement, flags);
+}
+
+void saves_acknowledge_only_the_captured_settings()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	SettingsConfigFixture files;
+	CommandListVariable variable(L"$test", 7.0f, VariableFlags::PERSIST);
+	persistent_variables.push_back(&variable);
+	G->user_config = files.user.wstring();
+	G->user_config_dirty = 1;
+	VariableAssignment assignment;
+	assignment.var = &variable;
+	const std::wstring value = L"11";
+	require(assignment.expression.parse(&value, nullptr, nullptr), "save boundary assignment rejected");
+	assignment_during_replace = &assignment;
+	state_during_replace = &fixture.state;
+	auto address = GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "MoveFileExW");
+	static_assert(sizeof(address) == sizeof(real_move_file));
+	memcpy(&real_move_file, &address, sizeof(address));
+	require(real_move_file != nullptr, "filesystem replacement boundary unavailable");
+	{
+		ImportBoundary boundary(GetModuleHandleW(nullptr), "MoveFileExW", &replace_with_pending_assignment);
+		require(SavePersistentSettings(), "first save failed");
+	}
+	require(file_contents(files.user).find("$test = 7\n") != std::string::npos, "save did not write its snapshot");
+	require(variable.fval == 11.0f && G->user_config_dirty != 0, "completed save erased a newer pending change");
+	require(SavePersistentSettings(), "save of the newer change failed");
+	require(file_contents(files.user).find("$test = 11\n") != std::string::npos && G->user_config_dirty == 0,
+	        "next save did not commit the newer pending value");
+	assignment_during_replace = nullptr;
+	state_during_replace = nullptr;
+}
 
 void preserves_only_eligible_settings_across_reload()
 {
@@ -1855,6 +1958,51 @@ void clears_saved_shader_resource_contents()
 	fixture.require_no_errors();
 }
 
+void integer_clears_override_saved_render_target_views()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	customResources[L"resourcesaved"];
+	D3D11_TEXTURE2D_DESC desc{};
+	desc.Width = desc.Height = 2;
+	desc.MipLevels = desc.ArraySize = desc.SampleDesc.Count = 1;
+	desc.Format = DXGI_FORMAT_R32_UINT;
+	desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_UNORDERED_ACCESS;
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+	require(SUCCEEDED(fixture.device->CreateTexture2D(&desc, nullptr, &texture)), "integer clear texture failed");
+	Microsoft::WRL::ComPtr<ID3D11RenderTargetView> rtv;
+	require(SUCCEEDED(fixture.device->CreateRenderTargetView(texture.Get(), nullptr, &rtv)), "integer RTV failed");
+	auto *binding = rtv.Get();
+	fixture.context->OMSetRenderTargets(1, &binding, nullptr);
+	CommandList commands;
+	parse_copy(commands, L"resourcesaved", L"ref o0");
+	for (const auto &command : commands.commands)
+		command->run(&fixture.state);
+	fixture.context->OMSetRenderTargets(0, nullptr, nullptr);
+	ClearViewCommand clear;
+	require(clear.target.ParseTarget(L"resourcesaved", true, &config_namespace, nullptr),
+	        "integer clear target rejected");
+	clear.clear_uav_uint = true;
+	clear.uval[0] = 0x3f800000;
+	clear.fval[0] = 1.0f;
+	clear.run(&fixture.state);
+	desc.Usage = D3D11_USAGE_STAGING;
+	desc.BindFlags = 0;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> staging;
+	require(SUCCEEDED(fixture.device->CreateTexture2D(&desc, nullptr, &staging)), "integer clear staging failed");
+	fixture.context->CopyResource(staging.Get(), texture.Get());
+	D3D11_MAPPED_SUBRESOURCE mapped{};
+	require(SUCCEEDED(fixture.context->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped)),
+	        "integer clear readback failed");
+	const auto *row0 = static_cast<const UINT *>(mapped.pData);
+	const auto *row1 = reinterpret_cast<const UINT *>(static_cast<const char *>(mapped.pData) + mapped.RowPitch);
+	const bool exact = row0[0] == 0x3f800000 && row0[1] == 0x3f800000 && row1[0] == 0x3f800000 && row1[1] == 0x3f800000;
+	fixture.context->Unmap(staging.Get(), 0);
+	require(exact, "saved RTV converted an explicit integer clear instead of using the UAV");
+	fixture.require_no_errors();
+}
+
 void preserves_learned_pool_flags_during_copy()
 {
 	D3DFixture fixture;
@@ -2345,6 +2493,47 @@ void metadata_expiration_matches_same_frame_reset()
 	fixture.d3d.require_no_errors();
 }
 
+void verify_static_variable_metadata(bool reverse_operands)
+{
+	MetadataFixture fixture;
+	G->frame_no = 10;
+	auto &pinned = make_pool(L"poolstaticvars", 0.0f);
+	pinned.index_type = PoolIndexType::STATIC;
+	pinned.expiration_timeout_frames = 5;
+	pinned.Initialize(2);
+	pinned.GetVariable(0, false, false, true)->fval = 1.0f;
+	auto &dynamic = make_pool(L"pooldynamicvars", 0.0f);
+	require(dynamic.SetSourcePool(&pinned), "variable alias was rejected");
+	auto &outer = make_pool(L"poolouter", 0.0f);
+	MetadataFixture::configure_buffer(*outer.resource_template);
+	outer.GetResource(0, false, false, true)->bind_flags = D3D11_BIND_SHADER_RESOURCE;
+	outer.GetResource(1, false, false, true)->bind_flags = D3D11_BIND_UNORDERED_ACCESS;
+	MetadataFixture::configure_buffer(customResources[L"resourcepreviewfresh"]);
+	CommandList commands;
+	parse_copy(commands,
+	           reverse_operands ? L"poolouter[$poolstaticvars[0] + $pooldynamicvars[0]]"
+	                            : L"poolouter[$pooldynamicvars[0] + $poolstaticvars[0]]",
+	           L"ref resourcepreviewfresh");
+	G->frame_no = 17;
+	for (const auto &command : commands.commands)
+		command->run(&fixture.d3d.state);
+	auto *fresh = customResources[L"resourcepreviewfresh"].resource;
+	const bool slot0 = outer.GetResource(0, false, false, false)->resource == fresh;
+	const bool slot1 = outer.GetResource(1, false, false, false)->resource == fresh;
+	require(fresh != nullptr && slot0 != slot1, "ordinary variable reads did not select one destination");
+	D3D11_BUFFER_DESC desc{};
+	static_cast<ID3D11Buffer *>(fresh)->GetDesc(&desc);
+	require(desc.BindFlags == static_cast<UINT>(slot0 ? D3D11_BIND_SHADER_RESOURCE : D3D11_BIND_UNORDERED_ACCESS),
+	        "STATIC variable metadata read stale live state instead of the shared expired preview");
+	fixture.d3d.require_no_errors();
+}
+
+void static_variable_metadata_matches_expiring_dynamic_aliases()
+{
+	for (bool reverse : {false, true})
+		verify_static_variable_metadata(reverse);
+}
+
 void scalar_variables_keep_precedence_over_pool_names()
 {
 	ConfigFixture resources;
@@ -2416,10 +2605,17 @@ void zero_frame_updates_preserve_reload_measurements()
 		require(command_list_globals.at(L"$initialized").fval == 7.0f, "reload initialization did not execute");
 		Profiling::resource_full_copies = 3;
 		Profiling::update_txt();
-		require(Profiling::resource_full_copies == 3 && G->constants_command_list.executions == 1,
-		        "zero-frame overlay update discarded reload initialization measurements");
-		require(mode != Profiling::Mode::TOP_COMMANDS || command_lists_cmd_profiling.size() == 1,
-		        "zero-frame overlay update discarded initialized command registrations");
+		require(Profiling::resource_full_copies == 3, "zero-frame overlay update discarded resource measurements");
+		if (mode == Profiling::Mode::TOP_COMMANDS)
+		{
+			require(command_lists_cmd_profiling.size() == 1,
+			        "zero-frame overlay update discarded initialized command registrations");
+			require(G->constants_command_list.commands.at(0)->pre_executions == 1,
+			        "zero-frame overlay update discarded active command measurements");
+		}
+		else
+			require(G->constants_command_list.executions == 1,
+			        "zero-frame overlay update discarded active list measurements");
 	}
 }
 
@@ -2615,10 +2811,13 @@ int main(int argc, char **argv)
 	             {"store-views", releases_store_views_on_success_and_failure},
 	             {"store-failure", preserves_store_values_when_readback_allocation_fails},
 	             {"region-copy", copies_region_byte_counts_and_preserves_invalid_destinations},
+	             {"region-vertex-bytes", vertex_regions_use_byte_counts_instead_of_binding_stride},
 	             {"region-views", region_views_follow_changing_ranges},
 	             {"region-cb", copies_cb_regions_beyond_the_bound_window},
 	             {"settings-atomic", failed_replacement_preserves_complete_file},
 	             {"settings-lifecycle", preserves_only_eligible_settings_across_reload},
+	             {"settings-deferred", deferred_initialization_preserves_unloaded_settings},
+	             {"settings-save-update", saves_acknowledge_only_the_captured_settings},
 	             {"constants-order", preserves_constants_declaration_and_execution_order},
 	             {"ini-sections", preserves_duplicate_sections_and_recursive_includes},
 	             {"if-conditions", preserves_static_and_dynamic_conditions_across_reload},
@@ -2633,6 +2832,8 @@ int main(int argc, char **argv)
 	             {"view-failure", failed_view_creation_preserves_bindings_and_selected_metrics},
 	             {"region-cb-small", copies_smaller_constant_buffer_regions},
 	             {"view-clear", clears_saved_shader_resource_contents},
+	             {"view-clear-integer", integer_clears_override_saved_render_target_views},
+	             {"metadata-static-variable", static_variable_metadata_matches_expiring_dynamic_aliases},
 	             {"pool-learned-flags", preserves_learned_pool_flags_during_copy},
 	             {"pool-scalar-precedence", scalar_variables_keep_precedence_over_pool_names},
 	             {"view-this-cache", this_references_reuse_views_until_the_kind_changes},
