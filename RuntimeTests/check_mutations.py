@@ -311,6 +311,24 @@ def get_mutations(command_list, settings, profiling):
             "",
         ),
         (
+            "settings-batch-reload",
+            ROOT / "DirectX11" / "HackerContext.h",
+            "struct DispatchContext\n{\n\tConfigurationReadLock configuration;",
+            "struct DispatchContext\n{",
+        ),
+        (
+            "settings-save-reload",
+            settings,
+            "\tconst std::lock_guard<std::mutex> settings_lock(persistent_settings_save_mutex);",
+            "\t// Deliberate break: skip synchronization with an in-flight autosave.",
+        ),
+        (
+            "view-clear-stencil",
+            command_list,
+            "if (!clear_uav_uint || clear_depth || clear_stencil)",
+            "if (!clear_uav_uint)",
+        ),
+        (
             "missing-metadata",
             command_list,
             "*misc_flags = custom_resource ? custom_resource->misc_flags : static_cast<D3D11_RESOURCE_MISC_FLAG>(0);",
