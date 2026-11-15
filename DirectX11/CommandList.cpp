@@ -7560,7 +7560,7 @@ void CustomResourcePool::InitializeVariable(size_t pool_index)
 	}
 	else
 	{
-		element.variable->fval.store(variable_template->fval.load(), );
+		element.variable->fval.store(variable_template->fval.load());
 		element.variable->flags = variable_template->flags;
 	}
 }

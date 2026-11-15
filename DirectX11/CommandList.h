@@ -152,7 +152,8 @@ static EnumName_t<const wchar_t *, VariableFlags> VariableFlagNames[] = {
     {nullptr, VariableFlags::INVALID} // End of list marker
 };
 
-class CommandListVariable
+// Explicit atomic value copies preserve command-container and preview semantics.
+class CommandListVariable // NOSONAR: Value copies need no custom cleanup.
 {
   public:
 	wstring name;
@@ -161,6 +162,36 @@ class CommandListVariable
 	VariableFlags flags;
 
 	CommandListVariable(wstring name, float fval, VariableFlags flags) : name(name), fval(fval), flags(flags) {}
+	CommandListVariable(const CommandListVariable &other)
+	    : name(other.name), fval(other.fval.load()), flags(other.flags)
+	{
+	}
+	CommandListVariable(CommandListVariable &&other) noexcept
+	    : name(std::move(other.name)), fval(other.fval.load()), flags(other.flags)
+	{
+	}
+	CommandListVariable &operator=(const CommandListVariable &other)
+	{
+		if (this != &other)
+		{
+			name = other.name;
+			fval.store(other.fval.load());
+			flags = other.flags;
+		}
+		return *this;
+	}
+	CommandListVariable &operator=(CommandListVariable &&other) noexcept
+	{
+		if (this != &other)
+		{
+			name = std::move(other.name);
+			fval.store(other.fval.load());
+			flags = other.flags;
+		}
+		return *this;
+	}
+	~CommandListVariable() = default;
+
 	std::unique_ptr<CommandListVariable> CloneForMetadata() const
 	{
 		return std::make_unique<CommandListVariable>(name, fval.load(), flags);

@@ -4,6 +4,14 @@ Package build for Elite Dangerous HUD Mod (EDHM).
 Built from this repository's automated release workflow.
 ## [0.1.5] - 2026-11-15
 
+### Added
+
+- EDUP updater distribution: `d3d11_edhm.dll`, its checksum and
+  `edup-runtime.json` are published with each release. The manifest provides a
+  version-pinned URL, size, hash and release metadata.
+- `vendor/edup-runtime/` mirrors the renamed DLL and manifest alongside the
+  normal EDHM cache; both binaries use the same product build.
+
 ### Fixed
 
 - Serialize reload with an in-flight settings save even when no additional

@@ -456,7 +456,7 @@ void accepts_pool_identifier_grammar()
 	make_pool(L"poolhyphen-name", 2.5f);
 	make_pool(L"pool\\test.ini\\\u03b4-name", 4.0f);
 	make_pool(L"pool\u03b4", 6.0f);
-	command_list_globals.try_emplace(L"$pool_test", L"$pool_test", 8.0f, VariableFlags::NONE);
+	command_list_globals.emplace(L"$pool_test", CommandListVariable(L"$pool_test", 8.0f, VariableFlags::NONE));
 	CommandListState state;
 	CommandListScope scope;
 	const struct
@@ -764,7 +764,8 @@ void region_views_follow_changing_ranges()
 	        "full source view creation failed");
 	auto *binding = source_view.Get();
 	fixture.context->PSSetShaderResources(0, 1, &binding);
-	auto inserted = command_list_globals.try_emplace(L"$offset", L"$offset", 8.0f, VariableFlags::NONE);
+	auto inserted =
+	    command_list_globals.emplace(L"$offset", CommandListVariable(L"$offset", 8.0f, VariableFlags::NONE));
 	CommandList commands;
 	parse_copy(commands, L"ps-t1", L"ref ps-t0->region($offset, 8)");
 	for (float offset : {8.0f, 16.0f})
@@ -2186,6 +2187,7 @@ void hexadecimal_stencil_clear_keeps_its_explicit_view_kind()
 	ConfigFixture resources;
 	SettingsConfigFixture files;
 	std::ofstream(files.config) << "[Logging]\nenabled=0\nshow_warnings=0\n"
+	                               "[Include]\nuser_config=runtime-user.ini\n"
 	                               "[CommandListStencil]\nclear = od stencil 0xff\n";
 	LoadConfigFile();
 	D3D11_TEXTURE2D_DESC desc{};
@@ -2669,9 +2671,9 @@ void verify_destination_key_after_source_lookup(bool spatial)
 	const float source = spatial ? BitCastToFloat(0x04000000U) : 1.0f;
 	const float destination = spatial ? BitCastToFloat(0x04100000U) : 2.0f;
 	const float probe = spatial ? BitCastToFloat(0x04200000U) : 2.0f;
-	command_list_globals.try_emplace(L"$s", L"$s", source, VariableFlags::NONE);
-	command_list_globals.try_emplace(L"$d", L"$d", destination, VariableFlags::NONE);
-	command_list_globals.try_emplace(L"$e", L"$e", probe, VariableFlags::NONE);
+	command_list_globals.emplace(L"$s", CommandListVariable(L"$s", source, VariableFlags::NONE));
+	command_list_globals.emplace(L"$d", CommandListVariable(L"$d", destination, VariableFlags::NONE));
+	command_list_globals.emplace(L"$e", CommandListVariable(L"$e", probe, VariableFlags::NONE));
 	auto &seed = customResources[L"resourcekeyseed"];
 	MetadataFixture::configure_buffer(seed);
 	seed.bind_flags = D3D11_BIND_SHADER_RESOURCE;
@@ -2779,7 +2781,7 @@ void scalar_variables_keep_precedence_over_pool_names()
 {
 	ConfigFixture resources;
 	make_pool(L"poolfoo", 2.0f);
-	command_list_globals.try_emplace(L"$poolfoo", L"$poolfoo", 7.0f, VariableFlags::NONE);
+	command_list_globals.emplace(L"$poolfoo", CommandListVariable(L"$poolfoo", 7.0f, VariableFlags::NONE));
 	CommandListVariable local(L"$poolfoo", 11.0f, VariableFlags::NONE);
 	CommandListScope scope;
 	scope.emplace_front();
@@ -2865,7 +2867,8 @@ void benchmark_command_lists(int samples)
 	HackerContext context(nullptr, nullptr);
 	CommandListState state;
 	state.mHackerContext = &context;
-	auto inserted = command_list_globals.try_emplace(L"$benchmark", L"$benchmark", 0.0f, VariableFlags::NONE);
+	auto inserted =
+	    command_list_globals.emplace(L"$benchmark", CommandListVariable(L"$benchmark", 0.0f, VariableFlags::NONE));
 	auto &value = inserted.first->second;
 	std::array<CommandList, 64> lists;
 	std::vector<RunLinkedCommandList> runners;

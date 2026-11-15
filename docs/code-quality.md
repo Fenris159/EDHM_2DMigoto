@@ -109,6 +109,11 @@ Path-scoped exceptions are limited to reviewed compatibility boundaries:
 - `cpp:S3471`: COM method declarations use Windows calling-convention macros.
 - `cpp:S3624`, `cpp:S4962`, `cpp:S7119`: the DirectXTK code already implements
   the required ownership semantics or follows Windows SDK constant conventions.
+- `cpp:S3624` has one source-line suppression on `CommandListVariable`: its
+  atomic scalar needs explicit value-copy operations for existing command-list
+  containers and detached previews. Its string and atomic members own their
+  lifetimes; a custom destructor would add no cleanup. Other class and ownership
+  checks remain active.
 - `cpp:S5025`: raw allocations at listed files are C/COM ownership transfers,
   returned ABI objects, or buffers whose lifetime is released at the matching
   boundary; ordinary local ownership uses RAII.
