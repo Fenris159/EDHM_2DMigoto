@@ -68,8 +68,8 @@ def get_mutations(command_list, settings, profiling):
         (
             "pending-save",
             settings,
-            'bool SavePersistentSettings()\n{\n\tG->gSettingsSaveTime = G->gTime;',
-            'bool SavePersistentSettings()\n{\n\tG->gSettingsSaveTime = G->gTime;\n\tG->user_config_dirty = 0;',
+            '\tG->gSettingsSaveTime = G->gTime;',
+            '\tG->gSettingsSaveTime = G->gTime;\n\tG->user_config_dirty = 0;',
         ),
         (
             "pool-reset",
