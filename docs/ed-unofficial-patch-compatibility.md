@@ -1,5 +1,18 @@
 # ED Unofficial Patch with EDHM_2DMigoto
 
+**15 November follow-up:** a tester reported EDHM colors working while EDUP and
+its F8 menu were inactive on the latest release, v0.22.1. Source comparison found
+a forwarding regression in our fork: backend validation overwrote the
+device-creation continuations installed for a renamed DLL. The repair separates
+hook continuations from selected backend exports: hook callbacks resume the
+intercepted module, while our proxy exports forward to the configured backend.
+This also retains an explicitly configured downstream proxy when an outer proxy
+is present. The [product DLL proxy checks](../RuntimeTests/README.md#product-dll-proxy-chaining)
+cover the affected boundary. The dated assessment and PDF predate this repair;
+their configuration proposal alone does not establish compatibility for the
+unrepaired 0.1.4 candidate. An installed-game AA/F8 result remains separate from
+off-game startup checks.
+
 **Source assessment, 13 November 2026.** Compared our develop
 `4c953f29127b1d13301c733f157f0850cc2eb309` (0.1.4-beta.1, runtime unchanged
 from `5c74823f`) with ED Unofficial Patch (ED-UP) **v0.22.0**, release source
@@ -11,14 +24,14 @@ for release, issue and implementation references.
 
 ## Assessment
 
-**The two projects are designed to be composable. I found no fundamental
-source-level reason our DLL must disable ED-UP's temporal AA or upscaling.**
+**The two projects are designed to be composable, but the earlier candidate's
+forwarding regression must be repaired before relying on the proposed chain.**
 ED-UP explicitly supports EDHM chaining, has wrapper-aware context interception,
 and contains EDHM shader variants. Our DLL retains the D3D11 device/context,
 shader, resource and swapchain interfaces that this composition uses.
 This is a source-supported expectation, not a combined execution pass: no
 ED-UP binary, game session, AA output comparison or combined benchmark was run
-for this investigation.
+for the initial assessment.
 [ED-UP chaining](https://github.com/characterecho-sean/ed-unofficial-patch/blob/aa765cd9b90d9b3027c6505157c607d151eeaef5/docs/manual-install.md#running-alongside-edhm-by-hand),
 [wrapper-aware hooks](https://github.com/characterecho-sean/ed-unofficial-patch/blob/aa765cd9b90d9b3027c6505157c607d151eeaef5/src/common/vtable_hook.h),
 [our device/context wrapping](https://github.com/Fenris159/EDHM_2DMigoto/blob/4c953f29127b1d13301c733f157f0850cc2eb309/DirectX11/D3D11Wrapper.cpp#L650).
@@ -67,9 +80,14 @@ the installer was not exercised here.
 
 The rename also activates the inherited `HookD3D11` branch in `DllMain`, which
 detours create-device exports in the module named `d3d11.dll`, normally ED-UP.
-Original 1.4.9 has the same branch. Setting `load_library_redirect=0` does not
-disable those entry detours, the loader hook or DXGI factory hooks. This is an
-initialization/routing boundary to validate, not a demonstrated failure. The
+Original 1.4.9 has the same branch, but preserves its saved continuation pointers
+when resolving the backend. Our chain-hardening change instead overwrote them,
+allowing later device creation to skip the outer proxy. Keeping hook callbacks
+and backend exports separate preserves both the outer route and an explicitly
+configured downstream proxy, while retaining backend-export validation. A call
+already executing inside EDUP can still complete its attachment, so the defect
+depends on startup order. Setting `load_library_redirect=0` does not disable
+these entry detours, the loader hook or DXGI factory hooks. The
 [maintainer report](edup-maintainer-report.md#2-surface-area-what-changes-and-what-remains-shared)
 records the source paths and ED-UP's relevant recursion/attachment guards.
 

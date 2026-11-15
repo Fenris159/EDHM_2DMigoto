@@ -54,6 +54,54 @@ Spatial and FIFO copies keep their resolved destination key after an intervening
 same-pool source lookup, without evaluating the destination index again.
 CPU timing is never a regression threshold.
 
+## Product DLL proxy chaining
+
+`ProxyChainTests.vcxproj` builds a small caller and, with
+`EdhmChainFixture=true`, a stand-in for a third-party D3D11 proxy. The caller
+loads the actual product DLL beside its executable. The outer fixture changes
+public device flags and swap-chain buffer counts; those observable results must
+survive early initialization and repeated calls to both creation exports.
+Separate processes cover standalone loading, an explicit downstream proxy,
+an outer proxy with a downstream proxy together, and missing, self-referencing
+or invalid proxy fallback. The invalid library matches the caller's PE
+architecture, and the check requires its missing-export rejection diagnostic.
+The checks make WARP
+devices and hidden swap chains; they do not benchmark frame presentation.
+
+```powershell
+msbuild DirectX11/DirectX11.vcxproj -target:Build `
+  -property:Configuration=Release -property:Platform=x64 `
+  "-property:SolutionDir=$pwd/" -property:EdhmStrictBuild=true `
+  -nodeReuse:false -verbosity:minimal -restore:false
+msbuild RuntimeTests/ProxyChainTests.vcxproj -property:Configuration=Release -property:Platform=x64
+msbuild RuntimeTests/ProxyChainTests.vcxproj -property:Configuration=Release -property:Platform=x64 -property:EdhmChainFixture=true
+python RuntimeTests/run_proxy_chain_tests.py --dll x64/Release/d3d11.dll `
+  --fixture .quality/proxy-chain/x64/ProxyChainFixture.dll `
+  --exe .quality/proxy-chain/x64/ProxyChainTests.exe `
+  --output .quality/proxy-chain/manual-results
+```
+
+Use a new output directory for each run. The runtime workflow runs both Windows
+architectures. Its x64 job also checks the pinned official EDUP 0.22.1 DLL:
+a capability-only probe precedes real device creation, and EDUP must report
+device attachment and an active Present callback. This checks graphics startup;
+it does not establish Elite-specific AA output or an in-game F8 interaction.
+
+The optional `proxy_chain_baseline_run` workflow input supplies a successful,
+trusted x64 product build for the sensitivity control. Each chain case must fail
+on the specific missing device/swap-chain policy; a crash or build failure does
+not count as detection. With the official EDUP DLL, the control must complete
+creation successfully while EDUP selects the chain but reports neither device
+attachment nor an active Present callback. JSON receipts include executable and
+DLL hashes.
+
+`proxy_chain_downstream_baseline_run` supplies a build that preserves the outer
+proxy but loses the explicitly configured downstream proxy. Its three combined
+chain cases must fail with device flags `0x20` instead of `0x21`: the outer BGRA
+policy survives while the downstream single-threaded policy is missing. An
+outer-proxy bypass cannot satisfy this control. The repaired build must retain
+both policies and the downstream swap-chain buffer count.
+
 ## Regression sensitivity
 
 The manual **Runtime regression checks** workflow accepts `mutation_checks=true`.

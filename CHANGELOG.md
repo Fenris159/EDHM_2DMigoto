@@ -14,6 +14,12 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep installed device-creation hook continuations separate from selected
+  backend exports, so renamed chain loading preserves both an outer proxy such
+  as EDUP and an explicitly configured downstream proxy.
+
 ### Planned
 
 - Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
