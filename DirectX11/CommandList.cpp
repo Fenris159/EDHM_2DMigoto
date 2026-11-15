@@ -31,14 +31,10 @@ std::vector<CommandListVariable *> persistent_variables;
 
 void CommandListVariable::SetValue(float value)
 {
+	const float previous = fval;
+	fval = value;
 	if (flags & VariableFlags::PERSIST)
-	{
-		const CriticalSectionLock lock(&G->mCriticalSection);
-		G->user_config_dirty |= (fval != value);
-		fval = value;
-	}
-	else
-		fval = value;
+		G->user_config_dirty |= (previous != value);
 }
 
 void CommandListVariable::CopyStateFrom(const CommandListVariable &src)
@@ -11783,7 +11779,7 @@ bool ClearViewCommand::clear_unknown_view(ID3D11View *view, CommandListState *st
 	// writable interfaces rather than inferring one from the target type.
 	if (!clear_uav_uint && !clear_depth && !clear_stencil)
 		view->QueryInterface(__uuidof(ID3D11RenderTargetView), (void **)&rtv);
-	if (!clear_uav_uint)
+	if (!clear_uav_uint || clear_depth || clear_stencil)
 		view->QueryInterface(__uuidof(ID3D11DepthStencilView), (void **)&dsv);
 	if (!clear_depth && !clear_stencil)
 		view->QueryInterface(__uuidof(ID3D11UnorderedAccessView), (void **)&uav);

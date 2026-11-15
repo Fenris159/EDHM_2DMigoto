@@ -69,8 +69,11 @@ class ProcessTreeTests(unittest.TestCase):
                 self.assertEqual(api.WaitForSingleObject(process_handle, 0), 0, "descendant survived timeout cleanup")
             else:
                 status = Path(f"/proc/{descendants[0]}/stat")
-                if status.exists():
-                    self.assertEqual(status.read_text().split()[2], "Z", "descendant survived timeout cleanup")
+                try:
+                    state = status.read_text().split()[2]
+                except (FileNotFoundError, ProcessLookupError):
+                    state = "Z"  # A reaped process has terminated too.
+                self.assertEqual(state, "Z", "descendant survived timeout cleanup")
             self.assertIsNotNone(launched[0].returncode)
         finally:
             if api and process_handle:

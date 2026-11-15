@@ -30,7 +30,10 @@ def run(command, log_name):
     try:
         result = run_process(command, cwd=ROOT, capture_output=True, timeout=300)
     except subprocess.TimeoutExpired as error:
-        (OUTPUT / log_name).write_bytes((error.stdout or b"") + (error.stderr or b""))
+        try:
+            (OUTPUT / log_name).write_bytes((error.stdout or b"") + (error.stderr or b""))
+        except OSError as log_error:
+            print(f"Unable to retain partial timeout log: {log_error}", file=sys.stderr)
         raise
     output = result.stdout + result.stderr
     (OUTPUT / log_name).write_bytes(output)
@@ -236,8 +239,8 @@ def get_mutations(command_list, settings, profiling):
         (
             'region-cb-small',
             command_list,
-            'FillInMissingInfo(src.type, src_resource, src_view, &stride, &offset, &buf_src_size, &format, region_size);',
-            'FillInMissingInfo(src.type, src_resource, src_view, &stride, &offset, &buf_src_size, &format, 0);',
+            'else if (buf_dst_size)',
+            'else if (buf_dst_size && offset)',
         ),
         (
             'view-clear',
