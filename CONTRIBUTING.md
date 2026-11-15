@@ -41,6 +41,7 @@ and compatibility tradeoffs in the PR.
 | Product and linked dependencies | `EDHM_2DMigoto.sln`, `DirectX11/DirectX11.vcxproj`, [layout](docs/layout.md) |
 | Command parser, expressions, copies, pools, readback and views | `DirectX11/CommandList.cpp`, `CommandList.h`, [runtime contracts](DirectX11/AGENTS.md) |
 | Configuration, reference finalization, reload and persistent settings | `DirectX11/IniHandler.cpp`, `IniHandler.h`, `PersistentSettingsState.h` |
+| Command-batch ownership across reload | `DirectX11/ConfigurationLifetime.h`, `DrawContext` / `DispatchContext`, frame input and clear entry points |
 | Hooked D3D calls and context state | `DirectX11/HackerContext.*`, `HackerDXGI.cpp`, `globals.h` |
 | Resource tracking and CPU hash/cache data | `DirectX11/ResourceHash.*` |
 | Profiling and on-screen reporting | `DirectX11/profiling.*`, `Overlay.*` |

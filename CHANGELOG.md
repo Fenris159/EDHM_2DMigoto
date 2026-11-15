@@ -24,6 +24,9 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 - Serialize reload with an in-flight settings save even when no additional
   changes are dirty. Preserve the saved values through the subsequent parse.
+- Protect configuration object lifetimes across complete draw/dispatch, clear
+  and input command batches. Reload defers while a batch is active and holds
+  exclusive ownership through saving, parsing and initialization.
 - Remove the configuration-lock wait inside borrowed persistent variables;
   serialize file transactions without adding that wait to command execution.
   Atomic variable storage allows autosave reads alongside assignments. Successful

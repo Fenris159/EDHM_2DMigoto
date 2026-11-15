@@ -397,7 +397,7 @@ struct Globals
 	bool gInitialized;
 	std::string gDefaultLocale;
 	bool bIntendedTargetExe;
-	bool gReloadConfigPending;
+	std::atomic<bool> gReloadConfigPending;
 	bool gConfigInitialized;
 	bool gWipeUserConfig;
 	bool gLogInput;

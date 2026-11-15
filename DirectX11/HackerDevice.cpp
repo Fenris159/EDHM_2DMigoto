@@ -403,6 +403,7 @@ void HackerDevice::CreatePinkHuntingResources()
 
 void HackerDevice::Create3DMigotoResources()
 {
+	const ConfigurationReadLock configuration;
 	LogInfo("HackerDevice::Create3DMigotoResources(%s@%p) called.\n", type_name(this), this);
 
 	// XXX: Ignoring the return values for now because so do our callers.

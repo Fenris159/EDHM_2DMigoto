@@ -23,6 +23,7 @@
 #include "cursor.h"
 #include "WineCompat.h"
 #include "PersistentSettingsState.h"
+#include "ConfigurationLifetime.h"
 #include <io.h>
 #include <chrono>
 
@@ -4872,6 +4873,12 @@ void BuildTextureOverrideDrawMaps()
 
 void LoadConfigFile()
 {
+	const ConfigurationWriteLock configuration;
+	if (!configuration.owns_lock())
+	{
+		G->gReloadConfigPending = true;
+		return;
+	}
 	// Drop profiling pointers before parsing can replace command storage.
 	Profiling::clear();
 	Profiling::text.clear();
@@ -5643,6 +5650,12 @@ static void MarkAllShadersDeferredUnprocessed()
 void ReloadConfig(HackerDevice *device)
 {
 	auto start = std::chrono::high_resolution_clock::now();
+	const ConfigurationWriteLock configuration(std::try_to_lock);
+	if (!configuration.owns_lock())
+	{
+		G->gReloadConfigPending = true;
+		return;
+	}
 	// Serialize the complete save/load transaction with other saves and wipes.
 	const std::lock_guard<std::recursive_mutex> settings_lock(persistent_settings_save_mutex);
 

@@ -4,6 +4,7 @@
 #include <INITGUID.h>
 
 #include "DrawCallInfo.h"
+#include "ConfigurationLifetime.h"
 
 #include "CommandList.h"
 
@@ -29,6 +30,7 @@ struct ShaderOverride;
 
 struct DrawContext
 {
+	ConfigurationReadLock configuration;
 	ID3D11PixelShader *oldPixelShader;
 	ID3D11VertexShader *oldVertexShader;
 	CommandList *post_commands[5];
@@ -46,6 +48,7 @@ struct DrawContext
 
 struct DispatchContext
 {
+	ConfigurationReadLock configuration;
 	CommandList *post_commands;
 	DrawCallInfo call_info;
 

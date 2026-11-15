@@ -100,6 +100,7 @@
     <ClInclude Include="lock.h" />
     <ClInclude Include="Overlay.h" />
     <ClInclude Include="CommandList.h" />
+    <ClInclude Include="ConfigurationLifetime.h" />
     <ClInclude Include="Override.h" />
     <ClInclude Include="profiling.h" />
     <ClInclude Include="ResourceHash.h" />

@@ -467,6 +467,7 @@ static void RunCommandListComplete(HackerDevice *mHackerDevice, HackerContext *m
                                    CommandList *command_list, DrawCallInfo *call_info, ID3D11Resource **resource,
                                    ID3D11View *view, bool post)
 {
+	const ConfigurationReadLock configuration;
 	CommandListState state;
 	state.mHackerDevice = mHackerDevice;
 	state.mHackerContext = mHackerContext;

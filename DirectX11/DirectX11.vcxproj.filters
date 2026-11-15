@@ -56,6 +56,7 @@
     <ClInclude Include="..\version.h" />
     <ClInclude Include="..\crc32c-hw-1.0.5\include\crc32c.h" />
     <ClInclude Include="CommandList.h" />
+    <ClInclude Include="ConfigurationLifetime.h" />
     <ClInclude Include="ResourceHash.h" />
     <ClInclude Include="HookedContext.h" />
     <ClInclude Include="HookedDevice.h" />
