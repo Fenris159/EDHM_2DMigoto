@@ -46,7 +46,14 @@ def main():
                 command.append("hardware")
             record = {"case": case, "passed": False}
             records.append(record)
-            result = subprocess.run(command, cwd=directory, capture_output=True, text=True, timeout=60, check=False)
+            try:
+                result = subprocess.run(command, cwd=directory, capture_output=True, text=True, timeout=60, check=False)
+            except subprocess.TimeoutExpired as error:
+                record["timeout"] = True
+                for name, captured in (("stdout", error.stdout), ("stderr", error.stderr)):
+                    text = captured.decode("utf-8", errors="replace") if isinstance(captured, bytes) else captured or ""
+                    (directory / f"{name}.txt").write_text(text, encoding="utf-8")
+                raise
             (directory / "stdout.txt").write_text(result.stdout, encoding="utf-8")
             (directory / "stderr.txt").write_text(result.stderr, encoding="utf-8")
             record["exit_code"] = result.returncode

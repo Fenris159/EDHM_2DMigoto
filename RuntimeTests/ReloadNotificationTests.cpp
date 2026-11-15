@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <d3d11.h>
 #include <wrl/client.h>
+#include "ClockBoundary.h"
 
 #include <cstdio>
 #include <cstring>
@@ -139,6 +140,7 @@ void run(const char *mode, bool hardware)
 	const float black[] = {0, 0, 0, 1};
 	context->ClearRenderTargetView(target.Get(), black);
 	require(CopyFileW(L"reload.ini", L"d3dx.ini", FALSE) != FALSE, "reload input copy failed");
+	ClockBoundary clock(module);
 	require(SUCCEEDED(swap_chain->Present(0, 0)), "notification Present failed");
 	check_reloaded_constants(device.Get(), context.Get());
 	check_image(device.Get(), context.Get(), back_buffer.Get(), show, warnings);
