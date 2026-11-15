@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <atomic>
 #include <optional>
 #include <cstdint>
 #include <array>
@@ -155,10 +156,33 @@ class CommandListVariable
   public:
 	wstring name;
 	// Future work: Additional types, such as hash
-	float fval;
+	std::atomic<float> fval;
 	VariableFlags flags;
 
 	CommandListVariable(wstring name, float fval, VariableFlags flags) : name(name), fval(fval), flags(flags) {}
+	CommandListVariable(const CommandListVariable &other)
+	    : name(other.name), fval(other.fval.load(std::memory_order_relaxed)), flags(other.flags)
+	{
+	}
+	CommandListVariable(CommandListVariable &&other) noexcept
+	    : name(std::move(other.name)), fval(other.fval.load(std::memory_order_relaxed)), flags(other.flags)
+	{
+	}
+	CommandListVariable &operator=(const CommandListVariable &other)
+	{
+		name = other.name;
+		fval.store(other.fval.load(std::memory_order_relaxed), std::memory_order_relaxed);
+		flags = other.flags;
+		return *this;
+	}
+	CommandListVariable &operator=(CommandListVariable &&other) noexcept
+	{
+		name = std::move(other.name);
+		fval.store(other.fval.load(std::memory_order_relaxed), std::memory_order_relaxed);
+		flags = other.flags;
+		return *this;
+	}
+	~CommandListVariable() = default;
 
 	void CopyStateFrom(const CommandListVariable &src);
 	void SetValue(float value);
@@ -1366,7 +1390,7 @@ class CommandListOperand : public CommandListToken, public CommandListOperandBas
 	int param_idx;
 
 	// For VARIABLE type:
-	float *var_ftarget;
+	std::atomic<float> *var_ftarget;
 
 	// For texture filters:
 	ResourceCopyTarget texture_filter_target;

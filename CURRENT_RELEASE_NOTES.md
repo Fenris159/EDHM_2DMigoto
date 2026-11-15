@@ -10,6 +10,8 @@ Built from this repository's automated release workflow.
   changes are dirty. Preserve the saved values through the subsequent parse.
 - Remove the configuration-lock wait inside borrowed persistent variables;
   serialize file transactions without adding that wait to command execution.
+  Atomic variable storage allows autosave reads alongside assignments. Successful
+  persistent `store` reads mark their new value for saving.
 - Honor explicit depth/stencil clear selection when a hexadecimal value also
   sets the integer-UAV hint.
 - Keep the original timeout and its cleanup-failure marker if writing the

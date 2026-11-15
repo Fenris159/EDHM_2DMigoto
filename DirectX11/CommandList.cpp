@@ -31,10 +31,13 @@ std::vector<CommandListVariable *> persistent_variables;
 
 void CommandListVariable::SetValue(float value)
 {
-	const float previous = fval;
-	fval = value;
 	if (flags & VariableFlags::PERSIST)
+	{
+		const float previous = fval.exchange(value, std::memory_order_relaxed);
 		G->user_config_dirty |= (previous != value);
+	}
+	else
+		fval.store(value, std::memory_order_relaxed);
 }
 
 void CommandListVariable::CopyStateFrom(const CommandListVariable &src)
@@ -42,7 +45,7 @@ void CommandListVariable::CopyStateFrom(const CommandListVariable &src)
 	const bool was_persist = !!(flags & VariableFlags::PERSIST);
 	const bool now_persist = !!(src.flags & VariableFlags::PERSIST);
 
-	fval = src.fval;
+	fval.store(src.fval.load(std::memory_order_relaxed), std::memory_order_relaxed);
 	flags = src.flags;
 
 	if (now_persist && !was_persist)
@@ -1842,7 +1845,9 @@ void StoreCommand::run(CommandListState *state)
 	}
 
 	const auto *data = static_cast<const uint8_t *>(mapped.pData);
-	memcpy(&var->fval, data + (value_offset - copy_offset), sizeof(float));
+	float value;
+	memcpy(&value, data + (value_offset - copy_offset), sizeof(value));
+	var->SetValue(value);
 	state->mOrigContext1->Unmap(staging, 0);
 }
 
@@ -5493,7 +5498,7 @@ void VariableAssignment::run(CommandListState *state)
 
 	var->SetValue(expression.evaluate(state));
 
-	COMMAND_LIST_LOG(state, "  = %f\n", var->fval);
+	COMMAND_LIST_LOG(state, "  = %f\n", var->fval.load(std::memory_order_relaxed));
 }
 
 bool AssignmentCommand::optimise(HackerDevice *device)
@@ -7545,11 +7550,15 @@ void CustomResourcePool::InitializeVariable(size_t pool_index)
 			preview_variables.push_back(std::move(variable));
 		}
 		else
-			element.variable = RegisterGlobalVariable(variable_id, &variable_template->fval, variable_template->flags);
+		{
+			float value = variable_template->fval.load(std::memory_order_relaxed);
+			element.variable = RegisterGlobalVariable(variable_id, &value, variable_template->flags);
+		}
 	}
 	else
 	{
-		element.variable->fval = variable_template->fval;
+		element.variable->fval.store(variable_template->fval.load(std::memory_order_relaxed),
+		                             std::memory_order_relaxed);
 		element.variable->flags = variable_template->flags;
 	}
 }
@@ -7611,7 +7620,7 @@ void CustomResourcePool::ResetVariable(CommandListVariable *variable)
 	if (!variable)
 		return;
 
-	variable->fval = variable_template->fval;
+	variable->fval.store(variable_template->fval.load(std::memory_order_relaxed), std::memory_order_relaxed);
 }
 
 void CustomResourcePool::ResetElement(size_t pool_index)
@@ -8677,7 +8686,7 @@ void PoolVariableOperation::SetVariableValue(CommandListState *state, CommandLis
 
 	dst->SetValue(value);
 
-	COMMAND_LIST_LOG(state, "  = %f\n", dst->fval);
+	COMMAND_LIST_LOG(state, "  = %f\n", dst->fval.load(std::memory_order_relaxed));
 }
 
 void PoolVariableOperation::SetAllPoolVariables(CommandListState *state, float value)
