@@ -1,5 +1,6 @@
 #include "../DirectX11/CommandList.h"
 #include "../DirectX11/HackerContext.h"
+#include "../DirectX11/FrameAnalysis.h"
 #include "../DirectX11/IniHandler.h"
 #include "../DirectX11/globals.h"
 #include "D3DDeviceBoundary.h"
@@ -16,6 +17,7 @@
 #include <stdexcept>
 #include <thread>
 #include <d3d11sdklayers.h>
+#include <d3dcompiler.h>
 #include <wrl/client.h>
 
 namespace
@@ -1201,6 +1203,184 @@ void reload_waits_for_an_inflight_autosave()
 	require(command_list_globals.at(L"$known").fval == 7.0f, "reload read the file before the autosave committed");
 	require(file_contents(files.user).find("$known = 7") != std::string::npos,
 	        "autosave did not preserve its snapshot");
+}
+
+HackerDevice *analysis_reload_device = nullptr;
+VariableAssignment *analysis_assignment = nullptr;
+CommandListState *analysis_assignment_state = nullptr;
+std::exception_ptr analysis_reload_error;
+bool analysis_probe_enabled = false;
+bool analysis_probe_seen = false;
+decltype(&EnterCriticalSection) real_analysis_enter = nullptr;
+
+void WINAPI reject_contended_analysis_lock(LPCRITICAL_SECTION section)
+{
+	if (section == &G->mCriticalSection)
+	{
+		// Reject the OS wait instead of hanging on the writer/global-lock
+		// inversion this fixture protects. Other OS locks behave normally.
+		if (!TryEnterCriticalSection(section))
+			throw std::runtime_error("reload would wait behind an active frame-analysis dump");
+		return;
+	}
+	real_analysis_enter(section);
+}
+
+HWND WINAPI poll_analysis_input()
+{
+	if (analysis_probe_enabled && !analysis_probe_seen)
+	{
+		analysis_probe_seen = true;
+		try
+		{
+			analysis_assignment->run(analysis_assignment_state);
+			std::thread reload(
+			    []()
+			    {
+				    try
+				    {
+					    ReloadConfig(analysis_reload_device);
+				    }
+				    catch (...)
+				    {
+					    analysis_reload_error = std::current_exception();
+				    }
+			    });
+			reload.join();
+		}
+		catch (...)
+		{
+			analysis_reload_error = std::current_exception();
+		}
+	}
+	// Keep the host's actual keyboard/controllers outside this fixture.
+	return nullptr;
+}
+
+void frame_analysis_input_keeps_configuration_ownership()
+{
+	for (int route = 0; route < 4; ++route)
+	{
+		D3DFixture fixture;
+		ConfigFixture resources;
+		SettingsConfigFixture files;
+		std::ofstream(files.user) << "[Constants]\n$known = 7\n";
+		LoadConfigFile();
+		for (const auto &command : G->constants_command_list.commands)
+			command->run(&fixture.state);
+		const auto output = files.config.parent_path() / L"runtime-analysis-locks";
+		std::filesystem::create_directories(output);
+		struct RestoreAnalysis
+		{
+			std::filesystem::path directory;
+			std::wstring previous_path = G->ANALYSIS_PATH;
+			FrameAnalysisOptions previous_current = G->cur_analyse_options;
+			FrameAnalysisOptions previous_default = G->def_analyse_options;
+			bool previous_foreground = G->check_foreground_window;
+			bool previous_analyzing = G->analyse_frame;
+			explicit RestoreAnalysis(const std::filesystem::path &directory) : directory(directory) {}
+			RestoreAnalysis(const RestoreAnalysis &) = delete;
+			RestoreAnalysis &operator=(const RestoreAnalysis &) = delete;
+			RestoreAnalysis(RestoreAnalysis &&) = delete;
+			RestoreAnalysis &operator=(RestoreAnalysis &&) = delete;
+			~RestoreAnalysis()
+			{
+				G->analyse_frame = previous_analyzing;
+				G->cur_analyse_options = previous_current;
+				G->def_analyse_options = previous_default;
+				G->check_foreground_window = previous_foreground;
+				wcscpy_s(G->ANALYSIS_PATH, previous_path.c_str());
+				analysis_probe_enabled = analysis_probe_seen = false;
+				analysis_reload_error = nullptr;
+				analysis_reload_device = nullptr;
+				analysis_assignment = nullptr;
+				analysis_assignment_state = nullptr;
+				std::error_code error;
+				std::filesystem::remove_all(directory, error);
+			}
+		} cleanup(output);
+		require(wcscpy_s(G->ANALYSIS_PATH, output.wstring().c_str()) == 0, "analysis output path is too long");
+		HackerDevice device(fixture.device.Get(), fixture.context.Get());
+		device.SetHackerContext(fixture.hacker_context.get());
+		fixture.hacker_context->SetHackerDevice(&device, false);
+		Microsoft::WRL::ComPtr<ID3D11DeviceContext1> deferred;
+		require(SUCCEEDED(fixture.device->CreateDeferredContext1(0, &deferred)), "analysis deferred context failed");
+		FrameAnalysisContext analysis(fixture.device.Get(), deferred.Get());
+		FrameAnalysisContext playback(fixture.device.Get(), fixture.context.Get());
+		analysis.SetHackerDevice(&device, false);
+		playback.SetHackerDevice(&device, false);
+		const char program[] = "[numthreads(1,1,1)] void main(uint3 id:SV_DispatchThreadID) {}";
+		Microsoft::WRL::ComPtr<ID3DBlob> code, errors;
+		require(SUCCEEDED(D3DCompile(program, sizeof(program) - 1, "analysis-lock", nullptr, nullptr, "main", "cs_5_0",
+		                             0, 0, &code, &errors)),
+		        "analysis compute shader compilation failed");
+		Microsoft::WRL::ComPtr<ID3D11ComputeShader> shader;
+		require(SUCCEEDED(fixture.device->CreateComputeShader(code->GetBufferPointer(), code->GetBufferSize(), nullptr,
+		                                                      &shader)),
+		        "analysis compute shader creation failed");
+		const float values[] = {1, 2, 3, 4};
+		D3D11_BUFFER_DESC desc{};
+		desc.ByteWidth = sizeof(values);
+		desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		D3D11_SUBRESOURCE_DATA initial{};
+		initial.pSysMem = values;
+		Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+		require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &initial, &buffer)), "analysis constant buffer failed");
+		analysis.CSSetShader(shader.Get(), nullptr, 0);
+		auto *binding = buffer.Get();
+		analysis.CSSetConstantBuffers(0, 1, &binding);
+		G->check_foreground_window = true;
+		G->analyse_frame = true;
+		auto options = FrameAnalysisOptions::HOLD | FrameAnalysisOptions::DUMP_CB | FrameAnalysisOptions::FMT_BUF_BIN |
+		               FrameAnalysisOptions::MONO |
+		               (route == 3 ? FrameAnalysisOptions::DEFRD_CTX_DELAY : FrameAnalysisOptions::DEFRD_CTX_IMM);
+		if (route == 1)
+			options |= FrameAnalysisOptions::DUMP_ON_UPDATE;
+		G->cur_analyse_options = G->def_analyse_options = options;
+		VariableAssignment assignment;
+		assignment.var = &command_list_globals.at(L"$known");
+		const std::wstring value = L"11";
+		require(assignment.expression.parse(&value, nullptr, nullptr), "analysis assignment rejected");
+		CommandListState state;
+		state.mHackerContext = &analysis;
+		analysis_assignment = &assignment;
+		analysis_assignment_state = &state;
+		analysis_reload_device = &device;
+		auto address = GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "EnterCriticalSection");
+		static_assert(sizeof(address) == sizeof(real_analysis_enter));
+		memcpy(&real_analysis_enter, &address, sizeof(address));
+		require(real_analysis_enter != nullptr, "analysis lock boundary unavailable");
+		{
+			ImportBoundary foreground(GetModuleHandleW(nullptr), "GetForegroundWindow", &poll_analysis_input);
+			ImportBoundary critical(GetModuleHandleW(nullptr), "EnterCriticalSection", &reject_contended_analysis_lock);
+			analysis_probe_enabled = route != 3;
+			if (route == 0)
+				analysis.Dispatch(1, 1, 1);
+			else if (route == 1)
+				analysis.UpdateSubresource(buffer.Get(), 0, nullptr, values, 0, 0);
+			else if (route == 2)
+				analysis.FrameAnalysisDump(buffer.Get(), options, L"lock-test", DXGI_FORMAT_UNKNOWN, 0, 0);
+			else
+			{
+				analysis.Dispatch(1, 1, 1);
+				Microsoft::WRL::ComPtr<ID3D11CommandList> recorded;
+				require(SUCCEEDED(analysis.FinishCommandList(FALSE, &recorded)), "analysis recording failed");
+				analysis_probe_enabled = true;
+				playback.ExecuteCommandList(recorded.Get(), TRUE);
+			}
+		}
+		require(analysis_probe_seen, "analysis dump did not reach the controlled input boundary");
+		if (analysis_reload_error)
+			std::rethrow_exception(analysis_reload_error);
+		require(G->gReloadConfigPending && command_list_globals.at(L"$known").fval == 11.0f,
+		        "analysis input lost its pending assignment across reload");
+		require(file_contents(files.user).find("$known = 7") != std::string::npos,
+		        "reload saved or replaced configuration while analysis owned its global lock");
+		fixture.require_no_errors();
+		ReloadConfig(&device);
+		require(command_list_globals.at(L"$known").fval == 11.0f && !G->gReloadConfigPending,
+		        "analysis reload did not complete after the dump finished");
+	}
 }
 
 void preserves_only_eligible_settings_across_reload()
@@ -3063,6 +3243,7 @@ int main(int argc, char **argv)
 	             {"settings-save-update", saves_acknowledge_only_the_captured_settings},
 	             {"settings-batch-reload", reload_defers_until_deferred_command_batches_finish},
 	             {"settings-save-reload", reload_waits_for_an_inflight_autosave},
+	             {"analysis-reload", frame_analysis_input_keeps_configuration_ownership},
 	             {"constants-order", preserves_constants_declaration_and_execution_order},
 	             {"ini-sections", preserves_duplicate_sections_and_recursive_includes},
 	             {"if-conditions", preserves_static_and_dynamic_conditions_across_reload},
