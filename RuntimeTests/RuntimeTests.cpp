@@ -958,8 +958,8 @@ void deferred_initialization_preserves_unloaded_settings()
 	SettingsConfigFixture files;
 	const auto included = files.config.parent_path() / L"runtime-deferred.ini";
 	files.includes.push_back(included);
-	std::ofstream(included) << "[Constants]\nglobal persist $included = 2\n";
-	std::ofstream(files.user) << "[Constants]\n$boot = 7\n$included = 13\n";
+	std::ofstream(included) << "namespace = deferred\n[Constants]\nglobal persist $included = 2\n";
+	std::ofstream(files.user) << "[Constants]\n$boot = 7\n$\\deferred\\included = 13\n";
 	std::ofstream(files.config) << "[Logging]\nenabled=0\nshow_warnings=0\n"
 	                               "[System]\nskip_early_includes_load=1\n"
 	                               "[Include]\nuser_config=runtime-user.ini\ninclude=runtime-deferred.ini\n"
@@ -979,7 +979,7 @@ void deferred_initialization_preserves_unloaded_settings()
 	for (const auto &command : G->constants_command_list.commands)
 		command->run(&fixture.state);
 	require(command_list_globals.at(L"$boot").fval == 1.0f, "deferred initialization lost the pending startup value");
-	require(command_list_globals.at(L"$included").fval == 13.0f,
+	require(command_list_globals.at(L"$\\deferred\\included").fval == 13.0f,
 	        "startup save overwrote a persistent value whose include had not loaded yet");
 }
 
