@@ -28,25 +28,26 @@ CustomShaders customShaders;
 ExplicitCommandListSections explicitCommandListSections;
 CommandListVariables command_list_globals;
 std::vector<CommandListVariable *> persistent_variables;
+std::mutex persistent_variables_mutex;
 
 void CommandListVariable::SetValue(float value)
 {
 	if (flags & VariableFlags::PERSIST)
 	{
-		const CriticalSectionLock lock(&G->mCriticalSection);
-		G->user_config_dirty |= (fval != value);
-		fval = value;
+		const float previous = fval.exchange(value);
+		G->user_config_dirty |= (previous != value);
 	}
 	else
-		fval = value;
+		fval.store(value);
 }
 
 void CommandListVariable::CopyStateFrom(const CommandListVariable &src)
 {
+	const std::lock_guard<std::mutex> lock(persistent_variables_mutex);
 	const bool was_persist = !!(flags & VariableFlags::PERSIST);
 	const bool now_persist = !!(src.flags & VariableFlags::PERSIST);
 
-	fval = src.fval;
+	fval.store(src.fval.load());
 	flags = src.flags;
 
 	if (now_persist && !was_persist)
@@ -468,6 +469,7 @@ static void RunCommandListComplete(HackerDevice *mHackerDevice, HackerContext *m
                                    CommandList *command_list, DrawCallInfo *call_info, ID3D11Resource **resource,
                                    ID3D11View *view, bool post)
 {
+	const ConfigurationReadLock configuration;
 	CommandListState state;
 	state.mHackerDevice = mHackerDevice;
 	state.mHackerContext = mHackerContext;
@@ -1846,7 +1848,9 @@ void StoreCommand::run(CommandListState *state)
 	}
 
 	const auto *data = static_cast<const uint8_t *>(mapped.pData);
-	memcpy(&var->fval, data + (value_offset - copy_offset), sizeof(float));
+	float value;
+	memcpy(&value, data + (value_offset - copy_offset), sizeof(value));
+	var->SetValue(value);
 	state->mOrigContext1->Unmap(staging, 0);
 }
 
@@ -5497,7 +5501,7 @@ void VariableAssignment::run(CommandListState *state)
 
 	var->SetValue(expression.evaluate(state));
 
-	COMMAND_LIST_LOG(state, "  = %f\n", var->fval);
+	COMMAND_LIST_LOG(state, "  = %f\n", var->fval.load());
 }
 
 bool AssignmentCommand::optimise(HackerDevice *device)
@@ -7265,7 +7269,7 @@ std::unique_ptr<CustomResourcePool> CustomResourcePool::CreateMetadataPreview() 
 		result->preview_resources.push_back(std::move(resource));
 	}
 	if (variable_template)
-		result->variable_template = std::make_unique<CommandListVariable>(*variable_template);
+		result->variable_template = variable_template->CloneForMetadata();
 	result->elements = elements;
 	for (PoolElement &element : result->elements)
 	{
@@ -7278,7 +7282,7 @@ std::unique_ptr<CustomResourcePool> CustomResourcePool::CreateMetadataPreview() 
 		}
 		if (element.variable)
 		{
-			auto variable = std::make_unique<CommandListVariable>(*element.variable);
+			auto variable = element.variable->CloneForMetadata();
 			element.variable = variable.get();
 			result->preview_variables.push_back(std::move(variable));
 		}
@@ -7549,11 +7553,14 @@ void CustomResourcePool::InitializeVariable(size_t pool_index)
 			preview_variables.push_back(std::move(variable));
 		}
 		else
-			element.variable = RegisterGlobalVariable(variable_id, &variable_template->fval, variable_template->flags);
+		{
+			float value = variable_template->fval.load();
+			element.variable = RegisterGlobalVariable(variable_id, &value, variable_template->flags);
+		}
 	}
 	else
 	{
-		element.variable->fval = variable_template->fval;
+		element.variable->fval.store(variable_template->fval.load());
 		element.variable->flags = variable_template->flags;
 	}
 }
@@ -7615,7 +7622,7 @@ void CustomResourcePool::ResetVariable(CommandListVariable *variable)
 	if (!variable)
 		return;
 
-	variable->fval = variable_template->fval;
+	variable->fval.store(variable_template->fval.load());
 }
 
 void CustomResourcePool::ResetElement(size_t pool_index)
@@ -8681,7 +8688,7 @@ void PoolVariableOperation::SetVariableValue(CommandListState *state, CommandLis
 
 	dst->SetValue(value);
 
-	COMMAND_LIST_LOG(state, "  = %f\n", dst->fval);
+	COMMAND_LIST_LOG(state, "  = %f\n", dst->fval.load());
 }
 
 void PoolVariableOperation::SetAllPoolVariables(CommandListState *state, float value)
@@ -9232,7 +9239,7 @@ class PoolMetadataPreview
 			contents = std::make_unique<Contents>();
 		auto &preview = contents->variables[variable];
 		if (!preview)
-			preview = std::make_unique<CommandListVariable>(*variable);
+			preview = variable->CloneForMetadata();
 		return preview.get();
 	}
 
@@ -11783,7 +11790,7 @@ bool ClearViewCommand::clear_unknown_view(ID3D11View *view, CommandListState *st
 	// writable interfaces rather than inferring one from the target type.
 	if (!clear_uav_uint && !clear_depth && !clear_stencil)
 		view->QueryInterface(__uuidof(ID3D11RenderTargetView), (void **)&rtv);
-	if (!clear_uav_uint)
+	if (!clear_uav_uint || clear_depth || clear_stencil)
 		view->QueryInterface(__uuidof(ID3D11DepthStencilView), (void **)&dsv);
 	if (!clear_depth && !clear_stencil)
 		view->QueryInterface(__uuidof(ID3D11UnorderedAccessView), (void **)&uav);

@@ -2416,6 +2416,7 @@ HackerContext::ClearUnorderedAccessViewUint(THIS_
                                             /* [annotation] */
                                             __in const UINT Values[4])
 {
+	const ConfigurationReadLock configuration;
 	RunViewCommandList(mHackerDevice, this, &G->clear_uav_uint_command_list, pUnorderedAccessView, false);
 	mOrigContext1->ClearUnorderedAccessViewUint(pUnorderedAccessView, Values);
 	RunViewCommandList(mHackerDevice, this, &G->post_clear_uav_uint_command_list, pUnorderedAccessView, true);
@@ -2428,6 +2429,7 @@ HackerContext::ClearUnorderedAccessViewFloat(THIS_
                                              /* [annotation] */
                                              __in const FLOAT Values[4])
 {
+	const ConfigurationReadLock configuration;
 	RunViewCommandList(mHackerDevice, this, &G->clear_uav_float_command_list, pUnorderedAccessView, false);
 	mOrigContext1->ClearUnorderedAccessViewFloat(pUnorderedAccessView, Values);
 	RunViewCommandList(mHackerDevice, this, &G->post_clear_uav_float_command_list, pUnorderedAccessView, true);
@@ -2444,6 +2446,7 @@ HackerContext::ClearDepthStencilView(THIS_
                                      /* [annotation] */
                                      __in UINT8 Stencil)
 {
+	const ConfigurationReadLock configuration;
 	RunViewCommandList(mHackerDevice, this, &G->clear_dsv_command_list, pDepthStencilView, false);
 	mOrigContext1->ClearDepthStencilView(pDepthStencilView, ClearFlags, Depth, Stencil);
 	RunViewCommandList(mHackerDevice, this, &G->post_clear_dsv_command_list, pDepthStencilView, true);
@@ -3346,6 +3349,7 @@ void HackerContext::Bind3DMigotoResources()
 
 void HackerContext::InitIniParams()
 {
+	const ConfigurationReadLock configuration;
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 	HRESULT hr;
 
@@ -3892,6 +3896,7 @@ HackerContext::ClearRenderTargetView(THIS_
                                      /* [annotation] */
                                      __in const FLOAT ColorRGBA[4])
 {
+	const ConfigurationReadLock configuration;
 	RunViewCommandList(mHackerDevice, this, &G->clear_rtv_command_list, pRenderTargetView, false);
 	mOrigContext1->ClearRenderTargetView(pRenderTargetView, ColorRGBA);
 	RunViewCommandList(mHackerDevice, this, &G->post_clear_rtv_command_list, pRenderTargetView, true);

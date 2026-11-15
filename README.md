@@ -33,10 +33,14 @@ authorship, licensing, and attribution.
 
 ## EDUP support
 
-**EDHM_2DMigoto 0.1.4 supports EDHM alongside
+**EDHM_2DMigoto 0.1.5 supports EDHM alongside
 [Elite Dangerous Unofficial Patch (EDUP)](https://github.com/characterecho-sean/ed-unofficial-patch).**
 Keep EDUP as `d3d11.dll` and use our normal release DLL as `d3d11_edhm.dll`.
 EDUP supplies AA/upscaling; our DLL runs EDHM's HUD configuration and overrides.
+
+Installers and updaters can use the **[EDUP vendor downloads](vendor/edup-runtime/README.md)**
+for a pre-renamed `d3d11_edhm.dll`, checksum and version-pinned JSON manifest.
+These assets are published with each release.
 
 Follow the **[recommended EDUP configuration](https://github.com/Fenris159/EDHM_2DMigoto/wiki/EDUP-Compatibility-and-Configuration#recommended-configuration)**
 for load order, both INI files, optional quiet reloads, and validation limits.

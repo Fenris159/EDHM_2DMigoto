@@ -250,10 +250,13 @@ void HackerSwapChain::RunFrameActions()
 	// present. If we ever needed to run the command list before this
 	// point, we should consider making an explicit "pre" command list for
 	// that purpose rather than breaking the existing behaviour.
-	bool newEvent = DispatchInputEvents(mHackerDevice);
-
-	CurrentTransition.UpdatePresets(mHackerDevice);
-	CurrentTransition.UpdateTransitions(mHackerDevice);
+	bool newEvent;
+	{
+		const ConfigurationReadLock configuration;
+		newEvent = DispatchInputEvents(mHackerDevice);
+		CurrentTransition.UpdatePresets(mHackerDevice);
+		CurrentTransition.UpdateTransitions(mHackerDevice);
+	}
 
 	// The config file is not safe to reload from within the input handler
 	// since it needs to change the key bindings, so it sets this flag

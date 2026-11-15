@@ -1730,6 +1730,7 @@ bool FrameAnalysisContext::DeferDumpBuffer(ID3D11Buffer *staging, D3D11_BUFFER_D
 
 void FrameAnalysisContext::dump_deferred_resources(ID3D11CommandList *command_list)
 {
+	const ConfigurationReadLock configuration;
 	FrameAnalysisDeferredBuffersPtr deferred_buffers = nullptr;
 	FrameAnalysisDeferredTex2DPtr deferred_tex2d = nullptr;
 
@@ -3123,6 +3124,7 @@ void FrameAnalysisContext::set_default_dump_formats(bool draw)
 
 void FrameAnalysisContext::FrameAnalysisAfterDraw(bool compute, DrawCallInfo *call_info)
 {
+	const ConfigurationReadLock configuration;
 	update_per_draw_analyse_options();
 
 	// Update: We now have an option to allow analysis on deferred
@@ -3195,6 +3197,7 @@ void FrameAnalysisContext::FrameAnalysisAfterDraw(bool compute, DrawCallInfo *ca
 void FrameAnalysisContext::_FrameAnalysisAfterUpdate(ID3D11Resource *resource, FrameAnalysisOptions type_mask,
                                                      const wchar_t *type)
 {
+	const ConfigurationReadLock configuration;
 	wchar_t filename[MAX_PATH];
 	HRESULT hr;
 
@@ -3247,6 +3250,7 @@ void FrameAnalysisContext::FrameAnalysisAfterUpdate(ID3D11Resource *resource)
 void FrameAnalysisContext::FrameAnalysisDump(ID3D11Resource *resource, FrameAnalysisOptions options,
                                              const wchar_t *target, DXGI_FORMAT format, UINT stride, UINT offset)
 {
+	const ConfigurationReadLock configuration;
 	wchar_t filename[MAX_PATH];
 	HRESULT hr;
 

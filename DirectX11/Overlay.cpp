@@ -961,6 +961,7 @@ void Overlay::DrawNotices(float *y)
 
 void Overlay::DrawProfiling(float *y)
 {
+	const ConfigurationReadLock configuration;
 	Vector2 strSize;
 
 	Profiling::update_txt();

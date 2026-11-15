@@ -63,3 +63,10 @@ vendor/edhm-runtime/RELEASE_URL text eol=lf
 vendor/edhm-runtime/SOURCE_TAG text eol=lf
 vendor/edhm-runtime/VERSION text eol=lf
 vendor/edhm-runtime/*.sha256 text eol=lf
+vendor/edup-runtime/*.dll filter=lfs diff=lfs merge=lfs -text
+vendor/edup-runtime/CHANNEL text eol=lf
+vendor/edup-runtime/RELEASE_URL text eol=lf
+vendor/edup-runtime/SOURCE_TAG text eol=lf
+vendor/edup-runtime/VERSION text eol=lf
+vendor/edup-runtime/*.sha256 text eol=lf
+vendor/edup-runtime/*.json text eol=lf

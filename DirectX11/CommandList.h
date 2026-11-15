@@ -1,6 +1,8 @@
 #pragma once
 
 #include <memory>
+#include <atomic>
+#include <mutex>
 #include <optional>
 #include <cstdint>
 #include <array>
@@ -150,15 +152,50 @@ static EnumName_t<const wchar_t *, VariableFlags> VariableFlagNames[] = {
     {nullptr, VariableFlags::INVALID} // End of list marker
 };
 
-class CommandListVariable
+// Explicit atomic value copies preserve command-container and preview semantics.
+class CommandListVariable // NOSONAR: Value copies need no custom cleanup.
 {
   public:
 	wstring name;
 	// Future work: Additional types, such as hash
-	float fval;
+	std::atomic<float> fval;
 	VariableFlags flags;
 
 	CommandListVariable(wstring name, float fval, VariableFlags flags) : name(name), fval(fval), flags(flags) {}
+	CommandListVariable(const CommandListVariable &other)
+	    : name(other.name), fval(other.fval.load()), flags(other.flags)
+	{
+	}
+	CommandListVariable(CommandListVariable &&other) noexcept
+	    : name(std::move(other.name)), fval(other.fval.load()), flags(other.flags)
+	{
+	}
+	CommandListVariable &operator=(const CommandListVariable &other)
+	{
+		if (this != &other)
+		{
+			name = other.name;
+			fval.store(other.fval.load());
+			flags = other.flags;
+		}
+		return *this;
+	}
+	CommandListVariable &operator=(CommandListVariable &&other) noexcept
+	{
+		if (this != &other)
+		{
+			name = std::move(other.name);
+			fval.store(other.fval.load());
+			flags = other.flags;
+		}
+		return *this;
+	}
+	~CommandListVariable() = default;
+
+	std::unique_ptr<CommandListVariable> CloneForMetadata() const
+	{
+		return std::make_unique<CommandListVariable>(name, fval.load(), flags);
+	}
 
 	void CopyStateFrom(const CommandListVariable &src);
 	void SetValue(float value);
@@ -167,6 +204,7 @@ class CommandListVariable
 typedef std::unordered_map<std::wstring, class CommandListVariable> CommandListVariables;
 extern CommandListVariables command_list_globals;
 extern std::vector<CommandListVariable *> persistent_variables;
+extern std::mutex persistent_variables_mutex;
 
 // The scope object is used to declare local variables in a command list. The
 // multiple levels are to isolate variables declared inside if blocks from
@@ -1366,7 +1404,7 @@ class CommandListOperand : public CommandListToken, public CommandListOperandBas
 	int param_idx;
 
 	// For VARIABLE type:
-	float *var_ftarget;
+	std::atomic<float> *var_ftarget;
 
 	// For texture filters:
 	ResourceCopyTarget texture_filter_target;

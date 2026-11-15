@@ -1,58 +1,40 @@
-## EDHM_2DMigoto 0.1.4
+## EDHM_2DMigoto 0.1.5
 
 Package build for Elite Dangerous HUD Mod (EDHM).
 Built from this repository's automated release workflow.
-## [0.1.4] - 2026-11-15
+## [0.1.5] - 2026-11-15
 
 ### Added
 
-- Supported EDHM + EDUP chaining with the normal runtime DLL. The README links
-  the recommended wiki configuration, file layout and tested scope.
-- `[Logging] show_reload_message=0` hides the reload confirmation while keeping
-  configuration reloads and their disk log entry. Warning notices remain
-  independently controlled by the plural `show_warnings` key.
-- Resource matching/view diagnostics and native runtime, proxy-chain and
-  rendered-notification checks, including Windows x64/Win32 and pinned EDUP
-  0.22.1 startup checks.
+- EDUP updater distribution: `d3d11_edhm.dll`, its checksum and
+  `edup-runtime.json` are published with each release. The manifest provides a
+  version-pinned URL, size, hash and release metadata.
+- `vendor/edup-runtime/` mirrors the renamed DLL and manifest alongside the
+  normal EDHM cache; both binaries use the same product build.
 
 ### Fixed
 
-- Preserve both the outer proxy's creation-hook continuation and an explicitly
-  configured downstream proxy when the EDHM DLL is renamed for chaining.
-- Preserve pending settings and the last complete file after failed saves;
-  retain temporarily unavailable persistent values for a reload grace period.
-- Read saved settings before deferred include initialization; preserve changes
-  made during an autosave instead of clearing their pending state.
-- Resolve resource-reference chains after parsing, retain learned pool flags,
-  and keep metadata queries from allocating or refreshing live pool elements.
-- Correct typed/structured `store` reads, bounded `Region(offset,size)` copies
-  and views, smaller constant-buffer copies, saved SRV clears and view-cache
-  invalidation. Failed reads keep the previous value.
-- Copy vertex-buffer byte regions independently of the binding stride, honor
-  explicit integer clears through retained RTVs, and share detached metadata
-  between STATIC pool-variable pins and dynamic aliases.
-- Preserve parser/namespace compatibility, stable `this` view reuse, profiler
-  reload measurements and production binaries after mutation-check failures.
-
-### Changed
-
-- Reuse compatible views and configuration-section lookups, and reduce enabled
-  profiler registration overhead. The dated off-game comparison report retains
-  its measured scope and limits; no combined EDUP FPS gain is claimed.
-- Require C++17 in ordinary and strict builds. Stabilize notification checks
-  with a controlled clock boundary and retain timeout diagnostics.
-- Stop timed-out mutation-build descendants before restoring source, rebuild
-  clean objects, and recognize lowercase Wine WoW64 library directories.
+- Serialize reload with an in-flight settings save even when no additional
+  changes are dirty. Preserve the saved values through the subsequent parse.
+- Protect configuration object lifetimes across complete draw/dispatch, clear
+  and input command batches. Reload defers while a batch is active and holds
+  exclusive ownership through saving, parsing and initialization.
+- Remove the configuration-lock wait inside borrowed persistent variables;
+  serialize file transactions without adding that wait to command execution.
+  Atomic variable storage allows autosave reads alongside assignments. Successful
+  persistent `store` reads mark their new value for saving.
+- Honor explicit depth/stencil clear selection when a hexadecimal value also
+  sets the integer-UAV hint.
+- Keep the original timeout and its cleanup-failure marker if writing the
+  partial-output diagnostic log fails.
+- Accept an already-reaped Linux child as terminated in the runner check and
+  restore a meaningful smaller-CB-copy mutation after the region-path repair.
 
 ### Notes
 
-- Stable promotion of the 0.1.4 beta series. The beta sections below retain the
-  detailed change history and validation checkpoints.
-- With EDUP, keep its `d3d11.dll` and rename our DLL to `d3d11_edhm.dll`.
-  Follow the [recommended configuration](https://github.com/Fenris159/EDHM_2DMigoto/wiki/EDUP-Compatibility-and-Configuration#recommended-configuration).
-- Evidence includes native Windows/MSVC/WARP checks, off-game
-  Proton 11.0/DXVK/AMD checks with EDUP 0.22.1, and an external tester's report
-  about the earlier repaired build. This does not certify every GPU, AA/VR
-  engine or live-game transition. Reload scheduling remains unchanged.
+- Follow-up to the late review of 0.1.4. Its tag and files are preserved; the
+  GitHub release was reclassified as a prerelease pending these corrections.
+- EDUP uses the same normal runtime DLL and the recommended wiki configuration.
+  The quiet refresh option remains `[Logging] show_reload_message=0`.
 ---
 Full project history: [CHANGELOG.md](https://github.com/Fenris159/EDHM_2DMigoto/blob/HEAD/CHANGELOG.md)

@@ -217,6 +217,14 @@ jobs:
           if (-not (Test-Path $dll)) { throw "Build did not produce $dll" }
 
           Copy-Item $dll "dist\d3d11.dll" -Force
+          Copy-Item $dll "dist\d3d11_edhm.dll" -Force
+          & .\scripts\write-edup-manifest.ps1 `
+            -DllPath 'dist\d3d11_edhm.dll' `
+            -Version '${{ steps.ver.outputs.version }}' `
+            -Tag $tag `
+            -Channel '${{ steps.channel.outputs.channel }}' `
+            -ReleaseUrl "https://github.com/${{ github.repository }}/releases/tag/$tag" `
+            -OutFile 'dist\edup-runtime.json'
 
           # Prefer SDK/redist copy next to build if post-build placed it; else Dependencies
           $compilerCandidates = @(
@@ -265,6 +273,9 @@ jobs:
           Get-FileHash "dist\d3d11.dll" -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  d3d11.dll" } |
             Set-Content "dist\d3d11.dll.sha256" -Encoding ascii
+          Get-FileHash "dist\d3d11_edhm.dll" -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  d3d11_edhm.dll" } |
+            Set-Content "dist\d3d11_edhm.dll.sha256" -Encoding ascii
 
           "zip=$zipPath" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
           "zip_name=$zipName" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -280,6 +291,8 @@ jobs:
           prerelease: ${{ steps.channel.outputs.is_prerelease }}
           files: |
             dist/d3d11.dll
+            dist/d3d11_edhm.dll
+            dist/edup-runtime.json
             dist/*.zip
             dist/*.sha256
           fail_on_unmatched_files: false
@@ -289,7 +302,7 @@ jobs:
 
       # Vendor cache: same workflow as release so tag/assets/folder stay in lockstep.
       # Skipped for draft releases (no published URL) and when update_vendor_cache=false.
-      - name: Update vendor/edhm-runtime cache
+      - name: Update EDHM and EDUP runtime caches
         if: ${{ inputs.update_vendor_cache && !inputs.draft }}
         shell: pwsh
         run: |
@@ -305,14 +318,14 @@ jobs:
         if: ${{ inputs.update_vendor_cache && !inputs.draft }}
         shell: pwsh
         run: |
-          git add vendor/edhm-runtime/ .gitattributes
+          git add vendor/edhm-runtime/ vendor/edup-runtime/ .gitattributes
           git status
           git diff --cached --quiet
           if ($LASTEXITCODE -eq 0) {
             Write-Host 'Vendor cache unchanged; nothing to commit'
             exit 0
           }
-          git commit -m "chore(vendor): edhm-runtime ${{ steps.ver.outputs.tag }}"
+          git commit -m "chore(vendor): runtime caches ${{ steps.ver.outputs.tag }}"
           # Retry push in case of concurrent updates
           $ok = $false
           for ($i = 0; $i -lt 3; $i++) {

@@ -23,6 +23,7 @@
 #include "cursor.h"
 #include "WineCompat.h"
 #include "PersistentSettingsState.h"
+#include "ConfigurationLifetime.h"
 #include <io.h>
 #include <chrono>
 
@@ -2604,8 +2605,9 @@ static void ParseCommandList(const wchar_t *id, CommandList *pre_command_list, C
 
 CommandListVariable *RegisterGlobalVariable(wstring &name, float *fval, VariableFlags flags)
 {
+	const std::lock_guard<std::mutex> lock(persistent_variables_mutex);
 	std::pair<CommandListVariables::iterator, bool> inserted =
-	    command_list_globals.emplace(name, CommandListVariable{name, fval ? *fval : 0.0f, flags});
+	    command_list_globals.try_emplace(name, name, fval ? *fval : 0.0f, flags);
 	if (!inserted.second)
 	{
 		return nullptr;
@@ -4872,6 +4874,12 @@ void BuildTextureOverrideDrawMaps()
 
 void LoadConfigFile()
 {
+	const ConfigurationWriteLock configuration;
+	if (!configuration.owns_lock())
+	{
+		G->gReloadConfigPending = true;
+		return;
+	}
 	// Drop profiling pointers before parsing can replace command storage.
 	Profiling::clear();
 	Profiling::text.clear();
@@ -5501,14 +5509,14 @@ void LoadProfileManagerConfig(const wchar_t *config_dir)
 	LogInfo("\n");
 }
 
-bool SavePersistentSettings()
+// Caller owns persistent_settings_save_mutex, including for a clean preflight.
+static bool SavePersistentSettingsUnlocked()
 {
 	G->gSettingsSaveTime = G->gTime;
 	if (!G->user_config_dirty)
 		return true;
 	PersistentSettingsState::Values snapshot;
 	std::wstring settings_path;
-	std::unique_lock<std::mutex> save_lock;
 	struct PendingSave
 	{
 		int dirty = 0;
@@ -5524,18 +5532,17 @@ bool SavePersistentSettings()
 				G->user_config_dirty |= dirty;
 		}
 	} pending;
+	// Acknowledge before reading values. Commands continue to mark later
+	// changes dirty, including changes made while this snapshot is collected.
+	// Do not wait on the configuration lock inside a borrowed variable: reload
+	// can replace that variable and its executing command while a setter waits.
+	pending.dirty = G->user_config_dirty.exchange(0);
+	settings_path = G->user_config;
+	snapshot = persistent_settings_state.UnknownValues();
 	{
-		const CriticalSectionLock lock(&G->mCriticalSection);
-		// Acquire in configuration-lock order, but retain only this file-write
-		// lock during I/O so two saves cannot replace newer data with an older snapshot.
-		save_lock = std::unique_lock<std::mutex>(persistent_settings_save_mutex);
-		if (!G->user_config_dirty)
-			return true;
-		settings_path = G->user_config;
-		snapshot = persistent_settings_state.UnknownValues();
+		const std::lock_guard<std::mutex> lock(persistent_variables_mutex);
 		for (const auto *variable : persistent_variables)
 			snapshot[variable->name] = variable->fval;
-		pending.dirty = G->user_config_dirty.exchange(0);
 	}
 
 	struct RestoreLocale
@@ -5607,10 +5614,14 @@ bool SavePersistentSettings()
 	return true;
 }
 
-bool WipeUserConfig()
+bool SavePersistentSettings()
 {
-	const CriticalSectionLock config_lock(&G->mCriticalSection);
 	const std::lock_guard<std::mutex> save_lock(persistent_settings_save_mutex);
+	return SavePersistentSettingsUnlocked();
+}
+
+static bool WipeUserConfigUnlocked()
+{
 	if (!DeleteFileW(G->user_config.c_str()))
 	{
 		const DWORD error = GetLastError();
@@ -5622,6 +5633,12 @@ bool WipeUserConfig()
 	persistent_settings_state.Clear();
 	LogOverlayW(LOG_INFO, L"> Wiped user config file d3dx_user.ini\n");
 	return true;
+}
+
+bool WipeUserConfig()
+{
+	const std::lock_guard<std::mutex> save_lock(persistent_settings_save_mutex);
+	return WipeUserConfigUnlocked();
 }
 
 static void MarkAllShadersDeferredUnprocessed()
@@ -5647,13 +5664,18 @@ static void MarkAllShadersDeferredUnprocessed()
 void ReloadConfig(HackerDevice *device)
 {
 	auto start = std::chrono::high_resolution_clock::now();
-	// Keep persistent assignments out until the saved snapshot has been
-	// reloaded. Autosave alone releases this lock before writing to disk.
-	std::optional<CriticalSectionLock> config_lock(std::in_place, &G->mCriticalSection);
+	const ConfigurationWriteLock configuration(std::try_to_lock);
+	if (!configuration.owns_lock())
+	{
+		G->gReloadConfigPending = true;
+		return;
+	}
+	// Serialize the complete save/load transaction with other saves and wipes.
+	const std::lock_guard<std::mutex> settings_lock(persistent_settings_save_mutex);
 
 	// Failed saves must not be followed by a reload that discards the pending
 	// in-memory values and replaces them with the previous complete disk file.
-	if ((G->gWipeUserConfig && !WipeUserConfig()) || !SavePersistentSettings())
+	if ((G->gWipeUserConfig && !WipeUserConfigUnlocked()) || !SavePersistentSettingsUnlocked())
 	{
 		G->gReloadConfigPending = false;
 		LogInfo("Config reload canceled because user settings could not be saved or wiped; retry after resolving the "
@@ -5666,6 +5688,7 @@ void ReloadConfig(HackerDevice *device)
 
 	G->gReloadConfigPending = false;
 	G->iniParamsReserved = 0;
+	std::optional<CriticalSectionLock> config_lock(std::in_place, &G->mCriticalSection);
 
 	// Clears any notices currently displayed on the overlay. This ensures
 	// that any notices that haven't timed out yet (e.g. from a previous
@@ -5723,7 +5746,7 @@ void ReloadConfig(HackerDevice *device)
 
 	setlocale(LC_CTYPE, G->gDefaultLocale.c_str());
 	if (G->user_config_dirty & 2)
-		SavePersistentSettings();
+		SavePersistentSettingsUnlocked();
 
 	auto stop = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<float> duration = stop - start;

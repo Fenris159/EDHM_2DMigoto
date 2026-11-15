@@ -1,5 +1,6 @@
 #include "../DirectX11/CommandList.h"
 #include "../DirectX11/HackerContext.h"
+#include "../DirectX11/FrameAnalysis.h"
 #include "../DirectX11/IniHandler.h"
 #include "../DirectX11/globals.h"
 #include "D3DDeviceBoundary.h"
@@ -14,7 +15,9 @@
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <thread>
 #include <d3d11sdklayers.h>
+#include <d3dcompiler.h>
 #include <wrl/client.h>
 
 namespace
@@ -1025,6 +1028,372 @@ void saves_acknowledge_only_the_captured_settings()
 	state_during_replace = nullptr;
 }
 
+void reload_defers_until_deferred_command_batches_finish()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	SettingsConfigFixture files;
+	std::ofstream(files.user) << "[Constants]\n$known = 7\n";
+	LoadConfigFile();
+	for (const auto &command : G->constants_command_list.commands)
+		command->run(&fixture.state);
+	HackerDevice device(fixture.device.Get(), fixture.context.Get());
+	device.SetHackerContext(fixture.hacker_context.get());
+	fixture.hacker_context->SetHackerDevice(&device, false);
+	Microsoft::WRL::ComPtr<ID3D11DeviceContext1> deferred;
+	require(SUCCEEDED(fixture.device->CreateDeferredContext1(0, &deferred)), "deferred context creation failed");
+	HackerContext deferred_context(fixture.device.Get(), deferred.Get());
+	CommandListState state;
+	state.mHackerContext = &deferred_context;
+	for (bool wipe : {false, true})
+	{
+		std::exception_ptr reload_error;
+		{
+			// This is the same batch object the production Dispatch entry point
+			// creates before borrowing the ShaderOverride and its command lists.
+			DispatchContext batch(1, 1, 1);
+			VariableAssignment assignment;
+			assignment.var = &command_list_globals.at(L"$known");
+			const std::wstring value = wipe ? L"13" : L"11";
+			require(assignment.expression.parse(&value, nullptr, nullptr), "deferred assignment rejected");
+			assignment.run(&state);
+			command_list_globals.at(L"$temporary").SetValue(9.0f);
+			G->gWipeUserConfig = wipe;
+			std::thread reload(
+			    [&]()
+			    {
+				    try
+				    {
+					    ReloadConfig(&device);
+				    }
+				    catch (...)
+				    {
+					    reload_error = std::current_exception();
+				    }
+			    });
+			reload.join();
+			if (reload_error)
+				std::rethrow_exception(reload_error);
+			require(G->gReloadConfigPending && command_list_globals.at(L"$temporary").fval == 9.0f,
+			        "reload replaced configuration owned by an active deferred batch");
+			require(command_list_globals.at(L"$known").fval == (wipe ? 13.0f : 11.0f),
+			        "deferred assignment changed during a deferred reload");
+			require(file_contents(files.user).find(wipe ? "$known = 11" : "$known = 7") != std::string::npos,
+			        "deferred reload changed the saved file before the batch finished");
+		}
+		ReloadConfig(&device);
+		require(!G->gReloadConfigPending && command_list_globals.at(L"$temporary").fval == 5.0f,
+		        "reload did not apply after the deferred batch finished");
+		require(command_list_globals.at(L"$known").fval == (wipe ? 1.0f : 11.0f),
+		        "reload lost its pending value or failed to apply the explicit wipe");
+		if (wipe)
+			require(!std::filesystem::exists(files.user), "preflight recreated settings after an explicit wipe");
+	}
+}
+
+HANDLE save_ready = nullptr;
+HANDLE finish_save = nullptr;
+std::atomic<DWORD> saving_thread{0};
+std::atomic<PSRWLOCK> save_file_lock{nullptr};
+decltype(&AcquireSRWLockExclusive) real_acquire_srw = nullptr;
+
+void WINAPI acquire_after_releasing_file_operation(PSRWLOCK lock)
+{
+	if (GetCurrentThreadId() == saving_thread.load())
+	{
+		PSRWLOCK empty = nullptr;
+		save_file_lock.compare_exchange_strong(empty, lock);
+	}
+	else if (lock == save_file_lock.load())
+		SetEvent(finish_save);
+	real_acquire_srw(lock);
+}
+
+BOOL WINAPI hold_first_file_replacement(LPCWSTR existing, LPCWSTR replacement, DWORD flags)
+{
+	if (GetCurrentThreadId() == saving_thread.load())
+	{
+		SetEvent(save_ready);
+		if (!save_file_lock.load())
+			return FALSE;
+		WaitForSingleObject(finish_save, INFINITE);
+	}
+	return real_move_file(existing, replacement, flags);
+}
+
+void reload_waits_for_an_inflight_autosave()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	SettingsConfigFixture files;
+	std::ofstream(files.user) << "[Constants]\n$known = 3\n";
+	LoadConfigFile();
+	for (const auto &command : G->constants_command_list.commands)
+		command->run(&fixture.state);
+	command_list_globals.at(L"$known").SetValue(7.0f);
+	HackerDevice device(fixture.device.Get(), fixture.context.Get());
+	device.SetHackerContext(fixture.hacker_context.get());
+	fixture.hacker_context->SetHackerDevice(&device, false);
+	struct CloseEvents
+	{
+		CloseEvents() = default;
+		CloseEvents(const CloseEvents &) = delete;
+		CloseEvents &operator=(const CloseEvents &) = delete;
+		CloseEvents(CloseEvents &&) = delete;
+		CloseEvents &operator=(CloseEvents &&) = delete;
+		~CloseEvents()
+		{
+			if (save_ready)
+				CloseHandle(save_ready);
+			if (finish_save)
+				CloseHandle(finish_save);
+			save_ready = finish_save = nullptr;
+			save_file_lock = nullptr;
+			saving_thread = 0;
+		}
+	} close_events;
+	save_ready = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+	finish_save = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+	require(save_ready && finish_save, "save boundary events unavailable");
+	auto address = GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "MoveFileExW");
+	memcpy(&real_move_file, &address, sizeof(address));
+	address = GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "AcquireSRWLockExclusive");
+	static_assert(sizeof(address) == sizeof(real_acquire_srw));
+	memcpy(&real_acquire_srw, &address, sizeof(address));
+	require(real_move_file && real_acquire_srw, "save boundary imports unavailable");
+	ImportBoundary file_boundary(GetModuleHandleW(nullptr), "MoveFileExW", &hold_first_file_replacement);
+	ImportBoundary lock_boundary(GetModuleHandleW(nullptr), "AcquireSRWLockExclusive",
+	                             &acquire_after_releasing_file_operation);
+	bool saved = false;
+	std::exception_ptr save_error;
+	std::thread worker(
+	    [&]()
+	    {
+		    saving_thread = GetCurrentThreadId();
+		    try
+		    {
+			    saved = SavePersistentSettings();
+		    }
+		    catch (...)
+		    {
+			    save_error = std::current_exception();
+			    SetEvent(save_ready);
+		    }
+		    SetEvent(save_ready);
+	    });
+	WaitForSingleObject(save_ready, INFINITE);
+	try
+	{
+		ReloadConfig(&device);
+	}
+	catch (...)
+	{
+		SetEvent(finish_save);
+		worker.join();
+		throw;
+	}
+	// A bypassed preflight reaches here while the old file is still in place;
+	// a correct preflight releases the filesystem boundary when it waits on
+	// the in-flight operation's real OS lock. No sleeps or clock thresholds.
+	SetEvent(finish_save);
+	worker.join();
+	if (save_error)
+		std::rethrow_exception(save_error);
+	require(saved && save_file_lock.load(), "in-flight save/lock boundary failed");
+	require(command_list_globals.at(L"$known").fval == 7.0f, "reload read the file before the autosave committed");
+	require(file_contents(files.user).find("$known = 7") != std::string::npos,
+	        "autosave did not preserve its snapshot");
+}
+
+HackerDevice *analysis_reload_device = nullptr;
+VariableAssignment *analysis_assignment = nullptr;
+CommandListState *analysis_assignment_state = nullptr;
+std::exception_ptr analysis_reload_error;
+bool analysis_probe_enabled = false;
+bool analysis_probe_seen = false;
+decltype(&EnterCriticalSection) real_analysis_enter = nullptr;
+
+void WINAPI reject_contended_analysis_lock(LPCRITICAL_SECTION section)
+{
+	if (section == &G->mCriticalSection)
+	{
+		// Reject the OS wait instead of hanging on the writer/global-lock
+		// inversion this fixture protects. Other OS locks behave normally.
+		if (!TryEnterCriticalSection(section))
+			throw std::runtime_error("reload would wait behind an active frame-analysis dump");
+		return;
+	}
+	real_analysis_enter(section);
+}
+
+HWND WINAPI poll_analysis_input()
+{
+	if (analysis_probe_enabled && !analysis_probe_seen)
+	{
+		analysis_probe_seen = true;
+		try
+		{
+			analysis_assignment->run(analysis_assignment_state);
+			std::thread reload(
+			    []()
+			    {
+				    try
+				    {
+					    ReloadConfig(analysis_reload_device);
+				    }
+				    catch (...)
+				    {
+					    analysis_reload_error = std::current_exception();
+				    }
+			    });
+			reload.join();
+		}
+		catch (...)
+		{
+			analysis_reload_error = std::current_exception();
+		}
+	}
+	// Keep the host's actual keyboard/controllers outside this fixture.
+	return nullptr;
+}
+
+void frame_analysis_input_keeps_configuration_ownership()
+{
+	for (int route = 0; route < 4; ++route)
+	{
+		D3DFixture fixture;
+		ConfigFixture resources;
+		SettingsConfigFixture files;
+		std::ofstream(files.user) << "[Constants]\n$known = 7\n";
+		LoadConfigFile();
+		for (const auto &command : G->constants_command_list.commands)
+			command->run(&fixture.state);
+		const auto output = files.config.parent_path() / L"runtime-analysis-locks";
+		std::filesystem::create_directories(output);
+		struct RestoreAnalysis
+		{
+			std::filesystem::path directory;
+			std::wstring previous_path = G->ANALYSIS_PATH;
+			FrameAnalysisOptions previous_current = G->cur_analyse_options;
+			FrameAnalysisOptions previous_default = G->def_analyse_options;
+			bool previous_foreground = G->check_foreground_window;
+			bool previous_analyzing = G->analyse_frame;
+			UINT previous_hunting = G->hunting;
+			ShaderMap previous_shaders = G->mShaders;
+			std::set<UINT64> previous_visited = G->mVisitedComputeShaders;
+			explicit RestoreAnalysis(const std::filesystem::path &directory) : directory(directory) {}
+			RestoreAnalysis(const RestoreAnalysis &) = delete;
+			RestoreAnalysis &operator=(const RestoreAnalysis &) = delete;
+			RestoreAnalysis(RestoreAnalysis &&) = delete;
+			RestoreAnalysis &operator=(RestoreAnalysis &&) = delete;
+			~RestoreAnalysis()
+			{
+				G->analyse_frame = previous_analyzing;
+				G->hunting = previous_hunting;
+				G->mShaders = std::move(previous_shaders);
+				G->mVisitedComputeShaders = std::move(previous_visited);
+				G->cur_analyse_options = previous_current;
+				G->def_analyse_options = previous_default;
+				G->check_foreground_window = previous_foreground;
+				wcscpy_s(G->ANALYSIS_PATH, previous_path.c_str());
+				analysis_probe_enabled = analysis_probe_seen = false;
+				analysis_reload_error = nullptr;
+				analysis_reload_device = nullptr;
+				analysis_assignment = nullptr;
+				analysis_assignment_state = nullptr;
+				std::error_code error;
+				std::filesystem::remove_all(directory, error);
+			}
+		} cleanup(output);
+		require(wcscpy_s(G->ANALYSIS_PATH, output.wstring().c_str()) == 0, "analysis output path is too long");
+		HackerDevice device(fixture.device.Get(), fixture.context.Get());
+		device.SetHackerContext(fixture.hacker_context.get());
+		fixture.hacker_context->SetHackerDevice(&device, false);
+		Microsoft::WRL::ComPtr<ID3D11DeviceContext1> deferred;
+		require(SUCCEEDED(fixture.device->CreateDeferredContext1(0, &deferred)), "analysis deferred context failed");
+		FrameAnalysisContext analysis(fixture.device.Get(), deferred.Get());
+		FrameAnalysisContext playback(fixture.device.Get(), fixture.context.Get());
+		analysis.SetHackerDevice(&device, false);
+		playback.SetHackerDevice(&device, false);
+		const char program[] = "[numthreads(1,1,1)] void main(uint3 id:SV_DispatchThreadID) {}";
+		Microsoft::WRL::ComPtr<ID3DBlob> code, errors;
+		require(SUCCEEDED(D3DCompile(program, sizeof(program) - 1, "analysis-lock", nullptr, nullptr, "main", "cs_5_0",
+		                             0, 0, &code, &errors)),
+		        "analysis compute shader compilation failed");
+		Microsoft::WRL::ComPtr<ID3D11ComputeShader> shader;
+		require(SUCCEEDED(fixture.device->CreateComputeShader(code->GetBufferPointer(), code->GetBufferSize(), nullptr,
+		                                                      &shader)),
+		        "analysis compute shader creation failed");
+		const float values[] = {1, 2, 3, 4};
+		D3D11_BUFFER_DESC desc{};
+		desc.ByteWidth = sizeof(values);
+		desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		D3D11_SUBRESOURCE_DATA initial{};
+		initial.pSysMem = values;
+		Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+		require(SUCCEEDED(fixture.device->CreateBuffer(&desc, &initial, &buffer)), "analysis constant buffer failed");
+		// The raw D3D fixture needs the identity normally registered by HackerDevice.
+		G->mShaders[shader.Get()] = 0x1234;
+		G->hunting = HUNTING_MODE_ENABLED;
+		analysis.CSSetShader(shader.Get(), nullptr, 0);
+		auto *binding = buffer.Get();
+		analysis.CSSetConstantBuffers(0, 1, &binding);
+		G->check_foreground_window = true;
+		G->analyse_frame = true;
+		auto options = FrameAnalysisOptions::HOLD;
+		options |= FrameAnalysisOptions::DUMP_CB;
+		options |= FrameAnalysisOptions::FMT_BUF_BIN;
+		options |= FrameAnalysisOptions::MONO;
+		options |= route == 3 ? FrameAnalysisOptions::DEFRD_CTX_DELAY : FrameAnalysisOptions::DEFRD_CTX_IMM;
+		if (route == 1)
+			options |= FrameAnalysisOptions::DUMP_ON_UPDATE;
+		G->cur_analyse_options = G->def_analyse_options = options;
+		VariableAssignment assignment;
+		assignment.var = &command_list_globals.at(L"$known");
+		const std::wstring value = L"11";
+		require(assignment.expression.parse(&value, nullptr, nullptr), "analysis assignment rejected");
+		CommandListState state;
+		state.mHackerContext = &analysis;
+		analysis_assignment = &assignment;
+		analysis_assignment_state = &state;
+		analysis_reload_device = &device;
+		auto address = GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "EnterCriticalSection");
+		static_assert(sizeof(address) == sizeof(real_analysis_enter));
+		memcpy(&real_analysis_enter, &address, sizeof(address));
+		require(real_analysis_enter != nullptr, "analysis lock boundary unavailable");
+		{
+			ImportBoundary foreground(GetModuleHandleW(nullptr), "GetForegroundWindow", &poll_analysis_input);
+			ImportBoundary critical(GetModuleHandleW(nullptr), "EnterCriticalSection", &reject_contended_analysis_lock);
+			analysis_probe_enabled = route != 3;
+			if (route == 0)
+				analysis.Dispatch(1, 1, 1);
+			else if (route == 1)
+				analysis.UpdateSubresource(buffer.Get(), 0, nullptr, values, 0, 0);
+			else if (route == 2)
+				analysis.FrameAnalysisDump(buffer.Get(), options, L"lock-test", DXGI_FORMAT_UNKNOWN, 0, 0);
+			else
+			{
+				analysis.Dispatch(1, 1, 1);
+				Microsoft::WRL::ComPtr<ID3D11CommandList> recorded;
+				require(SUCCEEDED(analysis.FinishCommandList(FALSE, &recorded)), "analysis recording failed");
+				analysis_probe_enabled = true;
+				playback.ExecuteCommandList(recorded.Get(), TRUE);
+			}
+		}
+		require(analysis_probe_seen, "analysis dump did not reach the controlled input boundary");
+		if (analysis_reload_error)
+			std::rethrow_exception(analysis_reload_error);
+		require(G->gReloadConfigPending && command_list_globals.at(L"$known").fval == 11.0f,
+		        "analysis input lost its pending assignment across reload");
+		require(file_contents(files.user).find("$known = 7") != std::string::npos,
+		        "reload saved or replaced configuration while analysis owned its global lock");
+		fixture.require_no_errors();
+		ReloadConfig(&device);
+		require(command_list_globals.at(L"$known").fval == 11.0f && !G->gReloadConfigPending,
+		        "analysis reload did not complete after the dump finished");
+	}
+}
+
 void preserves_only_eligible_settings_across_reload()
 {
 	D3DFixture fixture;
@@ -2003,6 +2372,49 @@ void integer_clears_override_saved_render_target_views()
 	fixture.require_no_errors();
 }
 
+void hexadecimal_stencil_clear_keeps_its_explicit_view_kind()
+{
+	D3DFixture fixture;
+	ConfigFixture resources;
+	SettingsConfigFixture files;
+	std::ofstream(files.config) << "[Logging]\nenabled=0\nshow_warnings=0\n"
+	                               "[Include]\nuser_config=runtime-user.ini\n"
+	                               "[CommandListStencil]\nclear = od stencil 0xff\n";
+	LoadConfigFile();
+	D3D11_TEXTURE2D_DESC desc{};
+	desc.Width = desc.Height = 2;
+	desc.MipLevels = desc.ArraySize = desc.SampleDesc.Count = 1;
+	desc.Format = DXGI_FORMAT_R24G8_TYPELESS;
+	desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+	require(SUCCEEDED(fixture.device->CreateTexture2D(&desc, nullptr, &texture)), "stencil source texture failed");
+	D3D11_DEPTH_STENCIL_VIEW_DESC view_desc{};
+	view_desc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	view_desc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	Microsoft::WRL::ComPtr<ID3D11DepthStencilView> view;
+	require(SUCCEEDED(fixture.device->CreateDepthStencilView(texture.Get(), &view_desc, &view)), "stencil view failed");
+	fixture.context->ClearDepthStencilView(view.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 0.0f, 0x12);
+	fixture.context->OMSetRenderTargets(0, nullptr, view.Get());
+	RunLinkedCommandList clear(&explicitCommandListSections.at(L"commandliststencil").command_list);
+	clear.run(&fixture.state);
+	fixture.context->OMSetRenderTargets(0, nullptr, nullptr);
+	desc.Usage = D3D11_USAGE_STAGING;
+	desc.BindFlags = 0;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> staging;
+	require(SUCCEEDED(fixture.device->CreateTexture2D(&desc, nullptr, &staging)), "stencil staging texture failed");
+	fixture.context->CopyResource(staging.Get(), texture.Get());
+	D3D11_MAPPED_SUBRESOURCE mapped{};
+	require(SUCCEEDED(fixture.context->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped)), "stencil readback failed");
+	const auto *row0 = static_cast<const UINT *>(mapped.pData);
+	const auto *row1 = reinterpret_cast<const UINT *>(static_cast<const char *>(mapped.pData) + mapped.RowPitch);
+	const bool cleared =
+	    row0[0] == 0xff000000 && row0[1] == 0xff000000 && row1[0] == 0xff000000 && row1[1] == 0xff000000;
+	fixture.context->Unmap(staging.Get(), 0);
+	require(cleared, "hexadecimal stencil clear was treated as an integer UAV request or changed depth");
+	fixture.require_no_errors();
+}
+
 void preserves_learned_pool_flags_during_copy()
 {
 	D3DFixture fixture;
@@ -2840,6 +3252,9 @@ int main(int argc, char **argv)
 	             {"settings-lifecycle", preserves_only_eligible_settings_across_reload},
 	             {"settings-deferred", deferred_initialization_preserves_unloaded_settings},
 	             {"settings-save-update", saves_acknowledge_only_the_captured_settings},
+	             {"settings-batch-reload", reload_defers_until_deferred_command_batches_finish},
+	             {"settings-save-reload", reload_waits_for_an_inflight_autosave},
+	             {"analysis-reload", frame_analysis_input_keeps_configuration_ownership},
 	             {"constants-order", preserves_constants_declaration_and_execution_order},
 	             {"ini-sections", preserves_duplicate_sections_and_recursive_includes},
 	             {"if-conditions", preserves_static_and_dynamic_conditions_across_reload},
@@ -2855,6 +3270,7 @@ int main(int argc, char **argv)
 	             {"region-cb-small", copies_smaller_constant_buffer_regions},
 	             {"view-clear", clears_saved_shader_resource_contents},
 	             {"view-clear-integer", integer_clears_override_saved_render_target_views},
+	             {"view-clear-stencil", hexadecimal_stencil_clear_keeps_its_explicit_view_kind},
 	             {"metadata-static-variable", static_variable_metadata_matches_expiring_dynamic_aliases},
 	             {"pool-learned-flags", preserves_learned_pool_flags_during_copy},
 	             {"pool-scalar-precedence", scalar_variables_keep_precedence_over_pool_names},

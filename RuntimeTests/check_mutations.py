@@ -30,7 +30,10 @@ def run(command, log_name):
     try:
         result = run_process(command, cwd=ROOT, capture_output=True, timeout=300)
     except subprocess.TimeoutExpired as error:
-        (OUTPUT / log_name).write_bytes((error.stdout or b"") + (error.stderr or b""))
+        try:
+            (OUTPUT / log_name).write_bytes((error.stdout or b"") + (error.stderr or b""))
+        except OSError as log_error:
+            print(f"Unable to retain partial timeout log: {log_error}", file=sys.stderr)
         raise
     output = result.stdout + result.stderr
     (OUTPUT / log_name).write_bytes(output)
@@ -65,8 +68,8 @@ def get_mutations(command_list, settings, profiling):
         (
             "pending-save",
             settings,
-            'bool SavePersistentSettings()\n{\n\tG->gSettingsSaveTime = G->gTime;',
-            'bool SavePersistentSettings()\n{\n\tG->gSettingsSaveTime = G->gTime;\n\tG->user_config_dirty = 0;',
+            '\tG->gSettingsSaveTime = G->gTime;',
+            '\tG->gSettingsSaveTime = G->gTime;\n\tG->user_config_dirty = 0;',
         ),
         (
             "pool-reset",
@@ -236,8 +239,8 @@ def get_mutations(command_list, settings, profiling):
         (
             'region-cb-small',
             command_list,
-            'FillInMissingInfo(src.type, src_resource, src_view, &stride, &offset, &buf_src_size, &format, region_size);',
-            'FillInMissingInfo(src.type, src_resource, src_view, &stride, &offset, &buf_src_size, &format, 0);',
+            'else if (buf_dst_size)',
+            'else if (buf_dst_size && offset)',
         ),
         (
             'view-clear',
@@ -306,6 +309,48 @@ def get_mutations(command_list, settings, profiling):
             "\tif (static_pool_variable && state && state->pool_metadata_query)\n"
             "\t\treturn state->pool_metadata_preview->GetVariable(static_pool_variable_owner, static_pool_variable);\n",
             "",
+        ),
+        (
+            "settings-batch-reload",
+            ROOT / "DirectX11" / "HackerContext.h",
+            "struct DispatchContext\n{\n\tConfigurationReadLock configuration;",
+            "struct DispatchContext\n{",
+        ),
+        (
+            "settings-save-reload",
+            settings,
+            "\tconst std::lock_guard<std::mutex> settings_lock(persistent_settings_save_mutex);",
+            "\t// Deliberate break: skip synchronization with an in-flight autosave.",
+        ),
+        (
+            "view-clear-stencil",
+            command_list,
+            "if (!clear_uav_uint || clear_depth || clear_stencil)",
+            "if (!clear_uav_uint)",
+        ),
+        (
+            "analysis-reload--draw",
+            ROOT / "DirectX11" / "FrameAnalysis.cpp",
+            '\tconst ConfigurationReadLock configuration;\n\tupdate_per_draw_analyse_options();',
+            '\tupdate_per_draw_analyse_options();',
+        ),
+        (
+            "analysis-reload--update",
+            ROOT / "DirectX11" / "FrameAnalysis.cpp",
+            '\tconst ConfigurationReadLock configuration;\n\twchar_t filename[MAX_PATH];\n\tHRESULT hr;\n\n\tanalyse_options = G->cur_analyse_options;',
+            '\twchar_t filename[MAX_PATH];\n\tHRESULT hr;\n\n\tanalyse_options = G->cur_analyse_options;',
+        ),
+        (
+            "analysis-reload--explicit",
+            ROOT / "DirectX11" / "FrameAnalysis.cpp",
+            '\tconst ConfigurationReadLock configuration;\n\twchar_t filename[MAX_PATH];\n\tHRESULT hr;\n\n\tanalyse_options = options;',
+            '\twchar_t filename[MAX_PATH];\n\tHRESULT hr;\n\n\tanalyse_options = options;',
+        ),
+        (
+            "analysis-reload--playback",
+            ROOT / "DirectX11" / "FrameAnalysis.cpp",
+            '\tconst ConfigurationReadLock configuration;\n\tFrameAnalysisDeferredBuffersPtr deferred_buffers = nullptr;',
+            '\tFrameAnalysisDeferredBuffersPtr deferred_buffers = nullptr;',
         ),
         (
             "missing-metadata",
