@@ -1,72 +1,40 @@
-## EDHM_2DMigoto 0.1.4-beta.1
+## EDHM_2DMigoto 0.1.4-beta.2
 
 Package build for Elite Dangerous HUD Mod (EDHM).
 Built from this repository's automated release workflow.
-## [0.1.4-beta.1] - 2026-11-13
+## [0.1.4-beta.2] - 2026-11-15
 
 ### Fixed
 
-- Reject empty expression groups and accept leading-dot float literals.
-- Preserve pending settings, locale and the last complete settings file after a
-  failed save; stop a reload that cannot save or wipe its settings.
-- Retain temporarily unavailable persistent values for one reload, with optional
-  indefinite retention through `clear_unknown_settings=0`; discard values after
-  persistence is removed.
-- Resolve custom-resource reference flags after all command lists are parsed,
-  including constant-buffer aliases and incompatible cycles. Read pool metadata
-  without allocating elements or refreshing their lifetime.
-- Route pool proxy resets correctly and preserve namespaced, Unicode and
-  hyphenated pool-variable identifiers.
-- Read complete structured elements for `store`, validate buffer types and
-  indices, preserve failed-read values, and release owned source views.
-- Interpret `Region(offset,size)` as a byte count, validate backing bounds,
-  create bounded views, and distinguish copied CBs from aligned CB references.
-- Rebuild a referenced view when its requested offset, extent, format, stride,
-  target kind or raw-view mode changes on the same resource.
-- Clear stale structured stride during CB recreation and guard unsupported
-  typed-buffer formats against division by zero.
-
-- Enable the required C++17 language mode in ordinary builds as well as strict builds.
-- Preserve smaller explicit CB copies, clear saved SRV-backed resources through
-  writable views, retain runtime-learned pool flags and scalar-variable precedence,
-  and keep valid warm views for `this` targets.
-- Retain reload initialization measurements until a completed frame can be reported.
-- Read nested pool indexes without changing pool state during metadata queries,
-  retain bind-flag learning for initially empty references, and skip unused
-  destination metadata for existing resource caches.
-- Match normal lazy-slot, FIFO and same-frame expiration behavior in detached
-  metadata previews, and preserve resource identities when a copy is accepted.
-- Preserve hot resources and cached spatial data during preview adoption, and
-  retain statically pinned resource targets after pool proxy changes.
-- Share provisional resources across aliases of one root slot and reuse the
-  resolved destination and logical key throughout a copy, including index-read
-  expiration and same-pool source lookups.
-- Restore production binaries after failed mutation checks and exclude unverified
-  executables from failure artifacts.
+- Keep installed device-creation hook continuations separate from selected
+  backend exports, so renamed chain loading preserves both an outer proxy such
+  as EDUP and an explicitly configured downstream proxy.
 
 ### Added
 
-- Summary-mode CPU timing and counts for resource matching, fuzzy candidates,
-  view creation and view reuse; document how to capture the performance monitor.
+- Product-DLL proxy-chain checks for both device-creation APIs, early and lazy
+  initialization, repeated calls, combined outer/downstream proxies and
+  missing/self/invalid proxy fallback on x64 and Win32. Invalid-proxy checks
+  require a matching architecture and the missing-export rejection diagnostic.
+- A pinned EDUP 0.22.1 before/after startup check: the old DLL selects the chain
+  while leaving EDUP's device and Present path inactive; the repaired DLL
+  activates both and registers its F8 menu binding.
+- Separate regression controls for outer-proxy and downstream-proxy bypass.
+  Failed or incomplete rejection evidence remains failed in the JSON receipts.
 
 ### Changed
 
-- Reuse the current INI section while parsing. In the isolated EDHM fixture,
-  median configuration loading fell from 73.971 ms to 71.625 ms under Wine;
-  this is a CPU load-time measurement. Constants compaction and static-condition
-  memoization were evaluated and deferred because useful gains were not established.
-- Register profiler command identities once per collection window, reducing
-  enabled-monitor overhead in the native interpreter fixture.
-- Reuse compatible source views after checking resource, interface and active
-  descriptor fields; retain factory fallback for regions, overrides and planar
-  video. Preserve existing pipeline bindings when required view creation fails.
-- Add native runtime regression checks, deliberate-break verification and
-  optional strict Zip Release validation for both Windows architectures.
+- Scope Actions read permissions to the workflow jobs that consume them.
+- Document rebuilding the product DLL before running proxy-chain checks.
 
 ### Notes
 
-- Development beta; installed Elite Dangerous + EDHM smoke testing and game
-  frame-time validation remain pending. See [the implementation and validation
-  report](https://github.com/Fenris159/EDHM_2DMigoto/blob/develop/docs/next-release-implementation.md).
+- An external tester reported an earlier repaired test build working in-game
+  with EDUP and EDHM. Native Windows/MSVC/WARP checks of the final routing fix
+  remain separate from that report and do not establish Elite AA or VR output.
+- When pairing with EDUP, retain EDUP's `d3d11.dll` and install this release's
+  DLL as `d3d11_edhm.dll`. Set `[advanced] real_dll=d3d11_edhm.dll` in EDUP's
+  configuration and `[System] load_library_redirect=0` in our `d3dx.ini`. See
+  [the configuration guide](https://github.com/Fenris159/EDHM_2DMigoto/blob/develop/docs/ed-unofficial-patch-compatibility.md#configuration-i-recommend-for-this-pairing).
 ---
 Full project history: [CHANGELOG.md](https://github.com/Fenris159/EDHM_2DMigoto/blob/HEAD/CHANGELOG.md)
