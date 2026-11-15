@@ -103,7 +103,8 @@ jobs:
           & python RuntimeTests/run_proxy_chain_tests.py --dll $dll[0].FullName `
             --fixture .quality/proxy-chain/x64/ProxyChainFixture.dll `
             --exe .quality/proxy-chain/x64/ProxyChainTests.exe `
-            --output .quality/proxy-chain/x64/baseline-results --expect-bypass
+            --output .quality/proxy-chain/x64/baseline-results --expect-bypass `
+            --edup .quality/edup-0.22.1/core/d3d11.dll
           if ($LASTEXITCODE -ne 0) { throw 'Pre-fix bypass was not detected' }
       - name: Upload proxy-chain evidence
         if: always()

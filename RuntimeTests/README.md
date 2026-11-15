@@ -83,7 +83,10 @@ it does not establish Elite-specific AA output or an in-game F8 interaction.
 The optional `proxy_chain_baseline_run` workflow input supplies a successful,
 trusted x64 product build for the sensitivity control. Each chain case must fail
 on the specific missing device/swap-chain policy; a crash or build failure does
-not count as detection. JSON receipts include executable and DLL hashes.
+not count as detection. With the official EDUP DLL, the control must complete
+creation successfully while EDUP selects the chain but reports neither device
+attachment nor an active Present callback. JSON receipts include executable and
+DLL hashes.
 
 ## Regression sensitivity
 

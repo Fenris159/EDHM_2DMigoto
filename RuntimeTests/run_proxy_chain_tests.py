@@ -26,8 +26,8 @@ def main():
     cases = ["chain-lazy", "chain-early", "chain-swap-early"]
     if not args.expect_bypass:
         cases += ["standalone", "downstream", "missing-proxy", "self-proxy", "invalid-proxy"]
-        if args.edup:
-            cases += ["edup"]
+    if args.edup:
+        cases += ["edup"]
     records = []
     try:
         for case in cases:
@@ -69,27 +69,37 @@ def main():
             command = [str(directory / "ProxyChainTests.exe"), case]
             if args.runner:
                 command.insert(0, args.runner)
-            completed = subprocess.run(command, cwd=directory, capture_output=True, text=True, timeout=60, check=False)
+            try:
+                completed = subprocess.run(command, cwd=directory, capture_output=True, text=True, timeout=60, check=False)
+            except subprocess.TimeoutExpired as error:
+                for name, captured in (("stdout", error.stdout), ("stderr", error.stderr)):
+                    text = captured.decode("utf-8", errors="replace") if isinstance(captured, bytes) else captured or ""
+                    (directory / f"{name}.txt").write_text(text, encoding="utf-8")
+                records.append({"case": case, "timeout": True, "passed": False})
+                raise
             (directory / "stdout.txt").write_text(completed.stdout, encoding="utf-8")
             (directory / "stderr.txt").write_text(completed.stderr, encoding="utf-8")
             record = {"case": case, "exit_code": completed.returncode}
             records.append(record)
-            if args.expect_bypass:
+            if case == "edup":
+                logs = "\n".join(path.read_text(encoding="utf-8", errors="replace")
+                                 for path in (directory / "edvr_logs").glob("*gfx*.log"))
+                # EDUP's published startup/frame-boundary diagnostics expose whether
+                # the actual outer DLL is active, beyond merely loading successfully.
+                record["edup_chain_selected"] = "chaining through " in logs and "d3d11_edhm.dll" in logs
+                record["edup_device_attached"] = "D3D11 device " in logs
+                record["edup_present_active"] = "Present is running on thread " in logs
+                wanted = not args.expect_bypass
+                record["passed"] = (completed.returncode == 0 and record["edup_chain_selected"]
+                                    and record["edup_device_attached"] == wanted
+                                    and record["edup_present_active"] == wanted)
+            elif args.expect_bypass:
                 record["passed"] = completed.returncode == 1 and (
                     "proxy device policy was bypassed" in completed.stderr
                     or "proxy swap-chain policy was bypassed" in completed.stderr
                 )
             else:
                 record["passed"] = completed.returncode == 0
-                if case == "edup":
-                    logs = "\n".join(path.read_text(encoding="utf-8", errors="replace")
-                                     for path in (directory / "edvr_logs").glob("*gfx*.log"))
-                    # These are EDUP's published startup/frame-boundary diagnostics,
-                    # not calls into its private state or a replacement implementation.
-                    record["edup_device_attached"] = "D3D11 device " in logs
-                    record["edup_present_active"] = "Present is running on thread " in logs
-                    record["passed"] = (record["passed"] and record["edup_device_attached"]
-                                        and record["edup_present_active"])
             print(f"{'PASS' if record['passed'] else 'FAIL'} {case}: exit {completed.returncode}", flush=True)
             if not record["passed"]:
                 raise RuntimeError(f"{case}: {completed.stdout}\n{completed.stderr}")
