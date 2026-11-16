@@ -53,7 +53,7 @@ def main():
     if args.edup:
         cases += ["edup"]
     if args.shutdown_only:
-        cases = ["standalone-shutdown", "chain-shutdown", "standalone-unload"]
+        cases = ["backend-shutdown", "standalone-shutdown", "chain-shutdown", "standalone-unload"]
         if args.edup:
             cases += ["edup-shutdown"]
     records = []

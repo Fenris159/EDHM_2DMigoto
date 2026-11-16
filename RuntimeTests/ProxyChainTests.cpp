@@ -194,7 +194,7 @@ void run(const char *mode)
 		require(retainer != nullptr, "resource retainer unavailable");
 	}
 	require(wcscat_s(path, L"d3d11.dll") == 0, "proxy path overflow");
-	HMODULE proxy = LoadLibraryW(path);
+	HMODULE proxy = std::strcmp(mode, "backend-shutdown") == 0 ? load_system(L"d3d11.dll") : LoadLibraryW(path);
 	require(proxy != nullptr, "could not load game-local proxy");
 	const bool chain = std::strncmp(mode, "chain-", 6) == 0;
 	const bool downstream = std::strstr(mode, "downstream") != nullptr;
