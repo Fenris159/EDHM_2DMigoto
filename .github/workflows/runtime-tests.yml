@@ -11,6 +11,10 @@ on:
         description: Deliberately break each repaired behavior and verify detection
         type: boolean
         default: false
+      mutation_case_filter:
+        description: Optional comma-separated native cases for focused mutation checks
+        type: string
+        default: ''
       proxy_frame_mutations:
         description: Verify frame-action assertions by breaking and restoring the product DLL
         type: boolean
@@ -19,6 +23,10 @@ on:
         description: Capture interpreter and WARP view CPU mechanism measurements
         type: boolean
         default: false
+      entry_benchmark_baseline_ref:
+        description: Optional ancestor commit for an isolated public-entry comparison with the same harness
+        type: string
+        default: ''
       benchmark_baseline_run:
         description: Optional successful same-repository run with a matching x64 benchmark executable
         type: string
@@ -293,6 +301,8 @@ jobs:
         platform: [x64, Win32]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
       - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
         with:
           vs-version: '[17.0,18.0)'
@@ -314,6 +324,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'IniParams upload fixture build failed' }
           & ".quality/ini-publication/${{ matrix.platform }}/IniParamsUploadTests.exe"
           if ($LASTEXITCODE -ne 0) { throw 'IniParams D3D upload checks failed' }
+      - name: Measure successful publication kernels
+        id: publication_measurements
+        if: inputs.mechanism_benchmarks && matrix.platform == 'x64'
+        shell: pwsh
+        run: |
+          & .quality/ini-publication/x64/IniParamsUploadTests.exe --benchmark 21 --iterations 50000 > .quality/ini-publication/x64/upload-benchmark.csv
+          if ($LASTEXITCODE -ne 0) { throw 'Publication kernel measurements failed' }
+      - name: Retain publication kernel evidence
+        if: always() && inputs.mechanism_benchmarks && matrix.platform == 'x64' && steps.publication_measurements.outcome != 'skipped'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: publication-kernels-${{ github.sha }}
+          path: .quality/ini-publication/x64/upload-benchmark.csv
+          if-no-files-found: error
+          retention-days: 14
       - name: Exercise runtime behavior
         shell: pwsh
         env:
@@ -321,14 +346,103 @@ jobs:
         run: |
           $exe = ".quality/runtime-tests/$env:TEST_PLATFORM/Release/RuntimeTests.exe"
           $failures = @()
-          foreach ($case in @('empty-groups', 'leading-dot', 'pending-save', 'pool-reset', 'constant-stride', 'iniparams-transition-retry', 'iniparams-command-retry', 'reference-order', 'reference-cycles', 'pool-metadata', 'missing-metadata', 'nested-metadata', 'metadata-resource', 'metadata-resource-identity', 'metadata-lazy-index', 'metadata-fifo', 'metadata-expiration', 'metadata-hot-identity', 'metadata-cached-spatial', 'metadata-static-pin', 'metadata-alias', 'metadata-alias-expiration', 'metadata-destination-key-spatial', 'metadata-destination-key-fifo', 'pool-identifiers', 'store-values', 'store-views', 'store-failure', 'region-copy', 'region-vertex-bytes', 'region-views', 'region-cb', 'settings-atomic', 'settings-lifecycle', 'settings-deferred', 'settings-save-update', 'settings-batch-reload', 'settings-save-reload', 'analysis-reload', 'constants-order', 'ini-sections', 'if-conditions', 'expression-grammar', 'profiling-collections', 'profiling-reload', 'matching-diagnostics', 'view-reuse', 'view-descriptors', 'view-cache-metadata', 'view-ownership', 'view-failure', 'region-cb-small', 'view-clear', 'view-clear-integer', 'view-clear-stencil', 'metadata-static-variable', 'pool-learned-flags', 'pool-scalar-precedence', 'view-this-cache', 'profiling-zero-frame', 'resource-final-release', 'resource-retirement')) {
+          foreach ($case in @('empty-groups', 'leading-dot', 'pending-save', 'pool-reset', 'constant-stride', 'iniparams-transition-retry', 'iniparams-command-retry', 'entry-path', 'reference-order', 'reference-cycles', 'pool-metadata', 'missing-metadata', 'nested-metadata', 'metadata-resource', 'metadata-resource-identity', 'metadata-lazy-index', 'metadata-fifo', 'metadata-expiration', 'metadata-hot-identity', 'metadata-cached-spatial', 'metadata-static-pin', 'metadata-alias', 'metadata-alias-expiration', 'metadata-destination-key-spatial', 'metadata-destination-key-fifo', 'pool-identifiers', 'store-values', 'store-views', 'store-failure', 'region-copy', 'region-vertex-bytes', 'region-views', 'region-cb', 'settings-atomic', 'settings-lifecycle', 'settings-deferred', 'settings-save-update', 'settings-batch-reload', 'settings-save-reload', 'analysis-reload', 'constants-order', 'ini-sections', 'if-conditions', 'expression-grammar', 'profiling-collections', 'profiling-reload', 'matching-diagnostics', 'view-reuse', 'view-descriptors', 'view-cache-metadata', 'view-ownership', 'view-failure', 'region-cb-small', 'view-clear', 'view-clear-integer', 'view-clear-stencil', 'metadata-static-variable', 'pool-learned-flags', 'pool-scalar-precedence', 'view-this-cache', 'profiling-zero-frame', 'resource-final-release', 'resource-retirement')) {
             & $exe $case
             if ($LASTEXITCODE -ne 0) { $failures += "$case (exit $LASTEXITCODE)" }
           }
           if ($failures.Count -ne 0) { throw "Runtime regression checks failed: $($failures -join ', ')" }
       - name: Verify regression sensitivity
         if: inputs.mutation_checks && matrix.platform == 'x64'
-        run: python RuntimeTests/check_mutations.py
+        shell: pwsh
+        env:
+          MUTATION_CASE_FILTER: ${{ inputs.mutation_case_filter }}
+        run: |
+          $mutationArguments = @()
+          if ($env:MUTATION_CASE_FILTER) {
+            foreach ($case in $env:MUTATION_CASE_FILTER.Split(',')) {
+              $mutationArguments += @('--case', $case.Trim())
+            }
+          }
+          & python RuntimeTests/check_mutations.py @mutationArguments
+          if ($LASTEXITCODE -ne 0) { throw 'Mutation sensitivity checks failed' }
+      - name: Measure public command entry points with a shared harness
+        id: command_entry_measurements
+        if: inputs.mechanism_benchmarks && matrix.platform == 'x64'
+        shell: pwsh
+        env:
+          ENTRY_BASELINE_REF: ${{ inputs.entry_benchmark_baseline_ref }}
+        run: |
+          $entryDirectory = ".quality/entry-benchmark/$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          New-Item -ItemType Directory -Force -Path $entryDirectory | Out-Null
+          @{ status = 'preparing'; candidate_source = $env:GITHUB_SHA; baseline_requested = $env:ENTRY_BASELINE_REF } |
+            ConvertTo-Json | Set-Content "$entryDirectory/metadata.json" -Encoding utf8
+          $candidate = (Resolve-Path '.quality/runtime-tests/x64/Release/RuntimeTests.exe').Path
+          $variants = @{ B = $candidate }
+          $order = @('B')
+          $baselineSource = $null
+          if ($env:ENTRY_BASELINE_REF) {
+            if ($env:ENTRY_BASELINE_REF -notmatch '^[0-9a-fA-F]{7,40}$') { throw 'Entry baseline must be a commit hash' }
+            $baselineRevision = & git rev-parse --verify "$($env:ENTRY_BASELINE_REF)^{commit}"
+            if ($LASTEXITCODE -ne 0) { throw 'Entry baseline commit is unavailable' }
+            $baselineSource = $baselineRevision.Trim()
+            & git merge-base --is-ancestor $baselineSource HEAD
+            if ($LASTEXITCODE -ne 0) { throw 'Entry baseline must be an ancestor of this source' }
+            $productionChanges = @(& git diff --name-only $baselineSource HEAD | Where-Object {
+              $_ -notmatch '^(docs/|RuntimeTests/|scripts/|\.github/|GLOSSARY\.md$)'
+            })
+            if ($LASTEXITCODE -ne 0 -or $productionChanges.Count -ne 1 -or
+                $productionChanges[0] -ne 'DirectX11/CommandList.cpp') {
+              throw 'Entry comparison requires an isolated CommandList.cpp production change'
+            }
+            $baselineDirectory = "$entryDirectory/baseline-source"
+            & git worktree add --detach $baselineDirectory $baselineSource
+            if ($LASTEXITCODE -ne 0) { throw 'Could not prepare entry baseline worktree' }
+            # Both variants compile the exact same public-entry harness.
+            Copy-Item RuntimeTests/RuntimeTests.cpp "$baselineDirectory/RuntimeTests/RuntimeTests.cpp"
+            Copy-Item RuntimeTests/D3DMapBoundary.h "$baselineDirectory/RuntimeTests/D3DMapBoundary.h"
+            $baselineRoot = (Resolve-Path $baselineDirectory).Path
+            & msbuild "$baselineRoot/DirectX11/RuntimeTests.vcxproj" -target:Build `
+              -property:Configuration=Release -property:Platform=x64 `
+              "-property:SolutionDir=$baselineRoot/" -property:EdhmStrictBuild=true `
+              -nodeReuse:false -verbosity:minimal -restore:false
+            if ($LASTEXITCODE -ne 0) { throw 'Shared-harness entry baseline build failed' }
+            $variants.A = (Resolve-Path "$baselineRoot/.quality/runtime-tests/x64/Release/RuntimeTests.exe").Path
+            $order = @('A', 'B', 'B', 'A')
+          }
+          $metadata = @{
+            status = 'prepared'
+            baseline_source = $baselineSource
+            candidate_source = $env:GITHUB_SHA
+            shared_harness_sha256 = (Get-FileHash RuntimeTests/RuntimeTests.cpp -Algorithm SHA256).Hash
+            boundary_fixture_sha256 = (Get-FileHash RuntimeTests/D3DMapBoundary.h -Algorithm SHA256).Hash
+            processor = $env:PROCESSOR_IDENTIFIER
+            os = [Environment]::OSVersion.VersionString
+            debug_layer = $false
+            no_present_or_game = $true
+            variants = @{}
+          }
+          foreach ($variant in $variants.Keys) {
+            $metadata.variants[$variant] = @{ sha256 = (Get-FileHash $variants[$variant] -Algorithm SHA256).Hash }
+          }
+          $metadata | ConvertTo-Json -Depth 8 | Set-Content "$entryDirectory/metadata.json" -Encoding utf8
+          $sequence = 0
+          foreach ($variant in $order) {
+            & $variants[$variant] benchmark-entries 11 > "$entryDirectory/$sequence-$variant.csv"
+            if ($LASTEXITCODE -ne 0) { throw "Public-entry benchmark failed: $variant" }
+            $sequence++
+          }
+          $metadata.status = 'complete'
+          $metadata | ConvertTo-Json -Depth 8 | Set-Content "$entryDirectory/metadata.json" -Encoding utf8
+      - name: Retain public-entry measurement evidence
+        if: always() && inputs.mechanism_benchmarks && matrix.platform == 'x64' && steps.command_entry_measurements.outcome != 'skipped'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: entry-benchmarks-${{ github.sha }}
+          path: |
+            .quality/entry-benchmark/*/metadata.json
+            .quality/entry-benchmark/*/*.csv
+          if-no-files-found: error
+          retention-days: 14
       - name: Measure CPU mechanisms without the debug layer
         if: inputs.mechanism_benchmarks && matrix.platform == 'x64'
         shell: pwsh

@@ -36,11 +36,13 @@ class MutationCleanupTests(unittest.TestCase):
             frame_analysis.write_bytes(b"frame analysis fixture\r\n")
             globals_header = root / "DirectX11" / "globals.h"
             globals_header.write_bytes(b"globals fixture\r\n")
+            override = root / "DirectX11" / "Override.cpp"
+            override.write_bytes(b"override fixture\r\n")
             executable = root / "RuntimeTests.exe"
             executable.write_bytes(b"production\n")
             hashing = root / "DirectX11" / "ResourceHash.cpp"
             hashing.write_bytes(b"hashing fixture\r\n")
-            originals = {p: p.read_bytes() for p in (source, settings, profiling, hashing, context_header, frame_analysis, globals_header)}
+            originals = {p: p.read_bytes() for p in (source, settings, profiling, hashing, context_header, frame_analysis, globals_header, override)}
             mutant_built = False
             timeout_error = subprocess.TimeoutExpired(["fixture-compiler"], 300, output=b"partial build\n")
 

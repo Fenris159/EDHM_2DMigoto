@@ -290,7 +290,8 @@ struct IniParamsFixture
 		}
 	} resources;
 
-	IniParamsFixture() : device(d3d.device.Get(), d3d.context.Get()), resources{device}
+	explicit IniParamsFixture(bool validation = true)
+	    : d3d(validation), device(d3d.device.Get(), d3d.context.Get()), resources{device}
 	{
 		device.SetHackerContext(d3d.hacker_context.get());
 		d3d.hacker_context->SetHackerDevice(&device, false);
@@ -350,22 +351,40 @@ void final_transition_upload_retries_after_retirement()
 void command_upload_retries_after_its_state_retires()
 {
 	IniParamsFixture fixture;
-	CommandList commands;
-	auto assignment = std::make_shared<ParamOverride>();
-	assignment->param_idx = 0;
-	assignment->param_component = &DirectX::XMFLOAT4::x;
-	const std::wstring value = L"2";
-	require(assignment->expression.parse(&value, nullptr, nullptr), "IniParams assignment was rejected");
-	commands.commands.push_back(assignment);
+	for (bool empty_retry : {true, false})
 	{
-		D3DMapBoundary boundary(fixture.d3d.context.Get(), fixture.device.mIniTexture);
-		boundary.failures = 1;
-		RunCommandList(&fixture.device, fixture.d3d.hacker_context.get(), &commands, nullptr, false);
-		require(fixture.read() == std::array<float, 4>{0, 0, 0, 0}, "failed command upload changed GPU contents");
+		CommandList commands;
+		auto assignment = std::make_shared<ParamOverride>();
+		assignment->param_idx = 0;
+		assignment->param_component = &DirectX::XMFLOAT4::x;
+		const std::wstring value = empty_retry ? L"2" : L"4";
+		require(assignment->expression.parse(&value, nullptr, nullptr), "IniParams assignment was rejected");
+		commands.commands.push_back(assignment);
+		{
+			D3DMapBoundary boundary(fixture.d3d.context.Get(), fixture.device.mIniTexture);
+			boundary.failures = 1;
+			RunCommandList(&fixture.device, fixture.d3d.hacker_context.get(), &commands, nullptr, false);
+			const std::array<float, 4> previous =
+			    empty_retry ? std::array<float, 4>{0, 0, 0, 0} : std::array<float, 4>{2, 0, 0, 0};
+			require(fixture.read() == previous, "failed command upload changed GPU contents");
+		}
+		CommandList retry;
+		CommandListVariable local(L"$retry", 0, VariableFlags::NONE);
+		if (!empty_retry)
+		{
+			auto non_gpu_assignment = std::make_shared<VariableAssignment>();
+			non_gpu_assignment->var = &local;
+			const std::wstring one = L"1";
+			require(non_gpu_assignment->expression.parse(&one, nullptr, nullptr), "retry command was rejected");
+			retry.commands.push_back(non_gpu_assignment);
+		}
+		RunCommandList(&fixture.device, fixture.d3d.hacker_context.get(), &retry, nullptr, false);
+		const std::array<float, 4> expected =
+		    empty_retry ? std::array<float, 4>{2, 0, 0, 0} : std::array<float, 4>{4, 0, 0, 0};
+		require(fixture.read() == expected, "expired command state lost its pending upload");
+		if (!empty_retry)
+			require(local.fval == 1, "nonempty retry point skipped its ordinary command");
 	}
-	CommandList empty;
-	RunCommandList(&fixture.device, fixture.d3d.hacker_context.get(), &empty, nullptr, false);
-	require(fixture.read() == std::array<float, 4>{2, 0, 0, 0}, "expired command state lost its pending upload");
 	fixture.d3d.require_no_errors();
 }
 
@@ -1803,6 +1822,51 @@ struct ProfilingFixture
 		Profiling::cto_warning = warning;
 	}
 };
+
+BOOL WINAPI publication_counter(LARGE_INTEGER *value)
+{
+	value->QuadPart = 100;
+	return TRUE;
+}
+
+void empty_entry_paths_preserve_later_work_and_profiling()
+{
+	IniParamsFixture fixture;
+	CommandListVariable result(L"$entry", 0.0f, VariableFlags::NONE);
+	CommandList empty, generated, proxy, other;
+	generated.runtime_populated = true;
+	require(proxy.SetSourceCommandList(&generated), "empty proxy was rejected");
+	auto first = std::make_shared<VariableAssignment>();
+	first->var = &result;
+	const std::wstring seven = L"7";
+	require(first->expression.parse(&seven, nullptr, nullptr), "first assignment was rejected");
+	auto second = std::make_shared<VariableAssignment>();
+	second->var = &result;
+	const std::wstring eleven = L"11";
+	require(second->expression.parse(&eleven, nullptr, nullptr), "second assignment was rejected");
+	other.commands.push_back(second);
+	ProfilingFixture profiling;
+	ImportBoundary clock(GetModuleHandleW(nullptr), "QueryPerformanceCounter", &publication_counter);
+	Profiling::mode = Profiling::Mode::TOP_COMMAND_LISTS;
+	RunCommandList(&fixture.device, fixture.d3d.hacker_context.get(), &empty, nullptr, false);
+	RunCommandList(&fixture.device, fixture.d3d.hacker_context.get(), &proxy, nullptr, false);
+	require(result.fval == 0.0f, "empty command list changed its output");
+	require(command_lists_profiling.empty() && command_lists_cmd_profiling.empty(),
+	        "empty invocation invented profiler work");
+	generated.commands.push_back(first);
+	RunCommandList(&fixture.device, fixture.d3d.hacker_context.get(), &proxy, nullptr, false);
+	require(result.fval == 7.0f, "populated command list retained an empty classification");
+	require(generated.executions == 1, "populated command list lost or duplicated its profile measurement");
+	require(proxy.SetSourceCommandList(&other), "retargeted proxy was rejected");
+	RunCommandList(&fixture.device, fixture.d3d.hacker_context.get(), &proxy, nullptr, false);
+	require(result.fval == 11.0f, "proxy retained its previous resolved target");
+	require(other.executions == 1 && command_lists_profiling.size() == 2, "proxy changed profiler measurements");
+	empty.commands.push_back(first);
+	RunCommandList(&fixture.device, fixture.d3d.hacker_context.get(), &empty, nullptr, false);
+	require(result.fval == 7.0f, "ordinary list retained an empty classification");
+	require(empty.executions == 1 && command_lists_profiling.size() == 3, "new work lost its profiler measurement");
+	fixture.d3d.require_no_errors();
+}
 
 void write_recursive_profile_config(SettingsConfigFixture &files)
 {
@@ -3302,6 +3366,56 @@ void benchmark_command_lists(int samples)
 	Profiling::clear();
 }
 
+void benchmark_command_entries(int samples)
+{
+	IniParamsFixture fixture(false);
+	auto inserted = command_list_globals.emplace(L"$entrybenchmark",
+	                                             CommandListVariable(L"$entrybenchmark", 0.0f, VariableFlags::NONE));
+	auto &value = inserted.first->second;
+	std::array<CommandList, 64> empty, generated, proxies, nonempty;
+	for (std::size_t index = 0; index < empty.size(); ++index)
+	{
+		generated[index].runtime_populated = true;
+		require(proxies[index].SetSourceCommandList(&empty[index]), "benchmark proxy was rejected");
+		auto assignment = std::make_shared<VariableAssignment>();
+		assignment->var = &value;
+		const std::wstring expression = L"$entrybenchmark + 1";
+		require(assignment->expression.parse(&expression, nullptr, nullptr), "entry benchmark expression rejected");
+		nonempty[index].commands.push_back(assignment);
+	}
+	constexpr int iterations = 200000;
+	std::cout << "workload,mode,sample,iterations,ns_per_run,value\n";
+	for (auto mode : {Profiling::Mode::NONE, Profiling::Mode::SUMMARY})
+	{
+		Profiling::mode = mode;
+		for (int workload = 0; workload < 4; ++workload)
+		{
+			auto *lists = workload == 0 ? &empty : workload == 1 ? &proxies : workload == 2 ? &generated : &nonempty;
+			const char *name = workload == 0   ? "empty"
+			                   : workload == 1 ? "proxy_empty"
+			                   : workload == 2 ? "dynamic_empty"
+			                                   : "one_assignment";
+			for (int sample = 0; sample < samples; ++sample)
+			{
+				Profiling::clear();
+				value.fval = 0;
+				const auto start = std::chrono::steady_clock::now();
+				for (int iteration = 0; iteration < iterations; ++iteration)
+					RunCommandList(&fixture.device, fixture.d3d.hacker_context.get(),
+					               &(*lists)[static_cast<std::size_t>(iteration) % lists->size()], nullptr, false);
+				const double elapsed =
+				    std::chrono::duration<double, std::nano>(std::chrono::steady_clock::now() - start).count();
+				require(value.fval == (workload == 3 ? 200000.0f : 0.0f), "entry benchmark changed command results");
+				std::cout << name << ',' << static_cast<int>(mode) << ',' << sample << ',' << iterations << ','
+				          << elapsed / iterations << ',' << value.fval << '\n';
+			}
+		}
+	}
+	Profiling::mode = Profiling::Mode::NONE;
+	Profiling::clear();
+	command_list_globals.erase(L"$entrybenchmark");
+}
+
 void benchmark_resource_views(int samples)
 {
 	D3DFixture fixture(false);
@@ -3377,13 +3491,16 @@ int main(int argc, char **argv)
 	InitializeCriticalSection(&G->mCriticalSection);
 	InitializeCriticalSection(&G->mResourcesLock);
 	InitializeCriticalSection(&resource_creation_mode_lock);
-	if (argc > 1 && (std::string(argv[1]) == "benchmark-lists" || std::string(argv[1]) == "benchmark-views"))
+	if (argc > 1 && (std::string(argv[1]) == "benchmark-lists" || std::string(argv[1]) == "benchmark-views" ||
+	                 std::string(argv[1]) == "benchmark-entries"))
 	{
 		const int samples = argc > 2 ? std::stoi(argv[2]) : 11;
 		if (samples < 1 || samples > 1000)
 			return 1;
 		if (std::string(argv[1]) == "benchmark-lists")
 			benchmark_command_lists(samples);
+		else if (std::string(argv[1]) == "benchmark-entries")
+			benchmark_command_entries(samples);
 		else
 			benchmark_resource_views(samples);
 		return 0;
@@ -3431,6 +3548,7 @@ int main(int argc, char **argv)
 	             {"constant-stride", recreates_structured_data_as_a_constant_buffer},
 	             {"iniparams-transition-retry", final_transition_upload_retries_after_retirement},
 	             {"iniparams-command-retry", command_upload_retries_after_its_state_retires},
+	             {"entry-path", empty_entry_paths_preserve_later_work_and_profiling},
 	             {"reference-order", resolves_reference_chains_in_any_order},
 	             {"reference-cycles", terminates_incompatible_reference_cycles},
 	             {"pool-metadata", metadata_queries_do_not_extend_pool_lifetime},

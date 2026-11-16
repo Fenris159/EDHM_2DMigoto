@@ -26,7 +26,7 @@ bounds, CB ranges, and INI/optimizer ordering and reload semantics. A real devic
 boundary records submitted buffer descriptors and can fail staging allocation;
 this catches errors that WARP normalizes in a completed buffer description.
 
-The 60 cases also cover monitor-mode/window/reload transitions and recursive or
+The 63 cases also cover monitor-mode/window/reload transitions and recursive or
 shared command counts; summary-only matching/view diagnostics; hash-first and
 ordered dual matching; documented expression operators; all four view kinds,
 resource/descriptor/raw/override fallbacks, changing `this` targets, warm-cache
@@ -75,6 +75,48 @@ object first. Retaining whole WARP objects until process-exit CRT cleanup also
 fails without EDHM loaded, so that backend behavior is excluded from this test.
 See [the lifecycle rationale](../docs/resource-registry-shutdown.md).
 CPU timing is never a regression threshold.
+
+## IniParams publication preparation
+
+The preliminary publication checks preserve existing upload points and protect
+failure/retry ownership. The portable policy check runs without D3D:
+
+```bash
+c++ -std=c++17 -Wall -Wextra -Werror -pedantic RuntimeTests/IniParamsPublicationTests.cpp -o publication-tests
+./publication-tests
+python -m unittest discover -s RuntimeTests -p test_readiness_inventory.py -v
+```
+
+`IniParamsUploadTests.vcxproj` builds the concrete production D3D adapter check
+for x64 and Win32. It verifies actual texture contents after failed Map, retry,
+successive complete-image publication and resource recreation, without a swap
+chain or Present. Its default uses WARP; `--allow-hardware` explicitly permits a
+fallback for hosts where WARP is unavailable. Wine results remain distinct from
+native Windows validation.
+
+The production-path cases `iniparams-transition-retry` and
+`iniparams-command-retry` additionally verify pending publication after a final
+transition or command state retires. They use GPU readback and a controlled Map
+failure; the transition clock is fixed. These new native cases are not accepted
+as verified until their Windows run and mutation checks pass. Current evidence
+and remaining gates live in the [pre-production status](../docs/pre-production-edo-readiness.md).
+
+`entry-path` additionally protects later population of ordinary/dynamic lists,
+proxy retargeting and profiler counts. `benchmark-entries` measures the public
+entry point with debug validation disabled; the existing `benchmark-lists`
+mode uses preallocated state and measures a different scope. For a focused
+native sensitivity run in a clean disposable checkout:
+
+```bash
+python RuntimeTests/check_mutations.py --case iniparams-transition-retry --case iniparams-command-retry --case entry-path
+```
+
+The manual runtime workflow accepts `mutation_case_filter` as a comma-separated
+list. With `mechanism_benchmarks=true`, `entry_benchmark_baseline_ref` can select
+an ancestor for a shared-harness A/B/B/A entry comparison. Leave it empty for
+candidate-only measurements. It accepts only a comparison where CommandList.cpp
+is the sole changed production file. Keep output types and source provenance
+separate from the publication kernel probe in `IniParamsUploadTests`.
 
 ## D3D12 helper swap chains
 
@@ -190,7 +232,7 @@ python RuntimeTests/run_reload_notification_tests.py --dll x64/Release/d3d11.dll
 ```
 
 The manual **Runtime regression checks** workflow accepts `mutation_checks=true`.
-The 60 cases have 66 deliberate breaks: the expiring-alias case independently
+The 63 cases have 66 deliberate breaks: the expiring-alias case independently
 breaks resource-creation metadata and reuse of the resolved destination, and the
 zero-frame case independently breaks command measurements while retaining their
 registration. Mutation labels distinguish the runs invoking the same native case.

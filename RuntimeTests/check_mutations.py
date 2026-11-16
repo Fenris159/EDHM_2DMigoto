@@ -1,5 +1,6 @@
 """Verify regression sensitivity against real native runtime behavior."""
 
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -460,6 +461,31 @@ def get_mutations(command_list, settings, profiling):
             "state->pool_metadata_preview->RestoreDestination(this);",
             "static_cast<void>(is_assignment);",
         ),
+
+        (
+            "iniparams-command-retry--nonempty",
+            command_list,
+            "if (state->mHackerContext->PublishIniParams(state->mHackerDevice, state->update_params))",
+            "if (state->update_params && state->mHackerContext->PublishIniParams(state->mHackerDevice, true))",
+        ),
+        (
+            "iniparams-command-retry--empty",
+            command_list,
+            "\t\tmHackerContext->PublishIniParams(mHackerDevice, false);",
+            "\t\tstatic_cast<void>(mHackerDevice);",
+        ),
+        (
+            "entry-path",
+            command_list,
+            "if (!resolved->runtime_populated && resolved->commands.empty())",
+            "static std::unordered_set<CommandList *> empty_cache;\n\tif (empty_cache.count(resolved) || (!resolved->runtime_populated && resolved->commands.empty()))\n\t{ empty_cache.insert(resolved); }\n\tif (empty_cache.count(resolved))",
+        ),
+        (
+            "iniparams-transition-retry",
+            ROOT / "DirectX11" / "Override.cpp",
+            "\tcontext->PublishIniParams(wrapper, changed_params);",
+            "\tif (changed_params) context->PublishIniParams(wrapper, true);",
+        ),
     ]
 
 
@@ -487,11 +513,18 @@ def restore_production(originals, mutations, evidence, original_failure):
         print(f"Production binary quarantined after cleanup failure: {restoration_failure}", file=sys.stderr)
 
 
-def main():
+def main(cases=None):
     OUTPUT.mkdir(parents=True, exist_ok=True)
     command_list = ROOT / "DirectX11" / "CommandList.cpp"
     settings = ROOT / "DirectX11" / "IniHandler.cpp"
     mutations = get_mutations(command_list, settings, ROOT / "DirectX11" / "profiling.cpp")
+    if cases:
+        requested = set(cases)
+        known = {native_case(name) for name, _, _, _ in mutations}
+        unknown = requested - known
+        if unknown:
+            raise ValueError("Unknown mutation case: " + ", ".join(sorted(unknown)))
+        mutations = [entry for entry in mutations if native_case(entry[0]) in requested]
     originals = {path: path.read_bytes() for _, path, _, _ in mutations}
     evidence = []
     try:
@@ -528,4 +561,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--case", action="append", help="Native runtime case to verify; repeat to select several")
+    arguments = parser.parse_args()
+    main(arguments.case)

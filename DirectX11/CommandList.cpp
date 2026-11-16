@@ -455,6 +455,14 @@ static void RunCommandListComplete(HackerDevice *mHackerDevice, HackerContext *m
                                    ID3D11View *view, bool post)
 {
 	const ConfigurationReadLock configuration;
+	CommandList *resolved = command_list->ResolveCommandList();
+	if (!resolved->runtime_populated && resolved->commands.empty())
+	{
+		// An empty invocation can still be the next legal retry point for a
+		// previous failed upload. Never retain an empty classification.
+		mHackerContext->PublishIniParams(mHackerDevice, false);
+		return;
+	}
 	CommandListState state;
 	state.mHackerDevice = mHackerDevice;
 	state.mHackerContext = mHackerContext;
@@ -469,7 +477,7 @@ static void RunCommandListComplete(HackerDevice *mHackerDevice, HackerContext *m
 	if (!post && !state.input_layout_overrides.empty())
 		UpdateInputLayout(command_list->ini_section.c_str(), &state);
 
-	_RunCommandList(command_list, &state);
+	_RunCommandList(resolved, &state);
 	CommandListFlushState(&state);
 }
 
