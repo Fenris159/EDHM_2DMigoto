@@ -89,8 +89,12 @@ python -m unittest discover -s RuntimeTests -p test_readiness_inventory.py -v
 
 `IniParamsUploadTests.vcxproj` builds the concrete production D3D adapter check
 for x64 and Win32. It verifies actual texture contents after failed Map, retry,
-successive complete-image publication and resource recreation, without a swap
-chain or Present. Its default uses WARP; `--allow-hardware` explicitly permits a
+successive complete-image publication and resource recreation. Two offscreen
+draws use different published images; one final readback requires the first
+pixel to retain the first image and the second pixel to use the next image.
+No readback or explicit flush separates those draws, and no swap chain or
+Present runs. `--draw-only` selects that ordering case. Its default uses WARP;
+`--allow-hardware` explicitly permits a
 fallback for hosts where WARP is unavailable. Wine results remain distinct from
 native Windows validation.
 

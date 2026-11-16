@@ -3,6 +3,7 @@
 #include "../DirectX11/IniParamsPublication.h"
 #include "D3DMapBoundary.h"
 
+#include <d3dcompiler.h>
 #include <wrl/client.h>
 
 #include <array>
@@ -89,6 +90,90 @@ void exercise(ID3D11Device *device, ID3D11DeviceContext *context)
 	require(publication.Publish(false, upload), "recreated texture lost pending publication");
 	require(readback(device, context, target.Get()) == Image{4, 3, 2, 1, 40, 30, 20, 10},
 	        "recreated texture did not receive complete current contents");
+}
+
+void draws_observe_their_own_publication(ID3D11Device *device, ID3D11DeviceContext *context)
+{
+	const char vertex_source[] = "float4 main(uint id : SV_VertexID) : SV_Position {"
+	                             "float2 p = float2((id << 1) & 2, id & 2);"
+	                             "return float4(p * float2(2, -2) + float2(-1, 1), 0, 1); }";
+	const char pixel_source[] = "Texture1D<float4> params : register(t0);"
+	                            "float4 main(float4 position : SV_Position) : SV_Target {"
+	                            "return params.Load(int2((int)position.x, 0)); }";
+	ComPtr<ID3DBlob> vertex_code, pixel_code;
+	require(SUCCEEDED(D3DCompile(vertex_source, sizeof(vertex_source) - 1, "publication-draw-vs", nullptr, nullptr,
+	                             "main", "vs_5_0", 0, 0, &vertex_code, nullptr)),
+	        "publication vertex shader compilation failed");
+	require(SUCCEEDED(D3DCompile(pixel_source, sizeof(pixel_source) - 1, "publication-draw-ps", nullptr, nullptr,
+	                             "main", "ps_5_0", 0, 0, &pixel_code, nullptr)),
+	        "publication pixel shader compilation failed");
+	ComPtr<ID3D11VertexShader> vertex;
+	ComPtr<ID3D11PixelShader> pixel;
+	require(SUCCEEDED(device->CreateVertexShader(vertex_code->GetBufferPointer(), vertex_code->GetBufferSize(), nullptr,
+	                                             &vertex)),
+	        "publication vertex shader creation failed");
+	require(SUCCEEDED(device->CreatePixelShader(pixel_code->GetBufferPointer(), pixel_code->GetBufferSize(), nullptr,
+	                                            &pixel)),
+	        "publication pixel shader creation failed");
+	D3D11_TEXTURE2D_DESC desc{};
+	desc.Width = 2;
+	desc.Height = desc.MipLevels = desc.ArraySize = 1;
+	desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	desc.SampleDesc.Count = 1;
+	desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+	ComPtr<ID3D11Texture2D> output;
+	ComPtr<ID3D11RenderTargetView> render_target;
+	require(SUCCEEDED(device->CreateTexture2D(&desc, nullptr, &output)), "draw output creation failed");
+	require(SUCCEEDED(device->CreateRenderTargetView(output.Get(), nullptr, &render_target)),
+	        "draw output view creation failed");
+	D3D11_RASTERIZER_DESC rasterizer_desc{};
+	rasterizer_desc.FillMode = D3D11_FILL_SOLID;
+	rasterizer_desc.CullMode = D3D11_CULL_NONE;
+	rasterizer_desc.DepthClipEnable = TRUE;
+	ComPtr<ID3D11RasterizerState> rasterizer;
+	require(SUCCEEDED(device->CreateRasterizerState(&rasterizer_desc, &rasterizer)), "draw rasterizer failed");
+	Image cpu{9, 10, 11, 12, 90, 100, 110, 120};
+	auto target = texture(device, Image{0, 0, 0, 0, 0, 0, 0, 0});
+	ComPtr<ID3D11ShaderResourceView> input;
+	require(SUCCEEDED(device->CreateShaderResourceView(target.Get(), nullptr, &input)), "draw input view failed");
+	context->ClearState();
+	context->VSSetShader(vertex.Get(), nullptr, 0);
+	context->PSSetShader(pixel.Get(), nullptr, 0);
+	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	context->RSSetState(rasterizer.Get());
+	ID3D11ShaderResourceView *input_binding = input.Get();
+	context->PSSetShaderResources(0, 1, &input_binding);
+	ID3D11RenderTargetView *output_binding = render_target.Get();
+	context->OMSetRenderTargets(1, &output_binding, nullptr);
+	const float sentinel[4] = {-1, -1, -1, -1};
+	context->ClearRenderTargetView(render_target.Get(), sentinel);
+	D3D11_VIEWPORT viewport{};
+	viewport.Width = viewport.Height = 1;
+	viewport.MaxDepth = 1;
+	IniParamsPublication publication;
+	auto upload = [&]() { return SUCCEEDED(UploadIniParams(context, target.Get(), cpu.data(), 2)); };
+	require(publication.Publish(true, upload), "first draw publication failed");
+	context->RSSetViewports(1, &viewport);
+	context->Draw(3, 0);
+	cpu = Image{4, 3, 2, 1, 40, 30, 20, 10};
+	require(publication.Publish(true, upload), "second draw publication failed");
+	viewport.TopLeftX = 1;
+	context->RSSetViewports(1, &viewport);
+	context->Draw(3, 0);
+	context->ClearState();
+	// No readback or explicit flush occurs between the two draws.
+	desc.Usage = D3D11_USAGE_STAGING;
+	desc.BindFlags = 0;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	ComPtr<ID3D11Texture2D> staging;
+	require(SUCCEEDED(device->CreateTexture2D(&desc, nullptr, &staging)), "draw readback creation failed");
+	context->CopyResource(staging.Get(), output.Get());
+	D3D11_MAPPED_SUBRESOURCE mapped{};
+	require(SUCCEEDED(context->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped)), "draw readback failed");
+	Image actual{};
+	std::memcpy(actual.data(), mapped.pData, sizeof(actual));
+	context->Unmap(staging.Get(), 0);
+	require(actual == Image{9, 10, 11, 12, 40, 30, 20, 10}, "draws did not retain their respective images");
 }
 
 // Compare only successful upload kernels, with the same compiler, context and
@@ -182,6 +267,7 @@ int main(int argc, char **argv)
 	try
 	{
 		bool allow_hardware = false;
+		bool draw_only = false;
 		int samples = 0;
 		int iterations = 5000;
 		for (int argument = 1; argument < argc; ++argument)
@@ -189,13 +275,15 @@ int main(int argc, char **argv)
 			const std::string value(argv[argument]);
 			if (value == "--allow-hardware")
 				allow_hardware = true;
+			else if (value == "--draw-only")
+				draw_only = true;
 			else if (value == "--benchmark" && argument + 1 < argc)
 				samples = std::stoi(argv[++argument]);
 			else if (value == "--iterations" && argument + 1 < argc)
 				iterations = std::stoi(argv[++argument]);
 			else
-				throw std::runtime_error(
-				    "usage: IniParamsUploadTests [--allow-hardware] [--benchmark samples] [--iterations count]");
+				throw std::runtime_error("usage: IniParamsUploadTests [--allow-hardware] [--draw-only] [--benchmark "
+				                         "samples] [--iterations count]");
 		}
 		require(samples >= 0 && samples <= 1000 && iterations > 0 && iterations <= 1000000, "invalid benchmark count");
 		ComPtr<ID3D11Device> device;
@@ -223,11 +311,14 @@ int main(int argc, char **argv)
 			                        nullptr, nullptr))
 				std::cout << "ENV adapter=" << name << " vendor_id=" << description.VendorId << '\n';
 		}
-		exercise(device.Get(), context.Get());
+		if (!draw_only)
+			exercise(device.Get(), context.Get());
+		draws_observe_their_own_publication(device.Get(), context.Get());
 		if (samples)
 			benchmark_uploads(device.Get(), context.Get(), samples, iterations);
-		std::cout
-		    << "PASS actual D3D upload: failure/retry, complete images, separate publication points, recreation\n";
+		std::cout << (draw_only
+		                  ? "PASS two draws retain their respective images\n"
+						  : "PASS actual D3D upload: failure/retry, complete images, draw ordering, recreation\n");
 		return 0;
 	}
 	catch (const std::exception &error)
