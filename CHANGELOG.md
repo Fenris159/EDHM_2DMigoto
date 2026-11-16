@@ -26,7 +26,8 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
   resources after the runtime's global resource registry has been destroyed.
   Retire registry callbacks before global-member destruction and at DLL detach;
   late final releases avoid the retired registry and its lock while normal
-  resource cleanup continues during play.
+  resource cleanup continues during play. Trackers use the Windows process heap
+  so late callbacks also avoid the already-terminated C runtime allocator.
 
 ### Added
 

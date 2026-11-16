@@ -602,7 +602,7 @@ class ResourceReleaseTracker : public IUnknown
 {
 	std::atomic_ulong ref;
 	ID3D11Resource *resource;
-	explicit ResourceReleaseTracker(ID3D11Resource *resource);
+	explicit ResourceReleaseTracker(ID3D11Resource *resource) noexcept;
 
   public:
 	static HRESULT Attach(ID3D11Resource *resource);

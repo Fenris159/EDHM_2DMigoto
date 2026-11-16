@@ -27,7 +27,10 @@ Retirement occurs at both boundaries:
 
 While the registry is active, a final tracker release takes the existing
 resource lock and erases the resource's metadata. Once retired, the callback
-releases its own tracker without reading `G` or taking its locks. The lifetime
+releases its own tracker without reading `G` or taking its locks. Trackers use
+paired Windows process-heap allocation/free operations, so final cleanup also
+works after the DLL's CRT heap state is gone. Late interface queries skip CRT
+logging. The lifetime
 check runs only on final resource release, outside draw and lookup paths.
 
 Retirement is not a live configuration switch. Whole-process termination has
@@ -54,7 +57,8 @@ Product-DLL cases initialize the backend and its WARP driver first, then load a
 resource-retaining fixture before the runtime and keep buffers/views until that
 fixture's CRT teardown. Preinitializing the driver prevents the test itself from
 releasing GPU objects after their backend driver has already detached. Each child process must really
-exit with code zero, after the runtime's own teardown. Standalone, outer-proxy,
+exit with code zero and record completion after its retained COM references are
+released. A zero exit code alone can conceal an exception during DLL teardown. Standalone, outer-proxy,
 official EDUP 0.22.2, and ordinary unload scenarios exercise the product build.
 These checks use off-game devices and do not require game monitoring or an FPS
 comparison. See [the native checks](../RuntimeTests/README.md).
