@@ -594,6 +594,10 @@ class CustomResource;
 // Should fix a bug occasionally seen where a custom resource bound to the
 // pipeline would act as though it was a game resource when used with
 // checktextureoverride, etc.
+// Irreversible retirement after runtime work has stopped, before global teardown.
+// Late COM callbacks must not touch Globals or its locks after this point.
+void RetireResourceRegistry() noexcept;
+
 class ResourceReleaseTracker : public IUnknown
 {
 	std::atomic_ulong ref;

@@ -389,6 +389,7 @@ BOOL WINAPI DllMain(_In_ HINSTANCE hinstDLL, _In_ DWORD fdwReason, _In_ LPVOID l
 		break;
 
 	case DLL_PROCESS_DETACH:
+		RetireResourceRegistry();
 		// During process termination Windows has already stopped the other
 		// threads and will reclaim process resources. Avoid hook removal,
 		// TLS cleanup, file I/O and settings writes under the loader lock.

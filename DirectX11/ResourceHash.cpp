@@ -1267,6 +1267,19 @@ bool MapTrackResourceHashUpdate(ID3D11Resource *pResource, UINT Subresource)
 //                       Automatic Data Structure Cleanup on Resource Release
 // -----------------------------------------------------------------------------------------------
 
+namespace
+{
+// Constant-initialized, trivially destructible state remains usable after
+// Globals and other DLLs' CRT state have been torn down. Read only on a
+// tracker's final release, never on the draw/resource-lookup fast paths.
+std::atomic<bool> resource_registry_active{true};
+}
+
+void RetireResourceRegistry() noexcept
+{
+	resource_registry_active.store(false);
+}
+
 // {4A40BF2F-6358-470F-BA0A-662E3E2D8CD3}
 DEFINE_GUID(ResourceReleaseTrackerGuid, 0x4a40bf2f, 0x6358, 0x470f, 0xba, 0xa, 0x66, 0x2e, 0x3e, 0x2d, 0x8c, 0xd3);
 
@@ -1349,9 +1362,12 @@ ULONG STDMETHODCALLTYPE ResourceReleaseTracker::Release(void)
 		// lock held to protect it's notices data structure.      //
 		//                                                        //
 		////////////////////////////////////////////////////////////
-		EnterCriticalSectionPretty(&G->mResourcesLock);
-		G->mResources.erase(resource);
-		LeaveCriticalSection(&G->mResourcesLock);
+		if (resource_registry_active.load())
+		{
+			EnterCriticalSectionPretty(&G->mResourcesLock);
+			G->mResources.erase(resource);
+			LeaveCriticalSection(&G->mResourcesLock);
+		}
 		delete this;
 	}
 	return ret;
