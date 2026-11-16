@@ -4,7 +4,7 @@
 
 - **Date:** 16 November 2026; revised against the live artifact at 16:45 UTC.
   Microsoft translation findings and the architecture skill review are integrated.
-  Investigation and preparation plan only.
+  The source investigation is followed by a preliminary implementation session.
 - **Baseline:** `develop` and remote `main` at
   `4ae925945879a897309992f58db6cc752f22289d`, inspected in the initially clean
   `/srv/sambashare/active/games/EDHM_2DMigoto-develop` worktree.
@@ -22,8 +22,12 @@
   core, then texture-filtered panels when PA4b exists. Full parity needs further
   services; a broad renderer rewrite is not justified. Shader and texture hash
   equivalence remain separate blockers.
-- **Limits:** installed files were read, without launching the game. No runtime code,
-  tests, builds, installations, releases or messages to developers were made.
+- **Pre-production:** work now proceeds on `pre-production-edo-readiness`; see
+  [checkpoints and validation limits](pre-production-edo-readiness.md). The source
+  descriptions below remain pinned to the investigation baseline.
+- **Investigation limits:** installed files were read without launching the game.
+  Runtime edits and new checks now exist only in the preliminary branch; no game
+  installation, merge, release or message to another developer was made.
   No D3D12 rendering, performance gain, MSAA, VR or Proton compatibility is proved.
 
 ## Decision and evidence
@@ -330,6 +334,10 @@ justify removing redundant uploads; no speed improvement is assumed here.
 
 ### 2. Freeze identity and produce a passive inventory — useful now
 
+**Preliminary implementation:** [the passive inventory tool](readiness-inventory.md)
+now covers local INI/include and replacement evidence. It does not complete the
+original-identity, build-provenance or semantic-cost evidence gates below.
+
 **Benefit/scope:** detect mismatched shader keys, missing provenance and
 unsupported add-ons before a port. Read existing inputs only; record the fields
 above and resolve includes without executing commands. Include texture hash
@@ -369,8 +377,9 @@ callers. Moving code or adding a pass-through module does not supply depth.
 The scan followed recent changes: among the latest 30 commits touching
 `DirectX11`, `HackerDXGI.cpp` appears in 12, `CommandList.cpp` in eight and
 `IniHandler.cpp` in six. Those counts guide attention; they prove no speed gain.
-No `GLOSSARY.md` or `docs/adr/` exists at the inspected baseline. Domain names
-below come from the current implementation; no new domain decision is recorded.
+No `GLOSSARY.md` or `docs/adr/` existed at the inspected baseline. The preliminary
+branch now records [domain terms](../GLOSSARY.md) and the proposed publication
+decision; their status is separate from the source investigation.
 
 | Candidate | Strength | Locality and leverage | Gate before implementation |
 | --- | --- | --- | --- |
@@ -395,6 +404,12 @@ overhead identified, unchanged outputs and a nonempty/mutation-heavy control.
 Reject a proposed module if callers must still coordinate the same policy.
 
 #### 2A. Deepen IniParams publication — Strong
+
+**Preliminary implementation:** context-owned pending publication is now drafted,
+with original upload points and CPU values retained. The
+[proposed decision](adr/0001-context-owned-iniparams-publication.md) and
+[validation status](pre-production-edo-readiness.md) qualify this first stage;
+redundant-upload suppression remains unimplemented.
 
 **Problem:** commands, transitions and initialization share knowledge of pending
 CPU values, GPU contents, retry and legal upload ordering across
@@ -448,6 +463,10 @@ semantics and pool behavior. Compare the real EDHM example with a mutation-heavy
 control; retain existing command/resource checks at their current interface.
 
 #### 2C. Measure the empty-list path — small optimization experiment
+
+**Preliminary experiment:** the guarded path and a public-entry benchmark are
+now drafted on the pre-production branch. Retention still requires the native
+comparison and regression gates in the [session status](pre-production-edo-readiness.md).
 
 This change does not establish a deepening opportunity by itself. After the
 existing configuration lease, [RunCommandListComplete][execution-entry] might

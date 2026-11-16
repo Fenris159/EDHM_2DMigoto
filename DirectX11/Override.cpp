@@ -687,8 +687,8 @@ static float _UpdateTransition(struct OverrideTransitionParam *transition, ULONG
 
 void OverrideTransition::UpdateTransitions(HackerDevice *wrapper)
 {
-	// Presentation can precede lazy context wrapping. Keep transitions queued
-	// until their publication context exists.
+	// Without a wrapped context there is no publication point. Preserve the
+	// queued tick until the caller can provide one.
 	HackerContext *context = wrapper->GetHackerContext();
 	if (!context)
 		return;
