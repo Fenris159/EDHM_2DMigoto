@@ -1,5 +1,7 @@
 #include <windows.h>
 #include <d3d11.h>
+#include <d3d12.h>
+#include <dxgi1_6.h>
 #include <wrl/client.h>
 
 #include <cstdio>
@@ -38,7 +40,7 @@ HMODULE load_system(const wchar_t *name)
 	return module;
 }
 
-void check_device(ID3D11Device *device, UINT wanted)
+void check_device(ID3D11Device *device, UINT wanted, bool tracked = false)
 {
 	require(device != nullptr, "creation returned no device");
 	constexpr UINT mask = D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_SINGLETHREADED;
@@ -55,11 +57,108 @@ void check_device(ID3D11Device *device, UINT wanted)
 	D3D11_BUFFER_DESC actual = {};
 	buffer->GetDesc(&actual);
 	require(actual.ByteWidth == 64, "wrapped resource descriptor changed");
+	if (tracked)
+	{
+		constexpr GUID tracker_guid{0x4a40bf2f, 0x6358, 0x470f, {0xba, 0x0a, 0x66, 0x2e, 0x3e, 0x2d, 0x8c, 0xd3}};
+		ComPtr<IUnknown> tracker;
+		UINT size = sizeof(IUnknown *);
+		require(SUCCEEDED(buffer->GetPrivateData(tracker_guid, &size, tracker.GetAddressOf())) && tracker != nullptr,
+		        "D3D11 resource tracking was lost after D3D12 helper creation");
+	}
+}
+
+HRESULT check_d3d12_swap_chain(HWND window, const char *mode, bool invalid_device = false)
+{
+	auto create_factory =
+	    exported<HRESULT(WINAPI *)(UINT, REFIID, void **)>(load_system(L"dxgi.dll"), "CreateDXGIFactory2");
+	ComPtr<IDXGIFactory4> factory;
+	require(SUCCEEDED(create_factory(0, IID_PPV_ARGS(&factory))), "D3D12 factory creation failed");
+	ComPtr<IDXGIAdapter> warp;
+	require(SUCCEEDED(factory->EnumWarpAdapter(IID_PPV_ARGS(&warp))), "D3D12 WARP adapter unavailable");
+	auto create_device = exported<decltype(&D3D12CreateDevice)>(load_system(L"d3d12.dll"), "D3D12CreateDevice");
+	ComPtr<ID3D12Device> device;
+	require(SUCCEEDED(create_device(warp.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device))),
+	        "D3D12 WARP device creation failed");
+	D3D12_COMMAND_QUEUE_DESC queue_desc{};
+	queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+	ComPtr<ID3D12CommandQueue> queue;
+	require(SUCCEEDED(device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&queue))),
+	        "D3D12 direct queue creation failed");
+	DXGI_SWAP_CHAIN_DESC1 description{};
+	description.Width = 32;
+	description.Height = 24;
+	description.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	description.SampleDesc.Count = 1;
+	description.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	description.BufferCount = 2;
+	description.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	IUnknown *creation_device = invalid_device ? nullptr : queue.Get();
+	ComPtr<IDXGISwapChain1> swap;
+	HRESULT creation_result;
+	if (std::strcmp(mode, "d3d12-corewindow") == 0)
+	{
+		const HRESULT result =
+		    factory->CreateSwapChainForCoreWindow(creation_device, nullptr, &description, nullptr, &swap);
+		require(FAILED(result) && swap == nullptr, "invalid CoreWindow creation did not fail cleanly");
+		return result;
+	}
+	if (std::strcmp(mode, "d3d12-legacy") == 0)
+	{
+		DXGI_SWAP_CHAIN_DESC legacy{};
+		legacy.BufferDesc.Width = 32;
+		legacy.BufferDesc.Height = 24;
+		legacy.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		legacy.SampleDesc.Count = 1;
+		legacy.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+		legacy.BufferCount = 2;
+		legacy.OutputWindow = window;
+		legacy.Windowed = TRUE;
+		legacy.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+		ComPtr<IDXGISwapChain> base;
+		creation_result = factory->CreateSwapChain(creation_device, &legacy, &base);
+		if (invalid_device)
+		{
+			require(FAILED(creation_result) && base == nullptr, "null legacy swap-chain device was accepted");
+			return creation_result;
+		}
+		require(SUCCEEDED(creation_result), "D3D12 legacy swap-chain creation failed");
+		require(SUCCEEDED(base.As(&swap)), "D3D12 legacy swap chain lost IDXGISwapChain1");
+	}
+	else if (std::strcmp(mode, "d3d12-composition") == 0)
+	{
+		description.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+		description.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
+		creation_result = factory->CreateSwapChainForComposition(creation_device, &description, nullptr, &swap);
+	}
+	else
+		creation_result =
+		    factory->CreateSwapChainForHwnd(creation_device, window, &description, nullptr, nullptr, &swap);
+	if (invalid_device)
+	{
+		require(FAILED(creation_result) && swap == nullptr, "null swap-chain device was accepted");
+		return creation_result;
+	}
+	require(SUCCEEDED(creation_result), "D3D12 helper swap-chain creation failed");
+	ComPtr<IDXGISwapChain4> modern;
+	const HRESULT result = swap.As(&modern);
+	if (FAILED(result))
+		std::fprintf(stderr, "D3D12 IDXGISwapChain4 query returned 0x%08lx\n", static_cast<unsigned long>(result));
+	require(SUCCEEDED(result) && modern != nullptr, "D3D12 helper swap chain lost IDXGISwapChain4");
+	DXGI_SWAP_CHAIN_DESC1 actual{};
+	require(SUCCEEDED(modern->GetDesc1(&actual)), "D3D12 swap-chain descriptor unavailable");
+	require(actual.Width == 32 && actual.Height == 24 && actual.BufferCount == 2,
+	        "D3D11 configuration changed the D3D12 swap-chain dimensions or buffer count");
+	std::printf("PASS %s retains IDXGISwapChain4 and native dimensions\n", mode);
+	return S_OK;
 }
 
 void run(const char *mode)
 {
 	load_system(L"dxgi.dll");
+	const bool d3d12 = std::strncmp(mode, "d3d12-", 6) == 0;
+	const HRESULT native_null_device = d3d12 ? check_d3d12_swap_chain(nullptr, mode, true) : S_OK;
+	const HRESULT native_failure =
+	    std::strcmp(mode, "d3d12-corewindow") == 0 ? check_d3d12_swap_chain(nullptr, mode) : S_OK;
 	wchar_t path[MAX_PATH] = {};
 	require(GetModuleFileNameW(nullptr, path, MAX_PATH) != 0, "executable path unavailable");
 	wchar_t *leaf = wcsrchr(path, L'\\');
@@ -142,7 +241,14 @@ void run(const char *mode)
 			            &context);
 			require(SUCCEEDED(hr), "device creation failed");
 		}
-		check_device(device.Get(), wanted);
+		check_device(device.Get(), wanted, d3d12);
+		if (d3d12 && pass == 0)
+		{
+			require(check_d3d12_swap_chain(nullptr, mode, true) == native_null_device,
+			        "null swap-chain device changed the native HRESULT");
+			require(check_d3d12_swap_chain(window, mode) == native_failure,
+			        "D3D12 helper creation changed the native HRESULT");
+		}
 		if (shutdown)
 		{
 			auto retain = exported<HRESULT(WINAPI *)(ID3D11Device *)>(retainer, "RetainResources");

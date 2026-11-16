@@ -116,11 +116,33 @@ out:
 	return dev_wrap;
 }
 
+// Swap chains created on an ID3D12CommandQueue are never rendered by the
+// DirectX 11 game. They come from DX12 tools that share the process, such as a
+// d3d11 proxy doing XeSS frame generation. Wrapping them in HackerSwapChain
+// hides IDXGISwapChain4 and breaks those tools, so pass them straight through.
+static bool is_d3d12_swap_chain_device(IUnknown *unknown_device)
+{
+	ID3D12CommandQueue *d3d12_queue = nullptr;
+
+	if (!unknown_device)
+		return false;
+	if (FAILED(unknown_device->QueryInterface(IID_ID3D12CommandQueue, (void **)&d3d12_queue)) || !d3d12_queue)
+		return false;
+
+	d3d12_queue->Release();
+	return true;
+}
+
 #else
 
 static HackerDevice *prepare_devices_for_dx12_warning(IUnknown *unknown_device)
 {
 	return nullptr;
+}
+
+static bool is_d3d12_swap_chain_device(IUnknown *)
+{
+	return false;
 }
 
 #endif
@@ -561,6 +583,17 @@ HRESULT __stdcall Hooked_CreateSwapChainForHwnd(IDXGIFactory2 *This,
 		                                    ppSwapChain);
 	}
 
+	if (!pDevice || is_d3d12_swap_chain_device(pDevice))
+	{
+		LogInfo("IDXGIFactory2::CreateSwapChainForHwnd with %s, passing through unwrapped\n",
+		        pDevice ? "ID3D12CommandQueue" : "null device");
+		get_tls()->hooking_quirk_protection = true;
+		HRESULT hr =
+		    fnOrigCreateSwapChainForHwnd(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
+		get_tls()->hooking_quirk_protection = false;
+		return hr;
+	}
+
 	HackerDevice *hackerDevice = nullptr;
 	DXGI_SWAP_CHAIN_DESC1 descCopy = {0};
 	DXGI_SWAP_CHAIN_FULLSCREEN_DESC fullscreenCopy = {0};
@@ -653,6 +686,16 @@ HRESULT __stdcall Hooked_CreateSwapChainForCoreWindow(IDXGIFactory2 *This,
 		return fnOrigCreateSwapChainForCoreWindow(This, pDevice, pWindow, pDesc, pRestrictToOutput, ppSwapChain);
 	}
 
+	if (!pDevice || is_d3d12_swap_chain_device(pDevice))
+	{
+		LogInfo("IDXGIFactory2::CreateSwapChainForCoreWindow with %s, passing through unwrapped\n",
+		        pDevice ? "ID3D12CommandQueue" : "null device");
+		get_tls()->hooking_quirk_protection = true;
+		HRESULT hr = fnOrigCreateSwapChainForCoreWindow(This, pDevice, pWindow, pDesc, pRestrictToOutput, ppSwapChain);
+		get_tls()->hooking_quirk_protection = false;
+		return hr;
+	}
+
 	HackerDevice *hackerDevice = nullptr;
 	DXGI_SWAP_CHAIN_DESC1 descCopy = {0};
 
@@ -729,6 +772,16 @@ HRESULT __stdcall Hooked_CreateSwapChainForComposition(IDXGIFactory2 *This,
 		    "Hooking Quirk: Unexpected call back into IDXGIFactory2::CreateSwapChainForComposition, passing through\n");
 		// No known cases
 		return fnOrigCreateSwapChainForComposition(This, pDevice, pDesc, pRestrictToOutput, ppSwapChain);
+	}
+
+	if (!pDevice || is_d3d12_swap_chain_device(pDevice))
+	{
+		LogInfo("IDXGIFactory2::CreateSwapChainForComposition with %s, passing through unwrapped\n",
+		        pDevice ? "ID3D12CommandQueue" : "null device");
+		get_tls()->hooking_quirk_protection = true;
+		HRESULT hr = fnOrigCreateSwapChainForComposition(This, pDevice, pDesc, pRestrictToOutput, ppSwapChain);
+		get_tls()->hooking_quirk_protection = false;
+		return hr;
 	}
 
 	HackerDevice *hackerDevice = nullptr;
@@ -874,6 +927,16 @@ HRESULT __stdcall Hooked_CreateSwapChain(IDXGIFactory *This,
 		//             call the former and have hooked the later.
 		//             Note that the Steam overlay depends on this.
 		return fnOrigCreateSwapChain(This, pDevice, pDesc, ppSwapChain);
+	}
+
+	if (!pDevice || is_d3d12_swap_chain_device(pDevice))
+	{
+		LogInfo("IDXGIFactory::CreateSwapChain with %s, passing through unwrapped\n",
+		        pDevice ? "ID3D12CommandQueue" : "null device");
+		get_tls()->hooking_quirk_protection = true;
+		HRESULT hr = fnOrigCreateSwapChain(This, pDevice, pDesc, ppSwapChain);
+		get_tls()->hooking_quirk_protection = false;
+		return hr;
 	}
 
 	LogInfo("\n*** Hooked IDXGIFactory::CreateSwapChain(%p) called\n", This);

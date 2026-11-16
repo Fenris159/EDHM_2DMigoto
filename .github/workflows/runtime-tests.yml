@@ -95,6 +95,16 @@ jobs:
             --fixture "$bin/ProxyChainFixture.dll" --exe "$bin/ProxyChainTests.exe" `
             --output "$bin/candidate-results" @extra
           if ($LASTEXITCODE -ne 0) { throw 'Proxy-chain behavior checks failed' }
+      - name: Check D3D12 helper swap-chain interoperability
+        shell: pwsh
+        env:
+          TEST_PLATFORM: ${{ matrix.platform }}
+        run: |
+          $bin = ".quality/proxy-chain/$env:TEST_PLATFORM"
+          & python RuntimeTests/run_proxy_chain_tests.py --d3d12-only `
+            --dll "$bin/candidate-d3d11.dll" --fixture "$bin/ProxyChainFixture.dll" `
+            --exe "$bin/ProxyChainTests.exe" --output "$bin/d3d12-results"
+          if ($LASTEXITCODE -ne 0) { throw 'D3D12 helper swap-chain behavior checks failed' }
       - name: Check final callbacks retained past product teardown
         shell: pwsh
         env:

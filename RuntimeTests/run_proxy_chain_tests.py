@@ -41,6 +41,7 @@ def main():
     controls.add_argument("--expect-bypass", action="store_true")
     controls.add_argument("--expect-downstream-bypass", action="store_true")
     controls.add_argument("--shutdown-only", action="store_true")
+    controls.add_argument("--d3d12-only", action="store_true")
     parser.add_argument("--expect-shutdown-failure", action="store_true")
     args = parser.parse_args()
     if args.expect_shutdown_failure and not args.shutdown_only:
@@ -59,6 +60,8 @@ def main():
         cases = ["standalone-shutdown", "chain-shutdown", "standalone-unload"]
         if args.edup:
             cases += ["edup-shutdown"]
+    if args.d3d12_only:
+        cases = ["d3d12-hwnd", "d3d12-legacy", "d3d12-composition", "d3d12-corewindow"]
     records = []
     target_machine = pe_machine(inputs["exe"])
     try:
@@ -93,11 +96,12 @@ def main():
                 system = matching_version_library(args.system_root or Path(os.environ["SystemRoot"]), target_machine)
                 shutil.copy2(system, directory / "invalid.dll")
                 proxy = "invalid.dll"
+            device_settings = "[Device]\nwidth=640\nheight=480\n" if case.startswith("d3d12-") else ""
             (directory / "d3dx.ini").write_text(
                 "[System]\nload_library_redirect=0\nallow_platform_update=1\n"
                 f"proxy_d3d11={proxy}\n"
                 "[Hunting]\nhunting=0\n[Rendering]\nstereo_params=-1\nini_params=120\n"
-                "[Logging]\nenabled=1\ncalls=0\ndebug=0\n",
+                "[Logging]\nenabled=1\ncalls=0\ndebug=0\n" + device_settings,
                 encoding="utf-8",
             )
             command = [str(directory / "ProxyChainTests.exe"), case]
@@ -155,6 +159,16 @@ def main():
                                         and record["missing_exports_rejected"])
                 else:
                     record["passed"] = creations_ok
+            if case.startswith("d3d12-"):
+                try:
+                    log = (directory / "d3d11_log.txt").read_text(encoding="utf-8", errors="replace")
+                except OSError as error:
+                    record["log_read_error"] = f"{type(error).__name__}: {error}"
+                    record["no_false_dx12_warning"] = False
+                else:
+                    record["no_false_dx12_warning"] = ("FATAL: Unsupported DirectX Version!" not in log
+                                                       and "3DMigoto does not support DirectX 12" not in log)
+                record["passed"] = record["passed"] and record["no_false_dx12_warning"]
             if "shutdown" in case:
                 completion = directory / "shutdown-complete.txt"
                 record["completion_bytes"] = completion.read_bytes().hex() if completion.is_file() else None
@@ -170,8 +184,10 @@ def main():
                                     and record["edup_device_attached"] and record["edup_present_active"])
                     record["passed"] = setup_ok and completion.is_file() and completion.read_bytes() == b""
             print(f"{'PASS' if record['passed'] else 'FAIL'} {case}: exit {completed.returncode}", flush=True)
-            if not record["passed"]:
+            if not record["passed"] and not args.d3d12_only:
                 raise RuntimeError(f"{case}: {completed.stdout}\n{completed.stderr}")
+        if args.d3d12_only and any(not record["passed"] for record in records):
+            raise RuntimeError("D3D12 helper swap-chain checks failed; see per-case evidence")
     finally:
         evidence = {
             "inputs": {
@@ -180,6 +196,7 @@ def main():
             },
             "expected_bypass": args.expect_bypass,
             "shutdown_only": args.shutdown_only,
+            "d3d12_only": args.d3d12_only,
             "expected_shutdown_failure": args.expect_shutdown_failure,
             "expected_downstream_bypass": args.expect_downstream_bypass,
             "target_machine": target_machine,
