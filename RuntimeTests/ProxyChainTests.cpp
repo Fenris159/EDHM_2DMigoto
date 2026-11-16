@@ -67,7 +67,7 @@ void check_device(ID3D11Device *device, UINT wanted, bool tracked = false)
 	}
 }
 
-HRESULT check_d3d12_swap_chain(HWND window, const char *mode)
+HRESULT check_d3d12_swap_chain(HWND window, const char *mode, bool invalid_device = false)
 {
 	auto create_factory =
 	    exported<HRESULT(WINAPI *)(UINT, REFIID, void **)>(load_system(L"dxgi.dll"), "CreateDXGIFactory2");
@@ -92,11 +92,13 @@ HRESULT check_d3d12_swap_chain(HWND window, const char *mode)
 	description.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	description.BufferCount = 2;
 	description.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	IUnknown *creation_device = invalid_device ? nullptr : queue.Get();
 	ComPtr<IDXGISwapChain1> swap;
+	HRESULT creation_result;
 	if (std::strcmp(mode, "d3d12-corewindow") == 0)
 	{
 		const HRESULT result =
-		    factory->CreateSwapChainForCoreWindow(queue.Get(), nullptr, &description, nullptr, &swap);
+		    factory->CreateSwapChainForCoreWindow(creation_device, nullptr, &description, nullptr, &swap);
 		require(FAILED(result) && swap == nullptr, "invalid CoreWindow creation did not fail cleanly");
 		return result;
 	}
@@ -113,20 +115,30 @@ HRESULT check_d3d12_swap_chain(HWND window, const char *mode)
 		legacy.Windowed = TRUE;
 		legacy.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 		ComPtr<IDXGISwapChain> base;
-		require(SUCCEEDED(factory->CreateSwapChain(queue.Get(), &legacy, &base)),
-		        "D3D12 legacy swap-chain creation failed");
+		creation_result = factory->CreateSwapChain(creation_device, &legacy, &base);
+		if (invalid_device)
+		{
+			require(FAILED(creation_result) && base == nullptr, "null legacy swap-chain device was accepted");
+			return creation_result;
+		}
+		require(SUCCEEDED(creation_result), "D3D12 legacy swap-chain creation failed");
 		require(SUCCEEDED(base.As(&swap)), "D3D12 legacy swap chain lost IDXGISwapChain1");
 	}
 	else if (std::strcmp(mode, "d3d12-composition") == 0)
 	{
 		description.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
 		description.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
-		require(SUCCEEDED(factory->CreateSwapChainForComposition(queue.Get(), &description, nullptr, &swap)),
-		        "D3D12 composition swap-chain creation failed");
+		creation_result = factory->CreateSwapChainForComposition(creation_device, &description, nullptr, &swap);
 	}
 	else
-		require(SUCCEEDED(factory->CreateSwapChainForHwnd(queue.Get(), window, &description, nullptr, nullptr, &swap)),
-		        "D3D12 HWND swap-chain creation failed");
+		creation_result =
+		    factory->CreateSwapChainForHwnd(creation_device, window, &description, nullptr, nullptr, &swap);
+	if (invalid_device)
+	{
+		require(FAILED(creation_result) && swap == nullptr, "null swap-chain device was accepted");
+		return creation_result;
+	}
+	require(SUCCEEDED(creation_result), "D3D12 helper swap-chain creation failed");
 	ComPtr<IDXGISwapChain4> modern;
 	const HRESULT result = swap.As(&modern);
 	if (FAILED(result))
@@ -144,6 +156,7 @@ void run(const char *mode)
 {
 	load_system(L"dxgi.dll");
 	const bool d3d12 = std::strncmp(mode, "d3d12-", 6) == 0;
+	const HRESULT native_null_device = d3d12 ? check_d3d12_swap_chain(nullptr, mode, true) : S_OK;
 	const HRESULT native_failure =
 	    std::strcmp(mode, "d3d12-corewindow") == 0 ? check_d3d12_swap_chain(nullptr, mode) : S_OK;
 	wchar_t path[MAX_PATH] = {};
@@ -230,8 +243,12 @@ void run(const char *mode)
 		}
 		check_device(device.Get(), wanted, d3d12);
 		if (d3d12 && pass == 0)
+		{
+			require(check_d3d12_swap_chain(nullptr, mode, true) == native_null_device,
+			        "null swap-chain device changed the native HRESULT");
 			require(check_d3d12_swap_chain(window, mode) == native_failure,
 			        "D3D12 helper creation changed the native HRESULT");
+		}
 		if (shutdown)
 		{
 			auto retain = exported<HRESULT(WINAPI *)(ID3D11Device *)>(retainer, "RetainResources");
