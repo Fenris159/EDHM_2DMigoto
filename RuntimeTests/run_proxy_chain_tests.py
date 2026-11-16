@@ -161,7 +161,8 @@ def main():
                     record["passed"] = creations_ok
             if case.startswith("d3d12-"):
                 log = (directory / "d3d11_log.txt").read_text(encoding="utf-8", errors="replace")
-                record["no_false_dx12_warning"] = "FATAL: Unsupported DirectX Version!" not in log
+                record["no_false_dx12_warning"] = ("FATAL: Unsupported DirectX Version!" not in log
+                                                   and "3DMigoto does not support DirectX 12" not in log)
                 record["passed"] = record["passed"] and record["no_false_dx12_warning"]
             if "shutdown" in case:
                 completion = directory / "shutdown-complete.txt"
