@@ -50,8 +50,10 @@ retained buffer/view. This makes a late registry or lock read fail without
 relying on allocator reuse or timing. The unmodified implementation fails this
 case with an access violation on both Windows architectures.
 
-Product-DLL cases load a resource-retaining fixture before the runtime and keep
-buffers/views until that fixture's CRT teardown. Each child process must really
+Product-DLL cases initialize the backend and its WARP driver first, then load a
+resource-retaining fixture before the runtime and keep buffers/views until that
+fixture's CRT teardown. Preinitializing the driver prevents the test itself from
+releasing GPU objects after their backend driver has already detached. Each child process must really
 exit with code zero, after the runtime's own teardown. Standalone, outer-proxy,
 official EDUP 0.22.2, and ordinary unload scenarios exercise the product build.
 These checks use off-game devices and do not require game monitoring or an FPS

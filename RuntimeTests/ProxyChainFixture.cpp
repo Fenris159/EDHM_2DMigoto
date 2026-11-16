@@ -43,7 +43,9 @@ struct RetainedResources
 		if (buffer && view)
 		{
 			view.Reset();
+			stage('V');
 			buffer.Reset();
+			stage('B');
 			// Opened during setup; avoid resolving a path during loader teardown.
 			constexpr char message[] = "released\n";
 			DWORD written;

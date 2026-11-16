@@ -104,13 +104,20 @@ void run(const char *mode)
 	require(leaf != nullptr, "executable directory unavailable");
 	*(leaf + 1) = L'\0';
 	HMODULE retainer = nullptr;
+	ComPtr<ID3D11Device> backend_device;
+	ComPtr<ID3D11DeviceContext> backend_context;
 	const bool shutdown = std::strstr(mode, "shutdown") != nullptr;
 	if (shutdown)
 		require(AddVectoredExceptionHandler(1, record_shutdown_fault) != nullptr, "shutdown diagnostic unavailable");
 	if (shutdown)
 	{
-		// The backend must outlive both the product and the retainer.
-		load_system(L"d3d11.dll");
+		// Initialize the actual WARP driver before the retainer too. Loading
+		// only d3d11.dll leaves its driver to load later and detach too early.
+		auto backend = load_system(L"d3d11.dll");
+		auto create_backend = exported<PFN_D3D11_CREATE_DEVICE>(backend, "D3D11CreateDevice");
+		require(SUCCEEDED(create_backend(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, nullptr, 0, D3D11_SDK_VERSION,
+		                                 &backend_device, nullptr, &backend_context)),
+		        "shutdown backend initialization failed");
 		wchar_t retain_path[MAX_PATH] = {};
 		require(wcscpy_s(retain_path, path) == 0 && wcscat_s(retain_path, L"ResourceRetainer.dll") == 0,
 		        "retainer path overflow");
