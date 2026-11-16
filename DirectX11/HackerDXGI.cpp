@@ -215,8 +215,6 @@ bool HackerSwapChain::BeginProxyFrame(bool &profiling)
 	profiling = Profiling::mode == Profiling::Mode::SUMMARY;
 	if (profiling)
 		Profiling::start(&state);
-	if (G->track_region_hashes)
-		ClearRegionHashesGlobalCache();
 	RunFrameActions();
 	if (profiling)
 		Profiling::end(&state, &Profiling::present_overhead);
@@ -356,6 +354,33 @@ IDXGISwapChain1 *HackerSwapChain::GetOrigSwapChain1()
 void HackerSwapChain::RunFrameActions()
 {
 	LogDebug("Running frame actions.  Device: %p\n", mHackerDevice);
+
+	if (G->hunting == HUNTING_MODE_ENABLED)
+	{
+		if (G->overlay_buffer_hash_lifetime >= 0)
+			PurgeStaleVisitedBufferHashes(mHackerDevice);
+		if (G->mSelectedIndexBufferPos == INT_MAX && !G->mVisitedIndexBuffers.empty())
+		{
+			G->mSelectedIndexBufferPos = static_cast<int>(G->mVisitedIndexBuffers.size() - 1);
+			G->mSelectedIndexBuffer = *std::prev(G->mVisitedIndexBuffers.end());
+		}
+		if (G->mSelectedVertexBufferPos == INT_MAX && !G->mVisitedVertexBuffers.empty())
+		{
+			G->mSelectedVertexBufferPos = static_cast<int>(G->mVisitedVertexBuffers.size() - 1);
+			G->mSelectedVertexBuffer = *std::prev(G->mVisitedVertexBuffers.end());
+		}
+		if ((G->gResetSelectedVertexBufferSlotId) && (!G->mVisitedVertexBuffers.empty()))
+		{
+			G->mSelectedVertexBuffer = *G->mVisitedVertexBuffers.begin();
+			G->mSelectedVertexBufferPos = 0;
+			G->gResetSelectedVertexBufferSlotId = false;
+		}
+	}
+
+	if (G->track_region_hashes)
+	{
+		ClearRegionHashesGlobalCache();
+	}
 
 	// 64-bit ticks: GetTickCount() wraps after ~49.7 days and would freeze
 	// or glitch every elapsed-time consumer of gTime in long-lived processes.
@@ -818,33 +843,6 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
 		if (profiling)
 			Profiling::start(&profiling_state);
 
-		if (G->hunting == HUNTING_MODE_ENABLED)
-		{
-			if (G->overlay_buffer_hash_lifetime >= 0)
-				PurgeStaleVisitedBufferHashes(mHackerDevice);
-			if (G->mSelectedIndexBufferPos == INT_MAX && !G->mVisitedIndexBuffers.empty())
-			{
-				G->mSelectedIndexBufferPos = static_cast<int>(G->mVisitedIndexBuffers.size() - 1);
-				G->mSelectedIndexBuffer = *std::prev(G->mVisitedIndexBuffers.end());
-			}
-			if (G->mSelectedVertexBufferPos == INT_MAX && !G->mVisitedVertexBuffers.empty())
-			{
-				G->mSelectedVertexBufferPos = static_cast<int>(G->mVisitedVertexBuffers.size() - 1);
-				G->mSelectedVertexBuffer = *std::prev(G->mVisitedVertexBuffers.end());
-			}
-			if ((G->gResetSelectedVertexBufferSlotId) && (!G->mVisitedVertexBuffers.empty()))
-			{
-				G->mSelectedVertexBuffer = *G->mVisitedVertexBuffers.begin();
-				G->mSelectedVertexBufferPos = 0;
-				G->gResetSelectedVertexBufferSlotId = false;
-			}
-		}
-
-		if (G->track_region_hashes)
-		{
-			ClearRegionHashesGlobalCache();
-		}
-
 		// Every presented frame, we want to take some CPU time to run our actions,
 		// which enables hunting, and snapshots, and aiming overrides and other inputs
 		RunFrameActions();
@@ -1171,14 +1169,6 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 		profiling = Profiling::mode == Profiling::Mode::SUMMARY;
 		if (profiling)
 			Profiling::start(&profiling_state);
-
-		// Keep the same per-frame maintenance as Present: without this an
-		// application presenting via Present1 would retain region-hash L3
-		// entries beyond the intended frame boundary.
-		if (G->track_region_hashes)
-		{
-			ClearRegionHashesGlobalCache();
-		}
 
 		// Every presented frame, we want to take some CPU time to run our actions,
 		// which enables hunting, and snapshots, and aiming overrides and other inputs

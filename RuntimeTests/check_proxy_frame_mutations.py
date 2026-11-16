@@ -43,8 +43,8 @@ def main():
          "// Deliberate break: leave presets stale."),
         ("controls--transition", "CurrentTransition.UpdateTransitions(mHackerDevice);",
          "// Deliberate break: leave transitions stale."),
-        ("controls--reload", "if (G->gReloadConfigPending)\n\t\tReloadConfig(mHackerDevice);",
-         "if (G->gReloadConfigPending)\n\t\tG->gReloadConfigPending = false;"),
+        ("controls--reload", "// instead and we handle it now.\n\tif (G->gReloadConfigPending)\n\t\tReloadConfig(mHackerDevice);",
+         "// instead and we handle it now.\n\tif (G->gReloadConfigPending)\n\t\tG->gReloadConfigPending = false;"),
     ]
     for api, case, following in (("Present", "flow", "GetBuffer"), ("Present1", "flow1", "IsTemporaryMonoSupported")):
         start = text.index(f"STDMETHODIMP HackerSwapChain::{api}(")
