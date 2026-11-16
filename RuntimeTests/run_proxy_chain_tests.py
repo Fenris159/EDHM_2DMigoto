@@ -152,6 +152,10 @@ def main():
                                         and record["missing_exports_rejected"])
                 else:
                     record["passed"] = creations_ok
+            if "shutdown" in case:
+                completion = directory / "shutdown-complete.txt"
+                record["retained_release_completed"] = completion.is_file() and completion.read_bytes() == b"released\n"
+                record["passed"] = record["passed"] and record["retained_release_completed"]
             print(f"{'PASS' if record['passed'] else 'FAIL'} {case}: exit {completed.returncode}", flush=True)
             if not record["passed"]:
                 raise RuntimeError(f"{case}: {completed.stdout}\n{completed.stderr}")

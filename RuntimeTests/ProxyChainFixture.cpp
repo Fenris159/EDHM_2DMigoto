@@ -18,8 +18,33 @@ PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN inner_swap;
 thread_local unsigned create_depth;
 bool downstream;
 // Loaded before the tested DLL so these references are released after its CRT teardown.
-Microsoft::WRL::ComPtr<ID3D11Buffer> retained_buffer;
-Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> retained_view;
+struct RetainedResources
+{
+	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
+	RetainedResources() = default;
+	RetainedResources(const RetainedResources &) = delete;
+	RetainedResources &operator=(const RetainedResources &) = delete;
+	RetainedResources(RetainedResources &&) = delete;
+	RetainedResources &operator=(RetainedResources &&) = delete;
+	~RetainedResources()
+	{
+		if (!buffer || !view)
+			return;
+		view.Reset();
+		buffer.Reset();
+		// Record completion after the COM callbacks, using only the OS boundary.
+		HANDLE file = CreateFileW(L"shutdown-complete.txt", GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+		                          FILE_ATTRIBUTE_NORMAL, nullptr);
+		if (file != INVALID_HANDLE_VALUE)
+		{
+			constexpr char message[] = "released\n";
+			DWORD written;
+			WriteFile(file, message, sizeof(message) - 1, &written, nullptr);
+			CloseHandle(file);
+		}
+	}
+} retained_resources;
 
 template <typename T> T exported(HMODULE module, const char *name)
 {
@@ -82,14 +107,14 @@ extern "C" HRESULT WINAPI RetainResources(ID3D11Device *device)
 	D3D11_BUFFER_DESC desc{};
 	desc.ByteWidth = 16;
 	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	HRESULT result = device->CreateBuffer(&desc, nullptr, &retained_buffer);
+	HRESULT result = device->CreateBuffer(&desc, nullptr, &retained_resources.buffer);
 	if (FAILED(result))
 		return result;
 	D3D11_SHADER_RESOURCE_VIEW_DESC view{};
 	view.Format = DXGI_FORMAT_R32_FLOAT;
 	view.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
 	view.Buffer.NumElements = 4;
-	return device->CreateShaderResourceView(retained_buffer.Get(), &view, &retained_view);
+	return device->CreateShaderResourceView(retained_resources.buffer.Get(), &view, &retained_resources.view);
 }
 
 extern "C" BOOL WINAPI ChainInitialize()
