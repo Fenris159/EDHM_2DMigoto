@@ -5,6 +5,7 @@
 #include <limits>
 #include <memory>
 #include <new>
+#include <type_traits>
 #include <stdlib.h>
 #include "log.h"
 #include "util.h"
@@ -1267,10 +1268,24 @@ bool MapTrackResourceHashUpdate(ID3D11Resource *pResource, UINT Subresource)
 //                       Automatic Data Structure Cleanup on Resource Release
 // -----------------------------------------------------------------------------------------------
 
+namespace
+{
+// Constant-initialized, trivially destructible state remains usable after
+// Globals and other DLLs' CRT state have been torn down. Read only on a
+// tracker's final release, never on the draw/resource-lookup fast paths.
+std::atomic<bool> resource_registry_active{true};
+static_assert(std::is_trivially_destructible_v<decltype(resource_registry_active)>);
+}
+
+void RetireResourceRegistry() noexcept
+{
+	resource_registry_active.store(false);
+}
+
 // {4A40BF2F-6358-470F-BA0A-662E3E2D8CD3}
 DEFINE_GUID(ResourceReleaseTrackerGuid, 0x4a40bf2f, 0x6358, 0x470f, 0xba, 0xa, 0x66, 0x2e, 0x3e, 0x2d, 0x8c, 0xd3);
 
-ResourceReleaseTracker::ResourceReleaseTracker(ID3D11Resource *resource) : resource(resource)
+ResourceReleaseTracker::ResourceReleaseTracker(ID3D11Resource *resource) noexcept : resource(resource)
 {
 	ref = 1;
 }
@@ -1280,9 +1295,12 @@ HRESULT ResourceReleaseTracker::Attach(ID3D11Resource *resource)
 	if (!resource)
 		return E_INVALIDARG;
 
-	auto *tracker = new (std::nothrow) ResourceReleaseTracker(resource);
-	if (!tracker)
+	// Trackers can outlive this DLL's CRT during process termination. Pair
+	// allocation and final cleanup through the still-valid Windows heap.
+	void *storage = HeapAlloc(GetProcessHeap(), 0, sizeof(ResourceReleaseTracker));
+	if (!storage)
 		return E_OUTOFMEMORY;
+	auto *tracker = new (storage) ResourceReleaseTracker(resource);
 
 	HRESULT hr = resource->SetPrivateDataInterface(ResourceReleaseTrackerGuid, tracker);
 	tracker->Release();
@@ -1292,8 +1310,9 @@ HRESULT ResourceReleaseTracker::Attach(ID3D11Resource *resource)
 
 HRESULT STDMETHODCALLTYPE ResourceReleaseTracker::QueryInterface(REFIID riid, _COM_Outptr_ void **ppvObject)
 {
-	LogInfo("ResourceReleaseTracker::QueryInterface(%p:%p) called with IID: %s\n", this, resource,
-	        NameFromIID(riid).c_str());
+	if (resource_registry_active.load())
+		LogInfo("ResourceReleaseTracker::QueryInterface(%p:%p) called with IID: %s\n", this, resource,
+		        NameFromIID(riid).c_str());
 
 	if (!ppvObject)
 		return E_POINTER;
@@ -1349,10 +1368,14 @@ ULONG STDMETHODCALLTYPE ResourceReleaseTracker::Release(void)
 		// lock held to protect it's notices data structure.      //
 		//                                                        //
 		////////////////////////////////////////////////////////////
-		EnterCriticalSectionPretty(&G->mResourcesLock);
-		G->mResources.erase(resource);
-		LeaveCriticalSection(&G->mResourcesLock);
-		delete this;
+		if (resource_registry_active.load())
+		{
+			EnterCriticalSectionPretty(&G->mResourcesLock);
+			G->mResources.erase(resource);
+			LeaveCriticalSection(&G->mResourcesLock);
+		}
+		this->~ResourceReleaseTracker();
+		HeapFree(GetProcessHeap(), 0, this);
 	}
 	return ret;
 }

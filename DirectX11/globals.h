@@ -735,6 +735,17 @@ struct Globals
 
 		ticks_at_launch = GetTickCount64();
 	}
+
+	Globals(const Globals &) = delete;
+	Globals &operator=(const Globals &) = delete;
+	Globals(Globals &&) = delete;
+	Globals &operator=(Globals &&) = delete;
+	~Globals()
+	{
+		// The body runs before mResources or command-list members are destroyed.
+		// External D3D owners can still release our trackers later during exit.
+		RetireResourceRegistry();
+	}
 };
 
 // Everything in this struct has a unique copy per thread. It would be vastly

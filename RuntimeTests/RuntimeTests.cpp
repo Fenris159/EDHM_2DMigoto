@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <new>
 #include <stdexcept>
 #include <thread>
 #include <d3d11sdklayers.h>
@@ -162,6 +163,94 @@ struct D3DFixture
 			FreeLibrary(module);
 	}
 };
+
+void final_resource_release_removes_live_metadata()
+{
+	D3DFixture fixture;
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = 16;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+	require(SUCCEEDED(fixture.device->CreateBuffer(&desc, nullptr, &buffer)), "tracked buffer creation failed");
+	require(SUCCEEDED(ResourceReleaseTracker::Attach(buffer.Get())), "resource tracker attachment failed");
+	auto *key = buffer.Get();
+	G->mResources[key].hash = 0x2468;
+	D3D11_SHADER_RESOURCE_VIEW_DESC view_desc{};
+	view_desc.Format = DXGI_FORMAT_R32_FLOAT;
+	view_desc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+	view_desc.Buffer.NumElements = 4;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
+	require(SUCCEEDED(fixture.device->CreateShaderResourceView(buffer.Get(), &view_desc, &view)),
+	        "retained buffer view creation failed");
+	buffer.Reset();
+	require(G->mResources.at(key).hash == 0x2468, "live view lost its resource metadata");
+	view.Reset();
+	fixture.context->Flush();
+	require(G->mResources.count(key) == 0, "final resource release retained stale metadata");
+	fixture.require_no_errors();
+}
+
+void resource_release_survives_registry_destruction()
+{
+	D3DFixture fixture;
+	struct RegistryOwner
+	{
+		Globals *previous = G;
+		void *storage = VirtualAlloc(nullptr, sizeof(Globals), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+		Globals *owner = nullptr;
+		explicit RegistryOwner()
+		{
+			require(storage != nullptr, "registry allocation failed");
+			owner = new (storage) Globals();
+			InitializeCriticalSection(&owner->mResourcesLock);
+			G = owner;
+		}
+		RegistryOwner(const RegistryOwner &) = delete;
+		RegistryOwner &operator=(const RegistryOwner &) = delete;
+		RegistryOwner(RegistryOwner &&) = delete;
+		RegistryOwner &operator=(RegistryOwner &&) = delete;
+		void retire()
+		{
+			owner->~Globals();
+			DeleteCriticalSection(&owner->mResourcesLock);
+			owner = nullptr;
+			DWORD previous_protection;
+			// Make every post-destruction read, including a lock or G flag,
+			// an observable failure instead of relying on freed heap contents.
+			require(VirtualProtect(storage, sizeof(Globals), PAGE_NOACCESS, &previous_protection) != FALSE,
+			        "retired registry protection failed");
+		}
+		~RegistryOwner()
+		{
+			if (owner)
+			{
+				owner->~Globals();
+				DeleteCriticalSection(&owner->mResourcesLock);
+			}
+			G = previous;
+			VirtualFree(storage, 0, MEM_RELEASE);
+		}
+	} registry;
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = 16;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
+	require(SUCCEEDED(fixture.device->CreateBuffer(&desc, nullptr, &buffer)), "late buffer creation failed");
+	require(SUCCEEDED(ResourceReleaseTracker::Attach(buffer.Get())), "late tracker attachment failed");
+	G->mResources[buffer.Get()].hash = 0x1357;
+	D3D11_SHADER_RESOURCE_VIEW_DESC view_desc{};
+	view_desc.Format = DXGI_FORMAT_R32_FLOAT;
+	view_desc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+	view_desc.Buffer.NumElements = 4;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
+	require(SUCCEEDED(fixture.device->CreateShaderResourceView(buffer.Get(), &view_desc, &view)),
+	        "late buffer view creation failed");
+	registry.retire();
+	buffer.Reset();
+	view.Reset();
+	fixture.context->Flush();
+	fixture.require_no_errors();
+}
 
 void recreates_structured_data_as_a_constant_buffer()
 {
@@ -3275,7 +3364,9 @@ int main(int argc, char **argv)
 	             {"pool-learned-flags", preserves_learned_pool_flags_during_copy},
 	             {"pool-scalar-precedence", scalar_variables_keep_precedence_over_pool_names},
 	             {"view-this-cache", this_references_reuse_views_until_the_kind_changes},
-	             {"profiling-zero-frame", zero_frame_updates_preserve_reload_measurements}};
+	             {"profiling-zero-frame", zero_frame_updates_preserve_reload_measurements},
+	             {"resource-final-release", final_resource_release_removes_live_metadata},
+	             {"resource-retirement", resource_release_survives_registry_destruction}};
 	int failures = 0;
 	int selected = 0;
 	for (const auto &test : tests)
