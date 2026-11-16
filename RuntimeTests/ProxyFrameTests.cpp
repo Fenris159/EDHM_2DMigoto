@@ -109,6 +109,7 @@ void run(bool hardware, bool controls, bool modern)
 	auto mode = exported<void(WINAPI *)(unsigned)>(proxy, "SetFrameProxyMode");
 	auto read = exported<HRESULT(WINAPI *)(IDXGISwapChain *)>(proxy, "ReadFrameProxyBuffer");
 	auto remove = exported<BOOL(WINAPI *)(IDXGISwapChain *)>(proxy, "RemoveFrameProxy");
+	auto nest = exported<void(WINAPI *)(IDXGISwapChain *)>(proxy, "SetFrameProxyNestedChain");
 	WNDCLASSW wc{};
 	wc.lpfnWndProc = DefWindowProcW;
 	wc.hInstance = GetModuleHandleW(nullptr);
@@ -196,6 +197,13 @@ void run(bool hardware, bool controls, bool modern)
 	require(SUCCEEDED(present(other.Get(), 0, modern)), "other chain Present failed");
 	values(device.Get(), context.Get(), 6, 6);
 	values(other_device.Get(), other_context.Get(), 6, 6);
+	nest(other.Get());
+	mode(3);
+	require(SUCCEEDED(present(chain.Get(), 0, modern)), "nested secondary Present failed");
+	nest(nullptr);
+	mode(0);
+	values(device.Get(), context.Get(), 7, 7);
+	values(other_device.Get(), other_context.Get(), 6, 6);
 	other.Reset();
 	other_context.Reset();
 	other_device.Reset();
@@ -206,7 +214,7 @@ void run(bool hardware, bool controls, bool modern)
 	        "replacement chain creation failed");
 	require(SUCCEEDED(other->GetBuffer(0, IID_PPV_ARGS(&back))), "replacement buffer unavailable");
 	require(SUCCEEDED(present(other.Get(), 0, modern)), "replacement chain Present failed");
-	values(other_device.Get(), other_context.Get(), 7, 7);
+	values(other_device.Get(), other_context.Get(), 8, 8);
 	DestroyWindow(window);
 }
 } // namespace

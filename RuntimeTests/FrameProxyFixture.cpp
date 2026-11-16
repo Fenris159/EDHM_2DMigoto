@@ -12,6 +12,8 @@ using Present1 = HRESULT(STDMETHODCALLTYPE *)(IDXGISwapChain1 *, UINT, UINT, con
 Present original;
 Present1 original1;
 unsigned mode;
+IDXGISwapChain *nested_chain;
+thread_local bool nested;
 
 HRESULT read_buffer(IDXGISwapChain *chain)
 {
@@ -24,6 +26,8 @@ HRESULT read_buffer(IDXGISwapChain *chain)
 
 HRESULT STDMETHODCALLTYPE present(IDXGISwapChain *chain, UINT interval, UINT flags)
 {
+	if (nested)
+		return original(chain, interval, flags);
 	if (flags & DXGI_PRESENT_TEST)
 		return S_OK;
 	HRESULT hr = read_buffer(chain);
@@ -33,6 +37,13 @@ HRESULT STDMETHODCALLTYPE present(IDXGISwapChain *chain, UINT interval, UINT fla
 		return hr;
 	if (mode == 1)
 		return original(chain, interval, flags);
+	if (mode == 3 && nested_chain)
+	{
+		nested = true;
+		hr = nested_chain->Present(interval, flags);
+		nested = false;
+		return hr;
+	}
 	return mode == 2 ? E_FAIL : S_OK;
 }
 
@@ -48,6 +59,13 @@ HRESULT STDMETHODCALLTYPE present1(IDXGISwapChain1 *chain, UINT interval, UINT f
 		return hr;
 	if (mode == 1)
 		return original1(chain, interval, flags, parameters);
+	if (mode == 3 && nested_chain)
+	{
+		nested = true;
+		hr = nested_chain->Present(interval, flags);
+		nested = false;
+		return hr;
+	}
 	return mode == 2 ? E_FAIL : S_OK;
 }
 } // namespace
@@ -71,6 +89,11 @@ extern "C" __declspec(dllexport) BOOL WINAPI InstallFrameProxy(IDXGISwapChain *c
 extern "C" __declspec(dllexport) void WINAPI SetFrameProxyMode(unsigned value)
 {
 	mode = value;
+}
+
+extern "C" __declspec(dllexport) void WINAPI SetFrameProxyNestedChain(IDXGISwapChain *chain)
+{
+	nested_chain = chain; // Borrowed; the caller retains it until clearing this.
 }
 
 extern "C" __declspec(dllexport) HRESULT WINAPI ReadFrameProxyBuffer(IDXGISwapChain *chain)

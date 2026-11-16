@@ -4,3 +4,4 @@ EXPORTS
     SetFrameProxyMode
     ReadFrameProxyBuffer
     RemoveFrameProxy
+    SetFrameProxyNestedChain
