@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "version": "0.1.7",
-  "source_tag": "v0.1.7",
+  "version": "0.1.8",
+  "source_tag": "v0.1.8",
   "channel": "release",
   "architecture": "x64",
   "file_name": "d3d11_edhm.dll",
-  "size_bytes": 3262464,
-  "sha256": "0d72ebbe352d2d627550bfc81e7221daf55a52a9aaf9b997d66c671abc5972e1",
-  "download_url": "https://github.com/Fenris159/EDHM_2DMigoto/releases/download/v0.1.7/d3d11_edhm.dll",
-  "checksum_url": "https://github.com/Fenris159/EDHM_2DMigoto/releases/download/v0.1.7/d3d11_edhm.dll.sha256",
-  "release_url": "https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.7",
-  "source_url": "https://github.com/Fenris159/EDHM_2DMigoto/tree/v0.1.7"
+  "size_bytes": 3267584,
+  "sha256": "3480813a4ecffce90c7b29e57b62788ea0b1a6aff5be06120cdf237fea054eb4",
+  "download_url": "https://github.com/Fenris159/EDHM_2DMigoto/releases/download/v0.1.8/d3d11_edhm.dll",
+  "checksum_url": "https://github.com/Fenris159/EDHM_2DMigoto/releases/download/v0.1.8/d3d11_edhm.dll.sha256",
+  "release_url": "https://github.com/Fenris159/EDHM_2DMigoto/releases/tag/v0.1.8",
+  "source_url": "https://github.com/Fenris159/EDHM_2DMigoto/tree/v0.1.8"
 }
