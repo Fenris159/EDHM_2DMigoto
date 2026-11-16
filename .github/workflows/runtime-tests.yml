@@ -179,6 +179,10 @@ jobs:
           name: proxy-chain-evidence-${{ matrix.platform }}-${{ github.sha }}
           path: |
             .quality/proxy-chain/${{ matrix.platform }}/**/results.json
+            .quality/proxy-chain/${{ matrix.platform }}/**/shutdown-complete.txt
+            .quality/proxy-chain/${{ matrix.platform }}/**/shutdown-faults.bin
+            .quality/proxy-chain/${{ matrix.platform }}/ProxyChainTests.exe
+            .quality/proxy-chain/${{ matrix.platform }}/ProxyChainFixture.dll
             .quality/proxy-chain/${{ matrix.platform }}/**/stdout.txt
             .quality/proxy-chain/${{ matrix.platform }}/**/stderr.txt
             .quality/proxy-chain/${{ matrix.platform }}/**/d3d11_log.txt

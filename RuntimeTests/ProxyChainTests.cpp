@@ -56,6 +56,45 @@ void check_device(ID3D11Device *device, UINT wanted)
 	require(actual.ByteWidth == 64, "wrapped resource descriptor changed");
 }
 
+LONG CALLBACK record_shutdown_fault(EXCEPTION_POINTERS *exception)
+{
+	const DWORD code = exception->ExceptionRecord->ExceptionCode;
+	if (code != EXCEPTION_ACCESS_VIOLATION && code != 0xc0000409)
+		return EXCEPTION_CONTINUE_SEARCH;
+	struct Record
+	{
+		DWORD code;
+		DWORD reserved;
+		ULONGLONG address;
+		ULONGLONG module;
+		ULONGLONG parameter0;
+		ULONGLONG parameter1;
+		char path[MAX_PATH];
+	} record{};
+	record.code = code;
+	record.address = reinterpret_cast<ULONG_PTR>(exception->ExceptionRecord->ExceptionAddress);
+	if (exception->ExceptionRecord->NumberParameters)
+		record.parameter0 = exception->ExceptionRecord->ExceptionInformation[0];
+	if (exception->ExceptionRecord->NumberParameters > 1)
+		record.parameter1 = exception->ExceptionRecord->ExceptionInformation[1];
+	HMODULE module = nullptr;
+	if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+	                       reinterpret_cast<LPCSTR>(exception->ExceptionRecord->ExceptionAddress), &module))
+	{
+		record.module = reinterpret_cast<ULONG_PTR>(module);
+		GetModuleFileNameA(module, record.path, MAX_PATH);
+	}
+	HANDLE file = CreateFileW(L"shutdown-faults.bin", FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS,
+	                          FILE_ATTRIBUTE_NORMAL, nullptr);
+	if (file != INVALID_HANDLE_VALUE)
+	{
+		DWORD written;
+		WriteFile(file, &record, sizeof(record), &written, nullptr);
+		CloseHandle(file);
+	}
+	return EXCEPTION_CONTINUE_SEARCH;
+}
+
 void run(const char *mode)
 {
 	load_system(L"dxgi.dll");
@@ -66,6 +105,8 @@ void run(const char *mode)
 	*(leaf + 1) = L'\0';
 	HMODULE retainer = nullptr;
 	const bool shutdown = std::strstr(mode, "shutdown") != nullptr;
+	if (shutdown)
+		require(AddVectoredExceptionHandler(1, record_shutdown_fault) != nullptr, "shutdown diagnostic unavailable");
 	if (shutdown)
 	{
 		// The backend must outlive both the product and the retainer.
