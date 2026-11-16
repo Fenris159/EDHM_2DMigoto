@@ -20,6 +20,8 @@ bool downstream;
 // Loaded before the tested DLL so these references are released after its CRT teardown.
 struct RetainedResources
 {
+	Microsoft::WRL::ComPtr<ID3D11Device> device;
+	Microsoft::WRL::ComPtr<ID3D11DeviceContext> context;
 	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
 	HANDLE completion = INVALID_HANDLE_VALUE;
@@ -46,6 +48,8 @@ struct RetainedResources
 			stage('V');
 			buffer.Reset();
 			stage('B');
+			context.Reset();
+			device.Reset();
 			// Opened during setup; avoid resolving a path during loader teardown.
 			constexpr char message[] = "released\n";
 			DWORD written;
@@ -131,6 +135,10 @@ extern "C" HRESULT WINAPI RetainResources(ID3D11Device *device)
 	result = device->CreateShaderResourceView(retained_resources.buffer.Get(), &view, &retained_resources.view);
 	if (FAILED(result))
 		return result;
+	// Keep the native backend alive as well as its objects, as a real
+	// rendering owner does. GetDevice on the native buffer gives its owner.
+	retained_resources.buffer->GetDevice(&retained_resources.device);
+	retained_resources.device->GetImmediateContext(&retained_resources.context);
 	retained_resources.completion = CreateFileW(L"shutdown-complete.txt", GENERIC_WRITE, FILE_SHARE_READ, nullptr,
 	                                            CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (retained_resources.completion == INVALID_HANDLE_VALUE)

@@ -55,7 +55,8 @@ case with an access violation on both Windows architectures.
 
 Product-DLL cases initialize the backend and its WARP driver first, then load a
 resource-retaining fixture before the runtime and keep buffers/views until that
-fixture's CRT teardown. Preinitializing the driver prevents the test itself from
+fixture's CRT teardown. That owner also retains the native device/context until
+after its resource references are released. Preinitializing the driver prevents the test itself from
 releasing GPU objects after their backend driver has already detached. Each child process must really
 exit with code zero and record completion after its retained COM references are
 released. A zero exit code alone can conceal an exception during DLL teardown. Standalone, outer-proxy,
