@@ -60,6 +60,24 @@ def get_mutations(command_list, settings, profiling):
             "",
         ),
         (
+            "resource-final-release",
+            ROOT / "DirectX11" / "ResourceHash.cpp",
+            "\t\t\tG->mResources.erase(resource);",
+            "\t\t\t// Deliberate break: leave stale metadata after final release.",
+        ),
+        (
+            "resource-retirement--state",
+            ROOT / "DirectX11" / "ResourceHash.cpp",
+            "resource_registry_active.store(false);",
+            "resource_registry_active.store(true);",
+        ),
+        (
+            "resource-retirement--owner",
+            ROOT / "DirectX11" / "globals.h",
+            "\t\tRetireResourceRegistry();",
+            "\t\t// Deliberate break: destroy registry without retiring callbacks.",
+        ),
+        (
             "leading-dot",
             command_list,
             "std::isdigit(remain[0]) || remain[0] == L'.'",

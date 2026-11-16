@@ -40,7 +40,11 @@ def main():
     controls = parser.add_mutually_exclusive_group()
     controls.add_argument("--expect-bypass", action="store_true")
     controls.add_argument("--expect-downstream-bypass", action="store_true")
+    controls.add_argument("--shutdown-only", action="store_true")
+    parser.add_argument("--expect-shutdown-failure", action="store_true")
     args = parser.parse_args()
+    if args.expect_shutdown_failure and not args.shutdown_only:
+        parser.error("--expect-shutdown-failure requires --shutdown-only")
     inputs = {name: getattr(args, name).resolve(strict=True) for name in ("dll", "fixture", "exe")}
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -51,6 +55,10 @@ def main():
         cases += ["standalone", "downstream", "missing-proxy", "self-proxy", "invalid-proxy"]
     if args.edup:
         cases += ["edup"]
+    if args.shutdown_only:
+        cases = ["standalone-shutdown", "chain-shutdown", "standalone-unload"]
+        if args.edup:
+            cases += ["edup-shutdown"]
     records = []
     target_machine = pe_machine(inputs["exe"])
     try:
@@ -58,18 +66,20 @@ def main():
             directory = output / case
             directory.mkdir()
             shutil.copy2(inputs["exe"], directory / "ProxyChainTests.exe")
-            chain = case.startswith("chain-") or case == "edup"
+            chain = case.startswith("chain-") or case.startswith("edup")
             shutil.copy2(inputs["dll"], directory / ("d3d11_edhm.dll" if chain else "d3d11.dll"))
             if chain:
-                outer = args.edup.resolve(strict=True) if case == "edup" else inputs["fixture"]
+                outer = args.edup.resolve(strict=True) if case.startswith("edup") else inputs["fixture"]
                 shutil.copy2(outer, directory / "d3d11.dll")
-            if case == "edup":
+            if case.startswith("edup"):
                 settings = (
                     "[advanced]\nreal_dll=d3d11_edhm.dll\nd3d11_fixes=1\n"
                     "[fix]\ntemporal_aa=off\n[d3d11]\nfocus_on_launch=0\n[hotkey]\nmenu=F8\n"
                 )
                 for name in ("edvr.ini", "edvr-flat.ini"):
                     (directory / name).write_text(settings, encoding="utf-8")
+            if "shutdown" in case:
+                shutil.copy2(inputs["fixture"], directory / "ResourceRetainer.dll")
             proxy = ""
             if "downstream" in case:
                 shutil.copy2(inputs["fixture"], directory / "downstream.dll")
@@ -103,12 +113,12 @@ def main():
                 raise
             (directory / "stdout.txt").write_text(completed.stdout, encoding="utf-8")
             (directory / "stderr.txt").write_text(completed.stderr, encoding="utf-8")
-            expected_creations = 1 if case == "edup" else 4
+            expected_creations = 1 if case.startswith("edup") or "shutdown" in case else 4
             completed_creations = sum(line.startswith(f"PASS {case} creation ") for line in completed.stdout.splitlines())
             record = {"case": case, "exit_code": completed.returncode,
                       "completed_creations": completed_creations, "passed": False}
             records.append(record)
-            if case == "edup":
+            if case.startswith("edup"):
                 logs = "\n".join(path.read_text(encoding="utf-8", errors="replace")
                                  for path in (directory / "edvr_logs").glob("*gfx*.log"))
                 # EDUP's published startup/frame-boundary diagnostics expose whether
@@ -145,6 +155,20 @@ def main():
                                         and record["missing_exports_rejected"])
                 else:
                     record["passed"] = creations_ok
+            if "shutdown" in case:
+                completion = directory / "shutdown-complete.txt"
+                record["completion_bytes"] = completion.read_bytes().hex() if completion.is_file() else None
+                record["retained_release_completed"] = completion.is_file() and completion.read_bytes() == b"released\n"
+                record["passed"] = record["passed"] and record["retained_release_completed"]
+                if args.expect_shutdown_failure:
+                    # Creation and the opened receipt prove setup succeeded.
+                    # Windows can suppress an exception during process teardown,
+                    # so an exit code alone is insufficient for this control.
+                    setup_ok = completed_creations == 1
+                    if case.startswith("edup"):
+                        setup_ok = (setup_ok and record["edup_chain_selected"]
+                                    and record["edup_device_attached"] and record["edup_present_active"])
+                    record["passed"] = setup_ok and completion.is_file() and completion.read_bytes() == b""
             print(f"{'PASS' if record['passed'] else 'FAIL'} {case}: exit {completed.returncode}", flush=True)
             if not record["passed"]:
                 raise RuntimeError(f"{case}: {completed.stdout}\n{completed.stderr}")
@@ -155,6 +179,8 @@ def main():
                 for name, path in inputs.items()
             },
             "expected_bypass": args.expect_bypass,
+            "shutdown_only": args.shutdown_only,
+            "expected_shutdown_failure": args.expect_shutdown_failure,
             "expected_downstream_bypass": args.expect_downstream_bypass,
             "target_machine": target_machine,
             "edup_sha256": hashlib.sha256(args.edup.read_bytes()).hexdigest() if args.edup else None,

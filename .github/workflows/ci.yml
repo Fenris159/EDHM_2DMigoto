@@ -118,7 +118,10 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: d3d11-release-x64-${{ github.sha }}
-          path: x64/Release/d3d11.dll
+          path: |
+            x64/Release/d3d11.dll
+            x64/Release/3Dmigoto.pdb
+            x64/Release/d3d11.map
           if-no-files-found: error
           retention-days: 14
 
@@ -142,6 +145,10 @@ jobs:
           path: |
             x64/Zip Release/d3d11.dll
             x32/Zip Release/d3d11.dll
+            x64/Zip Release/3Dmigoto.pdb
+            x32/Zip Release/3Dmigoto.pdb
+            x64/Zip Release/d3d11.map
+            x32/Zip Release/d3d11.map
           if-no-files-found: error
           retention-days: 14
 
