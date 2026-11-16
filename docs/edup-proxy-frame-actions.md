@@ -41,9 +41,11 @@ buffer. GetBuffer discovers the hook; it never executes a command phase.
 
 If the proxy forwards to our saved Present, the active scope suppresses a
 second execution. Scope registration includes ownership promotion before any
-commands or forwarding can run. An active-frame count also suppresses saved
+commands or forwarding can run. An active-frame count on that same swap-chain wrapper also suppresses saved
 Present on a worker thread; input and commands stay on the established thread.
-Test presents, nested calls, other threads and secondary chains do not advance
+A secondary wrapper’s forwarding scope does not suppress an independent
+primary frame on another thread. Test presents, nested calls, other threads and
+secondary chains do not advance
 the established proxy frame source.
 
 The first wrapped D3D11 chain is selected during creation, so an early secondary

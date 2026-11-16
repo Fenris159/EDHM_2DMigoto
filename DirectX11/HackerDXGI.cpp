@@ -88,7 +88,6 @@ void *proxy_target;
 void *proxy_target1;
 SRWLOCK proxy_hook_lock = SRWLOCK_INIT;
 std::atomic<HackerSwapChain *> proxy_frame_owner{nullptr};
-std::atomic<unsigned> proxy_frames_active{0};
 constexpr GUID frame_owner_guid = {0x947bd476, 0x69e4, 0x4962, {0xbd, 0x4f, 0x46, 0x12, 0xb2, 0xd3, 0x1b, 0xe9}};
 
 // Native SwapChain2/3 references can outlive the wrapper's last Release. This
@@ -169,7 +168,7 @@ class ProxyFrame
 		// Even a rejected/test/secondary outer call must suppress any saved
 		// Present it forwards to another thread. Eligibility to run commands is
 		// separate from the lifetime of that forwarding scope.
-		proxy_frames_active.fetch_add(1, std::memory_order_release);
+		chain->EnterProxyFrame();
 		active = !(flags & DXGI_PRESENT_TEST) && chain->AcquireProxyFrameOwner();
 	}
 	void begin()
@@ -189,7 +188,7 @@ class ProxyFrame
 		if (!chain)
 			return;
 		proxy_frame_chain = nullptr;
-		proxy_frames_active.fetch_sub(1, std::memory_order_release);
+		chain->LeaveProxyFrame();
 		chain->Release();
 	}
 	ProxyFrame(const ProxyFrame &) = delete;
@@ -269,6 +268,16 @@ void HackerSwapChain::ObserveProxyPresent()
 	ReleaseSRWLockExclusive(&proxy_hook_lock);
 	mObservedPresent.store(target, std::memory_order_release);
 	mObservedPresent1.store(target1, std::memory_order_release);
+}
+
+void HackerSwapChain::EnterProxyFrame()
+{
+	mProxyFramesActive.fetch_add(1, std::memory_order_release);
+}
+
+void HackerSwapChain::LeaveProxyFrame()
+{
+	mProxyFramesActive.fetch_sub(1, std::memory_order_release);
 }
 
 bool HackerSwapChain::AcquireProxyFrameOwner()
@@ -903,7 +912,7 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
                                           /* [in] */ UINT SyncInterval,
                                       /* [in] */ UINT Flags)
 {
-	if (proxy_frame_chain || proxy_frames_active.load(std::memory_order_acquire))
+	if (proxy_frame_chain || mProxyFramesActive.load(std::memory_order_acquire))
 	{
 		bool previous = get_tls()->hooking_quirk_protection;
 		get_tls()->hooking_quirk_protection = true;
@@ -1230,7 +1239,7 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
                                        /* [annotation][in] */
                                        _In_ const DXGI_PRESENT_PARAMETERS *pPresentParameters)
 {
-	if (proxy_frame_chain || proxy_frames_active.load(std::memory_order_acquire))
+	if (proxy_frame_chain || mProxyFramesActive.load(std::memory_order_acquire))
 	{
 		bool previous = get_tls()->hooking_quirk_protection;
 		get_tls()->hooking_quirk_protection = true;

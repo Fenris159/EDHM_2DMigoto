@@ -15,6 +15,10 @@ Built from this repository's automated release workflow.
   swap chains retain the 0.1.7 pass-through fix. Thanks to
   [Duceowen's follow-up report and proposed recovery patch](https://github.com/Fenris159/EDHM_2DMigoto/issues/52#issuecomment-6908828546).
 
+- Scope forwarded-Present suppression to its swap-chain wrapper, allowing an
+  independent primary frame to progress while another device has an in-flight
+  secondary proxy call.
+
 ### Added
 
 - Product-DLL regression probes for a third-party Present replacement, including

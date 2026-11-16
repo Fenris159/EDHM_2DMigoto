@@ -51,8 +51,8 @@ def main():
         end = text.index(f"HackerSwapChain::{following}(", start)
         function = text[start:end]
         mutations.append((f"{case}--duplicate", function,
-                          function.replace("if (proxy_frame_chain || proxy_frames_active.load(std::memory_order_acquire))",
-                                           "if (!proxy_frame_chain && !proxy_frames_active.load(std::memory_order_acquire))", 1)))
+                          function.replace("if (proxy_frame_chain || mProxyFramesActive.load(std::memory_order_acquire))",
+                                           "if (!proxy_frame_chain && !mProxyFramesActive.load(std::memory_order_acquire))", 1)))
     restoration_cases = [(name, path, old, new) for name, old, new in mutations]
     evidence = []
     try:
