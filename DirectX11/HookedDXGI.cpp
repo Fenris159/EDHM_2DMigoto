@@ -590,7 +590,7 @@ HRESULT __stdcall Hooked_CreateSwapChainForHwnd(IDXGIFactory2 *This,
 		get_tls()->hooking_quirk_protection = true;
 		HRESULT hr =
 		    fnOrigCreateSwapChainForHwnd(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
-		get_tls()->hooking_quirk_protection = false;
+		get_tls()->hooking_quirk_protection = true;
 		return hr;
 	}
 
