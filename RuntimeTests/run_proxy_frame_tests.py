@@ -14,6 +14,7 @@ def main():
     parser.add_argument("--runner", nargs="*", default=[])
     parser.add_argument("--hardware", action="store_true")
     parser.add_argument("--expect-starvation", action="store_true")
+    parser.add_argument("--case", choices=("flow", "controls", "flow1", "controls1"), default="flow")
     args = parser.parse_args()
     inputs = {name: getattr(args, name).resolve(strict=True) for name in ("dll", "exe", "fixture")}
     directory = args.output.resolve()
@@ -21,15 +22,21 @@ def main():
     for name, target in (("dll", "d3d11.dll"), ("exe", "ProxyFrameTests.exe"),
                          ("fixture", "FrameProxyFixture.dll")):
         shutil.copy2(inputs[name], directory / target)
-    (directory / "d3dx.ini").write_text(
+    config = (
         "[Logging]\nenabled=1\ncalls=0\nunbuffered=1\nshow_warnings=0\n"
         "[System]\nload_library_redirect=0\nallow_platform_update=1\nconfig_initialization_delay=-1\n"
-        "[Hunting]\nhunting=0\n[Rendering]\nstereo_params=-1\nini_params=120\n"
-        "[Constants]\nx=0\ny=0\n[Present]\nx=x+1\npost y=y+1\n", encoding="utf-8")
-    command = args.runner + [str(directory / "ProxyFrameTests.exe")]
+        "[Hunting]\nhunting=0\nreload_config=VK_F11\n[Rendering]\nstereo_params=-1\nini_params=120\n"
+        "[Constants]\nx=0\ny=0\nz=0\nw=0\n[Present]\nx=x+1\npost y=y+1\n")
+    if args.case.startswith("controls"):
+        config += ("preset=PresetFrame\n[PresetFrame]\nw=8\ntransition=1000\n"
+                   "[KeyFrame]\nkey=VK_F6\ntype=toggle\nz=9\n")
+    (directory / "d3dx.ini").write_text(config, encoding="utf-8")
+    (directory / "reload.ini").write_text(
+        config.replace("x=0\ny=0\nz=0\nw=0", "x=10\ny=20\nz=30\nw=40"), encoding="utf-8")
+    command = args.runner + [str(directory / "ProxyFrameTests.exe"), args.case]
     if args.hardware:
         command.append("hardware")
-    record = {"passed": False, "expected_starvation": args.expect_starvation,
+    record = {"passed": False, "case": args.case, "expected_starvation": args.expect_starvation,
               "inputs": {name: {"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
                          for name, path in inputs.items()}}
     try:

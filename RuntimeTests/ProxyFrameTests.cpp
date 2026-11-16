@@ -2,7 +2,9 @@
 // replacement keeps the game's swap chain from ever reaching native Present.
 #include <windows.h>
 #include <d3d11.h>
+#include <dxgi1_2.h>
 #include <wrl/client.h>
+#include "ImportBoundary.h"
 
 #include <cstdio>
 #include <cstring>
@@ -11,6 +13,18 @@
 namespace
 {
 using Microsoft::WRL::ComPtr;
+ULONGLONG tick;
+int held_key;
+
+ULONGLONG WINAPI frame_tick()
+{
+	return tick;
+}
+
+SHORT WINAPI key_state(int key)
+{
+	return key == held_key ? static_cast<SHORT>(0x8000) : 0;
+}
 
 void require(bool condition, const char *message)
 {
@@ -28,7 +42,7 @@ template <typename T> T exported(HMODULE module, const char *name)
 	return result;
 }
 
-void values(ID3D11Device *device, ID3D11DeviceContext *context, float x, float y)
+void values(ID3D11Device *device, ID3D11DeviceContext *context, float x, float y, float z = 0, float w = 0)
 {
 	ComPtr<ID3D11ShaderResourceView> view;
 	context->PSGetShaderResources(120, 1, &view);
@@ -48,27 +62,43 @@ void values(ID3D11Device *device, ID3D11DeviceContext *context, float x, float y
 	context->CopyResource(staging.Get(), texture.Get());
 	D3D11_MAPPED_SUBRESOURCE mapped{};
 	require(SUCCEEDED(context->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped)), "readback failed");
-	float actual[2]{};
+	float actual[4]{};
 	std::memcpy(actual, mapped.pData, sizeof(actual));
 	context->Unmap(staging.Get(), 0);
 	std::printf("commands x=%.0f y=%.0f expected %.0f %.0f\n", actual[0], actual[1], x, y);
 	require(actual[0] == x, "Present commands were starved or duplicated");
 	require(actual[1] == y, "post-Present commands were starved or duplicated");
+	std::printf("inputs z=%.0f w=%.0f expected %.0f %.0f\n", actual[2], actual[3], z, w);
+	require(actual[2] == z, "hotkey or reload value did not apply");
+	require(actual[3] == w, "preset transition or reload value did not apply");
+}
+
+HRESULT present(IDXGISwapChain *chain, UINT flags, bool modern)
+{
+	if (!modern)
+		return chain->Present(0, flags);
+	ComPtr<IDXGISwapChain1> one;
+	HRESULT hr = chain->QueryInterface(IID_PPV_ARGS(&one));
+	if (FAILED(hr))
+		return hr;
+	DXGI_PRESENT_PARAMETERS parameters{};
+	return one->Present1(0, flags, &parameters);
 }
 
 struct WorkerPresent
 {
 	IDXGISwapChain *chain;
+	bool modern;
 	HRESULT result = E_UNEXPECTED;
 	static DWORD WINAPI run(void *argument)
 	{
 		auto &worker = *static_cast<WorkerPresent *>(argument);
-		worker.result = worker.chain->Present(0, 0);
+		worker.result = present(worker.chain, 0, worker.modern);
 		return 0;
 	}
 };
 
-void run(bool hardware)
+void run(bool hardware, bool controls, bool modern)
 {
 	HMODULE product = LoadLibraryW(L".\\d3d11.dll");
 	require(product != nullptr, "product DLL unavailable");
@@ -105,34 +135,55 @@ void run(bool hardware)
 	require(install(chain.Get()) != FALSE, "proxy install failed");
 	ComPtr<ID3D11Texture2D> back;
 	require(SUCCEEDED(chain->GetBuffer(0, IID_PPV_ARGS(&back))), "back buffer unavailable");
+	tick = GetTickCount64() + 1;
+	ImportBoundary clock(product, "GetTickCount64", &frame_tick);
+	ImportBoundary keys(product, "GetAsyncKeyState", &key_state);
 	// A zero-draw/menu frame is still a game frame. No timing or draw threshold.
-	require(SUCCEEDED(chain->Present(0, 0)), "proxy Present failed");
+	require(SUCCEEDED(present(chain.Get(), 0, modern)), "proxy Present failed");
 	values(device.Get(), context.Get(), 1, 1);
+	if (controls)
+	{
+		held_key = VK_F6;
+		tick += 500;
+		require(SUCCEEDED(present(chain.Get(), 0, modern)), "hotkey Present failed");
+		values(device.Get(), context.Get(), 2, 2, 9, 4);
+		// Holding the toggle must not activate it twice. The preset reaches its
+		// hand-computed endpoint after the second controlled half-second.
+		tick += 500;
+		require(SUCCEEDED(present(chain.Get(), 0, modern)), "transition Present failed");
+		values(device.Get(), context.Get(), 3, 3, 9, 8);
+		require(CopyFileW(L"reload.ini", L"d3dx.ini", FALSE) != FALSE, "reload input copy failed");
+		held_key = VK_F11;
+		require(SUCCEEDED(present(chain.Get(), 0, modern)), "reload hotkey Present failed");
+		values(device.Get(), context.Get(), 10, 21, 30, 40);
+		DestroyWindow(window);
+		return;
+	}
 	require(SUCCEEDED(read(chain.Get())) && SUCCEEDED(read(chain.Get())), "proxy buffer reads failed");
-	require(SUCCEEDED(chain->Present(0, DXGI_PRESENT_TEST)), "test Present failed");
+	require(SUCCEEDED(present(chain.Get(), DXGI_PRESENT_TEST, modern)), "test Present failed");
 	values(device.Get(), context.Get(), 1, 1);
 	mode(2);
-	require(chain->Present(0, 0) == E_FAIL, "proxy failure was not preserved");
+	require(present(chain.Get(), 0, modern) == E_FAIL, "proxy failure was not preserved");
 	values(device.Get(), context.Get(), 2, 2);
 	mode(1);
-	require(SUCCEEDED(chain->Present(0, 0)), "forwarding proxy Present failed");
+	require(SUCCEEDED(present(chain.Get(), 0, modern)), "forwarding proxy Present failed");
 	values(device.Get(), context.Get(), 3, 3);
 	mode(0);
-	WorkerPresent worker{chain.Get()};
+	WorkerPresent worker{chain.Get(), modern};
 	HANDLE thread = CreateThread(nullptr, 0, WorkerPresent::run, &worker, 0, nullptr);
 	require(thread != nullptr, "worker creation failed");
 	DWORD wait = WaitForSingleObject(thread, INFINITE);
 	CloseHandle(thread);
 	require(wait == WAIT_OBJECT_0 && SUCCEEDED(worker.result), "worker Present failed");
 	values(device.Get(), context.Get(), 3, 3);
-	require(SUCCEEDED(chain->Present(0, 0)), "render-thread Present did not resume");
+	require(SUCCEEDED(present(chain.Get(), 0, modern)), "render-thread Present did not resume");
 	values(device.Get(), context.Get(), 4, 4);
 	require(remove(chain.Get()) != FALSE, "proxy removal failed");
-	require(SUCCEEDED(chain->Present(0, 0)), "ordinary Present did not resume");
+	require(SUCCEEDED(present(chain.Get(), 0, modern)), "ordinary Present did not resume");
 	values(device.Get(), context.Get(), 5, 5);
 	require(install(chain.Get()) != FALSE, "proxy reinstall failed");
 	require(SUCCEEDED(chain->GetBuffer(0, IID_PPV_ARGS(back.ReleaseAndGetAddressOf()))), "buffer reread failed");
-	require(SUCCEEDED(chain->Present(0, 0)), "reinstalled proxy failed");
+	require(SUCCEEDED(present(chain.Get(), 0, modern)), "reinstalled proxy failed");
 	values(device.Get(), context.Get(), 6, 6);
 	// A second wrapped chain shares the patched vtable, but is not this game's
 	// established frame source. It must not tick the global command lists.
@@ -142,7 +193,7 @@ void run(bool hardware)
 	require(SUCCEEDED(create(nullptr, hardware ? D3D_DRIVER_TYPE_HARDWARE : D3D_DRIVER_TYPE_WARP, nullptr, 0, nullptr,
 	                         0, D3D11_SDK_VERSION, &desc, &other, &other_device, nullptr, &other_context)),
 	        "second chain creation failed");
-	require(SUCCEEDED(other->Present(0, 0)), "other chain Present failed");
+	require(SUCCEEDED(present(other.Get(), 0, modern)), "other chain Present failed");
 	values(device.Get(), context.Get(), 6, 6);
 	other.Reset();
 	other_context.Reset();
@@ -153,7 +204,7 @@ void run(bool hardware)
 	                         0, D3D11_SDK_VERSION, &desc, &other, &other_device, nullptr, &other_context)),
 	        "replacement chain creation failed");
 	require(SUCCEEDED(other->GetBuffer(0, IID_PPV_ARGS(&back))), "replacement buffer unavailable");
-	require(SUCCEEDED(other->Present(0, 0)), "replacement chain Present failed");
+	require(SUCCEEDED(present(other.Get(), 0, modern)), "replacement chain Present failed");
 	values(other_device.Get(), other_context.Get(), 7, 7);
 	DestroyWindow(window);
 }
@@ -163,8 +214,11 @@ int main(int argc, char **argv)
 {
 	try
 	{
-		require(argc == 1 || (argc == 2 && std::strcmp(argv[1], "hardware") == 0), "expected [hardware]");
-		run(argc == 2);
+		require(argc == 2 || (argc == 3 && std::strcmp(argv[2], "hardware") == 0), "expected flow|controls [hardware]");
+		bool modern = std::strcmp(argv[1], "flow1") == 0 || std::strcmp(argv[1], "controls1") == 0;
+		bool controls = std::strcmp(argv[1], "controls") == 0 || std::strcmp(argv[1], "controls1") == 0;
+		require(controls || modern || std::strcmp(argv[1], "flow") == 0, "unknown frame case");
+		run(argc == 3, controls, modern);
 		std::puts("PASS proxy frame actions");
 		return 0;
 	}

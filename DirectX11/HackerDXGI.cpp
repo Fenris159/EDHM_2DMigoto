@@ -802,7 +802,8 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
 		return hr;
 	}
 	DWORD thread = 0;
-	mFrameThread.compare_exchange_strong(thread, GetCurrentThreadId(), std::memory_order_relaxed);
+	if (!(Flags & DXGI_PRESENT_TEST))
+		mFrameThread.compare_exchange_strong(thread, GetCurrentThreadId(), std::memory_order_relaxed);
 	Profiling::State profiling_state = {0};
 	bool profiling = false;
 
@@ -1155,7 +1156,8 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 		return hr;
 	}
 	DWORD thread = 0;
-	mFrameThread.compare_exchange_strong(thread, GetCurrentThreadId(), std::memory_order_relaxed);
+	if (!(PresentFlags & DXGI_PRESENT_TEST))
+		mFrameThread.compare_exchange_strong(thread, GetCurrentThreadId(), std::memory_order_relaxed);
 	Profiling::State profiling_state = {0};
 	bool profiling = false;
 

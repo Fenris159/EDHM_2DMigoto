@@ -84,10 +84,26 @@ jobs:
         run: |
           $bin = ".quality/proxy-frame/$env:TEST_PLATFORM"
           $product = if ($env:TEST_PLATFORM -eq 'Win32') { 'x32' } else { 'x64' }
-          & python RuntimeTests/run_proxy_frame_tests.py --dll "$product/Release/d3d11.dll" `
+          foreach ($case in @('flow', 'controls', 'flow1', 'controls1')) {
+            & python RuntimeTests/run_proxy_frame_tests.py --dll "$product/Release/d3d11.dll" `
+              --exe "$bin/ProxyFrameTests.exe" --fixture "$bin/FrameProxyFixture.dll" `
+              --case $case --output "$bin/$case-results"
+            if ($LASTEXITCODE -ne 0) { throw "Proxy frame actions failed: $case" }
+          }
+      - name: Require the previous release to expose starved frame actions
+        if: matrix.platform == 'x64'
+        shell: pwsh
+        run: |
+          $bin = '.quality/proxy-frame/x64'
+          $baseline = "$bin/previous-d3d11.dll"
+          Invoke-WebRequest 'https://github.com/Fenris159/EDHM_2DMigoto/releases/download/v0.1.7/d3d11.dll' -OutFile $baseline
+          if ((Get-FileHash $baseline -Algorithm SHA256).Hash -ne '0d72ebbe352d2d627550bfc81e7221daf55a52a9aaf9b997d66c671abc5972e1') {
+            throw 'Previous frame-action release checksum mismatch'
+          }
+          & python RuntimeTests/run_proxy_frame_tests.py --dll $baseline `
             --exe "$bin/ProxyFrameTests.exe" --fixture "$bin/FrameProxyFixture.dll" `
-            --output "$bin/candidate-results"
-          if ($LASTEXITCODE -ne 0) { throw 'Proxy frame actions failed' }
+            --output "$bin/baseline-results" --expect-starvation
+          if ($LASTEXITCODE -ne 0) { throw 'Previous frame-action starvation was not detected' }
       - name: Obtain pinned EDUP release for the x64 integration check
         if: matrix.platform == 'x64'
         shell: pwsh
