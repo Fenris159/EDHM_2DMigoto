@@ -154,6 +154,8 @@ def main():
                     record["passed"] = creations_ok
             if "shutdown" in case:
                 completion = directory / "shutdown-complete.txt"
+                stage = directory / "shutdown-stages.txt"
+                record["shutdown_stages"] = stage.read_text() if stage.is_file() else None
                 record["completion_bytes"] = completion.read_bytes().hex() if completion.is_file() else None
                 record["shutdown_fault_bytes"] = (directory / "shutdown-faults.bin").read_bytes().hex() if (directory / "shutdown-faults.bin").is_file() else None
                 record["retained_release_completed"] = completion.is_file() and completion.read_bytes() == b"released\n"

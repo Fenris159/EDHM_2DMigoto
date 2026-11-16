@@ -22,6 +22,16 @@ struct RetainedResources
 {
 	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer;
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
+	HANDLE completion = INVALID_HANDLE_VALUE;
+	HANDLE stages = INVALID_HANDLE_VALUE;
+	void stage(char value) const
+	{
+		if (stages != INVALID_HANDLE_VALUE)
+		{
+			DWORD written;
+			WriteFile(stages, &value, 1, &written, nullptr);
+		}
+	}
 	RetainedResources() = default;
 	RetainedResources(const RetainedResources &) = delete;
 	RetainedResources &operator=(const RetainedResources &) = delete;
@@ -29,21 +39,23 @@ struct RetainedResources
 	RetainedResources &operator=(RetainedResources &&) = delete;
 	~RetainedResources()
 	{
-		if (!buffer || !view)
-			return;
-		view.Reset();
-		buffer.Reset();
-		// Record completion after the COM callbacks, using only the OS boundary.
-		HANDLE file = CreateFileW(L"shutdown-complete.txt", GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
-		                          FILE_ATTRIBUTE_NORMAL, nullptr);
-		if (file != INVALID_HANDLE_VALUE)
+		stage('S');
+		if (buffer && view)
 		{
+			view.Reset();
+			buffer.Reset();
+			// Opened during setup; avoid resolving a path during loader teardown.
 			constexpr char message[] = "released\n";
 			DWORD written;
-			WriteFile(file, message, sizeof(message) - 1, &written, nullptr);
-			CloseHandle(file);
+			WriteFile(completion, message, sizeof(message) - 1, &written, nullptr);
+			stage('C');
 		}
+		if (completion != INVALID_HANDLE_VALUE)
+			CloseHandle(completion);
+		if (stages != INVALID_HANDLE_VALUE)
+			CloseHandle(stages);
 	}
+
 } retained_resources;
 
 template <typename T> T exported(HMODULE module, const char *name)
@@ -114,7 +126,19 @@ extern "C" HRESULT WINAPI RetainResources(ID3D11Device *device)
 	view.Format = DXGI_FORMAT_R32_FLOAT;
 	view.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
 	view.Buffer.NumElements = 4;
-	return device->CreateShaderResourceView(retained_resources.buffer.Get(), &view, &retained_resources.view);
+	result = device->CreateShaderResourceView(retained_resources.buffer.Get(), &view, &retained_resources.view);
+	if (FAILED(result))
+		return result;
+	retained_resources.completion = CreateFileW(L"shutdown-complete.txt", GENERIC_WRITE, FILE_SHARE_READ, nullptr,
+	                                            CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+	if (retained_resources.completion == INVALID_HANDLE_VALUE)
+		return HRESULT_FROM_WIN32(GetLastError());
+	retained_resources.stages = CreateFileW(L"shutdown-stages.txt", GENERIC_WRITE, FILE_SHARE_READ, nullptr,
+	                                        CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+	if (retained_resources.stages == INVALID_HANDLE_VALUE)
+		return HRESULT_FROM_WIN32(GetLastError());
+	retained_resources.stage('R');
+	return S_OK;
 }
 
 extern "C" BOOL WINAPI ChainInitialize()
@@ -160,5 +184,7 @@ BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID)
 {
 	if (reason == DLL_PROCESS_ATTACH)
 		self_module = module;
+	if (reason == DLL_PROCESS_DETACH)
+		retained_resources.stage('D');
 	return TRUE;
 }

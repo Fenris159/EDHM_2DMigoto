@@ -180,6 +180,7 @@ jobs:
           path: |
             .quality/proxy-chain/${{ matrix.platform }}/**/results.json
             .quality/proxy-chain/${{ matrix.platform }}/**/shutdown-complete.txt
+            .quality/proxy-chain/${{ matrix.platform }}/**/shutdown-stages.txt
             .quality/proxy-chain/${{ matrix.platform }}/**/shutdown-faults.bin
             .quality/proxy-chain/${{ matrix.platform }}/ProxyChainTests.exe
             .quality/proxy-chain/${{ matrix.platform }}/ProxyChainFixture.dll
