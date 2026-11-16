@@ -475,25 +475,6 @@ void KeyOverrideCycleBack::DownEvent(HackerDevice *device)
 	return cycle->BackEvent(device);
 }
 
-// In order to change the iniParams, we need to map them back to system memory so that the CPU
-// can change the values, then remap them back to the GPU where they can be accessed by shader code.
-// This map/unmap code also requires that the texture be created with the D3D11_USAGE_DYNAMIC flag set.
-// This map operation can also cause the GPU to stall, so this should be done as rarely as possible.
-
-static void UpdateIniParams(HackerDevice *wrapper)
-{
-	ID3D11DeviceContext1 *realContext = wrapper->GetPassThroughOrigContext1();
-	D3D11_MAPPED_SUBRESOURCE mappedResource;
-
-	if (wrapper->mIniTexture)
-	{
-		realContext->Map(wrapper->mIniTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-		memcpy(mappedResource.pData, G->iniParams.data(), sizeof(DirectX::XMFLOAT4) * G->iniParams.size());
-		realContext->Unmap(wrapper->mIniTexture, 0);
-		Profiling::iniparams_updates++;
-	}
-}
-
 std::vector<CommandList *> pending_post_command_lists;
 
 void Override::Activate(HackerDevice *device, bool override_has_deactivate_condition)
@@ -706,9 +687,15 @@ static float _UpdateTransition(struct OverrideTransitionParam *transition, ULONG
 
 void OverrideTransition::UpdateTransitions(HackerDevice *wrapper)
 {
+	// Presentation can precede lazy context wrapping. Keep transitions queued
+	// until their publication context exists.
+	HackerContext *context = wrapper->GetHackerContext();
+	if (!context)
+		return;
 	std::map<OverrideParam, OverrideTransitionParam>::iterator i;
 	std::map<CommandListVariable *, OverrideTransitionParam>::iterator j;
 	ULONGLONG now = GetTickCount64();
+	const bool changed_params = !params.empty();
 
 	if (!params.empty())
 	{
@@ -724,9 +711,11 @@ void OverrideTransition::UpdateTransitions(HackerDevice *wrapper)
 				i++;
 		}
 		LogDebug("\n");
-
-		UpdateIniParams(wrapper);
 	}
+
+	// A failed final upload must remain retryable after the transition entry
+	// above retires. The context retains the request and reads current values.
+	context->PublishIniParams(wrapper, changed_params);
 
 	if (!vars.empty())
 	{

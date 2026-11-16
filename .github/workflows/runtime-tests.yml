@@ -36,6 +36,18 @@ permissions:
   contents: read
 
 jobs:
+  readiness-tools:
+    name: Passive inventory and publication policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Check passive inventory behavior
+        run: python -m unittest discover -s RuntimeTests -p test_readiness_inventory.py -v
+      - name: Check context-owned publication policy
+        run: |
+          mkdir -p .quality/ini-publication
+          c++ -std=c++17 -Wall -Wextra -Werror -pedantic RuntimeTests/IniParamsPublicationTests.cpp -o .quality/ini-publication/policy-tests
+          .quality/ini-publication/policy-tests
   proxy-chain:
     name: Product DLL proxy chain (${{ matrix.platform }})
     permissions:
@@ -293,6 +305,15 @@ jobs:
           -property:Configuration=Release -property:Platform=${{ matrix.platform }}
           -property:SolutionDir="$pwd/" -property:EdhmStrictBuild=true
           -target:Build -nodeReuse:false -verbosity:minimal -restore:false
+      - name: Build and check the production D3D publication adapter
+        shell: pwsh
+        run: |
+          & msbuild RuntimeTests/IniParamsUploadTests.vcxproj -target:Build `
+            -property:Configuration=Release -property:Platform=${{ matrix.platform }} `
+            -property:EdhmStrictBuild=true -nodeReuse:false -verbosity:minimal -restore:false
+          if ($LASTEXITCODE -ne 0) { throw 'IniParams upload fixture build failed' }
+          & ".quality/ini-publication/${{ matrix.platform }}/IniParamsUploadTests.exe"
+          if ($LASTEXITCODE -ne 0) { throw 'IniParams D3D upload checks failed' }
       - name: Exercise runtime behavior
         shell: pwsh
         env:
@@ -300,7 +321,7 @@ jobs:
         run: |
           $exe = ".quality/runtime-tests/$env:TEST_PLATFORM/Release/RuntimeTests.exe"
           $failures = @()
-          foreach ($case in @('empty-groups', 'leading-dot', 'pending-save', 'pool-reset', 'constant-stride', 'reference-order', 'reference-cycles', 'pool-metadata', 'missing-metadata', 'nested-metadata', 'metadata-resource', 'metadata-resource-identity', 'metadata-lazy-index', 'metadata-fifo', 'metadata-expiration', 'metadata-hot-identity', 'metadata-cached-spatial', 'metadata-static-pin', 'metadata-alias', 'metadata-alias-expiration', 'metadata-destination-key-spatial', 'metadata-destination-key-fifo', 'pool-identifiers', 'store-values', 'store-views', 'store-failure', 'region-copy', 'region-vertex-bytes', 'region-views', 'region-cb', 'settings-atomic', 'settings-lifecycle', 'settings-deferred', 'settings-save-update', 'settings-batch-reload', 'settings-save-reload', 'analysis-reload', 'constants-order', 'ini-sections', 'if-conditions', 'expression-grammar', 'profiling-collections', 'profiling-reload', 'matching-diagnostics', 'view-reuse', 'view-descriptors', 'view-cache-metadata', 'view-ownership', 'view-failure', 'region-cb-small', 'view-clear', 'view-clear-integer', 'view-clear-stencil', 'metadata-static-variable', 'pool-learned-flags', 'pool-scalar-precedence', 'view-this-cache', 'profiling-zero-frame', 'resource-final-release', 'resource-retirement')) {
+          foreach ($case in @('empty-groups', 'leading-dot', 'pending-save', 'pool-reset', 'constant-stride', 'iniparams-transition-retry', 'iniparams-command-retry', 'reference-order', 'reference-cycles', 'pool-metadata', 'missing-metadata', 'nested-metadata', 'metadata-resource', 'metadata-resource-identity', 'metadata-lazy-index', 'metadata-fifo', 'metadata-expiration', 'metadata-hot-identity', 'metadata-cached-spatial', 'metadata-static-pin', 'metadata-alias', 'metadata-alias-expiration', 'metadata-destination-key-spatial', 'metadata-destination-key-fifo', 'pool-identifiers', 'store-values', 'store-views', 'store-failure', 'region-copy', 'region-vertex-bytes', 'region-views', 'region-cb', 'settings-atomic', 'settings-lifecycle', 'settings-deferred', 'settings-save-update', 'settings-batch-reload', 'settings-save-reload', 'analysis-reload', 'constants-order', 'ini-sections', 'if-conditions', 'expression-grammar', 'profiling-collections', 'profiling-reload', 'matching-diagnostics', 'view-reuse', 'view-descriptors', 'view-cache-metadata', 'view-ownership', 'view-failure', 'region-cb-small', 'view-clear', 'view-clear-integer', 'view-clear-stencil', 'metadata-static-variable', 'pool-learned-flags', 'pool-scalar-precedence', 'view-this-cache', 'profiling-zero-frame', 'resource-final-release', 'resource-retirement')) {
             & $exe $case
             if ($LASTEXITCODE -ne 0) { $failures += "$case (exit $LASTEXITCODE)" }
           }

@@ -446,23 +446,8 @@ static void UpdateInputLayout(const wchar_t *ini_section, CommandListState *stat
 
 static void CommandListFlushState(CommandListState *state)
 {
-	D3D11_MAPPED_SUBRESOURCE mappedResource;
-	HRESULT hr;
-
-	if (state->update_params && state->mHackerDevice->mIniTexture)
-	{
-		hr = state->mOrigContext1->Map(state->mHackerDevice->mIniTexture, 0, D3D11_MAP_WRITE_DISCARD, 0,
-		                               &mappedResource);
-		if (FAILED(hr))
-		{
-			LogInfo("CommandListFlushState: Map failed\n");
-			return;
-		}
-		memcpy(mappedResource.pData, G->iniParams.data(), sizeof(DirectX::XMFLOAT4) * G->iniParams.size());
-		state->mOrigContext1->Unmap(state->mHackerDevice->mIniTexture, 0);
+	if (state->mHackerContext->PublishIniParams(state->mHackerDevice, state->update_params))
 		state->update_params = false;
-		Profiling::iniparams_updates++;
-	}
 }
 
 static void RunCommandListComplete(HackerDevice *mHackerDevice, HackerContext *mHackerContext,

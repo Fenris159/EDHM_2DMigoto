@@ -20,6 +20,7 @@
 
 #include "HackerDevice.h"
 #include "D3D11Wrapper.h"
+#include "IniParamsD3DUpload.h"
 //#include "ResourceHash.h"
 //#include "Override.h"
 #include "ShaderRegex.h"
@@ -3347,11 +3348,32 @@ void HackerContext::Bind3DMigotoResources()
 	BindResources<&ID3D11DeviceContext::CSSetShaderResources>();
 }
 
+bool HackerContext::UploadIniParamsNow(HackerDevice *device)
+{
+	static_assert(sizeof(DirectX::XMFLOAT4) == sizeof(float) * 4, "IniParams rows must be packed float4 values");
+	// An empty configuration has no GPU image to publish. Otherwise a
+	// missing resource retains the request until creation succeeds.
+	if (G->iniParams.empty())
+		return true;
+	if (!device || !device->mIniTexture)
+		return false;
+	ID3D11DeviceContext1 *context = GetPassThroughOrigContext1();
+	if (!context)
+		return false;
+
+	HRESULT result = UploadIniParams(context, device->mIniTexture, G->iniParams.data(), G->iniParams.size());
+	if (FAILED(result))
+	{
+		LogInfo("PublishIniParams: upload failed with result = %x\n", result);
+		return false;
+	}
+	Profiling::iniparams_updates++;
+	return true;
+}
+
 void HackerContext::InitIniParams()
 {
 	const ConfigurationReadLock configuration;
-	D3D11_MAPPED_SUBRESOURCE mappedResource;
-	HRESULT hr;
 
 	// Only the immediate context is allowed to perform [Constants]
 	// initialisation, as otherwise creating a deferred context could
@@ -3384,20 +3406,7 @@ void HackerContext::InitIniParams()
 	// overhead won't matter and I don't want to forget about this if
 	// further command list optimisations cause [Constants] to bail out
 	// early and not consider update_params at all.
-	if (mHackerDevice->mIniTexture)
-	{
-		hr = mOrigContext1->Map(mHackerDevice->mIniTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-		if (SUCCEEDED(hr))
-		{
-			memcpy(mappedResource.pData, G->iniParams.data(), sizeof(DirectX::XMFLOAT4) * G->iniParams.size());
-			mOrigContext1->Unmap(mHackerDevice->mIniTexture, 0);
-			Profiling::iniparams_updates++;
-		}
-		else
-		{
-			LogInfo("InitIniParams: Map failed\n");
-		}
-	}
+	PublishIniParams(mHackerDevice, true);
 
 	// The command list will take care of initialising any non-zero values:
 	RunCommandList(mHackerDevice, this, &G->constants_command_list, nullptr, false);

@@ -86,6 +86,8 @@
     <ClInclude Include="FrameAnalysis.h" />
     <ClInclude Include="Globals.h" />
     <ClInclude Include="HackerContext.h" />
+    <ClInclude Include="IniParamsPublication.h" />
+    <ClInclude Include="IniParamsD3DUpload.h" />
     <ClInclude Include="HackerDevice.h" />
     <ClInclude Include="HackerDXGI.h" />
     <ClInclude Include="HackerInputLayout.h" />

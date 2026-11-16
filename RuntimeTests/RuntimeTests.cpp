@@ -4,10 +4,13 @@
 #include "../DirectX11/IniHandler.h"
 #include "../DirectX11/globals.h"
 #include "D3DDeviceBoundary.h"
+#include "D3DMapBoundary.h"
+#include "../DirectX11/Override.h"
 #include "ImportBoundary.h"
 #include "../DirectX11/input.h"
 #include "../DirectX11/profiling.h"
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <clocale>
@@ -250,6 +253,120 @@ void resource_release_survives_registry_destruction()
 	view.Reset();
 	fixture.context->Flush();
 	fixture.require_no_errors();
+}
+
+struct IniParamsFixture
+{
+	D3DFixture d3d;
+	struct Rows
+	{
+		std::vector<DirectX::XMFLOAT4> saved = std::move(G->iniParams);
+		int reserved = G->iniParamsReserved;
+		unsigned updates = Profiling::iniparams_updates;
+		Rows()
+		{
+			G->iniParams.assign(1, DirectX::XMFLOAT4{0, 0, 0, 0});
+			G->iniParamsReserved = 1;
+		}
+		~Rows()
+		{
+			G->iniParams = std::move(saved);
+			G->iniParamsReserved = reserved;
+			Profiling::iniparams_updates = updates;
+		}
+	} rows;
+	HackerDevice device;
+	struct Resources
+	{
+		HackerDevice &device;
+		~Resources()
+		{
+			if (device.mIniResourceView)
+				device.mIniResourceView->Release();
+			if (device.mIniTexture)
+				device.mIniTexture->Release();
+			device.mIniResourceView = nullptr;
+			device.mIniTexture = nullptr;
+		}
+	} resources;
+
+	IniParamsFixture() : device(d3d.device.Get(), d3d.context.Get()), resources{device}
+	{
+		device.SetHackerContext(d3d.hacker_context.get());
+		d3d.hacker_context->SetHackerDevice(&device, false);
+		require(SUCCEEDED(device.CreateIniParamResources()), "IniParams resource creation failed");
+	}
+	~IniParamsFixture()
+	{
+		d3d.context->ClearState();
+		d3d.hacker_context->SetHackerDevice(nullptr, false);
+	}
+	std::array<float, 4> read()
+	{
+		D3D11_TEXTURE1D_DESC desc{};
+		device.mIniTexture->GetDesc(&desc);
+		desc.Usage = D3D11_USAGE_STAGING;
+		desc.BindFlags = 0;
+		desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+		Microsoft::WRL::ComPtr<ID3D11Texture1D> staging;
+		require(SUCCEEDED(d3d.device->CreateTexture1D(&desc, nullptr, &staging)), "IniParams staging failed");
+		d3d.context->CopyResource(staging.Get(), device.mIniTexture);
+		D3D11_MAPPED_SUBRESOURCE mapped{};
+		require(SUCCEEDED(d3d.context->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped)), "IniParams readback failed");
+		std::array<float, 4> image{};
+		memcpy(image.data(), mapped.pData, sizeof(image));
+		d3d.context->Unmap(staging.Get(), 0);
+		return image;
+	}
+};
+
+ULONGLONG WINAPI publication_tick()
+{
+	return 100;
+}
+
+void final_transition_upload_retries_after_retirement()
+{
+	IniParamsFixture fixture;
+	OverrideTransition transition;
+	OverrideTransitionParam value;
+	value.start = 0;
+	value.target = 4;
+	value.activation_time = 0;
+	value.time = 100;
+	transition.params.emplace(OverrideParam(0, &DirectX::XMFLOAT4::x), value);
+	ImportBoundary clock(GetModuleHandleW(nullptr), "GetTickCount64", &publication_tick);
+	{
+		D3DMapBoundary boundary(fixture.d3d.context.Get(), fixture.device.mIniTexture);
+		boundary.failures = 1;
+		transition.UpdateTransitions(&fixture.device);
+		require(fixture.read() == std::array<float, 4>{0, 0, 0, 0}, "failed final upload changed GPU contents");
+	}
+	transition.UpdateTransitions(&fixture.device);
+	require(fixture.read() == std::array<float, 4>{4, 0, 0, 0}, "retired transition lost its final GPU value");
+	fixture.d3d.require_no_errors();
+}
+
+void command_upload_retries_after_its_state_retires()
+{
+	IniParamsFixture fixture;
+	CommandList commands;
+	auto assignment = std::make_shared<ParamOverride>();
+	assignment->param_idx = 0;
+	assignment->param_component = &DirectX::XMFLOAT4::x;
+	const std::wstring value = L"2";
+	require(assignment->expression.parse(&value, nullptr, nullptr), "IniParams assignment was rejected");
+	commands.commands.push_back(assignment);
+	{
+		D3DMapBoundary boundary(fixture.d3d.context.Get(), fixture.device.mIniTexture);
+		boundary.failures = 1;
+		RunCommandList(&fixture.device, fixture.d3d.hacker_context.get(), &commands, nullptr, false);
+		require(fixture.read() == std::array<float, 4>{0, 0, 0, 0}, "failed command upload changed GPU contents");
+	}
+	CommandList empty;
+	RunCommandList(&fixture.device, fixture.d3d.hacker_context.get(), &empty, nullptr, false);
+	require(fixture.read() == std::array<float, 4>{2, 0, 0, 0}, "expired command state lost its pending upload");
+	fixture.d3d.require_no_errors();
 }
 
 void recreates_structured_data_as_a_constant_buffer()
@@ -3312,6 +3429,8 @@ int main(int argc, char **argv)
 	             {"pending-save", preserves_pending_save},
 	             {"pool-reset", resets_only_the_requested_pool_proxy},
 	             {"constant-stride", recreates_structured_data_as_a_constant_buffer},
+	             {"iniparams-transition-retry", final_transition_upload_retries_after_retirement},
+	             {"iniparams-command-retry", command_upload_retries_after_its_state_retires},
 	             {"reference-order", resolves_reference_chains_in_any_order},
 	             {"reference-cycles", terminates_incompatible_reference_cycles},
 	             {"pool-metadata", metadata_queries_do_not_extend_pool_lifetime},

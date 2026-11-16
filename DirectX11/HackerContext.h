@@ -5,6 +5,7 @@
 
 #include "DrawCallInfo.h"
 #include "ConfigurationLifetime.h"
+#include "IniParamsPublication.h"
 
 #include "CommandList.h"
 
@@ -107,6 +108,8 @@ class HackerContext : public ID3D11DeviceContext1
 	ID3D11DeviceContext1 *mRealOrigContext1;
 	HackerDevice *mHackerDevice;
 	bool mOwnsHackerDeviceReference;
+	IniParamsPublication mIniParamsPublication;
+	bool UploadIniParamsNow(HackerDevice *device);
 
 	// These are per-context, moved from globals.h:
 	uint32_t mCurrentVertexBuffers[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT]{};
@@ -228,6 +231,10 @@ class HackerContext : public ID3D11DeviceContext1
 	HackerDevice *GetHackerDevice();
 	void Bind3DMigotoResources();
 	void InitIniParams();
+	bool PublishIniParams(HackerDevice *device, bool changed)
+	{
+		return mIniParamsPublication.Publish(changed, [this, device]() { return UploadIniParamsNow(device); });
+	}
 	ID3D11DeviceContext1 *GetPossiblyHookedOrigContext1();
 	ID3D11DeviceContext1 *GetPassThroughOrigContext1();
 	void HookContext();
