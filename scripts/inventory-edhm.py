@@ -52,10 +52,11 @@ def entries(text):
 
 
 class Inventory:
-    def __init__(self, root, max_files=10000):
+    def __init__(self, root, max_files=10000, extra_ini_candidates=()):
         self.root = root.absolute()
         self.base = self.root.parent
         self.max_files = max_files
+        self.extra_ini_candidates = extra_ini_candidates
         self.files = []
         self.edges = []
         self.diagnostics = []
@@ -82,6 +83,8 @@ class Inventory:
         return parent / value.replace("\\", "/")
 
     def record(self, path, role):
+        if not path.is_file():
+            raise OSError("input is not a regular readable file")
         identity = path.resolve()
         if identity in self.seen_files:
             return None
@@ -125,11 +128,17 @@ class Inventory:
             self.exclusions = [v for _, s, k, v in lines if s.casefold() == "include" and k == "exclude_recursive"]
             self.user_config = next((v for _, s, k, v in lines if s.casefold() == "include" and k == "user_config"), self.user_config)
         includes = []
+        mentions = []
+        adjacent = []
+        previous_targets = set()
+        previous_section = None
+        previous_line = None
         for number, section, key, value in lines:
             lower = section.casefold()
             if key is None:
                 kind = next((name for name in ("shaderoverride", "textureoverride", "commandlist", "customshader", "preset", "pool", "resource", "key") if lower.startswith(name)), lower)
                 self.sections[kind] += 1
+                previous_targets, previous_section, previous_line = set(), None, None
                 continue
             if key in SETTINGS and lower in ("rendering", "system"):
                 candidate = {"value": value, "path": self.label(path), "line": number}
@@ -143,12 +152,20 @@ class Inventory:
             command = f"{key} = {value}"
             if re.search(r"\bRegion\s*\(", command, re.I):
                 self.features["region_expressions"] += 1
-            if "checktextureoverride" in key:
+            if key.removeprefix("post ").strip() == "checktextureoverride":
                 self.features["effectful_texture_override_commands"] += 1
-            self.features["direct_texture_query_occurrences"] += len(QUERY.findall(command))
+            targets = {match.casefold() for match in QUERY.findall(command)}
+            for target in sorted(targets):
+                mentions.append({"line": number, "section": section, "target": target})
+            if section == previous_section:
+                adjacent.extend({"target": target, "lines": [previous_line, number], "reuse_legality": "unverified"} for target in sorted(targets & previous_targets))
+            previous_targets, previous_section, previous_line = targets, section, number
+            self.features["texture_target_mentions"] += len(QUERY.findall(command))
         rows = {}
         for component, index in ROW.findall("\n".join(f"{k} = {v}" for _, _, k, v in lines if k is not None)):
             rows.setdefault(int(index), set()).add(component.lower())
+        record["texture_target_mentions"] = mentions
+        record["adjacent_texture_mentions"] = adjacent
         record["row_references"] = [{"row": n, "components": "".join(c for c in "xyzw" if c in rows[n])} for n in sorted(rows)]
         for number, key, value in includes:
             edge = {"from": self.label(path), "line": number, "directive": key, "value": value}
@@ -227,6 +244,15 @@ class Inventory:
                 self.scan_ini(user, "persistent_settings")
         except ValueError as error:
             self.issue(self.root, "unresolved_user_config", str(error))
+        for candidate in self.extra_ini_candidates:
+            try:
+                result = self.record(candidate, "unreached_ini")
+                if result is not None:
+                    result[0]["activation"] = "not_reached_by_candidate_include_graph"
+                else:
+                    self.issue(candidate, "extra_candidate_already_reached", "file is already in the candidate graph")
+            except OSError as error:
+                self.issue(candidate, "unreadable_extra_candidate", type(error).__name__)
         for name, default, role in (("override_directory", "ShaderFixes", "replacement"), ("cache_directory", "ShaderCache", "cache_candidate")):
             self.scan_shaders(self.settings.get(name, {}).get("value", default), role)
         return {
@@ -248,11 +274,12 @@ def main():
     parser.add_argument("root_ini", type=Path)
     parser.add_argument("--output", type=Path, help="New JSON file; existing output and input files are never overwritten")
     parser.add_argument("--max-files", type=int, default=10000)
+    parser.add_argument("--extra-ini-candidate", type=Path, action="append", default=[], help="Record a known INI outside the graph without counting its contents")
     arguments = parser.parse_args()
     if arguments.max_files < 1:
         parser.error("--max-files must be positive")
     try:
-        result = Inventory(arguments.root_ini, arguments.max_files).run()
+        result = Inventory(arguments.root_ini, arguments.max_files, arguments.extra_ini_candidate).run()
         text = json.dumps(result, indent=2, ensure_ascii=False) + "\n"
         if arguments.output:
             with arguments.output.open("x", encoding="utf-8") as output:

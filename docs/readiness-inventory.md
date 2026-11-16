@@ -7,6 +7,7 @@ the game. Python's standard library is sufficient.
 
 ```bash
 python scripts/inventory-edhm.py /path/to/product/d3dx.ini --output inventory.json
+python scripts/inventory-edhm.py /path/to/product/d3dx.ini --extra-ini-candidate /path/to/optional.ini --output with-candidate.json
 python -m unittest discover -s RuntimeTests -p test_readiness_inventory.py -v
 ```
 
@@ -15,14 +16,21 @@ never overwritten. Keep installation inventories outside the repository or in
 an ignored `.quality/` directory; they describe a particular user's pack.
 `--max-files` defaults to 10,000 and bounds recorded files and traversed
 directories. Exceeding the limit fails the command.
+Repeat `--extra-ini-candidate` to record the digest of known INIs outside the
+candidate graph. Their role is `unreached_ini`; their sections do not contribute
+to active candidate counts. A candidate already reached receives a diagnostic.
 
 The JSON records:
 
 - Exact byte lengths and SHA-256 digests, without rewriting source encoding.
 - Explicit and recursive include candidates, root filename exclusion patterns,
   duplicate/cyclic includes, and literal-zero preamble exclusions.
-- Candidate section counts, INI row references, direct texture-query occurrences,
-  effectful `checktextureoverride` commands and Region expressions.
+- Candidate section counts, INI row references, texture-target mentions,
+  effectful `checktextureoverride` commands and Region expressions. Target
+  mentions include reads and binding destinations; they are not query timings.
+- Adjacent commands mentioning the same texture target, with source lines and
+  explicit `reuse_legality: unverified`. These identify inspection candidates,
+  not a safe query cache or an estimate of saved work.
 - Shader/texture matching fields with their original file and line.
 - First-observed settings affecting hashing, directories, signature assembly and
   startup. Conflicting observations receive a diagnostic; this is not a runtime
