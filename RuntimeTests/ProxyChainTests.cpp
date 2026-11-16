@@ -1,11 +1,13 @@
 #include <windows.h>
 #include <d3d11.h>
+#include <dbghelp.h>
 #include <wrl/client.h>
 
 #include <cstdio>
 #include <cstring>
 #include <cwchar>
 #include <stdexcept>
+#include <string>
 
 namespace
 {
@@ -93,6 +95,73 @@ LONG CALLBACK record_shutdown_fault(EXCEPTION_POINTERS *exception)
 		CloseHandle(file);
 	}
 	return EXCEPTION_CONTINUE_SEARCH;
+}
+
+int debug_shutdown(const char *mode)
+{
+	wchar_t executable[MAX_PATH] = {};
+	require(GetModuleFileNameW(nullptr, executable, MAX_PATH) != 0, "debugger path unavailable");
+	std::wstring command = L"\"" + std::wstring(executable) + L"\" " + std::wstring(mode, mode + std::strlen(mode));
+	STARTUPINFOW startup{};
+	startup.cb = sizeof(startup);
+	PROCESS_INFORMATION process{};
+	require(CreateProcessW(nullptr, command.data(), nullptr, nullptr, TRUE, DEBUG_ONLY_THIS_PROCESS, nullptr, nullptr,
+	                       &startup, &process) != FALSE,
+	        "debug child unavailable");
+	CloseHandle(process.hThread);
+	unsigned dumps = 0;
+	for (;;)
+	{
+		DEBUG_EVENT event{};
+		require(WaitForDebugEvent(&event, INFINITE) != FALSE, "debug event unavailable");
+		DWORD continuation = DBG_CONTINUE;
+		if (event.dwDebugEventCode == EXCEPTION_DEBUG_EVENT)
+		{
+			auto &exception = event.u.Exception;
+			const DWORD code = exception.ExceptionRecord.ExceptionCode;
+			continuation = code == EXCEPTION_BREAKPOINT ? DBG_CONTINUE : DBG_EXCEPTION_NOT_HANDLED;
+			if (code == EXCEPTION_ACCESS_VIOLATION || code == 0xc000000d || code == 0xc0000409)
+			{
+				std::printf("DEBUG exception 0x%08lx at %p first=%lu\n", code,
+				            exception.ExceptionRecord.ExceptionAddress, exception.dwFirstChance);
+				HANDLE thread = OpenThread(THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, event.dwThreadId);
+				CONTEXT context{};
+				context.ContextFlags = CONTEXT_ALL;
+				if (thread && GetThreadContext(thread, &context))
+				{
+					const std::wstring name = L"shutdown-debug-" + std::to_wstring(dumps++) + L".dmp";
+					HANDLE file = CreateFileW(name.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+					                          FILE_ATTRIBUTE_NORMAL, nullptr);
+					if (file != INVALID_HANDLE_VALUE)
+					{
+						EXCEPTION_POINTERS pointers{&exception.ExceptionRecord, &context};
+						MINIDUMP_EXCEPTION_INFORMATION info{event.dwThreadId, &pointers, FALSE};
+						MiniDumpWriteDump(
+						    process.hProcess, process.dwProcessId, file,
+						    static_cast<MINIDUMP_TYPE>(MiniDumpWithDataSegs | MiniDumpWithIndirectlyReferencedMemory |
+							                           MiniDumpWithProcessThreadData | MiniDumpWithFullMemoryInfo |
+							                           MiniDumpWithThreadInfo),
+						    &info, nullptr, nullptr);
+						CloseHandle(file);
+					}
+				}
+				if (thread)
+					CloseHandle(thread);
+			}
+		}
+		else if (event.dwDebugEventCode == CREATE_PROCESS_DEBUG_EVENT && event.u.CreateProcessInfo.hFile)
+			CloseHandle(event.u.CreateProcessInfo.hFile);
+		else if (event.dwDebugEventCode == LOAD_DLL_DEBUG_EVENT && event.u.LoadDll.hFile)
+			CloseHandle(event.u.LoadDll.hFile);
+		const bool exited = event.dwDebugEventCode == EXIT_PROCESS_DEBUG_EVENT;
+		const DWORD code = exited ? event.u.ExitProcess.dwExitCode : 0;
+		ContinueDebugEvent(event.dwProcessId, event.dwThreadId, continuation);
+		if (exited)
+		{
+			CloseHandle(process.hProcess);
+			return static_cast<int>(code);
+		}
+	}
 }
 
 void run(const char *mode)
@@ -225,6 +294,8 @@ int main(int argc, char **argv)
 	SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
 	try
 	{
+		if (argc == 3 && std::strcmp(argv[1], "debug") == 0)
+			return debug_shutdown(argv[2]);
 		require(argc == 2, "expected one fixture mode");
 		run(argv[1]);
 		return 0;

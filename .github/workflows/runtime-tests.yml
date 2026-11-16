@@ -172,6 +172,16 @@ jobs:
               --output ".quality/proxy-chain/x64/baseline-$($control.label)-results" @extra
             if ($LASTEXITCODE -ne 0) { throw 'Pre-fix bypass was not detected' }
           }
+      - name: Diagnose failed retained-resource process exit
+        if: failure() && matrix.platform == 'x64'
+        shell: pwsh
+        run: |
+          $directory = '.quality/proxy-chain/x64/shutdown-results/standalone-shutdown'
+          if (Test-Path "$directory/ProxyChainTests.exe") {
+            Push-Location $directory
+            try { & ./ProxyChainTests.exe debug standalone-shutdown }
+            finally { Pop-Location }
+          }
       - name: Upload proxy-chain evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -182,6 +192,10 @@ jobs:
             .quality/proxy-chain/${{ matrix.platform }}/**/shutdown-complete.txt
             .quality/proxy-chain/${{ matrix.platform }}/**/shutdown-stages.txt
             .quality/proxy-chain/${{ matrix.platform }}/**/shutdown-faults.bin
+            .quality/proxy-chain/${{ matrix.platform }}/**/shutdown-debug-*.dmp
+            .quality/proxy-chain/${{ matrix.platform }}/candidate-d3d11.dll
+            x64/Release/3Dmigoto.pdb
+            x64/Release/d3d11.map
             .quality/proxy-chain/${{ matrix.platform }}/ProxyChainTests.exe
             .quality/proxy-chain/${{ matrix.platform }}/ProxyChainFixture.dll
             .quality/proxy-chain/${{ matrix.platform }}/**/stdout.txt
