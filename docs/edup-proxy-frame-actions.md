@@ -29,27 +29,30 @@ recognizes a live EDHM wrapper and keeps it alive during the call.
 
 ```text
 game calls the outer Present
-  proxy prepares its image
-  GetBuffer completes the paired EDHM commands once before copying
-  or saved Present brackets its own native pre/post phases
-  proxy restores its state and returns
+  EDHM pre commands, inputs, presets, transitions and reload
+  proxy saves state, processes/copies the image, presents, and restores state
+  EDHM post commands
 ```
 
-The active scope completes the pre/post pair when the proxy reads the back
-buffer, keeping the recovery inside its image-copy/state scope. A forwarded
-saved Present completes its post phase before the proxy restores game state. A dropped frame that neither reads the
-buffer nor forwards Present still services actions once at the outer boundary.
-If the proxy forwards to our saved Present instead, the active call scope
-suppresses a second execution. Test presents, nested calls, other threads and
-secondary chains do not advance the established proxy frame source. The first
-wrapped D3D11 chain is selected during creation, so an early secondary Present
-cannot steal its role. Native private-data lifetime tracking retires the source even when a native
-SwapChain2/3 interface is released last, allowing recreation. That callback uses
-the Windows process heap and trivial atomics without globals, logging or CRT
-allocation. An active-frame count also suppresses saved-Present forwarding on
-a worker thread; input and command execution stay on the established thread. Post commands
-also run after a returned presentation failure, preserving the ordinary
-cleanup policy. Profiling includes command overhead on the owning thread.
+The scope captures the game-visible pipeline before the proxy changes it and
+runs post commands after the proxy consumes the frame. This preserves both
+state-saving command pairs and post commands that clear the next frame's back
+buffer. GetBuffer discovers the hook; it never executes a command phase.
+
+If the proxy forwards to our saved Present, the active scope suppresses a
+second execution. Scope registration includes ownership promotion before any
+commands or forwarding can run. An active-frame count also suppresses saved
+Present on a worker thread; input and commands stay on the established thread.
+Test presents, nested calls, other threads and secondary chains do not advance
+the established proxy frame source.
+
+The first wrapped D3D11 chain is selected during creation, so an early secondary
+Present cannot steal its role. Native private-data lifetime tracking retires the
+source even when a native SwapChain2/3 interface is released last, allowing
+recreation. The callback uses the Windows process heap and trivial atomics
+without `G`, logging or CRT allocation. Post commands are retained even when
+presentation returns a failure. Profiling includes command overhead on the
+owning thread.
 
 This adapts Duceowen's diagnosis and recovery proposal. The submitted patch used
 D3D12 Present notifications, a minimum draw count and a quiet-time threshold to

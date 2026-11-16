@@ -42,7 +42,8 @@ class HackerSwapChain : public IDXGISwapChain1
 	IDXGISwapChain1 *GetOrigSwapChain1();
 	void RunFrameActions();
 	void ObserveProxyPresent();
-	bool BeginProxyFrame(bool &profiling);
+	bool AcquireProxyFrameOwner();
+	void BeginProxyFrame(bool &profiling);
 	void EndProxyFrame(bool profiling);
 	Overlay *mOverlay;
 
