@@ -2,6 +2,7 @@
 // and a two-buffer swap chain; the downstream fixture enables single threading.
 #include <windows.h>
 #include <d3d11.h>
+#include <wrl/client.h>
 
 #include <cstring>
 #include <cwchar>
@@ -16,6 +17,9 @@ PFN_D3D11_CREATE_DEVICE inner_create;
 PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN inner_swap;
 thread_local unsigned create_depth;
 bool downstream;
+// Loaded before the tested DLL so these references are released after its CRT teardown.
+Microsoft::WRL::ComPtr<ID3D11Buffer> retained_buffer;
+Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> retained_view;
 
 template <typename T> T exported(HMODULE module, const char *name)
 {
@@ -72,6 +76,21 @@ struct Creation
 	}
 };
 } // namespace
+
+extern "C" HRESULT WINAPI RetainResources(ID3D11Device *device)
+{
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = 16;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	HRESULT result = device->CreateBuffer(&desc, nullptr, &retained_buffer);
+	if (FAILED(result))
+		return result;
+	D3D11_SHADER_RESOURCE_VIEW_DESC view{};
+	view.Format = DXGI_FORMAT_R32_FLOAT;
+	view.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+	view.Buffer.NumElements = 4;
+	return device->CreateShaderResourceView(retained_buffer.Get(), &view, &retained_view);
+}
 
 extern "C" BOOL WINAPI ChainInitialize()
 {

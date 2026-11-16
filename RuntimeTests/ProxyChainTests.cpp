@@ -64,6 +64,16 @@ void run(const char *mode)
 	wchar_t *leaf = wcsrchr(path, L'\\');
 	require(leaf != nullptr, "executable directory unavailable");
 	*(leaf + 1) = L'\0';
+	HMODULE retainer = nullptr;
+	const bool shutdown = std::strstr(mode, "shutdown") != nullptr;
+	if (shutdown)
+	{
+		wchar_t retain_path[MAX_PATH] = {};
+		require(wcscpy_s(retain_path, path) == 0 && wcscat_s(retain_path, L"ResourceRetainer.dll") == 0,
+		        "retainer path overflow");
+		retainer = LoadLibraryW(retain_path);
+		require(retainer != nullptr, "resource retainer unavailable");
+	}
 	require(wcscat_s(path, L"d3d11.dll") == 0, "proxy path overflow");
 	HMODULE proxy = LoadLibraryW(path);
 	require(proxy != nullptr, "could not load game-local proxy");
@@ -76,7 +86,7 @@ void run(const char *mode)
 	}
 	auto create = exported<PFN_D3D11_CREATE_DEVICE>(proxy, "D3D11CreateDevice");
 	auto swap = exported<PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN>(proxy, "D3D11CreateDeviceAndSwapChain");
-	const bool edup = std::strcmp(mode, "edup") == 0;
+	const bool edup = std::strncmp(mode, "edup", 4) == 0;
 	if (edup)
 	{
 		// A successful capability-only probe does not give EDUP a device to
@@ -100,7 +110,7 @@ void run(const char *mode)
 	require(window != nullptr, "hidden test window unavailable");
 	// EDUP deliberately owns one rendering device per process. Its real-DLL
 	// check uses that one device; the boundary fixture covers repeated creation.
-	const unsigned passes = edup ? 1 : 4;
+	const unsigned passes = edup || shutdown ? 1 : 4;
 	for (unsigned pass = 0; pass < passes; ++pass)
 	{
 		ComPtr<ID3D11Device> device;
@@ -132,6 +142,12 @@ void run(const char *mode)
 			require(SUCCEEDED(hr), "device creation failed");
 		}
 		check_device(device.Get(), wanted);
+		if (shutdown)
+		{
+			auto retain = exported<HRESULT(WINAPI *)(ID3D11Device *)>(retainer, "RetainResources");
+			require(SUCCEEDED(retain(device.Get())), "retaining tracked buffer/view failed");
+		}
+
 		if (swap_chain)
 		{
 			DXGI_SWAP_CHAIN_DESC actual = {};
@@ -145,11 +161,18 @@ void run(const char *mode)
 		std::printf("PASS %s creation %u (%s)\n", mode, pass + 1, with_swap ? "device+swap" : "device");
 	}
 	DestroyWindow(window);
+	if (std::strcmp(mode, "standalone-unload") == 0)
+	{
+		require(FreeLibrary(proxy) != FALSE, "ordinary DLL unload failed");
+		require(GetModuleHandleW(path) == nullptr, "product DLL remained loaded after ordinary unload");
+		std::printf("PASS ordinary unload after object release\n");
+	}
 }
 } // namespace
 
 int main(int argc, char **argv)
 {
+	SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
 	try
 	{
 		require(argc == 2, "expected one fixture mode");

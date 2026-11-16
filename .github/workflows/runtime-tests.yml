@@ -95,6 +95,27 @@ jobs:
             --fixture "$bin/ProxyChainFixture.dll" --exe "$bin/ProxyChainTests.exe" `
             --output "$bin/candidate-results" @extra
           if ($LASTEXITCODE -ne 0) { throw 'Proxy-chain behavior checks failed' }
+      - name: Check process exit with resources retained past product teardown
+        shell: pwsh
+        env:
+          TEST_PLATFORM: ${{ matrix.platform }}
+        run: |
+          $bin = ".quality/proxy-chain/$env:TEST_PLATFORM"
+          $extra = @()
+          if ($env:TEST_PLATFORM -eq 'x64') {
+            New-Item -ItemType Directory -Force .quality/edup-0.22.2 | Out-Null
+            $archive = '.quality/edup-0.22.2/core.zip'
+            Invoke-WebRequest 'https://github.com/characterecho-sean/ed-unofficial-patch/releases/download/v0.22.2/ed-up-core-0.22.2.zip' -OutFile $archive
+            if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne '9f6f2633af2b55ec344d305253b35b7573d3959be6c6aba89be4d46afb47ec04') {
+              throw 'EDUP 0.22.2 archive checksum mismatch'
+            }
+            Expand-Archive $archive .quality/edup-0.22.2/core
+            $extra = @('--edup', '.quality/edup-0.22.2/core/d3d11.dll')
+          }
+          & python RuntimeTests/run_proxy_chain_tests.py --shutdown-only `
+            --dll "$bin/candidate-d3d11.dll" --fixture "$bin/ProxyChainFixture.dll" `
+            --exe "$bin/ProxyChainTests.exe" --output "$bin/shutdown-results" @extra
+          if ($LASTEXITCODE -ne 0) { throw 'Resource shutdown behavior checks failed' }
       - name: Check reload notification pixels and GPU constants
         shell: pwsh
         env:
