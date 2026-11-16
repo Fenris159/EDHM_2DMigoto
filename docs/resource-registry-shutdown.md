@@ -57,7 +57,8 @@ retain the actual private-data `IUnknown` returned by D3D11, then release GPU
 objects while the backend is live. An earlier-loaded fixture releases the last
 callback reference after the runtime's DLL/CRT teardown. Each child must exit
 with code zero and write a completion receipt **after** that final `Release`
-returns zero. Exit code alone can conceal a teardown exception. Standalone,
+returns zero. The published 0.1.5 DLL is the negative control: it must complete
+creation and open the receipt, then fail to finish its late callback. Exit code alone can conceal a teardown exception. Standalone,
 outer-proxy, official EDUP 0.22.2, and ordinary unload paths are covered.
 
 This separates callback lifetime from WARP's own process-exit limitations. The

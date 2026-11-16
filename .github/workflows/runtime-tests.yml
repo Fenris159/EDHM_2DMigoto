@@ -95,7 +95,7 @@ jobs:
             --fixture "$bin/ProxyChainFixture.dll" --exe "$bin/ProxyChainTests.exe" `
             --output "$bin/candidate-results" @extra
           if ($LASTEXITCODE -ne 0) { throw 'Proxy-chain behavior checks failed' }
-      - name: Check process exit with resources retained past product teardown
+      - name: Check final callbacks retained past product teardown
         shell: pwsh
         env:
           TEST_PLATFORM: ${{ matrix.platform }}
@@ -116,6 +116,20 @@ jobs:
             --dll "$bin/candidate-d3d11.dll" --fixture "$bin/ProxyChainFixture.dll" `
             --exe "$bin/ProxyChainTests.exe" --output "$bin/shutdown-results" @extra
           if ($LASTEXITCODE -ne 0) { throw 'Resource shutdown behavior checks failed' }
+      - name: Require the previous release to expose late callback failure
+        if: matrix.platform == 'x64'
+        shell: pwsh
+        run: |
+          $bin = '.quality/proxy-chain/x64'
+          $baseline = "$bin/previous-shutdown-d3d11.dll"
+          Invoke-WebRequest 'https://github.com/Fenris159/EDHM_2DMigoto/releases/download/v0.1.5/d3d11.dll' -OutFile $baseline
+          if ((Get-FileHash $baseline -Algorithm SHA256).Hash -ne 'acf05b38b8b87c4e1a192a40af1b26f427277f5f9fb1dacd6412078fa8bd7615') {
+            throw 'Previous shutdown release checksum mismatch'
+          }
+          & python RuntimeTests/run_proxy_chain_tests.py --shutdown-only --expect-shutdown-failure `
+            --dll $baseline --fixture "$bin/ProxyChainFixture.dll" --exe "$bin/ProxyChainTests.exe" `
+            --output "$bin/previous-shutdown-results" --edup .quality/edup-0.22.2/core/d3d11.dll
+          if ($LASTEXITCODE -ne 0) { throw 'Previous late callback failure was not detected' }
       - name: Check reload notification pixels and GPU constants
         shell: pwsh
         env:

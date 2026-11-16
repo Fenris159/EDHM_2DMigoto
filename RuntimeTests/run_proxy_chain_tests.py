@@ -41,7 +41,10 @@ def main():
     controls.add_argument("--expect-bypass", action="store_true")
     controls.add_argument("--expect-downstream-bypass", action="store_true")
     controls.add_argument("--shutdown-only", action="store_true")
+    parser.add_argument("--expect-shutdown-failure", action="store_true")
     args = parser.parse_args()
+    if args.expect_shutdown_failure and not args.shutdown_only:
+        parser.error("--expect-shutdown-failure requires --shutdown-only")
     inputs = {name: getattr(args, name).resolve(strict=True) for name in ("dll", "fixture", "exe")}
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -157,6 +160,12 @@ def main():
                 record["completion_bytes"] = completion.read_bytes().hex() if completion.is_file() else None
                 record["retained_release_completed"] = completion.is_file() and completion.read_bytes() == b"released\n"
                 record["passed"] = record["passed"] and record["retained_release_completed"]
+                if args.expect_shutdown_failure:
+                    # Creation and the opened receipt prove setup succeeded.
+                    # Windows can suppress an exception during process teardown,
+                    # so an exit code alone is insufficient for this control.
+                    record["passed"] = (completed_creations == 1 and completion.is_file()
+                                        and completion.read_bytes() == b"")
             print(f"{'PASS' if record['passed'] else 'FAIL'} {case}: exit {completed.returncode}", flush=True)
             if not record["passed"]:
                 raise RuntimeError(f"{case}: {completed.stdout}\n{completed.stderr}")
@@ -168,6 +177,7 @@ def main():
             },
             "expected_bypass": args.expect_bypass,
             "shutdown_only": args.shutdown_only,
+            "expected_shutdown_failure": args.expect_shutdown_failure,
             "expected_downstream_bypass": args.expect_downstream_bypass,
             "target_machine": target_machine,
             "edup_sha256": hashlib.sha256(args.edup.read_bytes()).hexdigest() if args.edup else None,
