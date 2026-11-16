@@ -32,9 +32,9 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 ### Added
 
 - Shutdown regression checks for live metadata cleanup, final release after
-  actual registry destruction, retained buffers/views across standalone and
-  chained DLL teardown, official EDUP 0.22.2, and ordinary unload after object
-  release. These use off-game child processes and WARP.
+  actual registry destruction, final private-data callbacks across standalone
+  and chained DLL teardown, official EDUP 0.22.2, and ordinary unload after
+  object release. These use off-game child processes and WARP.
 - Matching PDB and map files for optimized release builds, with a checksummed
   symbols ZIP containing the exact DLL and provenance for later crash analysis.
 

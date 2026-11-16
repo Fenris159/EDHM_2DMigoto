@@ -66,9 +66,14 @@ its live metadata to disappear on final release. The retirement case destroys an
 actual `Globals` owner and protects its storage against reads before releasing
 the resource. It runs last in the all-cases executable because retirement is
 irreversible; CI runs each case in its own process. Product-DLL child processes
-also keep buffers/views in an earlier-loaded fixture so their final releases
-occur after product teardown. Standalone, fixture-chain and official EDUP 0.22.2
-paths must exit cleanly; ordinary unload releases every object first.
+also retain the actual private-data callback from a tracked buffer in an
+earlier-loaded fixture. GPU objects are released before process termination;
+the callback's final release occurs after product teardown and must return zero
+before the fixture writes its completion receipt. Standalone, fixture-chain and
+official EDUP 0.22.2 paths must exit cleanly; ordinary unload releases every
+object first. Retaining whole WARP objects until process-exit CRT cleanup also
+fails without EDHM loaded, so that backend behavior is excluded from this test.
+See [the lifecycle rationale](../docs/resource-registry-shutdown.md).
 CPU timing is never a regression threshold.
 
 ## Product DLL proxy chaining

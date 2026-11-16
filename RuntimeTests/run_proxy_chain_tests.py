@@ -53,7 +53,7 @@ def main():
     if args.edup:
         cases += ["edup"]
     if args.shutdown_only:
-        cases = ["backend-shutdown", "standalone-shutdown", "chain-shutdown", "standalone-unload"]
+        cases = ["standalone-shutdown", "chain-shutdown", "standalone-unload"]
         if args.edup:
             cases += ["edup-shutdown"]
     records = []
@@ -154,10 +154,7 @@ def main():
                     record["passed"] = creations_ok
             if "shutdown" in case:
                 completion = directory / "shutdown-complete.txt"
-                stage = directory / "shutdown-stages.txt"
-                record["shutdown_stages"] = stage.read_text() if stage.is_file() else None
                 record["completion_bytes"] = completion.read_bytes().hex() if completion.is_file() else None
-                record["shutdown_fault_bytes"] = (directory / "shutdown-faults.bin").read_bytes().hex() if (directory / "shutdown-faults.bin").is_file() else None
                 record["retained_release_completed"] = completion.is_file() and completion.read_bytes() == b"released\n"
                 record["passed"] = record["passed"] and record["retained_release_completed"]
             print(f"{'PASS' if record['passed'] else 'FAIL'} {case}: exit {completed.returncode}", flush=True)

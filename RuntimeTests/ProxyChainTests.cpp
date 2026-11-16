@@ -1,6 +1,5 @@
 #include <windows.h>
 #include <d3d11.h>
-#include <dbghelp.h>
 #include <wrl/client.h>
 
 #include <cstdio>
@@ -58,112 +57,6 @@ void check_device(ID3D11Device *device, UINT wanted)
 	require(actual.ByteWidth == 64, "wrapped resource descriptor changed");
 }
 
-LONG CALLBACK record_shutdown_fault(EXCEPTION_POINTERS *exception)
-{
-	const DWORD code = exception->ExceptionRecord->ExceptionCode;
-	if (code != EXCEPTION_ACCESS_VIOLATION && code != 0xc0000409)
-		return EXCEPTION_CONTINUE_SEARCH;
-	struct Record
-	{
-		DWORD code;
-		DWORD reserved;
-		ULONGLONG address;
-		ULONGLONG module;
-		ULONGLONG parameter0;
-		ULONGLONG parameter1;
-		char path[MAX_PATH];
-	} record{};
-	record.code = code;
-	record.address = reinterpret_cast<ULONG_PTR>(exception->ExceptionRecord->ExceptionAddress);
-	if (exception->ExceptionRecord->NumberParameters)
-		record.parameter0 = exception->ExceptionRecord->ExceptionInformation[0];
-	if (exception->ExceptionRecord->NumberParameters > 1)
-		record.parameter1 = exception->ExceptionRecord->ExceptionInformation[1];
-	HMODULE module = nullptr;
-	if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-	                       reinterpret_cast<LPCSTR>(exception->ExceptionRecord->ExceptionAddress), &module))
-	{
-		record.module = reinterpret_cast<ULONG_PTR>(module);
-		GetModuleFileNameA(module, record.path, MAX_PATH);
-	}
-	HANDLE file = CreateFileW(L"shutdown-faults.bin", FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS,
-	                          FILE_ATTRIBUTE_NORMAL, nullptr);
-	if (file != INVALID_HANDLE_VALUE)
-	{
-		DWORD written;
-		WriteFile(file, &record, sizeof(record), &written, nullptr);
-		CloseHandle(file);
-	}
-	return EXCEPTION_CONTINUE_SEARCH;
-}
-
-int debug_shutdown(const char *mode)
-{
-	wchar_t executable[MAX_PATH] = {};
-	require(GetModuleFileNameW(nullptr, executable, MAX_PATH) != 0, "debugger path unavailable");
-	std::wstring command = L"\"" + std::wstring(executable) + L"\" " + std::wstring(mode, mode + std::strlen(mode));
-	STARTUPINFOW startup{};
-	startup.cb = sizeof(startup);
-	PROCESS_INFORMATION process{};
-	require(CreateProcessW(nullptr, command.data(), nullptr, nullptr, TRUE, DEBUG_ONLY_THIS_PROCESS, nullptr, nullptr,
-	                       &startup, &process) != FALSE,
-	        "debug child unavailable");
-	CloseHandle(process.hThread);
-	unsigned dumps = 0;
-	for (;;)
-	{
-		DEBUG_EVENT event{};
-		require(WaitForDebugEvent(&event, INFINITE) != FALSE, "debug event unavailable");
-		DWORD continuation = DBG_CONTINUE;
-		if (event.dwDebugEventCode == EXCEPTION_DEBUG_EVENT)
-		{
-			auto &exception = event.u.Exception;
-			const DWORD code = exception.ExceptionRecord.ExceptionCode;
-			continuation = code == EXCEPTION_BREAKPOINT ? DBG_CONTINUE : DBG_EXCEPTION_NOT_HANDLED;
-			if (code == EXCEPTION_ACCESS_VIOLATION || code == 0xc000000d || code == 0xc0000409)
-			{
-				std::printf("DEBUG exception 0x%08lx at %p first=%lu\n", code,
-				            exception.ExceptionRecord.ExceptionAddress, exception.dwFirstChance);
-				HANDLE thread = OpenThread(THREAD_GET_CONTEXT | THREAD_QUERY_INFORMATION, FALSE, event.dwThreadId);
-				CONTEXT context{};
-				context.ContextFlags = CONTEXT_ALL;
-				if (thread && GetThreadContext(thread, &context))
-				{
-					const std::wstring name = L"shutdown-debug-" + std::to_wstring(dumps++) + L".dmp";
-					HANDLE file = CreateFileW(name.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
-					                          FILE_ATTRIBUTE_NORMAL, nullptr);
-					if (file != INVALID_HANDLE_VALUE)
-					{
-						EXCEPTION_POINTERS pointers{&exception.ExceptionRecord, &context};
-						MINIDUMP_EXCEPTION_INFORMATION info{event.dwThreadId, &pointers, FALSE};
-						MiniDumpWriteDump(
-						    process.hProcess, process.dwProcessId, file,
-						    static_cast<MINIDUMP_TYPE>(MiniDumpWithDataSegs | MiniDumpWithIndirectlyReferencedMemory |
-							                           MiniDumpWithProcessThreadData | MiniDumpWithFullMemoryInfo |
-							                           MiniDumpWithThreadInfo),
-						    &info, nullptr, nullptr);
-						CloseHandle(file);
-					}
-				}
-				if (thread)
-					CloseHandle(thread);
-			}
-		}
-		else if (event.dwDebugEventCode == CREATE_PROCESS_DEBUG_EVENT && event.u.CreateProcessInfo.hFile)
-			CloseHandle(event.u.CreateProcessInfo.hFile);
-		else if (event.dwDebugEventCode == LOAD_DLL_DEBUG_EVENT && event.u.LoadDll.hFile)
-			CloseHandle(event.u.LoadDll.hFile);
-		const bool exited = event.dwDebugEventCode == EXIT_PROCESS_DEBUG_EVENT;
-		const DWORD code = exited ? event.u.ExitProcess.dwExitCode : 0;
-		ContinueDebugEvent(event.dwProcessId, event.dwThreadId, continuation);
-		if (exited)
-		{
-			CloseHandle(process.hProcess);
-			return static_cast<int>(code);
-		}
-	}
-}
-
 void run(const char *mode)
 {
 	load_system(L"dxgi.dll");
@@ -173,20 +66,9 @@ void run(const char *mode)
 	require(leaf != nullptr, "executable directory unavailable");
 	*(leaf + 1) = L'\0';
 	HMODULE retainer = nullptr;
-	ComPtr<ID3D11Device> backend_device;
-	ComPtr<ID3D11DeviceContext> backend_context;
 	const bool shutdown = std::strstr(mode, "shutdown") != nullptr;
 	if (shutdown)
-		require(AddVectoredExceptionHandler(1, record_shutdown_fault) != nullptr, "shutdown diagnostic unavailable");
-	if (shutdown)
 	{
-		// Initialize the actual WARP driver before the retainer too. Loading
-		// only d3d11.dll leaves its driver to load later and detach too early.
-		auto backend = load_system(L"d3d11.dll");
-		auto create_backend = exported<PFN_D3D11_CREATE_DEVICE>(backend, "D3D11CreateDevice");
-		require(SUCCEEDED(create_backend(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, nullptr, 0, D3D11_SDK_VERSION,
-		                                 &backend_device, nullptr, &backend_context)),
-		        "shutdown backend initialization failed");
 		wchar_t retain_path[MAX_PATH] = {};
 		require(wcscpy_s(retain_path, path) == 0 && wcscat_s(retain_path, L"ResourceRetainer.dll") == 0,
 		        "retainer path overflow");
@@ -194,7 +76,7 @@ void run(const char *mode)
 		require(retainer != nullptr, "resource retainer unavailable");
 	}
 	require(wcscat_s(path, L"d3d11.dll") == 0, "proxy path overflow");
-	HMODULE proxy = std::strcmp(mode, "backend-shutdown") == 0 ? load_system(L"d3d11.dll") : LoadLibraryW(path);
+	HMODULE proxy = LoadLibraryW(path);
 	require(proxy != nullptr, "could not load game-local proxy");
 	const bool chain = std::strncmp(mode, "chain-", 6) == 0;
 	const bool downstream = std::strstr(mode, "downstream") != nullptr;
@@ -294,8 +176,6 @@ int main(int argc, char **argv)
 	SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
 	try
 	{
-		if (argc == 3 && std::strcmp(argv[1], "debug") == 0)
-			return debug_shutdown(argv[2]);
 		require(argc == 2, "expected one fixture mode");
 		run(argv[1]);
 		return 0;

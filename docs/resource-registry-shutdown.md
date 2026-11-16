@@ -30,8 +30,7 @@ resource lock and erases the resource's metadata. Once retired, the callback
 releases its own tracker without reading `G` or taking its locks. Trackers use
 paired Windows process-heap allocation/free operations, so final cleanup also
 works after the DLL's CRT heap state is gone. Late interface queries skip CRT
-logging. The lifetime
-check runs only on final resource release, outside draw and lookup paths.
+logging. The lifetime check runs only on final resource release, outside draw and lookup paths.
 
 Retirement is not a live configuration switch. Whole-process termination has
 stopped other worker threads; ordinary DLL unload requires the caller to finish
@@ -53,16 +52,22 @@ retained buffer/view. This makes a late registry or lock read fail without
 relying on allocator reuse or timing. The unmodified implementation fails this
 case with an access violation on both Windows architectures.
 
-Product-DLL cases initialize the backend and its WARP driver first, then load a
-resource-retaining fixture before the runtime and keep buffers/views until that
-fixture's CRT teardown. That owner also retains the native device/context until
-after its resource references are released. Preinitializing the driver prevents the test itself from
-releasing GPU objects after their backend driver has already detached. Each child process must really
-exit with code zero and record completion after its retained COM references are
-released. A zero exit code alone can conceal an exception during DLL teardown. Standalone, outer-proxy,
-official EDUP 0.22.2, and ordinary unload scenarios exercise the product build.
-These checks use off-game devices and do not require game monitoring or an FPS
-comparison. See [the native checks](../RuntimeTests/README.md).
+Product-DLL cases create tracked WARP buffers/views through the built runtime,
+retain the actual private-data `IUnknown` returned by D3D11, then release GPU
+objects while the backend is live. An earlier-loaded fixture releases the last
+callback reference after the runtime's DLL/CRT teardown. Each child must exit
+with code zero and write a completion receipt **after** that final `Release`
+returns zero. Exit code alone can conceal a teardown exception. Standalone,
+outer-proxy, official EDUP 0.22.2, and ordinary unload paths are covered.
+
+This separates callback lifetime from WARP's own process-exit limitations. The
+initial fixture retained complete GPU objects through CRT teardown and failed
+inside WARP. A system-only control, with EDHM never loaded, also failed with
+`0xc000000d`. That driver cleanup is therefore unsuitable as a pass/fail test of
+this repair. The native protected-registry case still releases real buffers and
+views after destroying the registry; the product case tests the exact shipped
+callback after CRT teardown. Neither establishes hardware-driver or live-game
+shutdown behavior. See [the native checks](../RuntimeTests/README.md).
 
 The dump's final `0xc0000409`, parameter `7`, denotes a fatal application exit;
 it does not by itself identify a stack overwrite. This repair targets the
