@@ -68,6 +68,8 @@ void run(const char *mode)
 	const bool shutdown = std::strstr(mode, "shutdown") != nullptr;
 	if (shutdown)
 	{
+		// The backend must outlive both the product and the retainer.
+		load_system(L"d3d11.dll");
 		wchar_t retain_path[MAX_PATH] = {};
 		require(wcscpy_s(retain_path, path) == 0 && wcscat_s(retain_path, L"ResourceRetainer.dll") == 0,
 		        "retainer path overflow");

@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <new>
 #include <stdexcept>
 #include <thread>
 #include <d3d11sdklayers.h>
