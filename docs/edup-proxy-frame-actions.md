@@ -29,11 +29,15 @@ recognizes a live EDHM wrapper and keeps it alive during the call.
 
 ```text
 game calls the outer Present
-  EDHM frame actions on the established presentation thread
-  outer proxy reads/copies the image and presents its output
+  proxy prepares its image
+  GetBuffer / forwarded Present starts EDHM frame actions once
+  proxy copies and presents its output
   EDHM post commands
 ```
 
+The active scope starts frame actions when the proxy reads the back buffer,
+keeping them close to the image copy. A dropped frame that neither reads the
+buffer nor forwards Present still services actions once at the outer boundary.
 If the proxy forwards to our saved Present instead, the active call scope
 suppresses a second execution. Test presents, nested calls, other threads and
 secondary chains do not advance the established proxy frame source. The source

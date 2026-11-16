@@ -88,24 +88,30 @@ void *proxy_target1;
 SRWLOCK proxy_hook_lock = SRWLOCK_INIT;
 std::atomic<HackerSwapChain *> proxy_frame_owner{nullptr};
 thread_local HackerSwapChain *proxy_frame_chain;
+class ProxyFrame;
+thread_local ProxyFrame *proxy_frame_scope;
 
 class ProxyFrame
 {
 	HackerSwapChain *chain = nullptr;
 	bool ran = false;
 	bool profiling = false;
+	bool attempted = false;
+	UINT flags;
 
   public:
-	explicit ProxyFrame(IUnknown *object)
+	ProxyFrame(IUnknown *object, UINT present_flags) : flags(present_flags)
 	{
 		if (proxy_frame_chain || FAILED(object->QueryInterface(IID_EdhmProxyFrame, reinterpret_cast<void **>(&chain))))
 			return;
 		proxy_frame_chain = chain;
+		proxy_frame_scope = this;
 	}
-	void begin(UINT flags)
+	void begin()
 	{
-		if (!chain || (flags & DXGI_PRESENT_TEST))
+		if (!chain || attempted || (flags & DXGI_PRESENT_TEST))
 			return;
+		attempted = true;
 		ran = chain->BeginProxyFrame(profiling);
 	}
 	void finish()
@@ -119,6 +125,7 @@ class ProxyFrame
 		if (!chain)
 			return;
 		proxy_frame_chain = nullptr;
+		proxy_frame_scope = nullptr;
 		chain->Release();
 	}
 	ProxyFrame(const ProxyFrame &) = delete;
@@ -129,9 +136,12 @@ class ProxyFrame
 
 HRESULT STDMETHODCALLTYPE ProxyPresentBoundary(IDXGISwapChain *chain, UINT interval, UINT flags)
 {
-	ProxyFrame frame(chain);
-	frame.begin(flags);
+	ProxyFrame frame(chain, flags);
 	HRESULT hr = proxy_present(chain, interval, flags);
+	// GetBuffer normally starts the actions immediately before the proxy's
+	// image copy. If a failed/dropped frame never reads the buffer or forwards
+	// to native Present, still service input/reload once at its real boundary.
+	frame.begin();
 	frame.finish();
 	return hr;
 }
@@ -139,9 +149,9 @@ HRESULT STDMETHODCALLTYPE ProxyPresentBoundary(IDXGISwapChain *chain, UINT inter
 HRESULT STDMETHODCALLTYPE ProxyPresent1Boundary(IDXGISwapChain1 *chain, UINT interval, UINT flags,
                                                 const DXGI_PRESENT_PARAMETERS *parameters)
 {
-	ProxyFrame frame(chain);
-	frame.begin(flags);
+	ProxyFrame frame(chain, flags);
 	HRESULT hr = proxy_present1(chain, interval, flags, parameters);
+	frame.begin();
 	frame.finish();
 	return hr;
 }
@@ -819,6 +829,7 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
 {
 	if (proxy_frame_chain == this)
 	{
+		proxy_frame_scope->begin();
 		bool previous = get_tls()->hooking_quirk_protection;
 		get_tls()->hooking_quirk_protection = true;
 		HRESULT hr = mOrigSwapChain1->Present(SyncInterval, Flags);
@@ -887,6 +898,8 @@ STDMETHODIMP HackerSwapChain::GetBuffer(THIS_
 	LogDebug("HackerSwapChain::GetBuffer(%s@%p) called with IID: %s\n", type_name(this), this,
 	         NameFromIID(riid).c_str());
 	ObserveProxyPresent();
+	if (proxy_frame_chain == this)
+		proxy_frame_scope->begin();
 
 	HRESULT hr = mOrigSwapChain1->GetBuffer(Buffer, riid, ppSurface);
 	LogDebug("  returns %x\n", hr);
@@ -1146,6 +1159,7 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 {
 	if (proxy_frame_chain == this)
 	{
+		proxy_frame_scope->begin();
 		bool previous = get_tls()->hooking_quirk_protection;
 		get_tls()->hooking_quirk_protection = true;
 		HRESULT hr = mOrigSwapChain1->Present1(SyncInterval, PresentFlags, pPresentParameters);
@@ -1384,6 +1398,8 @@ STDMETHODIMP HackerUpscalingSwapChain::GetBuffer(THIS_
 	         NameFromIID(riid).c_str());
 
 	ObserveProxyPresent();
+	if (proxy_frame_chain == this)
+		proxy_frame_scope->begin();
 	HRESULT hr = S_OK;
 
 	// if upscaling is on give the game fake back buffer
