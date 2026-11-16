@@ -685,6 +685,15 @@ HRESULT __stdcall Hooked_CreateSwapChainForCoreWindow(IDXGIFactory2 *This,
 		return fnOrigCreateSwapChainForCoreWindow(This, pDevice, pWindow, pDesc, pRestrictToOutput, ppSwapChain);
 	}
 
+	if (is_d3d12_swap_chain_device(pDevice))
+	{
+		LogInfo("IDXGIFactory2::CreateSwapChainForCoreWindow with ID3D12CommandQueue, passing through unwrapped\n");
+		get_tls()->hooking_quirk_protection = true;
+		HRESULT hr = fnOrigCreateSwapChainForCoreWindow(This, pDevice, pWindow, pDesc, pRestrictToOutput, ppSwapChain);
+		get_tls()->hooking_quirk_protection = false;
+		return hr;
+	}
+
 	HackerDevice *hackerDevice = nullptr;
 	DXGI_SWAP_CHAIN_DESC1 descCopy = {0};
 
@@ -761,6 +770,15 @@ HRESULT __stdcall Hooked_CreateSwapChainForComposition(IDXGIFactory2 *This,
 		    "Hooking Quirk: Unexpected call back into IDXGIFactory2::CreateSwapChainForComposition, passing through\n");
 		// No known cases
 		return fnOrigCreateSwapChainForComposition(This, pDevice, pDesc, pRestrictToOutput, ppSwapChain);
+	}
+
+	if (is_d3d12_swap_chain_device(pDevice))
+	{
+		LogInfo("IDXGIFactory2::CreateSwapChainForComposition with ID3D12CommandQueue, passing through unwrapped\n");
+		get_tls()->hooking_quirk_protection = true;
+		HRESULT hr = fnOrigCreateSwapChainForComposition(This, pDevice, pDesc, pRestrictToOutput, ppSwapChain);
+		get_tls()->hooking_quirk_protection = false;
+		return hr;
 	}
 
 	HackerDevice *hackerDevice = nullptr;
@@ -906,6 +924,15 @@ HRESULT __stdcall Hooked_CreateSwapChain(IDXGIFactory *This,
 		//             call the former and have hooked the later.
 		//             Note that the Steam overlay depends on this.
 		return fnOrigCreateSwapChain(This, pDevice, pDesc, ppSwapChain);
+	}
+
+	if (is_d3d12_swap_chain_device(pDevice))
+	{
+		LogInfo("IDXGIFactory::CreateSwapChain with ID3D12CommandQueue, passing through unwrapped\n");
+		get_tls()->hooking_quirk_protection = true;
+		HRESULT hr = fnOrigCreateSwapChain(This, pDevice, pDesc, ppSwapChain);
+		get_tls()->hooking_quirk_protection = false;
+		return hr;
 	}
 
 	LogInfo("\n*** Hooked IDXGIFactory::CreateSwapChain(%p) called\n", This);
