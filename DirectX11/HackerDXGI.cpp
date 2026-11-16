@@ -159,12 +159,18 @@ class ProxyFrame
   public:
 	ProxyFrame(IUnknown *object, UINT flags)
 	{
-		if (proxy_frame_chain || FAILED(object->QueryInterface(IID_EdhmProxyFrame, reinterpret_cast<void **>(&chain))))
+		if (proxy_frame_chain)
 			return;
+		HackerSwapChain *candidate = nullptr;
+		if (FAILED(object->QueryInterface(IID_EdhmProxyFrame, reinterpret_cast<void **>(&candidate))) || !candidate)
+			return;
+		chain = candidate;
 		proxy_frame_chain = chain;
+		// Even a rejected/test/secondary outer call must suppress any saved
+		// Present it forwards to another thread. Eligibility to run commands is
+		// separate from the lifetime of that forwarding scope.
+		proxy_frames_active.fetch_add(1, std::memory_order_release);
 		active = !(flags & DXGI_PRESENT_TEST) && chain->AcquireProxyFrameOwner();
-		if (active)
-			proxy_frames_active.fetch_add(1, std::memory_order_release);
 	}
 	void begin()
 	{
@@ -183,8 +189,7 @@ class ProxyFrame
 		if (!chain)
 			return;
 		proxy_frame_chain = nullptr;
-		if (active)
-			proxy_frames_active.fetch_sub(1, std::memory_order_release);
+		proxy_frames_active.fetch_sub(1, std::memory_order_release);
 		chain->Release();
 	}
 	ProxyFrame(const ProxyFrame &) = delete;
