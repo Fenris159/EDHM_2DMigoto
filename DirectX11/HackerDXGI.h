@@ -32,6 +32,8 @@ class HackerSwapChain : public IDXGISwapChain1
 	HackerDevice *mHackerDevice;
 	HackerContext *mHackerContext;
 	std::atomic<DWORD> mFrameThread{0};
+	std::atomic<void *> mObservedPresent{nullptr};
+	std::atomic<void *> mObservedPresent1{nullptr};
 
   public:
 	HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDevice, HackerContext *pContext);

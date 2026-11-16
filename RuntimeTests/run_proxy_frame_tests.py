@@ -23,7 +23,7 @@ def main():
         shutil.copy2(inputs[name], directory / target)
     (directory / "d3dx.ini").write_text(
         "[Logging]\nenabled=1\ncalls=0\nunbuffered=1\nshow_warnings=0\n"
-        "[System]\nload_library_redirect=0\nallow_platform_update=1\n"
+        "[System]\nload_library_redirect=0\nallow_platform_update=1\nconfig_initialization_delay=-1\n"
         "[Hunting]\nhunting=0\n[Rendering]\nstereo_params=-1\nini_params=120\n"
         "[Constants]\nx=0\ny=0\n[Present]\nx=x+1\npost y=y+1\n", encoding="utf-8")
     command = args.runner + [str(directory / "ProxyFrameTests.exe")]

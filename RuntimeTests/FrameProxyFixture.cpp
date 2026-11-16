@@ -57,3 +57,14 @@ extern "C" __declspec(dllexport) HRESULT WINAPI ReadFrameProxyBuffer(IDXGISwapCh
 {
 	return read_buffer(chain);
 }
+
+extern "C" __declspec(dllexport) BOOL WINAPI RemoveFrameProxy(IDXGISwapChain *chain)
+{
+	auto **table = *reinterpret_cast<void ***>(chain);
+	DWORD protection = 0;
+	if (!VirtualProtect(table + 8, sizeof(void *), PAGE_READWRITE, &protection))
+		return FALSE;
+	std::memcpy(table + 8, &original, sizeof(original));
+	DWORD ignored = 0;
+	return VirtualProtect(table + 8, sizeof(void *), protection, &ignored);
+}

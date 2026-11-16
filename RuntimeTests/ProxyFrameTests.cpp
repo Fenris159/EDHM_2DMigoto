@@ -56,6 +56,18 @@ void values(ID3D11Device *device, ID3D11DeviceContext *context, float x, float y
 	require(actual[1] == y, "post-Present commands were starved or duplicated");
 }
 
+struct WorkerPresent
+{
+	IDXGISwapChain *chain;
+	HRESULT result = E_UNEXPECTED;
+	static DWORD WINAPI run(void *argument)
+	{
+		auto &worker = *static_cast<WorkerPresent *>(argument);
+		worker.result = worker.chain->Present(0, 0);
+		return 0;
+	}
+};
+
 void run(bool hardware)
 {
 	HMODULE product = LoadLibraryW(L".\\d3d11.dll");
@@ -64,6 +76,9 @@ void run(bool hardware)
 	HMODULE proxy = LoadLibraryW(L".\\FrameProxyFixture.dll");
 	require(proxy != nullptr, "proxy fixture unavailable");
 	auto install = exported<BOOL(WINAPI *)(IDXGISwapChain *)>(proxy, "InstallFrameProxy");
+	auto mode = exported<void(WINAPI *)(unsigned)>(proxy, "SetFrameProxyMode");
+	auto read = exported<HRESULT(WINAPI *)(IDXGISwapChain *)>(proxy, "ReadFrameProxyBuffer");
+	auto remove = exported<BOOL(WINAPI *)(IDXGISwapChain *)>(proxy, "RemoveFrameProxy");
 	WNDCLASSW wc{};
 	wc.lpfnWndProc = DefWindowProcW;
 	wc.hInstance = GetModuleHandleW(nullptr);
@@ -93,6 +108,53 @@ void run(bool hardware)
 	// A zero-draw/menu frame is still a game frame. No timing or draw threshold.
 	require(SUCCEEDED(chain->Present(0, 0)), "proxy Present failed");
 	values(device.Get(), context.Get(), 1, 1);
+	require(SUCCEEDED(read(chain.Get())) && SUCCEEDED(read(chain.Get())), "proxy buffer reads failed");
+	require(SUCCEEDED(chain->Present(0, DXGI_PRESENT_TEST)), "test Present failed");
+	values(device.Get(), context.Get(), 1, 1);
+	mode(2);
+	require(chain->Present(0, 0) == E_FAIL, "proxy failure was not preserved");
+	values(device.Get(), context.Get(), 2, 2);
+	mode(1);
+	require(SUCCEEDED(chain->Present(0, 0)), "forwarding proxy Present failed");
+	values(device.Get(), context.Get(), 3, 3);
+	mode(0);
+	WorkerPresent worker{chain.Get()};
+	HANDLE thread = CreateThread(nullptr, 0, WorkerPresent::run, &worker, 0, nullptr);
+	require(thread != nullptr, "worker creation failed");
+	DWORD wait = WaitForSingleObject(thread, INFINITE);
+	CloseHandle(thread);
+	require(wait == WAIT_OBJECT_0 && SUCCEEDED(worker.result), "worker Present failed");
+	values(device.Get(), context.Get(), 3, 3);
+	require(SUCCEEDED(chain->Present(0, 0)), "render-thread Present did not resume");
+	values(device.Get(), context.Get(), 4, 4);
+	require(remove(chain.Get()) != FALSE, "proxy removal failed");
+	require(SUCCEEDED(chain->Present(0, 0)), "ordinary Present did not resume");
+	values(device.Get(), context.Get(), 5, 5);
+	require(install(chain.Get()) != FALSE, "proxy reinstall failed");
+	require(SUCCEEDED(chain->GetBuffer(0, IID_PPV_ARGS(back.ReleaseAndGetAddressOf()))), "buffer reread failed");
+	require(SUCCEEDED(chain->Present(0, 0)), "reinstalled proxy failed");
+	values(device.Get(), context.Get(), 6, 6);
+	// A second wrapped chain shares the patched vtable, but is not this game's
+	// established frame source. It must not tick the global command lists.
+	ComPtr<IDXGISwapChain> other;
+	ComPtr<ID3D11Device> other_device;
+	ComPtr<ID3D11DeviceContext> other_context;
+	require(SUCCEEDED(create(nullptr, hardware ? D3D_DRIVER_TYPE_HARDWARE : D3D_DRIVER_TYPE_WARP, nullptr, 0, nullptr,
+	                         0, D3D11_SDK_VERSION, &desc, &other, &other_device, nullptr, &other_context)),
+	        "second chain creation failed");
+	require(SUCCEEDED(other->Present(0, 0)), "other chain Present failed");
+	values(device.Get(), context.Get(), 6, 6);
+	other.Reset();
+	other_context.Reset();
+	other_device.Reset();
+	back.Reset();
+	require(chain.Detach()->Release() == 0, "primary chain still retained");
+	require(SUCCEEDED(create(nullptr, hardware ? D3D_DRIVER_TYPE_HARDWARE : D3D_DRIVER_TYPE_WARP, nullptr, 0, nullptr,
+	                         0, D3D11_SDK_VERSION, &desc, &other, &other_device, nullptr, &other_context)),
+	        "replacement chain creation failed");
+	require(SUCCEEDED(other->GetBuffer(0, IID_PPV_ARGS(&back))), "replacement buffer unavailable");
+	require(SUCCEEDED(other->Present(0, 0)), "replacement chain Present failed");
+	values(other_device.Get(), other_context.Get(), 7, 7);
 	DestroyWindow(window);
 }
 } // namespace

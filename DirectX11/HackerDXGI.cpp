@@ -93,40 +93,68 @@ class ProxyFrame
 {
 	HackerSwapChain *chain = nullptr;
 	bool ran = false;
+	bool profiling = false;
 
   public:
-	explicit ProxyFrame(IUnknown *object, UINT flags)
+	explicit ProxyFrame(IUnknown *object)
 	{
 		if (proxy_frame_chain || FAILED(object->QueryInterface(IID_EdhmProxyFrame, reinterpret_cast<void **>(&chain))))
 			return;
 		proxy_frame_chain = chain;
-		if (!(flags & DXGI_PRESENT_TEST))
-			ran = chain->BeginProxyFrame();
+	}
+	void begin(UINT flags)
+	{
+		if (!chain || (flags & DXGI_PRESENT_TEST))
+			return;
+		Profiling::State state{};
+		profiling = Profiling::mode == Profiling::Mode::SUMMARY;
+		if (profiling)
+			Profiling::start(&state);
+		ran = chain->BeginProxyFrame();
+		if (profiling)
+			Profiling::end(&state, &Profiling::present_overhead);
+	}
+	void finish()
+	{
+		if (!ran)
+			return;
+		Profiling::State state{};
+		if (profiling)
+			Profiling::start(&state);
+		chain->EndProxyFrame();
+		if (profiling)
+			Profiling::end(&state, &Profiling::present_overhead);
 	}
 	~ProxyFrame()
 	{
 		if (!chain)
 			return;
-		if (ran)
-			chain->EndProxyFrame();
 		proxy_frame_chain = nullptr;
 		chain->Release();
 	}
 	ProxyFrame(const ProxyFrame &) = delete;
 	ProxyFrame &operator=(const ProxyFrame &) = delete;
+	ProxyFrame(ProxyFrame &&) = delete;
+	ProxyFrame &operator=(ProxyFrame &&) = delete;
 };
 
 HRESULT STDMETHODCALLTYPE ProxyPresentBoundary(IDXGISwapChain *chain, UINT interval, UINT flags)
 {
-	ProxyFrame frame(chain, flags);
-	return proxy_present(chain, interval, flags);
+	ProxyFrame frame(chain);
+	frame.begin(flags);
+	HRESULT hr = proxy_present(chain, interval, flags);
+	frame.finish();
+	return hr;
 }
 
 HRESULT STDMETHODCALLTYPE ProxyPresent1Boundary(IDXGISwapChain1 *chain, UINT interval, UINT flags,
                                                 const DXGI_PRESENT_PARAMETERS *parameters)
 {
-	ProxyFrame frame(chain, flags);
-	return proxy_present1(chain, interval, flags, parameters);
+	ProxyFrame frame(chain);
+	frame.begin(flags);
+	HRESULT hr = proxy_present1(chain, interval, flags, parameters);
+	frame.finish();
+	return hr;
 }
 
 void *allocation_base(const void *address)
@@ -139,11 +167,18 @@ void *allocation_base(const void *address)
 void HackerSwapChain::ObserveProxyPresent()
 {
 	auto **table = *reinterpret_cast<void ***>(this);
-	void *own_module = allocation_base(reinterpret_cast<void *>(&ProxyPresentBoundary));
 	void *target = table[8];
 	void *target1 = table[22];
-	if (allocation_base(target) == own_module && allocation_base(target1) == own_module)
+	if (mObservedPresent.load(std::memory_order_acquire) == target &&
+	    mObservedPresent1.load(std::memory_order_acquire) == target1)
 		return;
+	void *own_module = allocation_base(reinterpret_cast<void *>(&ProxyPresentBoundary));
+	if (allocation_base(target) == own_module && allocation_base(target1) == own_module)
+	{
+		mObservedPresent.store(target, std::memory_order_release);
+		mObservedPresent1.store(target1, std::memory_order_release);
+		return;
+	}
 	AcquireSRWLockExclusive(&proxy_hook_lock);
 	if (!proxy_target && allocation_base(target) != own_module)
 	{
@@ -172,6 +207,8 @@ void HackerSwapChain::ObserveProxyPresent()
 			LogInfo("*** Outer proxy Present1 hook failed: %lu\n", error);
 	}
 	ReleaseSRWLockExclusive(&proxy_hook_lock);
+	mObservedPresent.store(target, std::memory_order_release);
+	mObservedPresent1.store(target1, std::memory_order_release);
 }
 
 bool HackerSwapChain::BeginProxyFrame()
@@ -756,7 +793,14 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
                                       /* [in] */ UINT Flags)
 {
 	if (proxy_frame_chain == this)
-		return mOrigSwapChain1->Present(SyncInterval, Flags);
+	{
+		bool previous = get_tls()->hooking_quirk_protection;
+		get_tls()->hooking_quirk_protection = true;
+		HRESULT hr = mOrigSwapChain1->Present(SyncInterval, Flags);
+		get_tls()->hooking_quirk_protection = previous;
+		LogPresentDeviceLossOnce(mHackerDevice, hr);
+		return hr;
+	}
 	DWORD thread = 0;
 	mFrameThread.compare_exchange_strong(thread, GetCurrentThreadId(), std::memory_order_relaxed);
 	Profiling::State profiling_state = {0};
@@ -1102,7 +1146,14 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
                                        _In_ const DXGI_PRESENT_PARAMETERS *pPresentParameters)
 {
 	if (proxy_frame_chain == this)
-		return mOrigSwapChain1->Present1(SyncInterval, PresentFlags, pPresentParameters);
+	{
+		bool previous = get_tls()->hooking_quirk_protection;
+		get_tls()->hooking_quirk_protection = true;
+		HRESULT hr = mOrigSwapChain1->Present1(SyncInterval, PresentFlags, pPresentParameters);
+		get_tls()->hooking_quirk_protection = previous;
+		LogPresentDeviceLossOnce(mHackerDevice, hr);
+		return hr;
+	}
 	DWORD thread = 0;
 	mFrameThread.compare_exchange_strong(thread, GetCurrentThreadId(), std::memory_order_relaxed);
 	Profiling::State profiling_state = {0};

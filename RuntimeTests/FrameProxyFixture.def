@@ -3,3 +3,4 @@ EXPORTS
     InstallFrameProxy
     SetFrameProxyMode
     ReadFrameProxyBuffer
+    RemoveFrameProxy

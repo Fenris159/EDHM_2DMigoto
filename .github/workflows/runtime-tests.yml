@@ -220,6 +220,7 @@ jobs:
         with:
           name: proxy-chain-evidence-${{ matrix.platform }}-${{ github.sha }}
           path: |
+            .quality/proxy-frame/${{ matrix.platform }}/
             .quality/proxy-chain/${{ matrix.platform }}/**/results.json
             .quality/proxy-chain/${{ matrix.platform }}/**/shutdown-complete.txt
             .quality/proxy-chain/${{ matrix.platform }}/candidate-d3d11.dll
