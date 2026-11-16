@@ -40,8 +40,10 @@ keeping them close to the image copy. A dropped frame that neither reads the
 buffer nor forwards Present still services actions once at the outer boundary.
 If the proxy forwards to our saved Present instead, the active call scope
 suppresses a second execution. Test presents, nested calls, other threads and
-secondary chains do not advance the established proxy frame source. The source
-is released when its wrapper is destroyed, allowing recreation. Post commands
+secondary chains do not advance the established proxy frame source. The first
+wrapped D3D11 chain is selected during creation, so an early secondary Present
+cannot steal its role. The source is released when its wrapper is destroyed,
+allowing recreation. Post commands
 also run after a returned presentation failure, preserving the ordinary
 cleanup policy. Profiling includes command overhead on the owning thread.
 

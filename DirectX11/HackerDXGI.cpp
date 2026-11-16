@@ -338,6 +338,10 @@ HackerSwapChain::HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDev
 	}
 
 	mHackerDevice->SetHackerSwapChain(this);
+	// Select the game chain before its first Present. An overlay may present
+	// another instance of this shared vtable before the game presents at all.
+	HackerSwapChain *owner = nullptr;
+	proxy_frame_owner.compare_exchange_strong(owner, this, std::memory_order_relaxed);
 
 	try
 	{

@@ -139,6 +139,17 @@ void run(bool hardware, bool controls, bool modern)
 	tick = GetTickCount64() + 1;
 	ImportBoundary clock(product, "GetTickCount64", &frame_tick);
 	ImportBoundary keys(product, "GetAsyncKeyState", &key_state);
+	ComPtr<IDXGISwapChain> other;
+	ComPtr<ID3D11Device> other_device;
+	ComPtr<ID3D11DeviceContext> other_context;
+	if (!controls)
+	{
+		require(SUCCEEDED(create(nullptr, hardware ? D3D_DRIVER_TYPE_HARDWARE : D3D_DRIVER_TYPE_WARP, nullptr, 0,
+		                         nullptr, 0, D3D11_SDK_VERSION, &desc, &other, &other_device, nullptr, &other_context)),
+		        "second chain creation failed");
+		require(SUCCEEDED(present(other.Get(), 0, modern)), "early secondary Present failed");
+		values(other_device.Get(), other_context.Get(), 0, 0);
+	}
 	// A zero-draw/menu frame is still a game frame. No timing or draw threshold.
 	require(SUCCEEDED(present(chain.Get(), 0, modern)), "proxy Present failed");
 	values(device.Get(), context.Get(), 1, 1);
@@ -188,22 +199,16 @@ void run(bool hardware, bool controls, bool modern)
 	values(device.Get(), context.Get(), 6, 6);
 	// A second wrapped chain shares the patched vtable, but is not this game's
 	// established frame source. It must not tick the global command lists.
-	ComPtr<IDXGISwapChain> other;
-	ComPtr<ID3D11Device> other_device;
-	ComPtr<ID3D11DeviceContext> other_context;
-	require(SUCCEEDED(create(nullptr, hardware ? D3D_DRIVER_TYPE_HARDWARE : D3D_DRIVER_TYPE_WARP, nullptr, 0, nullptr,
-	                         0, D3D11_SDK_VERSION, &desc, &other, &other_device, nullptr, &other_context)),
-	        "second chain creation failed");
 	require(SUCCEEDED(present(other.Get(), 0, modern)), "other chain Present failed");
 	values(device.Get(), context.Get(), 6, 6);
-	values(other_device.Get(), other_context.Get(), 6, 6);
+	values(other_device.Get(), other_context.Get(), 0, 0);
 	nest(other.Get());
 	mode(3);
 	require(SUCCEEDED(present(chain.Get(), 0, modern)), "nested secondary Present failed");
 	nest(nullptr);
 	mode(0);
 	values(device.Get(), context.Get(), 7, 7);
-	values(other_device.Get(), other_context.Get(), 6, 6);
+	values(other_device.Get(), other_context.Get(), 0, 0);
 	other.Reset();
 	other_context.Reset();
 	other_device.Reset();
