@@ -1,0 +1,116 @@
+{
+  "scope": "One installed pack, passive candidate graph; full personal inventory retained locally. No expressions or shaders executed by inventory.",
+  "inventory_tool_sha256": "aa6a33663b73b17a92c4da856f118c58be5ac09da45378ebad5dbc1b6d55af51",
+  "inventory_json_sha256": "63e58336960abdb001bd4c38e6ec411d291a711887779ce8cdfa0d425f267b30",
+  "summary": {
+    "files_by_role": {
+      "include": 8,
+      "replacement": 77,
+      "root": 1,
+      "unreached_ini": 1
+    },
+    "sections": {
+      "commandlist": 3,
+      "constants": 7,
+      "customshader": 1,
+      "device": 1,
+      "hunting": 1,
+      "include": 1,
+      "key": 2,
+      "loader": 1,
+      "logging": 1,
+      "present": 2,
+      "preset": 32,
+      "profile": 1,
+      "rendering": 1,
+      "resource": 782,
+      "shaderoverride": 45,
+      "stereo": 1,
+      "system": 1,
+      "textureoverride": 503
+    },
+    "features": {
+      "effectful_texture_override_commands": 9,
+      "texture_target_mentions": 3151
+    }
+  },
+  "diagnostic_count": 0,
+  "file_digests_rechecked": 87,
+  "source_files_unchanged": true,
+  "root_adjacent_texture_mentions": [
+    {
+      "target": "ps-t5",
+      "lines": [
+        526,
+        527
+      ],
+      "reuse_legality": "unverified"
+    },
+    {
+      "target": "ps-t0",
+      "lines": [
+        733,
+        734
+      ],
+      "reuse_legality": "unverified"
+    },
+    {
+      "target": "ps-t5",
+      "lines": [
+        1006,
+        1007
+      ],
+      "reuse_legality": "unverified"
+    },
+    {
+      "target": "ps-t6",
+      "lines": [
+        1020,
+        1021
+      ],
+      "reuse_legality": "unverified"
+    },
+    {
+      "target": "ps-t7",
+      "lines": [
+        1030,
+        1031
+      ],
+      "reuse_legality": "unverified"
+    },
+    {
+      "target": "ps-t0",
+      "lines": [
+        1187,
+        1188
+      ],
+      "reuse_legality": "unverified"
+    },
+    {
+      "target": "ps-t0",
+      "lines": [
+        1198,
+        1199
+      ],
+      "reuse_legality": "unverified"
+    },
+    {
+      "target": "ps-t0",
+      "lines": [
+        1209,
+        1210
+      ],
+      "reuse_legality": "unverified"
+    },
+    {
+      "target": "ps-t0",
+      "lines": [
+        1220,
+        1221
+      ],
+      "reuse_legality": "unverified"
+    }
+  ],
+  "original_identity": "unverified",
+  "complete_runtime_equivalence": false
+}

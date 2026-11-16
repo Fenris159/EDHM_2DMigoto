@@ -1,0 +1,1515 @@
+{
+  "scope": "Copied assembly replacements from one installed pack, existing upstream helper; no runtime rendering or original-game identity proof.",
+  "tool_source": "bo3b/3Dmigoto 1.4.9 published command-line helper",
+  "tool_files": {
+    "cmd_Decompiler.exe": {
+      "bytes": 599040,
+      "sha256": "625a252161cb8ba7927c72287fa436badae0d19b4079d7dd2b3207b1af2a05ac",
+      "pe_machine_hex": "0x14c"
+    },
+    "d3dcompiler_47.dll": {
+      "bytes": 4147544,
+      "sha256": "0ae6e52072857c3acfde53b98f56c3c6d9bd0e7b09f247ae7f40bfd451593c4c",
+      "pe_machine_hex": "0x14c"
+    }
+  },
+  "runtime": "Wine 10, x86 architecture-matched compiler, d3dcompiler_47 native-only",
+  "commands": {
+    "assemble": [
+      "-a",
+      "-S",
+      "input.asm"
+    ],
+    "flugan_roundtrip": [
+      "-d",
+      "-V",
+      "-S",
+      "input.shdr"
+    ],
+    "microsoft_disassemble": [
+      "--disassemble-ms",
+      "-S",
+      "input.shdr"
+    ]
+  },
+  "separate_assembly_and_validation_directories": true,
+  "asset_count": 77,
+  "stages": {
+    "ps": 74,
+    "vs": 3
+  },
+  "elapsed_seconds": 341.02575278282166,
+  "results": [
+    {
+      "asset": "04fc7f00bade5b4a-ps.txt",
+      "stage": "ps",
+      "input_bytes": 4379,
+      "input_sha256": "a53daee7220d3c06e35228d0856e038f71851172f9d4896c77fab3eb1855fd36",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 2432,
+      "output_sha256": "ab620409f74f4a79109036b2546b95800efeb488cdf3589688e917ae8afe03ef",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "09bf96d5b25f6ca5-ps.txt",
+      "stage": "ps",
+      "input_bytes": 13490,
+      "input_sha256": "4643212c94c8ae36282d115fa36fcf85277069f92588c485ebb90bc9705a6eef",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 10032,
+      "output_sha256": "1e923c47095fe97bcf787507910af1c752624dea8a278a471180a368c2a93054",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "0f80d300a37639f3-ps.txt",
+      "stage": "ps",
+      "input_bytes": 8192,
+      "input_sha256": "c47c9894e2fd31d5b622c2a081037467d8dfe80f7a554dd4c21161e80573093f",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 5404,
+      "output_sha256": "25b0a96a6c868ed5eb8a9f8e0e7c28f00290baabdcad3cf4b5b9b8d431bb0b4b",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "132770aba38e4d2a-ps.txt",
+      "stage": "ps",
+      "input_bytes": 1676,
+      "input_sha256": "90ff74d7dc5a4e33742f408ffa9db19269129649d345433295c75545ca2960a6",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 732,
+      "output_sha256": "ba35f28526f6615a1c084d6a25bbe738c0ae156c7ce7a5e053293b8669c97437",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "1a696e8bae6eec02-ps.txt",
+      "stage": "ps",
+      "input_bytes": 55076,
+      "input_sha256": "35ec4d88cb7e82e508b794226284ae5a8428bc726088416c6c6ced88b1b36627",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 27360,
+      "output_sha256": "06edc0d7188c4edce0bdf94b6dcf32280b4a90ed6ce5c50607654d3ef87be223",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "1d5a317f0e831e9d-ps.txt",
+      "stage": "ps",
+      "input_bytes": 4379,
+      "input_sha256": "08ddb90b3be09317500f75a9cfd03264907154bbe9a95042673d83868dfd31a4",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 2432,
+      "output_sha256": "01f3861cf460a3cd6a9ebef2d92b818756e5fecb9dad2057acc9c92e9ba7f0c1",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "20e0f44142f16cb3-ps.txt",
+      "stage": "ps",
+      "input_bytes": 17688,
+      "input_sha256": "9eeda883b9aa38934d915eff8af808f8a02bdd397e7e13d56d37db5d211df061",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 11904,
+      "output_sha256": "6c08354d514fa5a90216ef6da38068a3e9fe077114c8d5252207185368a33ceb",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "25ca9f20b74e638b-ps.txt",
+      "stage": "ps",
+      "input_bytes": 5847,
+      "input_sha256": "1760d7490e8c418743e2e8288feb35f7f2480c7403ae4a59fd1a36d74729410a",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 3152,
+      "output_sha256": "1a8381e38455fbd2b6f5091f8665fc3fd5a82ad3de6a604c7447eae6f01e8725",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "2726290f74827c14-ps.txt",
+      "stage": "ps",
+      "input_bytes": 32168,
+      "input_sha256": "f9502f13a87f2a024af0fdc020ace93f6e739378e95dc657d56d54f418630ecb",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 21772,
+      "output_sha256": "55322fcedee0a8394bfd4b474415e2591cb922e0244b75a9904ba8d324277806",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "29ab32c907cda633-ps.txt",
+      "stage": "ps",
+      "input_bytes": 16437,
+      "input_sha256": "5044f3c49f288bd684f24722c376286ed2b923532103b626223738fcb3042faa",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 13304,
+      "output_sha256": "3d689b1758237007362d8ac25dcb972f54864c5fca3ef3ce29ee87ccbb036a50",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "29cb4ffbc78ebdfe-ps.txt",
+      "stage": "ps",
+      "input_bytes": 19376,
+      "input_sha256": "ba1451bc5eca5c27db8ae26ab79cdb365b61dbe170317ddb92f9ea0772ae858c",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 13548,
+      "output_sha256": "a85e4216c0aeb17bae2065164c84e50ec0053b8e558e98e72bf11d94a163d7be",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "2b6f1cbdea446333-vs.txt",
+      "stage": "vs",
+      "input_bytes": 3671,
+      "input_sha256": "33fbe2851910b5981fb472049e5aa7436e28bc394b065e139d12df0f63a18abc",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 1464,
+      "output_sha256": "cf0d6f904991d84a54d5998ed5adb9d3c26f5cfd64121f507c753b59b93caa2c",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "2b803276d219086b-ps.txt",
+      "stage": "ps",
+      "input_bytes": 2626,
+      "input_sha256": "da6823b212551a2a48cca5eac2f84a1b763485bdba30ae0dc24162e95e558d20",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 1016,
+      "output_sha256": "638b5a7d762d8419595989c4cdc385065cc6e6d6d5ef82ed4e99c4adb158b8a6",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "2e754bfb531333cf-ps.txt",
+      "stage": "ps",
+      "input_bytes": 5299,
+      "input_sha256": "baf2eba51003e8e12222c177b53ca50fc1b052747503abcdc13822e8a4a0a215",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 2864,
+      "output_sha256": "2e09dd0ec1199e36abc3c932fc4880255ba31fe6ad9efb465dc5560805c672a6",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "3582a66bcb0903ae-ps.txt",
+      "stage": "ps",
+      "input_bytes": 5667,
+      "input_sha256": "7300306d8d9f7a0b0cf5a38f81472a8c2d077b935b03c6baffb9fdf8c5d1996a",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 3244,
+      "output_sha256": "1ddce5c2e375fbb2a3d1de69ee03b7ef5834095be73e904cbff366246c79ef73",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "35aac13bbb1540de-ps.txt",
+      "stage": "ps",
+      "input_bytes": 174858,
+      "input_sha256": "874a8b8c9effaaba90197d81e6f72ccb82e16d2bdf71882e14d25033f8c742e2",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 127236,
+      "output_sha256": "6da4fb594f4b1d1db092a0156f94a6e9b4d3da732a0e32d0439afc08dbaf6830",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "35ba0b484a75eb96-ps.txt",
+      "stage": "ps",
+      "input_bytes": 10623,
+      "input_sha256": "538edf604c14616e0c4c32985a74d76940668bf1a271ec3e1b921aa785f46544",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 7504,
+      "output_sha256": "1ee426dc5f9eb50e1f2e61c2a71e8a21a178e889a69b0aa2b02879ee5405163b",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "36b6f4a167460286-ps.txt",
+      "stage": "ps",
+      "input_bytes": 9231,
+      "input_sha256": "1936f2c5ed95484c88e8f111f446f3299419094bc437c0f22b8f5eefa0eb74f4",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 6272,
+      "output_sha256": "d925269d5b838b955e8e7fc87d05a89732e4d3bf04b302e772738654cc3c5daa",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "380822531cf1f3d4-ps.txt",
+      "stage": "ps",
+      "input_bytes": 39490,
+      "input_sha256": "44d5f2165552d48fe8186cb71acc63114c58c283ad610564c4c83af968eb54cb",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 19768,
+      "output_sha256": "b62a2985a9ca89f0d567137cb2f07bace7ba8bd864dd6c1a5417acc7263878c7",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "3c368da8a7c2c1cb-ps.txt",
+      "stage": "ps",
+      "input_bytes": 2312,
+      "input_sha256": "4a4a37c2277f73987e55bb133e052ab9a07804bc0d459be068c6940c984dcf27",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 932,
+      "output_sha256": "4d380a01f225312bab457a70c087b6f7f762730639fea2ce116956596c7ddc65",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "3f366702d540af3e-ps.txt",
+      "stage": "ps",
+      "input_bytes": 9290,
+      "input_sha256": "5b233df02c3d3f3aa00630c1a9b29995b8270acfe68dfc96776ae99d4863913d",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 7192,
+      "output_sha256": "add4431282b3ef11b413856a63dff955f9d436671c2a4c1ac432c738d39ae15f",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "42c139823eab75ae-vs.txt",
+      "stage": "vs",
+      "input_bytes": 4351,
+      "input_sha256": "5e8b5b07213be34e1cdf51ed54f7625efbd1db6e2bc31e0841f4e7061172c440",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 1960,
+      "output_sha256": "17077c445a41dea02c35de67a709cd781c95914585e24d9a445cc564b15a74ff",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "4a533b975e4998bf-ps.txt",
+      "stage": "ps",
+      "input_bytes": 5690,
+      "input_sha256": "4505f9b55943ea5acbdb61346fd517f3066fa09e00d2beafe0ba10372a4b92f4",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 2788,
+      "output_sha256": "2ec9e16e0903969de9b7b13d201aae71117b3a9ae9c1b6c2534735b42a22906b",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "4fb6c99f9fd4f9fc-ps.txt",
+      "stage": "ps",
+      "input_bytes": 3477,
+      "input_sha256": "bcd315701ae13e94794b971003b3575325f7719e116fafbe4aaadf19077f0925",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 1836,
+      "output_sha256": "62067afd8cdad1cc8a4351e60e7f23c24ee77361e4a7e06a2a3eedfd8325676b",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "56fefcd82e3d3703-ps.txt",
+      "stage": "ps",
+      "input_bytes": 12159,
+      "input_sha256": "6cf15fa7105ed3802644faf49eb8469bcdef701af5e60d979941d7cb6123ac9c",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 8852,
+      "output_sha256": "7a872eb443a0625aaf8d99358d3b94d42c39cc12cc6648bd3c7a1401aca575ea",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "57d08ee218a628f7-ps.txt",
+      "stage": "ps",
+      "input_bytes": 6303,
+      "input_sha256": "45dfba91db5bcc92e9e466795abaeb42744e8cf8ddf281a1a781c447593c3381",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 4236,
+      "output_sha256": "a0484aa3ec085d036fd119fee6adcc2397e4b5870cde6ae313cf648c0eda5ea7",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "5d106a121c0a90bc-ps.txt",
+      "stage": "ps",
+      "input_bytes": 7929,
+      "input_sha256": "55035eb46c0051fed06ba8e75584f1a10f4eb00604557cbe0bc1238613f48e22",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 5016,
+      "output_sha256": "862cdc78802ed4293347534735fb3401fc8092eea53bf0986c988f60c703bd8e",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "5f6c54ac955ba85a-ps.txt",
+      "stage": "ps",
+      "input_bytes": 32452,
+      "input_sha256": "b1608bd5403eb9ac649e14e4352b28a31b7a94ae5b21b8edd935995b69749389",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 21868,
+      "output_sha256": "2cddf74d306da8809a5ab4547fa57fe5fed7910eeeafca9f980a49c396958f83",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "636c89262dd982cf-ps.txt",
+      "stage": "ps",
+      "input_bytes": 6428,
+      "input_sha256": "a03f202cafb5e18bf36ca294173ed65d71ae7fd6dc84f923de057365bea910a8",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 3484,
+      "output_sha256": "dae7bab0b4a6cc7636517b1fce4d4e7d3d59f998cd929c7eed0feeb1d9636055",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "6ca6185b55ad6ec0-ps.txt",
+      "stage": "ps",
+      "input_bytes": 3406,
+      "input_sha256": "96d4f768fff1586226f0058c49d0324d67fe8e93ae2ce7befca1c8c3641e5b24",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 1700,
+      "output_sha256": "1fe5db49cbeb14fbd05ecf7f9af3cabb82e0ffa14a1d3c8c5d610552a8fc6048",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "6e3748ffcba12029-ps.txt",
+      "stage": "ps",
+      "input_bytes": 19740,
+      "input_sha256": "d38f23e6c614dcbff1e08666212e5465b96396c2be1dbdc4b20f3087745a21e2",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 15476,
+      "output_sha256": "1ea87c25dcd9c7c44e1ada8f4b58e5eb655b1b949168b482e762343aef51156d",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "6e3f4126e9accce4-ps.txt",
+      "stage": "ps",
+      "input_bytes": 4931,
+      "input_sha256": "85114eddd9491dea6853ef2b03647b3eba34fa9ff8405d47752a1fa6b5f8a546",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 2844,
+      "output_sha256": "6d712469948c6be1f2e58cc6b5e0410ca39fe1eba4f6fe3c16d7ac3ddf5c0a16",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "6e5f1e69f8bfbcda-ps.txt",
+      "stage": "ps",
+      "input_bytes": 6369,
+      "input_sha256": "e270ec35b1ce78d5095752dd96d7a004d8e25fc1fa4720fa1b0320c99efd0a62",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 3604,
+      "output_sha256": "34d61c4264e6cc31c5381d28144a82f9031a8b00b3ac5cfb32e573d66f525543",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "70e91536d34607c7-ps.txt",
+      "stage": "ps",
+      "input_bytes": 5590,
+      "input_sha256": "7679f544f87d060772b1d1a0826ed5fe82a0386253eeef2682a2b69d430f178f",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 3208,
+      "output_sha256": "3477274a73e718c5cc12433ad002363dad5c6ebfd917ca7fd3777fe07207ab91",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "723db111682fbc7b-ps.txt",
+      "stage": "ps",
+      "input_bytes": 3699,
+      "input_sha256": "cc36f7f688714e7c79a22ba5835def1c3bc14ccad0cd838e64734925e25345c2",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 1572,
+      "output_sha256": "12757774b3a5899bcb200875f351c8c74aac0b82667abec7df07f12782134e2b",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "77622058d555360f-ps.txt",
+      "stage": "ps",
+      "input_bytes": 21079,
+      "input_sha256": "f4319631ef5f8aaa14a45c55e4fa019ed8db37512865daff3d8a5bcb55e82321",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 16492,
+      "output_sha256": "70d24f7848ab6efecde52d608bd5261359ed048eb63533a8e5ec457f3289657a",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "7ab88ec07a37c012-ps.txt",
+      "stage": "ps",
+      "input_bytes": 5751,
+      "input_sha256": "35140fa8ce54dfb345a2f3bb34ae69f9c8ff41d19cb67bd1ef03719b1810ebd2",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 3352,
+      "output_sha256": "f63e69f64e9e82f7aac08a85f5e9b3036e7018eec3562863f61ace670dd89445",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "7c6152f2bcddb0af-ps.txt",
+      "stage": "ps",
+      "input_bytes": 5591,
+      "input_sha256": "a75b149c858654c15141c92a978e0b9c823662e2af7033cf6a7ac1d108ca6d5d",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 3340,
+      "output_sha256": "c87ba16c1c77e04850b640ed722b56aa383b474c13482e123e871ba4421ff2fb",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "7e1a1611c7afa0bd-ps.txt",
+      "stage": "ps",
+      "input_bytes": 17688,
+      "input_sha256": "2a1c040eb4c40a617e9647b5d78569f67788daaf0326b69bd979762a0cfcbeb4",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 11904,
+      "output_sha256": "5afc0ba6b3be45e2fc94c2c1557627bcd2f75aacd3dace1e7a310f088eac47ce",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "85464878a444a6a6-ps.txt",
+      "stage": "ps",
+      "input_bytes": 5045,
+      "input_sha256": "7a9a086fe52005ac160475e030ede2cac0cefcf778b1c4054a0ad82f0eb5789e",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 3604,
+      "output_sha256": "0c0e7d05cbe651e1e00f4477c0ca61545257cdb6231e8cc6f23d5011dbbb9c1b",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "89c697b237594f04-ps.txt",
+      "stage": "ps",
+      "input_bytes": 5778,
+      "input_sha256": "8187f18c733ba350b78cfc84a79be7ee8924696916de368333ce9f2a301f2739",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 3392,
+      "output_sha256": "055ef2b246df9035cb7011d3febd779dee64c4a3c6ecc61b4932a24543c895b5",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "8b41d538be791f4a-ps.txt",
+      "stage": "ps",
+      "input_bytes": 3220,
+      "input_sha256": "3948e7adb9c9506b898e78b8611b8330cdbe42ec746f7a2bea894f98bff824c2",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 1424,
+      "output_sha256": "541d925a27b50df1b1f9128c9b33b832236c10e5cfb18a6bfd1f6650df24c2a4",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "8bcd28b6cc56b5b5-ps.txt",
+      "stage": "ps",
+      "input_bytes": 7008,
+      "input_sha256": "802a4349c49a81ef947f32e409fe89c861fc29ba2e48a9cb73b722cd2cd9bff2",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 3908,
+      "output_sha256": "0f244de5d971c0403ca4d6436243309b1383400a87993c7779e6ce2b7034c2c1",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "8f5bd2ca7bf0d382-ps.txt",
+      "stage": "ps",
+      "input_bytes": 12923,
+      "input_sha256": "874a7241d32216aeea8822f04083c7c5f6da3b8103c06f792303370cc87c7430",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 7452,
+      "output_sha256": "5e7cb9ab526646a6de4e7fc7d50d179e5a17d5272c154d55e5c70c06b30d605b",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "9129cec0b67ffecf-vs.txt",
+      "stage": "vs",
+      "input_bytes": 3858,
+      "input_sha256": "598a780e703765f65f572b5292e9ca9b2c2e9c5779b9aff91feb7e6d1e64a8b0",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 1972,
+      "output_sha256": "7a47a459d54152a6828fcb74456ae85f3f30ffec54b56cd0326c5096bea8358d",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "91badcb77f115370-ps.txt",
+      "stage": "ps",
+      "input_bytes": 7693,
+      "input_sha256": "a572bfc2d350ba56da861488ebeb2f93eb6dd4fdbc0ba16a618228aeb0ff2ebb",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 4444,
+      "output_sha256": "4a64b2d9d5658778f4cfa717a6f1b0cb646f0c1972412de8593028c00a75ed12",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "95a3b90cf4696605-ps.txt",
+      "stage": "ps",
+      "input_bytes": 5572,
+      "input_sha256": "bc7cd5da827f5b2586fd6f675f2441acf6179eafe828953d3a033a235d5c7b31",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 3352,
+      "output_sha256": "b7ca27672a36d796c65b236b64e2e3d9ef82b5fdf55d0f214677c4f69303abc3",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "9798f7cba8194a6c-ps.txt",
+      "stage": "ps",
+      "input_bytes": 23550,
+      "input_sha256": "52e358a6a66a10e47c767e65eb8379b836dd2ca986cbd7bc470154842ad6a502",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 16312,
+      "output_sha256": "af368df88a719a7ee75d8e9931f82188b3ef9aeba71b350e1516edb1db796a01",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "97e6b9ff825cb157-ps.txt",
+      "stage": "ps",
+      "input_bytes": 9149,
+      "input_sha256": "3d812e728f23486005dd8d81102d32e828b4a1514b8eaaec4db517c157824568",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 6076,
+      "output_sha256": "440581f659c7c05ecfe2c2dd12ea5122f545ee3d65de3bff9a0af15c867e9434",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "9bc29613c2377e7a-ps.txt",
+      "stage": "ps",
+      "input_bytes": 11252,
+      "input_sha256": "b5987af2b6750c82f080a5042953a9bca9bd3b21c4397f5f8f9a792a3db23ef7",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 7956,
+      "output_sha256": "53db3cf05b6fded6fde0e5ca25635beee2b9469b6cfe5c42568707f5a784cea5",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "9c8893e01f362425-ps.txt",
+      "stage": "ps",
+      "input_bytes": 5236,
+      "input_sha256": "769d3881b48e6d310682e8d91450b0afa28cd432f50cd3f4cdcb7a71f1704ecc",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 2660,
+      "output_sha256": "d4e98a78862c2aa4f603b3b0644ebd9a4a8298b2fa1340faa32698be1631b64f",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "a0d3dd801a049909-ps.txt",
+      "stage": "ps",
+      "input_bytes": 50297,
+      "input_sha256": "96d930b4a76b353807e93404ecf4a8f2c84dbce19bf4c441d4f7bb923e4d4915",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 34272,
+      "output_sha256": "6deeb99bcd52cf0caf91f7352d77f5b45e805d3e14da2657d58caa8036197fc7",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "a1e1d27a77a666fb-ps.txt",
+      "stage": "ps",
+      "input_bytes": 216938,
+      "input_sha256": "8f9cd5e04cea198c45a157be0b72675294c148a71171061c477d0c0e3f80f456",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 86788,
+      "output_sha256": "1af97b107bd9a561eda248d2e9853467e1ca3ac71f9e4dbb4e214d97adf358ef",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "a555a6cdc80553e3-ps.txt",
+      "stage": "ps",
+      "input_bytes": 5764,
+      "input_sha256": "cd68e4870bce8aa3f7fa1847dfcf04e1b93792d2d219bdb4661065711a6434df",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 3696,
+      "output_sha256": "5efb95d2a5c74e7a6e0df54a56bea0679bf8d4f905956c9d61123491747a2f4e",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "aa30aee481369221-ps.txt",
+      "stage": "ps",
+      "input_bytes": 10573,
+      "input_sha256": "6b627ed8674785865f0fbf28b210a29ade6f457f4a32246f5f76d0372a8b967f",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 7288,
+      "output_sha256": "95b6ffd4f5e7496eebbad5f3bb438252efb4af77166996e277b7bfecc50f9bcd",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "ad5ad611d07db185-ps.txt",
+      "stage": "ps",
+      "input_bytes": 3803,
+      "input_sha256": "491bca8f1e13d9e42cfa16369713a6d464efe98a1d8fcd5e9b50c1a33a3ade98",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 2044,
+      "output_sha256": "a310a15a64306759fcd3526e8041c6a19dda94a99743e7a847949f27c948c09d",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "ad901c638154978f-ps.txt",
+      "stage": "ps",
+      "input_bytes": 9069,
+      "input_sha256": "2c121142b3414e142c5ee422aa28474d20f30551594a69086dac554526606c86",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 6008,
+      "output_sha256": "fc224ba62ae6a99f75826c185f66fa0e882f061811114a8ba4ee2de6c5b2f665",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "adbd966677e79a6d-ps.txt",
+      "stage": "ps",
+      "input_bytes": 17688,
+      "input_sha256": "422aaa017ee44b81eb15e34f9e252caeea8336262d610b4b6cef09124f64822b",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 11904,
+      "output_sha256": "69f692f4cc749bb2e92fbf8ffb0c4fe1e0e849dfc341858762a00a1bea9d0fc7",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "b1f29dc866cb17fa-ps.txt",
+      "stage": "ps",
+      "input_bytes": 3287,
+      "input_sha256": "ce583c4e963d006db9b7cd7dfd3c59ee0a3375dc090be88b6da4ef5faf570a4f",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 1696,
+      "output_sha256": "5fb580be8516ff92a9e43927ac275608e714206a8c19eb22d3edde49b3424492",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "b37fb3a09ce94ea2-ps.txt",
+      "stage": "ps",
+      "input_bytes": 6817,
+      "input_sha256": "5aada5a1d442eb49ec966422f81f514346dd3a4d62bc14580922c6cfaebae5bc",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 3456,
+      "output_sha256": "51afe561707a07c186ca1f6e2878fbcb4e03ca662ad0817d385a56a0bbbadbd2",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "b4523c39a461fd35-ps.txt",
+      "stage": "ps",
+      "input_bytes": 48823,
+      "input_sha256": "5d0b430db07aad01c4a471ebd904775286217174896367ab495f23a6a332a0f1",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 36156,
+      "output_sha256": "0c4baad699a64e3d145e5be905b9a76d6b4f92545ff2442530181be74d132b2e",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "b8f8a45d83195fc1-ps.txt",
+      "stage": "ps",
+      "input_bytes": 5554,
+      "input_sha256": "4a8ecb8c4b4ca5840f62e718c21bc93ed5a6f119c23e8687c136ac475037c1ae",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 3572,
+      "output_sha256": "44e817b429746ac8932477e01a23c088a02904c236c2702c101c0ec05b49e711",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "bddd51b47f0d2531-ps.txt",
+      "stage": "ps",
+      "input_bytes": 12508,
+      "input_sha256": "5c0768e94fc93622865409c1867f201416983a27e7d6a843f872bb5c01f220cc",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 9092,
+      "output_sha256": "ac2dff0ae79f100dcc5d708cfa11a5a71275cda257c2b5d6294b2d1d4e01aaf1",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "c3187a57b31c4c68-ps.txt",
+      "stage": "ps",
+      "input_bytes": 7668,
+      "input_sha256": "0bf943f4fcebe002a2dfc3f0150bd18a5fc38a8ba37f260bf5b57ca386e63ce0",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 4700,
+      "output_sha256": "81deaac7a150b213c214c6f0cb2db4e2bd0fddec88bc084b2d90cd977203be9b",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "c4f04894e3f6ae79-ps.txt",
+      "stage": "ps",
+      "input_bytes": 19928,
+      "input_sha256": "1caceb2194d05952de24147f5696bfcb74c1d39724ffb8482ff89a321dc06524",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 13376,
+      "output_sha256": "60110ea8b54c7b3b47647c730c478d07129678b2276225a2ca81f2bb51349c07",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "c85e80bd224453bc-ps.txt",
+      "stage": "ps",
+      "input_bytes": 10573,
+      "input_sha256": "33c3ba3684c0342f85755208619812791cbf0be5f435dba190b88cac6f46a8e1",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 7288,
+      "output_sha256": "a691fffad7d35b71841c80e3d118ac0e21209edd37814819e47c598d49ff3a3f",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "c96ccbcb35950166-ps.txt",
+      "stage": "ps",
+      "input_bytes": 4633,
+      "input_sha256": "beff5dc7dc19c7aba3f8cb71ca569952d4e446f790a7f0c271903ed82be209ef",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 2656,
+      "output_sha256": "ec00b7cf55d05ecb639578f62cc6d65551755f8e86b27f4f3e2f7b64c479432e",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "d34c61f68082fbcf-ps.txt",
+      "stage": "ps",
+      "input_bytes": 48610,
+      "input_sha256": "c36059e5ec9def90106eedf2b0c7159aa9bb5a4d70f7135c010d14fbe697a3b4",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 36084,
+      "output_sha256": "96ca228362162070c409d4fa8ca3ef0bb8f8e41e470d6e8a0d5bd13f4c1d9c2e",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "d5838a28179d8e0d-ps.txt",
+      "stage": "ps",
+      "input_bytes": 8926,
+      "input_sha256": "ce1ecda74f7c453db6bdefff6a40b6e493b9d94d0cca5a4a180b08703df26622",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 5800,
+      "output_sha256": "e61892aba656837613b7502c163cbdc934f35b7ea6410dbbdbb49a3cba0980c8",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "d6c6b9abdf104b6d-ps.txt",
+      "stage": "ps",
+      "input_bytes": 4379,
+      "input_sha256": "b8e1763787c26e0573cb6fdcbc5017af487aac29cb65619daa26308d39264d26",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 2432,
+      "output_sha256": "867d1fb4045e272d47bd745bf0c98f03c62973d3d50219c4306ab73846741a5b",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "d9f064c6e8ce4554-ps.txt",
+      "stage": "ps",
+      "input_bytes": 16249,
+      "input_sha256": "8ef8892daedd196e28df892b00fc8f538798b77884b44668776bd703d58bd5f2",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 10852,
+      "output_sha256": "3e0f4caa4ff4ec7c541ad106b881138502dd87321fb5ab98b6e62cb63d10761b",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "da96bea640af499c-ps.txt",
+      "stage": "ps",
+      "input_bytes": 5019,
+      "input_sha256": "a95d511565f8b7cdc39d971b17bf7321e268682ba277f6867c19651e0d608e38",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 2948,
+      "output_sha256": "bc9f2c6b5ca56a2ee8c1e55597fda727541ebfbe0a0720d00e5c325e7f7c7a89",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "de50876eaac9218c-ps.txt",
+      "stage": "ps",
+      "input_bytes": 6561,
+      "input_sha256": "177c49efc65e7819dafa2ad5efab365a4cbce5ae29ad0365605ac13422381811",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 4008,
+      "output_sha256": "8ed4a83007bca304cd404ab475427b085abc5428a1baab788842d29180480f55",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "e32e69ee30c36af6-ps.txt",
+      "stage": "ps",
+      "input_bytes": 32452,
+      "input_sha256": "b1608bd5403eb9ac649e14e4352b28a31b7a94ae5b21b8edd935995b69749389",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 21868,
+      "output_sha256": "2cddf74d306da8809a5ab4547fa57fe5fed7910eeeafca9f980a49c396958f83",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "ea5390a2f20c2368-ps.txt",
+      "stage": "ps",
+      "input_bytes": 3331,
+      "input_sha256": "641aade87bbd5f7806a70778a872fb01be7e1cf683a3f09ac454e918ae16a73a",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 1444,
+      "output_sha256": "c3d81fa91f506a69255b8713e7359750eea6de103198d0ef11d2b853c3691443",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "f01f0329d0460c74-ps.txt",
+      "stage": "ps",
+      "input_bytes": 3480,
+      "input_sha256": "eb9977ea1e0bc868f5825ad5c0d38db77eb5eff9579d177a8e4a1ae54c72959d",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 1584,
+      "output_sha256": "a8103a13abaa5a876028afa0e0242261a07f52b850a12a79c95daf986250b893",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    },
+    {
+      "asset": "f2ce89f2c5d390ce-ps.txt",
+      "stage": "ps",
+      "input_bytes": 32452,
+      "input_sha256": "b1608bd5403eb9ac649e14e4352b28a31b7a94ae5b21b8edd935995b69749389",
+      "original_identity": "unverified",
+      "assemble_exit": 0,
+      "output_bytes": 21868,
+      "output_sha256": "2cddf74d306da8809a5ab4547fa57fe5fed7910eeeafca9f980a49c396958f83",
+      "chunks": [
+        "ISGN",
+        "OSGN",
+        "SHEX"
+      ],
+      "flugan_roundtrip_exit": 0,
+      "microsoft_disassemble_exit": 0,
+      "staged_input_unchanged": true,
+      "source_asset_unchanged": true
+    }
+  ],
+  "limits": [
+    "Original container and game-build identity unverified.",
+    "No shader object creation, rendered-output or future-host compatibility validation.",
+    "No local fork helper rebuilt and no new offline preparer shipped.",
+    "No shader text, binaries or redistributable tools included in this receipt.",
+    "Original D3D11 register assignments retained; no t120 relocation or future ABI transform."
+  ],
+  "first_asset_independent_repeat_has_same_output_sha256": true
+}

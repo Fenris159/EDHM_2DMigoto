@@ -1,0 +1,126 @@
+{
+  "source_checkpoint": "e86948eb",
+  "scope": "Off-game concrete adapter and policy checks only; no product DLL build or host/game integration.",
+  "llvm_mingw_toolchain": {
+    "release_url": "https://github.com/mstorsjo/llvm-mingw/releases/tag/20261104",
+    "archive": "llvm-mingw-20261104-ucrt-ubuntu-22.04-x86_64.tar.xz",
+    "sha256": "919380403de87dca3c581c2053230cd298af5e891286628ba0613b7fed370926",
+    "verified_against_published_asset_digest": true
+  },
+  "routes": [
+    {
+      "route": "Wine 10 + DXVK 32-bit",
+      "status": "pass",
+      "scope": "Failure/retry, complete images, sequential publication, offscreen draw ordering and recreation; concrete adapter only",
+      "compiler": "LLVM-MinGW Clang 23.1.5 UCRT",
+      "files": {
+        "IniParamsUploadTests.exe": {
+          "bytes": 1466880,
+          "sha256": "3c75a1933ab0f6aa8dfa5343e7cd1ed80f378950303f998c063bacaef0f2c7a1",
+          "pe_machine_hex": "0x14c"
+        },
+        "d3d11.dll": {
+          "bytes": 7733248,
+          "sha256": "fbb361c221f02f79ab44644b8197ba3809616084dcab56edfde7f04d67d2eb71",
+          "pe_machine_hex": "0x14c"
+        },
+        "dxgi.dll": {
+          "bytes": 5578752,
+          "sha256": "c933690e8439cb923ffed65b8294129f9e473fecb6ebad588daae6ce1e8175e0",
+          "pe_machine_hex": "0x14c"
+        }
+      },
+      "dxvk_version": "info:  DXVK: v3.1.1-97-ga78a467cadb22be",
+      "adapter": "AMD Radeon Graphics (RADV STRIX_HALO)",
+      "driver": "RADV Mesa 26.0.8",
+      "feature_level": "11_0",
+      "environment": {
+        "WINEDLLOVERRIDES": "d3d11,dxgi=n",
+        "DXVK_LOG_LEVEL": "info",
+        "display": "Xvfb",
+        "explicit_hardware_fallback": true
+      },
+      "dxvk_dll_origin": "Installed Proton - Experimental, copied to isolated test directory; not the full Proton runtime",
+      "original_dlls_unchanged": true
+    },
+    {
+      "route": "Wine 10 + DXVK 64-bit",
+      "status": "pass",
+      "scope": "Failure/retry, complete images, sequential publication, offscreen draw ordering and recreation; concrete adapter only",
+      "compiler": "MinGW GCC 13-posix",
+      "files": {
+        "IniParamsUploadTests.exe": {
+          "bytes": 2570054,
+          "sha256": "500a491754869e71839de7b1e1908338b262719af3da4124e72d2926f5ef7a22",
+          "pe_machine_hex": "0x8664"
+        },
+        "d3d11.dll": {
+          "bytes": 6754304,
+          "sha256": "75e35ed2e6a3b65d1e2dfe1a9dc9f1e3dc1a486559ce580b62e4c65b3ea04cb8",
+          "pe_machine_hex": "0x8664"
+        },
+        "dxgi.dll": {
+          "bytes": 4927488,
+          "sha256": "9cbcb3cf808eaddf6a590922c7ed251b4a1355fc3dec83f1cfe9343a85156ea0",
+          "pe_machine_hex": "0x8664"
+        }
+      },
+      "dxvk_version": "info:  DXVK: v3.1.1-97-ga78a467cadb22be",
+      "adapter": "AMD Radeon Graphics (RADV STRIX_HALO)",
+      "driver": "RADV Mesa 26.0.8",
+      "feature_level": "11_0",
+      "environment": {
+        "WINEDLLOVERRIDES": "d3d11,dxgi=n",
+        "DXVK_LOG_LEVEL": "info",
+        "display": "Xvfb",
+        "explicit_hardware_fallback": true
+      },
+      "dxvk_dll_origin": "Installed Proton - Experimental, copied to isolated test directory; not the full Proton runtime",
+      "original_dlls_unchanged": true
+    }
+  ],
+  "builtin_wine_32bit": {
+    "full_adapter_status": "fail",
+    "exact_failure": "first publication lost its image",
+    "portable_policy_status": "pass",
+    "draw_only_status": "pass",
+    "executable": {
+      "bytes": 1466880,
+      "sha256": "3c75a1933ab0f6aa8dfa5343e7cd1ed80f378950303f998c063bacaef0f2c7a1",
+      "pe_machine_hex": "0x14c"
+    },
+    "diagnosis": [
+      "Reproduces without Map interception.",
+      "First value is already wrong in the second raw mapped staging buffer before CPU copying and before the next upload.",
+      "Old checked Map/copy/Unmap kernel fails identically.",
+      "O0 and disabling inlining do not remove the failure.",
+      "Retaining staging references does not remove the failure.",
+      "Unchanged executable passes with DXVK on AMD; Clang x64 also passes the builtin route."
+    ],
+    "root_cause": "unresolved; backend-dependent in this experiment, not a confirmed new-adapter regression",
+    "production_or_test_assertions_changed_to_pass": false
+  },
+  "not_validated": [
+    "Native MSVC x64/Win32",
+    "Windows WARP",
+    "Full product DLL under Proton",
+    "Full product DLL or EDUP/game integration",
+    "NVIDIA or Intel hardware",
+    "D3D12 or future host SDK"
+  ],
+  "additional_proton_adapter_evidence": "proton-provenance.json",
+  "source_receipt": "draw-provenance.json",
+  "compile_arguments": [
+    "-std=c++17",
+    "-O2",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-I.",
+    "RuntimeTests/IniParamsUploadTests.cpp",
+    "-static",
+    "-ld3d11",
+    "-ldxgi",
+    "-ld3dcompiler"
+  ]
+}

@@ -28,7 +28,8 @@
 - **Investigation limits:** installed files were read without launching the game.
   Runtime edits and new checks now exist only in the preliminary branch; no game
   installation, merge, release or message to another developer was made.
-  No D3D12 rendering, performance gain, MSAA, VR or Proton compatibility is proved.
+  No D3D12 rendering, performance gain, MSAA, VR or full product/game Proton
+  compatibility is proved.
 
 ## Decision and evidence
 
@@ -439,6 +440,15 @@ central ownership alone supplies no measured speed result.
 
 #### 2B. Deepen direct-query lifetime and effects — Worth exploring
 
+**Inventory refinement:** the root's nine adjacent texture mentions include
+eight `checktextureoverride`-then-query pairs and one assignment-then-query pair
+at lines 733–734. The [classified candidates](benchmarks/edo-pre-production-2026-11-16/query-candidates.json)
+are not nine safe reuse opportunities: the effectful command can run matched
+pre/post lists. Start native cost measurements with the one repeated-read pair
+and retain those commands as conservative invalidation boundaries. A simpler
+pack-level expression using an already assigned value is also worth evaluating
+under the same observable-output gate; the installed configuration was not edited.
+
 **Problem:** the installed root INI reads `ps-t0` at lines 733 and 734;
 [filter evaluation][texture-filter] repeats resource/view lookup and match
 construction through [target lookup][query-lookup]. Generic getters can also
@@ -558,6 +568,16 @@ key pinning/rotation and prerelease feed before adding it.
 
 ### 4. Build a small offline DXBC preparer — conditional on inventory evidence
 
+**Preliminary evidence:** all 77 copied HUD assembly replacements produced DXBC
+with the existing upstream helper and passed its Flugan round trip and Microsoft
+disassembly. The
+[receipt and limits](benchmarks/edo-pre-production-2026-11-16/README.md#one-copied-assembly-input)
+record exact hashes, the architecture-matched compiler and a precision loss in
+Microsoft's default text disassembly for one input. This satisfies a pack-wide input/reuse
+experiment, not the complete tool or rendering gate. Keep immutable input copies
+in separate directories: the stock helper can overwrite its staged assembly
+while disassembling. Pin compiler architecture and prevent implicit fallback.
+
 **Benefit/scope:** reproducible replacement bytes useful to existing binary
 distribution as well as a future host. Start with one signature-complete HUD
 assembly file and the existing [standalone helper][signatures]; add original
@@ -574,6 +594,17 @@ timestamps match. Check declarations independently of retained RDEF. No D3D12
 compatibility claim follows until rank 6. Keep game-original identity separate
 from incoming driver bytes or converted DXIL; the latter may already contain
 EDHM replacements ([translation boundary][ms-study]).
+
+The first tool should consume exact inventory digests and copy immutable inputs
+into an exclusive output tree. Pin the assembler and compiler digests, PE
+architectures and arguments; reject fallback and avoid timestamp-only caches.
+Keep validation outputs separate from assembly inputs. Publish a successful
+manifest only after every selected asset passes; incomplete output must remain
+explicitly unsuccessful. Record prepared-byte SHA separately from unverified
+game-original identity. Preserve D3D11 register assignments in this first tool;
+`t120` relocation and the host's parameter ABI require a later deliberate
+transform. A successful helper section comparison does not replace shader-object
+creation and rendered-output validation.
 
 ### 5. Reuse only demonstrated value logic — conditional on a consumer
 
@@ -680,6 +711,21 @@ no such objects. Prefer a host toast for a simple warning; a bridge cannot
 restore the INI interpreter or shader replacement by itself ([interop scope][ms-study]).
 
 ### 9. Validate capabilities and backend costs — optional later off-game lane
+
+**Local evidence:** the isolated Wine upload probe reports an NVIDIA adapter on
+an AMD host whose headless GL diagnostic reports software llvmpipe. Record all
+three facts; a vendor string alone does not establish the device executing work.
+The [upload receipt](benchmarks/edo-pre-production-2026-11-16/README.md#successful-upload-kernels)
+also shows measurements changing direction between repeats, with no established
+speed benefit. It is neither native Windows nor Proton/hardware coverage.
+Separate [backend checks](benchmarks/edo-pre-production-2026-11-16/README.md#separate-backend-checks)
+now pass the concrete adapter/draw cases through Wine + DXVK in 32- and 64-bit
+processes on AMD RADV. The built-in 32-bit route fails a repeated staging read
+with both the existing upload kernel and candidate; its cause remains unresolved.
+The same fixture also passes both architectures under Proton 11 inside Steam
+Linux Runtime, through native DXVK and built-in D3D routes; see the
+[Proton receipt](benchmarks/edo-pre-production-2026-11-16/proton-provenance.json).
+Those are bounded adapter results, not product DLL, game or future-host evidence.
 
 **Benefit/scope:** preserve compatibility while determining whether a specific
 backend experiment helps. Record OS/driver, actual adapter, device/queue,

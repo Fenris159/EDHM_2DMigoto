@@ -1,0 +1,95 @@
+{
+  "scope": "Same-executable successful upload kernels; no full DLL, original-3Dmigoto, FPS, Present or live-game comparison.",
+  "input_sha256": {
+    "RuntimeTests/IniParamsUploadTests.cpp": "40b7b700a654062164959e0c4fc32cf62e18864436cee2d986d503eeb1a8f84a",
+    "RuntimeTests/D3DMapBoundary.h": "ce011b2c301f915926c038816e25b6146395b0af65129e9f26ce5445f2ccfd44",
+    "DirectX11/IniParamsPublication.h": "bbc6bfcd5e34e1c72cabefa87529241c155b58f526f60154915330c168087e8d",
+    "DirectX11/IniParamsD3DUpload.h": "4bb791f92c85d36f49a4a1e6e05d4c4503c845ab22afb827813d9addb789a673"
+  },
+  "executable_sha256": "042bedb246d0c1c46a1c54a988e209cdf63306652878b90cbfe3bb64e979a2af",
+  "compiler": "x86_64-w64-mingw32-g++ (GCC) 13-posix",
+  "compile_arguments": [
+    "-std=c++17",
+    "-O2",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-I.",
+    "RuntimeTests/IniParamsUploadTests.cpp",
+    "-static",
+    "-ld3d11",
+    "-ldxgi"
+  ],
+  "runtime": "wine-10.0 (Ubuntu 10.0~repack-12ubuntu1)",
+  "system": "Linux-7.0.0-42-generic-x86_64-with-glibc2.43",
+  "cpu": "AMD RYZEN AI MAX+ 395 w/ Radeon 8060S",
+  "physical_display": [
+    "c5:00.0 Display controller [0380]: Advanced Micro Devices, Inc. [AMD/ATI] Strix Halo [Radeon Graphics / Radeon 8050S Graphics / Radeon 8060S Graphics] [1002:1586] (rev c1)"
+  ],
+  "environment": {
+    "WINEDEBUG": "-all",
+    "WINEDLLOVERRIDES": "d3d11,dxgi=b",
+    "isolated_wine_prefix": true,
+    "display": "Xvfb",
+    "driver_type_requested": "WARP; hardware fallback only if WARP fails"
+  },
+  "iterations_per_batch": 50000,
+  "samples_per_workload": 21,
+  "batches_per_sample": 4,
+  "order": "A/B/B/A, reversed to B/A/A/B on alternating samples",
+  "metric": "Median of per-sample ratios (sum B durations / sum A durations - 1); positive means extra checked-kernel CPU time.",
+  "runs": [
+    {
+      "file": "upload-run-1.csv",
+      "sha256": "3599dc91b4538b05017d48cbfea33fc1417ced688acd02d30d44cd0b55d5b7f9",
+      "environment_lines": [
+        "ENV host=Wine pointer_bits=64",
+        "ENV adapter=NVIDIA GeForce GTX 470 vendor_id=4318"
+      ],
+      "results": [
+        {
+          "rows": 1,
+          "median_existing_ns": 933.446,
+          "median_checked_ns": 971.1890000000001,
+          "median_paired_change_percent": 1.5897134064851492
+        },
+        {
+          "rows": 341,
+          "median_existing_ns": 1452.021,
+          "median_checked_ns": 1461.685,
+          "median_paired_change_percent": 0.38516743306196144
+        }
+      ]
+    },
+    {
+      "file": "upload-run-2.csv",
+      "sha256": "9db603b18b5d65986a747a1ae4a1d814dcd5e4ad13970f4049d5addb5ad3f3f4",
+      "environment_lines": [
+        "ENV host=Wine pointer_bits=64",
+        "ENV adapter=NVIDIA GeForce GTX 470 vendor_id=4318"
+      ],
+      "results": [
+        {
+          "rows": 1,
+          "median_existing_ns": 1010.569,
+          "median_checked_ns": 894.485,
+          "median_paired_change_percent": -3.719962249138753
+        },
+        {
+          "rows": 341,
+          "median_existing_ns": 1590.924,
+          "median_checked_ns": 1488.214,
+          "median_paired_change_percent": -3.1617361759246676
+        }
+      ]
+    }
+  ],
+  "headless_gl": [
+    "Device: llvmpipe (LLVM 21.1.8, 256 bits) (0xffffffff)",
+    "Version: 26.0.8",
+    "Accelerated: no",
+    "OpenGL vendor string: Mesa",
+    "OpenGL renderer string: llvmpipe (LLVM 21.1.8, 256 bits)"
+  ],
+  "source_checkpoint": "af9826de"
+}

@@ -1,0 +1,52 @@
+{
+  "cmd_Decompiler.exe": {
+    "bytes": 599040,
+    "sha256": "625a252161cb8ba7927c72287fa436badae0d19b4079d7dd2b3207b1af2a05ac",
+    "pe_machine_hex": "0x14c"
+  },
+  "hud-ps.asm": {
+    "bytes": 4379,
+    "sha256": "a53daee7220d3c06e35228d0856e038f71851172f9d4896c77fab3eb1855fd36"
+  },
+  "d3dcompiler_47.dll": {
+    "bytes": 4147544,
+    "sha256": "0ae6e52072857c3acfde53b98f56c3c6d9bd0e7b09f247ae7f40bfd451593c4c",
+    "pe_machine_hex": "0x14c"
+  },
+  "original_identity": "unverified; no original container or game-build provenance",
+  "input_asset": "04fc7f00bade5b4a-ps.txt",
+  "output_bytes": 2432,
+  "output_sha256": "ab620409f74f4a79109036b2546b95800efeb488cdf3589688e917ae8afe03ef",
+  "dxbc_header_version": 1,
+  "chunks": [
+    {
+      "fourcc": "ISGN",
+      "payload_bytes": 140,
+      "entries": 5
+    },
+    {
+      "fourcc": "OSGN",
+      "payload_bytes": 44,
+      "entries": 1
+    },
+    {
+      "fourcc": "SHEX",
+      "payload_bytes": 2180
+    }
+  ],
+  "host": "Wine; existing 3Dmigoto 1.4.9 x86 command-line helper and architecture-matched Microsoft d3dcompiler_47.dll, native-only override",
+  "assemble_exit": 0,
+  "flugan_roundtrip_exit": 0,
+  "microsoft_disassemble_exit": 0,
+  "microsoft_text_roundtrip_exit": 1,
+  "input_literal": "1.96078438e-02",
+  "input_float32_hex": "a1a0a03c",
+  "microsoft_printed_literal": "0.019608",
+  "printed_float32_hex": "f5a0a03c",
+  "source_asset_unchanged": true,
+  "limits": [
+    "One input only; no new local assembler built, no shader object creation or rendering validation, no future-host compatibility proof.",
+    "Flugan disassembly overwrites a same-basename staged .asm file; immutable inputs require separate directories.",
+    "MS default disassembly loses precision for this literal; strict text reassembly changes four code words."
+  ]
+}

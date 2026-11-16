@@ -1,0 +1,107 @@
+{
+  "scope": "Approved concrete D3D upload/draw fixture under Proton runtime and Steam Linux Runtime; not product DLL, EDUP or game integration.",
+  "source_checkpoint": "e86948eb",
+  "proton_version": "1791559474 proton-11.0-2e-x86_64",
+  "proton_launcher": {
+    "sha256": "a4f94c208355639c87877ba63e8faf1f26d8c0731db04f722dee66cdfcfbf478",
+    "bytes": 94468
+  },
+  "container": "Steam Linux Runtime sniper 3.0.20261021.266025; pressure-vessel 0.20261007.0",
+  "launch_mode": "SteamLinuxRuntime_sniper/run -- proton runinprefix EXE --allow-hardware, isolated compatibility prefix and runtime variable directory",
+  "native_dxvk_environment": {
+    "WINEDLLOVERRIDES": "d3d11,dxgi=n",
+    "PROTON_LOG": "1",
+    "SteamAppId": "0",
+    "SteamGameId": "0",
+    "display": "Xvfb"
+  },
+  "native_dxvk_routes": [
+    {
+      "bits": 32,
+      "status": "pass",
+      "dxvk_version": "v2.7.1-498-ga6764047e587178",
+      "adapter": "AMD Radeon Graphics (RADV STRIX_HALO)",
+      "driver": "RADV Mesa 26.0.8",
+      "files": {
+        "IniParamsUploadTests.exe": {
+          "sha256": "3c75a1933ab0f6aa8dfa5343e7cd1ed80f378950303f998c063bacaef0f2c7a1",
+          "bytes": 1466880,
+          "pe_machine_hex": "0x14c"
+        },
+        "d3d11.dll": {
+          "sha256": "e7c779aa601fce51a188325861e40fcd4b333be2ea28e139769ac0fa6a56ec81",
+          "bytes": 7139342,
+          "pe_machine_hex": "0x14c"
+        },
+        "dxgi.dll": {
+          "sha256": "1a1e111e77d1a32f8f6e3ef046804036d4ec9e701a86e9bb8e6eb30230642420",
+          "bytes": 5029902,
+          "pe_machine_hex": "0x14c"
+        }
+      },
+      "original_dxvk_files_unchanged": true
+    },
+    {
+      "bits": 64,
+      "status": "pass",
+      "dxvk_version": "v2.7.1-498-ga6764047e587178",
+      "adapter": "AMD Radeon Graphics (RADV STRIX_HALO)",
+      "driver": "RADV Mesa 26.0.8",
+      "files": {
+        "IniParamsUploadTests.exe": {
+          "sha256": "500a491754869e71839de7b1e1908338b262719af3da4124e72d2926f5ef7a22",
+          "bytes": 2570054,
+          "pe_machine_hex": "0x8664"
+        },
+        "d3d11.dll": {
+          "sha256": "04b5fb581e37c5e72cba2ad6993a38150d419ca5635bdfa365458b69e8865fac",
+          "bytes": 6270976,
+          "pe_machine_hex": "0x8664"
+        },
+        "dxgi.dll": {
+          "sha256": "45051464bb0f50bb14d4773b81c8743712624eb2273fae627fea4c14f535ff4b",
+          "bytes": 4468736,
+          "pe_machine_hex": "0x8664"
+        }
+      },
+      "original_dxvk_files_unchanged": true
+    }
+  ],
+  "builtin_routes": [
+    {
+      "bits": 64,
+      "status": "pass",
+      "reported_adapter": "NVIDIA GeForce GTX 470; not hardware coverage"
+    },
+    {
+      "bits": 32,
+      "status": "pass",
+      "reported_adapter": "NVIDIA GeForce GTX 470; not hardware coverage"
+    }
+  ],
+  "builtin_32bit_identity": "loaddll trace reports d3d11.dll, dxgi.dll and D3DCOMPILER_47.dll as builtin",
+  "host_wine_10_32bit_failure_resolved_by_route_change": true,
+  "exact_host_wine_failure_cause": "unresolved; Wine version, container and graphics route differ",
+  "initial_normal_launcher_attempt": "Exit code zero alone was excluded from positive evidence because assertion output was not captured. Direct runinprefix invocations require both zero exit and the exact helper pass marker.",
+  "no_game_or_present": true,
+  "remaining_gates": [
+    "Native MSVC product build and WARP",
+    "Full DLL proxy/wrapper tests on these backends",
+    "EDUP and installed-game validation",
+    "Future edo-next SDK/host and rendering output"
+  ],
+  "source_receipt": "draw-provenance.json",
+  "compile_arguments": [
+    "-std=c++17",
+    "-O2",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-I.",
+    "RuntimeTests/IniParamsUploadTests.cpp",
+    "-static",
+    "-ld3d11",
+    "-ldxgi",
+    "-ld3dcompiler"
+  ]
+}

@@ -1,0 +1,117 @@
+{
+  "scope": "Approved portable policy, inventory and concrete D3D adapter/draw cases; isolated source copies only. Native product wiring mutants remain unexecuted.",
+  "detected": 11,
+  "restored_clean_policy_inventory_and_d3d_pass": true,
+  "mutants": [
+    {
+      "mutant": "lost-failed-publication",
+      "exit_code": 1,
+      "detected": true,
+      "change": {
+        "file": "DirectX11/IniParamsPublication.h",
+        "before": "if (!upload())\n\t\t\treturn false;",
+        "after": "if (!upload()) { pending = false; return false; }"
+      }
+    },
+    {
+      "mutant": "never-acknowledged-publication",
+      "exit_code": 1,
+      "detected": true,
+      "change": {
+        "file": "DirectX11/IniParamsPublication.h",
+        "before": "pending = false;\n\t\treturn true;",
+        "after": "pending = true;\n\t\treturn true;"
+      }
+    },
+    {
+      "mutant": "invented-asset-digest",
+      "exit_code": 1,
+      "detected": true,
+      "change": {
+        "file": "scripts/inventory-edhm.py",
+        "before": "hashlib.sha256(data).hexdigest()",
+        "after": "\"0\" * 64"
+      }
+    },
+    {
+      "mutant": "invented-original-provenance",
+      "exit_code": 1,
+      "detected": true,
+      "change": {
+        "file": "scripts/inventory-edhm.py",
+        "before": "\"status\": \"unverified\"",
+        "after": "\"status\": \"verified\""
+      }
+    },
+    {
+      "mutant": "ignored-recursive-exclusion",
+      "exit_code": 1,
+      "detected": true,
+      "change": {
+        "file": "scripts/inventory-edhm.py",
+        "before": "if any(fnmatch.fnmatchcase",
+        "after": "if False and any(fnmatch.fnmatchcase"
+      }
+    },
+    {
+      "mutant": "lost-include-cycle-dedupe",
+      "exit_code": 1,
+      "detected": true,
+      "change": {
+        "file": "scripts/inventory-edhm.py",
+        "before": "if identity in self.seen_files:",
+        "after": "if False:"
+      }
+    },
+    {
+      "mutant": "counted-literal-zero-include",
+      "exit_code": 1,
+      "detected": true,
+      "change": {
+        "file": "scripts/inventory-edhm.py",
+        "before": "if value in (\"0\", \"0.0\"):",
+        "after": "if False:"
+      }
+    },
+    {
+      "mutant": "acknowledged-failed-Map",
+      "exit_code": 1,
+      "detected": true,
+      "change": {
+        "file": "DirectX11/IniParamsD3DUpload.h",
+        "before": "if (FAILED(result))\n\t\treturn result;",
+        "after": "if (FAILED(result))\n\t\treturn S_OK;"
+      }
+    },
+    {
+      "mutant": "partial-image-copy",
+      "exit_code": 1,
+      "detected": true,
+      "change": {
+        "file": "DirectX11/IniParamsD3DUpload.h",
+        "before": "row_count * sizeof(float) * 4",
+        "after": "sizeof(float) * 4"
+      }
+    },
+    {
+      "mutant": "discarded-first-draw-publication",
+      "exit_code": 1,
+      "detected": true,
+      "change": {
+        "file": "DirectX11/IniParamsD3DUpload.h",
+        "before": "D3D11_MAPPED_SUBRESOURCE mapped{};",
+        "after": "static unsigned ordinal = 0; if (++ordinal == 1) return S_OK; D3D11_MAPPED_SUBRESOURCE mapped{};"
+      }
+    },
+    {
+      "mutant": "inventory-writes-input",
+      "exit_code": 1,
+      "detected": true,
+      "change": {
+        "file": "scripts/inventory-edhm.py",
+        "before": "data = path.read_bytes()",
+        "after": "data = path.read_bytes(); path.write_bytes(data + b\"changed\")"
+      }
+    }
+  ]
+}

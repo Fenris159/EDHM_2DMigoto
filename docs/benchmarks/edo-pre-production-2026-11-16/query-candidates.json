@@ -1,0 +1,94 @@
+{
+  "scope": "Manual/source inspection of passive root candidates only; no evaluated branch, query-cost or safe-cache claim",
+  "root_sha256": "4cd59597cdfedf88654f0cdb91f3901afb1b895daac98bac82cadaf74d96dc51",
+  "adjacent_pairs": [
+    {
+      "target": "ps-t5",
+      "lines": [
+        526,
+        527
+      ],
+      "reuse_legality": "unverified",
+      "classification": "effectful_checktextureoverride_then_query"
+    },
+    {
+      "target": "ps-t0",
+      "lines": [
+        733,
+        734
+      ],
+      "reuse_legality": "unverified",
+      "classification": "assignment_then_query"
+    },
+    {
+      "target": "ps-t5",
+      "lines": [
+        1006,
+        1007
+      ],
+      "reuse_legality": "unverified",
+      "classification": "effectful_checktextureoverride_then_query"
+    },
+    {
+      "target": "ps-t6",
+      "lines": [
+        1020,
+        1021
+      ],
+      "reuse_legality": "unverified",
+      "classification": "effectful_checktextureoverride_then_query"
+    },
+    {
+      "target": "ps-t7",
+      "lines": [
+        1030,
+        1031
+      ],
+      "reuse_legality": "unverified",
+      "classification": "effectful_checktextureoverride_then_query"
+    },
+    {
+      "target": "ps-t0",
+      "lines": [
+        1187,
+        1188
+      ],
+      "reuse_legality": "unverified",
+      "classification": "effectful_checktextureoverride_then_query"
+    },
+    {
+      "target": "ps-t0",
+      "lines": [
+        1198,
+        1199
+      ],
+      "reuse_legality": "unverified",
+      "classification": "effectful_checktextureoverride_then_query"
+    },
+    {
+      "target": "ps-t0",
+      "lines": [
+        1209,
+        1210
+      ],
+      "reuse_legality": "unverified",
+      "classification": "effectful_checktextureoverride_then_query"
+    },
+    {
+      "target": "ps-t0",
+      "lines": [
+        1220,
+        1221
+      ],
+      "reuse_legality": "unverified",
+      "classification": "effectful_checktextureoverride_then_query"
+    }
+  ],
+  "effectful_pairs": 8,
+  "assignment_then_query_pairs": 1,
+  "runtime_evidence": [
+    "DirectX11/CommandList.cpp: CheckTextureOverrideCommand::run executes selected pre/post command lists.",
+    "DirectX11/CommandList.cpp: CommandListOperand::process_texture_filter performs target lookup and numeric matching."
+  ],
+  "recommendation": "Measure the single repeated-read example; treat effectful commands as conservative invalidation boundaries. Do not add a general cache solely from mention counts."
+}

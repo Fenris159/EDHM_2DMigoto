@@ -1,0 +1,44 @@
+{
+  "scope": "Concrete production upload adapter and publication policy with two real offscreen D3D11 draws, not product DLL hooks.",
+  "compiler": "MinGW GCC 13-posix",
+  "runtime": "Wine 10, built-in D3D11/DXGI, Xvfb; vendor identity is not hardware coverage",
+  "source_sha256": {
+    "RuntimeTests/IniParamsUploadTests.cpp": "18fe71291c89a548e2bffce587868d50ceb872915f266b7c79f2ac9684fcc941",
+    "RuntimeTests/D3DMapBoundary.h": "ce011b2c301f915926c038816e25b6146395b0af65129e9f26ce5445f2ccfd44",
+    "DirectX11/IniParamsPublication.h": "bbc6bfcd5e34e1c72cabefa87529241c155b58f526f60154915330c168087e8d",
+    "DirectX11/IniParamsD3DUpload.h": "4bb791f92c85d36f49a4a1e6e05d4c4503c845ab22afb827813d9addb789a673"
+  },
+  "executable_sha256": "500a491754869e71839de7b1e1908338b262719af3da4124e72d2926f5ef7a22",
+  "compiler_arguments": [
+    "-std=c++17",
+    "-O2",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-I.",
+    "RuntimeTests/IniParamsUploadTests.cpp",
+    "-static",
+    "-ld3d11",
+    "-ldxgi",
+    "-ld3dcompiler"
+  ],
+  "expected_final_pixels": [
+    [
+      9,
+      10,
+      11,
+      12
+    ],
+    [
+      40,
+      30,
+      20,
+      10
+    ]
+  ],
+  "passed": true,
+  "no_explicit_flush_or_readback_between_draws": true,
+  "discarded_first_publication_mutation_detected": true,
+  "native_windows_status": "not_run",
+  "source_checkpoint": "e86948eb"
+}
