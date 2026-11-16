@@ -61,7 +61,7 @@ def main():
         if args.edup:
             cases += ["edup-shutdown"]
     if args.d3d12_only:
-        cases = ["d3d12"]
+        cases = ["d3d12-hwnd", "d3d12-legacy", "d3d12-composition", "d3d12-corewindow"]
     records = []
     target_machine = pe_machine(inputs["exe"])
     try:
@@ -96,11 +96,12 @@ def main():
                 system = matching_version_library(args.system_root or Path(os.environ["SystemRoot"]), target_machine)
                 shutil.copy2(system, directory / "invalid.dll")
                 proxy = "invalid.dll"
+            device_settings = "[Device]\nwidth=640\nheight=480\n" if case.startswith("d3d12-") else ""
             (directory / "d3dx.ini").write_text(
                 "[System]\nload_library_redirect=0\nallow_platform_update=1\n"
                 f"proxy_d3d11={proxy}\n"
                 "[Hunting]\nhunting=0\n[Rendering]\nstereo_params=-1\nini_params=120\n"
-                "[Logging]\nenabled=1\ncalls=0\ndebug=0\n",
+                "[Logging]\nenabled=1\ncalls=0\ndebug=0\n" + device_settings,
                 encoding="utf-8",
             )
             command = [str(directory / "ProxyChainTests.exe"), case]
@@ -158,6 +159,10 @@ def main():
                                         and record["missing_exports_rejected"])
                 else:
                     record["passed"] = creations_ok
+            if case.startswith("d3d12-"):
+                log = (directory / "d3d11_log.txt").read_text(encoding="utf-8", errors="replace")
+                record["no_false_dx12_warning"] = "FATAL: Unsupported DirectX Version!" not in log
+                record["passed"] = record["passed"] and record["no_false_dx12_warning"]
             if "shutdown" in case:
                 completion = directory / "shutdown-complete.txt"
                 record["completion_bytes"] = completion.read_bytes().hex() if completion.is_file() else None
@@ -173,8 +178,10 @@ def main():
                                     and record["edup_device_attached"] and record["edup_present_active"])
                     record["passed"] = setup_ok and completion.is_file() and completion.read_bytes() == b""
             print(f"{'PASS' if record['passed'] else 'FAIL'} {case}: exit {completed.returncode}", flush=True)
-            if not record["passed"]:
+            if not record["passed"] and not args.d3d12_only:
                 raise RuntimeError(f"{case}: {completed.stdout}\n{completed.stderr}")
+        if args.d3d12_only and any(not record["passed"] for record in records):
+            raise RuntimeError("D3D12 helper swap-chain checks failed; see per-case evidence")
     finally:
         evidence = {
             "inputs": {
