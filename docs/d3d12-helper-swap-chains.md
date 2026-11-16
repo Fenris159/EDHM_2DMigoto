@@ -18,7 +18,8 @@ passes its queue and factory into XeFG initialization, then requests an
 
 All four factory creation hooks recognize a D3D12 command queue and forward the
 original arguments and result directly to DXGI, under the existing re-entry
-guard. They skip D3D11 descriptor overrides, window tracking, warning-device
+guard. Null device arguments also reach native DXGI validation instead of the
+legacy device lookup, which otherwise dereferences them. They skip D3D11 descriptor overrides, window tracking, warning-device
 creation and swap-chain wrapping. The temporary queue interface is released.
 D3D11 devices continue through their existing EDHM path. This policy leaves
 D3D12 helpers to their owner; it does not add D3D12 game rendering to EDHM.
@@ -34,7 +35,9 @@ The off-game product checks use real D3D12 WARP queues and DXGI factories.
 HWND, legacy and composition chains must retain `IDXGISwapChain4` and the
 requested 32 by 24 dimensions and two buffers despite D3D11 configuration
 overrides. An invalid CoreWindow call must preserve the result from native
-DXGI without producing the unsupported-DirectX warning. Further D3D11 creations
+DXGI without producing the unsupported-DirectX warning. Every API also checks
+null-device rejection against native DXGI before loading the product; the old
+path crashes with `0xc0000005` on both architectures. Further D3D11 creations
 in the same process must retain resource tracking. Existing rendered reload and
 GPU-constant checks protect the D3D11 configuration path.
 

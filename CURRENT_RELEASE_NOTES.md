@@ -10,6 +10,8 @@ Built from this repository's automated release workflow.
   without D3D11 overrides or wrappers. This preserves `IDXGISwapChain4` for
   EDUP's XeSS Frame Generation helper and avoids the false DirectX 12 warning
   and extra D3D11On12 device. D3D11 game swap chains retain EDHM behavior.
+  Null devices are also passed to native DXGI validation rather than the
+  legacy device lookup, preventing an access violation on invalid calls.
   Thanks to [Duceowen for the report and patch](https://github.com/Fenris159/EDHM_2DMigoto/issues/52).
 
 ### Added
