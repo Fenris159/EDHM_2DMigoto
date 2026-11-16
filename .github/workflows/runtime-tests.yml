@@ -195,8 +195,8 @@ jobs:
             .quality/proxy-chain/${{ matrix.platform }}/**/results.json
             .quality/proxy-chain/${{ matrix.platform }}/**/shutdown-complete.txt
             .quality/proxy-chain/${{ matrix.platform }}/candidate-d3d11.dll
-            x64/Release/3Dmigoto.pdb
-            x64/Release/d3d11.map
+            ${{ matrix.platform == 'Win32' && 'x32' || 'x64' }}/Release/3Dmigoto.pdb
+            ${{ matrix.platform == 'Win32' && 'x32' || 'x64' }}/Release/d3d11.map
             .quality/proxy-chain/${{ matrix.platform }}/ProxyChainTests.exe
             .quality/proxy-chain/${{ matrix.platform }}/ProxyChainFixture.dll
             .quality/proxy-chain/${{ matrix.platform }}/**/stdout.txt
