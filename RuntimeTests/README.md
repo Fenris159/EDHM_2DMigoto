@@ -76,6 +76,20 @@ fails without EDHM loaded, so that backend behavior is excluded from this test.
 See [the lifecycle rationale](../docs/resource-registry-shutdown.md).
 CPU timing is never a regression threshold.
 
+## D3D12 helper swap chains
+
+`run_proxy_chain_tests.py --d3d12-only` exercises the actual DLL on Windows with
+real D3D12 WARP queues. HWND, legacy and composition chains must expose
+`IDXGISwapChain4` and retain the requested 32 by 24 dimensions and two buffers
+with D3D11 width/height overrides enabled. The CoreWindow case uses an invalid
+window and compares its HRESULT to native DXGI before loading the product.
+Each API also checks null-device failure against native DXGI before loading
+the product. None of these helper calls may report an unsupported DirectX version.
+D3D11 buffer tracking must survive subsequent device/swap-chain creations in
+the same process. The Windows runtime workflow runs these cases on both
+architectures; they require D3D12 and do not present frames or run XeFG.
+[Policy, reproduction and limits](../docs/d3d12-helper-swap-chains.md).
+
 ## Product DLL proxy chaining
 
 `ProxyChainTests.vcxproj` builds a small caller and, with
