@@ -152,24 +152,24 @@ thread_local HackerSwapChain *proxy_frame_chain;
 class ProxyFrame
 {
 	HackerSwapChain *chain = nullptr;
+	HackerSwapChain *previous_chain = nullptr;
 	bool profiling = false;
 	bool active = false;
 
   public:
 	ProxyFrame(IUnknown *object, UINT flags)
 	{
-		if (proxy_frame_chain)
-			return;
 		HackerSwapChain *candidate = nullptr;
 		if (FAILED(object->QueryInterface(IID_EdhmProxyFrame, reinterpret_cast<void **>(&candidate))) || !candidate)
 			return;
 		chain = candidate;
+		previous_chain = proxy_frame_chain;
 		proxy_frame_chain = chain;
 		// Even a rejected/test/secondary outer call must suppress any saved
 		// Present it forwards to another thread. Eligibility to run commands is
 		// separate from the lifetime of that forwarding scope.
 		chain->EnterProxyFrame();
-		active = !(flags & DXGI_PRESENT_TEST) && chain->AcquireProxyFrameOwner();
+		active = !previous_chain && !(flags & DXGI_PRESENT_TEST) && chain->AcquireProxyFrameOwner();
 	}
 	void begin()
 	{
@@ -187,7 +187,7 @@ class ProxyFrame
 	{
 		if (!chain)
 			return;
-		proxy_frame_chain = nullptr;
+		proxy_frame_chain = previous_chain;
 		chain->LeaveProxyFrame();
 		chain->Release();
 	}
