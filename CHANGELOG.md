@@ -14,6 +14,12 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 ## [Unreleased]
 
+### Fixed
+
+- Scope forwarded-Present suppression to its swap-chain wrapper, allowing an
+  independent primary frame to progress while another device has an in-flight
+  secondary proxy call.
+
 ### Planned
 
 - Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
