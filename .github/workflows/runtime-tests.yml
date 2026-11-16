@@ -70,6 +70,24 @@ jobs:
             -property:Configuration=Release "-property:Platform=$env:TEST_PLATFORM" `
             -property:EdhmStrictBuild=true -nodeReuse:false -verbosity:minimal -restore:false
           if ($LASTEXITCODE -ne 0) { throw 'Reload notification fixture build failed' }
+          foreach ($fixture in @('false', 'true')) {
+            & msbuild RuntimeTests/ProxyFrameTests.vcxproj -target:Build `
+              -property:Configuration=Release "-property:Platform=$env:TEST_PLATFORM" `
+              "-property:EdhmFrameFixture=$fixture" -property:EdhmStrictBuild=true `
+              -nodeReuse:false -verbosity:minimal -restore:false
+            if ($LASTEXITCODE -ne 0) { throw "Frame proxy fixture build failed: $fixture" }
+          }
+      - name: Check game frame actions through a suppressing Present proxy
+        shell: pwsh
+        env:
+          TEST_PLATFORM: ${{ matrix.platform }}
+        run: |
+          $bin = ".quality/proxy-frame/$env:TEST_PLATFORM"
+          $product = if ($env:TEST_PLATFORM -eq 'Win32') { 'x32' } else { 'x64' }
+          & python RuntimeTests/run_proxy_frame_tests.py --dll "$product/Release/d3d11.dll" `
+            --exe "$bin/ProxyFrameTests.exe" --fixture "$bin/FrameProxyFixture.dll" `
+            --output "$bin/candidate-results"
+          if ($LASTEXITCODE -ne 0) { throw 'Proxy frame actions failed' }
       - name: Obtain pinned EDUP release for the x64 integration check
         if: matrix.platform == 'x64'
         shell: pwsh

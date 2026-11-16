@@ -71,6 +71,131 @@
 #include "CommandList.h"
 #include "profiling.h"
 #include "cursor.h" // For InstallHookLate
+#include "DLLMainHook.h"
+
+// -----------------------------------------------------------------------------
+// EDUP can replace the wrapper's Present and never call the saved method. Hook
+// that replacement rather than treating D3D12 presents or buffer reads as frame
+// ticks. Generated frames and repeated GetBuffer calls are not game frames.
+namespace
+{
+using ProxyPresent = HRESULT(STDMETHODCALLTYPE *)(IDXGISwapChain *, UINT, UINT);
+using ProxyPresent1 = HRESULT(STDMETHODCALLTYPE *)(IDXGISwapChain1 *, UINT, UINT, const DXGI_PRESENT_PARAMETERS *);
+ProxyPresent proxy_present;
+ProxyPresent1 proxy_present1;
+void *proxy_target;
+void *proxy_target1;
+SRWLOCK proxy_hook_lock = SRWLOCK_INIT;
+std::atomic<HackerSwapChain *> proxy_frame_owner{nullptr};
+thread_local HackerSwapChain *proxy_frame_chain;
+
+class ProxyFrame
+{
+	HackerSwapChain *chain = nullptr;
+	bool ran = false;
+
+  public:
+	explicit ProxyFrame(IUnknown *object, UINT flags)
+	{
+		if (proxy_frame_chain || FAILED(object->QueryInterface(IID_EdhmProxyFrame, reinterpret_cast<void **>(&chain))))
+			return;
+		proxy_frame_chain = chain;
+		if (!(flags & DXGI_PRESENT_TEST))
+			ran = chain->BeginProxyFrame();
+	}
+	~ProxyFrame()
+	{
+		if (!chain)
+			return;
+		if (ran)
+			chain->EndProxyFrame();
+		proxy_frame_chain = nullptr;
+		chain->Release();
+	}
+	ProxyFrame(const ProxyFrame &) = delete;
+	ProxyFrame &operator=(const ProxyFrame &) = delete;
+};
+
+HRESULT STDMETHODCALLTYPE ProxyPresentBoundary(IDXGISwapChain *chain, UINT interval, UINT flags)
+{
+	ProxyFrame frame(chain, flags);
+	return proxy_present(chain, interval, flags);
+}
+
+HRESULT STDMETHODCALLTYPE ProxyPresent1Boundary(IDXGISwapChain1 *chain, UINT interval, UINT flags,
+                                                const DXGI_PRESENT_PARAMETERS *parameters)
+{
+	ProxyFrame frame(chain, flags);
+	return proxy_present1(chain, interval, flags, parameters);
+}
+
+void *allocation_base(const void *address)
+{
+	MEMORY_BASIC_INFORMATION memory{};
+	return VirtualQuery(address, &memory, sizeof(memory)) ? memory.AllocationBase : nullptr;
+}
+} // namespace
+
+void HackerSwapChain::ObserveProxyPresent()
+{
+	auto **table = *reinterpret_cast<void ***>(this);
+	void *own_module = allocation_base(reinterpret_cast<void *>(&ProxyPresentBoundary));
+	void *target = table[8];
+	void *target1 = table[22];
+	if (allocation_base(target) == own_module && allocation_base(target1) == own_module)
+		return;
+	AcquireSRWLockExclusive(&proxy_hook_lock);
+	if (!proxy_target && allocation_base(target) != own_module)
+	{
+		SIZE_T id = 0;
+		DWORD error = cHookMgr.Hook(&id, reinterpret_cast<void **>(&proxy_present), target,
+		                            reinterpret_cast<void *>(&ProxyPresentBoundary), 0);
+		if (error == ERROR_SUCCESS)
+		{
+			proxy_target = target;
+			LogInfo("Outer proxy Present frame boundary installed\n");
+		}
+		else
+			LogInfo("*** Outer proxy Present hook failed: %lu\n", error);
+	}
+	if (!proxy_target1 && allocation_base(target1) != own_module)
+	{
+		SIZE_T id = 0;
+		DWORD error = cHookMgr.Hook(&id, reinterpret_cast<void **>(&proxy_present1), target1,
+		                            reinterpret_cast<void *>(&ProxyPresent1Boundary), 0);
+		if (error == ERROR_SUCCESS)
+		{
+			proxy_target1 = target1;
+			LogInfo("Outer proxy Present1 frame boundary installed\n");
+		}
+		else
+			LogInfo("*** Outer proxy Present1 hook failed: %lu\n", error);
+	}
+	ReleaseSRWLockExclusive(&proxy_hook_lock);
+}
+
+bool HackerSwapChain::BeginProxyFrame()
+{
+	DWORD thread = mFrameThread.load(std::memory_order_relaxed);
+	if (!thread)
+		mFrameThread.compare_exchange_strong(thread, GetCurrentThreadId(), std::memory_order_relaxed);
+	if (thread && thread != GetCurrentThreadId())
+		return false;
+	HackerSwapChain *owner = nullptr;
+	proxy_frame_owner.compare_exchange_strong(owner, this, std::memory_order_relaxed);
+	if (owner && owner != this)
+		return false;
+	if (G->track_region_hashes)
+		ClearRegionHashesGlobalCache();
+	RunFrameActions();
+	return true;
+}
+
+void HackerSwapChain::EndProxyFrame()
+{
+	G->bb_is_upscaling_bb = !!G->SCREEN_UPSCALING && G->upscaling_command_list_using_explicit_bb_flip;
+	RunCommandList(mHackerDevice, mHackerContext, &G->post_present_command_list, nullptr, true);
+}
 
 // -----------------------------------------------------------------------------
 // SetWindowPos hook, activated by full_screen=2 in d3dx.ini
@@ -379,6 +504,14 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
                                                  /* [in] */ REFIID riid,
                                              /* [iid_is][out] */ _COM_Outptr_ void __RPC_FAR * __RPC_FAR * ppvObject)
 {
+	if (riid == IID_EdhmProxyFrame)
+	{
+		if (!ppvObject)
+			return E_POINTER;
+		*ppvObject = this;
+		AddRef();
+		return S_OK;
+	}
 	LogInfo("HackerSwapChain::QueryInterface(%s@%p) called with IID: %s\n", type_name(this), this,
 	        NameFromIID(riid).c_str());
 
@@ -462,6 +595,8 @@ STDMETHODIMP_(ULONG) HackerSwapChain::Release(THIS)
 
 	if (ulRef <= 0)
 	{
+		HackerSwapChain *owner = this;
+		proxy_frame_owner.compare_exchange_strong(owner, nullptr, std::memory_order_relaxed);
 		if (mHackerDevice)
 		{
 			if (mHackerDevice->GetHackerSwapChain() == this)
@@ -620,6 +755,10 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
                                           /* [in] */ UINT SyncInterval,
                                       /* [in] */ UINT Flags)
 {
+	if (proxy_frame_chain == this)
+		return mOrigSwapChain1->Present(SyncInterval, Flags);
+	DWORD thread = 0;
+	mFrameThread.compare_exchange_strong(thread, GetCurrentThreadId(), std::memory_order_relaxed);
 	Profiling::State profiling_state = {0};
 	bool profiling = false;
 
@@ -704,6 +843,7 @@ STDMETHODIMP HackerSwapChain::GetBuffer(THIS_
 {
 	LogDebug("HackerSwapChain::GetBuffer(%s@%p) called with IID: %s\n", type_name(this), this,
 	         NameFromIID(riid).c_str());
+	ObserveProxyPresent();
 
 	HRESULT hr = mOrigSwapChain1->GetBuffer(Buffer, riid, ppSurface);
 	LogDebug("  returns %x\n", hr);
@@ -961,6 +1101,10 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
                                        /* [annotation][in] */
                                        _In_ const DXGI_PRESENT_PARAMETERS *pPresentParameters)
 {
+	if (proxy_frame_chain == this)
+		return mOrigSwapChain1->Present1(SyncInterval, PresentFlags, pPresentParameters);
+	DWORD thread = 0;
+	mFrameThread.compare_exchange_strong(thread, GetCurrentThreadId(), std::memory_order_relaxed);
 	Profiling::State profiling_state = {0};
 	bool profiling = false;
 
