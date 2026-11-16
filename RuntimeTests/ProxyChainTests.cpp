@@ -1,5 +1,7 @@
 #include <windows.h>
 #include <d3d11.h>
+#include <d3d12.h>
+#include <dxgi1_6.h>
 #include <wrl/client.h>
 
 #include <cstdio>
@@ -55,6 +57,42 @@ void check_device(ID3D11Device *device, UINT wanted)
 	D3D11_BUFFER_DESC actual = {};
 	buffer->GetDesc(&actual);
 	require(actual.ByteWidth == 64, "wrapped resource descriptor changed");
+}
+
+void check_d3d12_swap_chain(HWND window)
+{
+	auto create_factory =
+	    exported<HRESULT(WINAPI *)(UINT, REFIID, void **)>(load_system(L"dxgi.dll"), "CreateDXGIFactory2");
+	ComPtr<IDXGIFactory4> factory;
+	require(SUCCEEDED(create_factory(0, IID_PPV_ARGS(&factory))), "D3D12 factory creation failed");
+	ComPtr<IDXGIAdapter> warp;
+	require(SUCCEEDED(factory->EnumWarpAdapter(IID_PPV_ARGS(&warp))), "D3D12 WARP adapter unavailable");
+	auto create_device = exported<decltype(&D3D12CreateDevice)>(load_system(L"d3d12.dll"), "D3D12CreateDevice");
+	ComPtr<ID3D12Device> device;
+	require(SUCCEEDED(create_device(warp.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device))),
+	        "D3D12 WARP device creation failed");
+	D3D12_COMMAND_QUEUE_DESC queue_desc{};
+	queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+	ComPtr<ID3D12CommandQueue> queue;
+	require(SUCCEEDED(device->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&queue))),
+	        "D3D12 direct queue creation failed");
+	DXGI_SWAP_CHAIN_DESC1 description{};
+	description.Width = 32;
+	description.Height = 24;
+	description.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	description.SampleDesc.Count = 1;
+	description.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	description.BufferCount = 2;
+	description.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	ComPtr<IDXGISwapChain1> swap;
+	require(SUCCEEDED(factory->CreateSwapChainForHwnd(queue.Get(), window, &description, nullptr, nullptr, &swap)),
+	        "D3D12 HWND swap-chain creation failed");
+	ComPtr<IDXGISwapChain4> modern;
+	const HRESULT result = swap.As(&modern);
+	if (FAILED(result))
+		std::fprintf(stderr, "D3D12 IDXGISwapChain4 query returned 0x%08lx\n", static_cast<unsigned long>(result));
+	require(SUCCEEDED(result) && modern != nullptr, "D3D12 helper swap chain lost IDXGISwapChain4");
+	std::printf("PASS D3D12 HWND swap chain retains IDXGISwapChain4\n");
 }
 
 void run(const char *mode)
@@ -143,6 +181,8 @@ void run(const char *mode)
 			require(SUCCEEDED(hr), "device creation failed");
 		}
 		check_device(device.Get(), wanted);
+		if (std::strcmp(mode, "d3d12") == 0 && pass == 0)
+			check_d3d12_swap_chain(window);
 		if (shutdown)
 		{
 			auto retain = exported<HRESULT(WINAPI *)(ID3D11Device *)>(retainer, "RetainResources");

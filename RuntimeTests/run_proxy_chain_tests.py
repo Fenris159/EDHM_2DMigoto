@@ -41,6 +41,7 @@ def main():
     controls.add_argument("--expect-bypass", action="store_true")
     controls.add_argument("--expect-downstream-bypass", action="store_true")
     controls.add_argument("--shutdown-only", action="store_true")
+    controls.add_argument("--d3d12-only", action="store_true")
     parser.add_argument("--expect-shutdown-failure", action="store_true")
     args = parser.parse_args()
     if args.expect_shutdown_failure and not args.shutdown_only:
@@ -59,6 +60,8 @@ def main():
         cases = ["standalone-shutdown", "chain-shutdown", "standalone-unload"]
         if args.edup:
             cases += ["edup-shutdown"]
+    if args.d3d12_only:
+        cases = ["d3d12"]
     records = []
     target_machine = pe_machine(inputs["exe"])
     try:
@@ -180,6 +183,7 @@ def main():
             },
             "expected_bypass": args.expect_bypass,
             "shutdown_only": args.shutdown_only,
+            "d3d12_only": args.d3d12_only,
             "expected_shutdown_failure": args.expect_shutdown_failure,
             "expected_downstream_bypass": args.expect_downstream_bypass,
             "target_machine": target_machine,
