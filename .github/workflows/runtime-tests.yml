@@ -11,6 +11,10 @@ on:
         description: Deliberately break each repaired behavior and verify detection
         type: boolean
         default: false
+      proxy_frame_mutations:
+        description: Verify frame-action assertions by breaking and restoring the product DLL
+        type: boolean
+        default: false
       mechanism_benchmarks:
         description: Capture interpreter and WARP view CPU mechanism measurements
         type: boolean
@@ -230,6 +234,9 @@ jobs:
               --output ".quality/proxy-chain/x64/baseline-$($control.label)-results" @extra
             if ($LASTEXITCODE -ne 0) { throw 'Pre-fix bypass was not detected' }
           }
+      - name: Verify proxy frame regression sensitivity
+        if: inputs.proxy_frame_mutations && matrix.platform == 'x64'
+        run: python RuntimeTests/check_proxy_frame_mutations.py
       - name: Upload proxy-chain evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -237,6 +244,7 @@ jobs:
           name: proxy-chain-evidence-${{ matrix.platform }}-${{ github.sha }}
           path: |
             .quality/proxy-frame/${{ matrix.platform }}/
+            .quality/proxy-frame-mutations/
             .quality/proxy-chain/${{ matrix.platform }}/**/results.json
             .quality/proxy-chain/${{ matrix.platform }}/**/shutdown-complete.txt
             .quality/proxy-chain/${{ matrix.platform }}/candidate-d3d11.dll

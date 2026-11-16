@@ -195,6 +195,7 @@ void run(bool hardware, bool controls, bool modern)
 	        "second chain creation failed");
 	require(SUCCEEDED(present(other.Get(), 0, modern)), "other chain Present failed");
 	values(device.Get(), context.Get(), 6, 6);
+	values(other_device.Get(), other_context.Get(), 6, 6);
 	other.Reset();
 	other_context.Reset();
 	other_device.Reset();

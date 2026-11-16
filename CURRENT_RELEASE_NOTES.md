@@ -1,24 +1,26 @@
-## EDHM_2DMigoto 0.1.7
+## EDHM_2DMigoto 0.1.8
 
 Package build for Elite Dangerous HUD Mod (EDHM).
 Built from this repository's automated release workflow.
-## [0.1.7] - 2026-11-15
+## [0.1.8] - 2026-11-16
 
 ### Fixed
 
-- Pass D3D12 command-queue swap chains through all four DXGI creation APIs
-  without D3D11 overrides or wrappers. This preserves `IDXGISwapChain4` for
-  EDUP's XeSS Frame Generation helper and avoids the false DirectX 12 warning
-  and extra D3D11On12 device. D3D11 game swap chains retain EDHM behavior.
-  Null devices are also passed to native DXGI validation rather than the
-  legacy device lookup, preventing an access violation on invalid calls.
-  Thanks to [Duceowen for the report and patch](https://github.com/Fenris159/EDHM_2DMigoto/issues/52).
+- Restore EDHM frame actions when EDUP replaces the game's D3D11 Present for
+  XeSS Frame Generation: hotkeys, presets, transitions, `[Present]` commands,
+  post commands and configuration reload keep running on the established game
+  presentation thread. Observe the outer proxy's actual Present boundary;
+  generated frames and repeated buffer reads do not advance EDHM's frame state.
+  Normal presentation resumes without duplicate actions. Native D3D12 helper
+  swap chains retain the 0.1.7 pass-through fix. Thanks to
+  [Duceowen's follow-up report and proposed recovery patch](https://github.com/Fenris159/EDHM_2DMigoto/issues/52#issuecomment-6908828546).
 
 ### Added
 
-- Off-game D3D12 WARP checks for native swap-chain interfaces and dimensions,
-  unchanged creation failures, warning-free helper initialization, and D3D11
-  resource tracking after helper calls. The 0.1.6 code reproduces the reported
-  `0x80004002` interface failure on x64 and Win32.
+- Product-DLL regression probes for a third-party Present replacement, including
+  zero-draw frames, hotkeys, timed preset transitions, reload, failure cleanup,
+  foreign threads, secondary chains and swap-chain recreation. Both Present
+  APIs are exercised off-game; the published 0.1.7 DLL is a starvation control.
+  These checks do not establish in-game XeSS output or FPS gains.
 ---
 Full project history: [CHANGELOG.md](https://github.com/Fenris159/EDHM_2DMigoto/blob/HEAD/CHANGELOG.md)

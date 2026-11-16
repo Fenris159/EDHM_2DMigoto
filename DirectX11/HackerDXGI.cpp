@@ -106,24 +106,13 @@ class ProxyFrame
 	{
 		if (!chain || (flags & DXGI_PRESENT_TEST))
 			return;
-		Profiling::State state{};
-		profiling = Profiling::mode == Profiling::Mode::SUMMARY;
-		if (profiling)
-			Profiling::start(&state);
-		ran = chain->BeginProxyFrame();
-		if (profiling)
-			Profiling::end(&state, &Profiling::present_overhead);
+		ran = chain->BeginProxyFrame(profiling);
 	}
 	void finish()
 	{
 		if (!ran)
 			return;
-		Profiling::State state{};
-		if (profiling)
-			Profiling::start(&state);
-		chain->EndProxyFrame();
-		if (profiling)
-			Profiling::end(&state, &Profiling::present_overhead);
+		chain->EndProxyFrame(profiling);
 	}
 	~ProxyFrame()
 	{
@@ -211,7 +200,7 @@ void HackerSwapChain::ObserveProxyPresent()
 	mObservedPresent1.store(target1, std::memory_order_release);
 }
 
-bool HackerSwapChain::BeginProxyFrame()
+bool HackerSwapChain::BeginProxyFrame(bool &profiling)
 {
 	DWORD thread = mFrameThread.load(std::memory_order_relaxed);
 	if (!thread)
@@ -222,16 +211,27 @@ bool HackerSwapChain::BeginProxyFrame()
 	proxy_frame_owner.compare_exchange_strong(owner, this, std::memory_order_relaxed);
 	if (owner && owner != this)
 		return false;
+	Profiling::State state{};
+	profiling = Profiling::mode == Profiling::Mode::SUMMARY;
+	if (profiling)
+		Profiling::start(&state);
 	if (G->track_region_hashes)
 		ClearRegionHashesGlobalCache();
 	RunFrameActions();
+	if (profiling)
+		Profiling::end(&state, &Profiling::present_overhead);
 	return true;
 }
 
-void HackerSwapChain::EndProxyFrame()
+void HackerSwapChain::EndProxyFrame(bool profiling)
 {
+	Profiling::State state{};
+	if (profiling)
+		Profiling::start(&state);
 	G->bb_is_upscaling_bb = !!G->SCREEN_UPSCALING && G->upscaling_command_list_using_explicit_bb_flip;
 	RunCommandList(mHackerDevice, mHackerContext, &G->post_present_command_list, nullptr, true);
+	if (profiling)
+		Profiling::end(&state, &Profiling::present_overhead);
 }
 
 // -----------------------------------------------------------------------------
@@ -1393,6 +1393,7 @@ STDMETHODIMP HackerUpscalingSwapChain::GetBuffer(THIS_
 	LogDebug("HackerUpscalingSwapChain::GetBuffer(%s@%p) called with IID: %s\n", type_name(this), this,
 	         NameFromIID(riid).c_str());
 
+	ObserveProxyPresent();
 	HRESULT hr = S_OK;
 
 	// if upscaling is on give the game fake back buffer
