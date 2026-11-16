@@ -5,6 +5,7 @@
 #include <limits>
 #include <memory>
 #include <new>
+#include <type_traits>
 #include <stdlib.h>
 #include "log.h"
 #include "util.h"
@@ -1273,6 +1274,7 @@ namespace
 // Globals and other DLLs' CRT state have been torn down. Read only on a
 // tracker's final release, never on the draw/resource-lookup fast paths.
 std::atomic<bool> resource_registry_active{true};
+static_assert(std::is_trivially_destructible_v<decltype(resource_registry_active)>);
 }
 
 void RetireResourceRegistry() noexcept

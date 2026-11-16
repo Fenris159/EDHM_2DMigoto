@@ -18,6 +18,25 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 - Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
 
+## [0.1.6] - 2026-11-15
+
+### Fixed
+
+- Prevent quit-time crashes when EDUP or another D3D owner releases tracked
+  resources after the runtime's global resource registry has been destroyed.
+  Retire registry callbacks before global-member destruction and at DLL detach;
+  late final releases avoid the retired registry and its lock while normal
+  resource cleanup continues during play.
+
+### Added
+
+- Shutdown regression checks for live metadata cleanup, final release after
+  actual registry destruction, retained buffers/views across standalone and
+  chained DLL teardown, official EDUP 0.22.2, and ordinary unload after object
+  release. These use off-game child processes and WARP.
+- Matching PDB and map files for optimized release builds, with a checksummed
+  symbols ZIP containing the exact DLL and provenance for later crash analysis.
+
 ## [0.1.5] - 2026-11-15
 
 ### Added

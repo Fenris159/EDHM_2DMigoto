@@ -26,7 +26,7 @@ bounds, CB ranges, and INI/optimizer ordering and reload semantics. A real devic
 boundary records submitted buffer descriptors and can fail staging allocation;
 this catches errors that WARP normalizes in a completed buffer description.
 
-The 58 cases also cover monitor-mode/window/reload transitions and recursive or
+The 60 cases also cover monitor-mode/window/reload transitions and recursive or
 shared command counts; summary-only matching/view diagnostics; hash-first and
 ordered dual matching; documented expression operators; all four view kinds,
 resource/descriptor/raw/override fallbacks, changing `this` targets, warm-cache
@@ -61,6 +61,14 @@ changes required binding flags. Expiring aliases check actual SRV/UAV capability
 and data in both operand orders, without assuming an evaluation order.
 Spatial and FIFO copies keep their resolved destination key after an intervening
 same-pool source lookup, without evaluating the destination index again.
+The shutdown checks keep a tracked resource alive through a view, then require
+its live metadata to disappear on final release. The retirement case destroys an
+actual `Globals` owner and protects its storage against reads before releasing
+the resource. It runs last in the all-cases executable because retirement is
+irreversible; CI runs each case in its own process. Product-DLL child processes
+also keep buffers/views in an earlier-loaded fixture so their final releases
+occur after product teardown. Standalone, fixture-chain and official EDUP 0.22.2
+paths must exit cleanly; ordinary unload releases every object first.
 CPU timing is never a regression threshold.
 
 ## Product DLL proxy chaining
@@ -146,7 +154,7 @@ python RuntimeTests/run_reload_notification_tests.py --dll x64/Release/d3d11.dll
 ```
 
 The manual **Runtime regression checks** workflow accepts `mutation_checks=true`.
-The 58 cases have 63 deliberate breaks: the expiring-alias case independently
+The 60 cases have 66 deliberate breaks: the expiring-alias case independently
 breaks resource-creation metadata and reuse of the resolved destination, and the
 zero-frame case independently breaks command measurements while retaining their
 registration. Mutation labels distinguish the runs invoking the same native case.

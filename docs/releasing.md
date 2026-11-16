@@ -96,6 +96,17 @@ URL to discover stable updates independently of the cache PR. Verify the
 manifest version, tag, channel, size and SHA256 against the published asset
 before updating either vendor folder.
 
+## Crash symbols
+
+Optimized Release and Zip Release builds emit `3Dmigoto.pdb` and `d3d11.map`
+while retaining COMDAT folding and reference optimization. Each release also
+publishes `EDHM_2DMigoto-<tag>-x64-symbols.zip` and its SHA256. The ZIP contains
+the exact built DLL, PDB, map, runtime provenance manifest and license notices.
+The same PDB matches both runtime filenames because their DLL bytes are
+identical. Keep the matching binary and symbols when investigating a dump;
+rebuilding the same source does not guarantee a matching PDB identity.
+The ordinary runtime ZIP remains the installation package.
+
 ## CI
 
 **Actions → CI** runs when work lands on **`main`** (push or PR targeting `main`, typically after merging `develop`), plus **workflow_dispatch**:

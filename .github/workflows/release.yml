@@ -266,6 +266,23 @@ jobs:
 
           Compress-Archive -Path $zipFiles -DestinationPath $zipPath -Force
 
+          # Retain the exact binary/symbol pair independently of Actions retention.
+          foreach ($symbol in @('3Dmigoto.pdb', 'd3d11.map')) {
+            $source = Join-Path $outDir $symbol
+            if (-not (Test-Path $source) -or (Get-Item $source).Length -eq 0) {
+              throw "Build did not produce matching diagnostic symbols: $source"
+            }
+            Copy-Item $source (Join-Path 'dist' $symbol) -Force
+          }
+          $symbolsName = "EDHM_2DMigoto-$tag-x64-symbols.zip"
+          $symbolsPath = Join-Path 'dist' $symbolsName
+          $symbolsFiles = @('dist\d3d11.dll', 'dist\3Dmigoto.pdb', 'dist\d3d11.map', 'dist\edup-runtime.json')
+          foreach ($notice in $noticeSources) { $symbolsFiles += "dist\$($notice.dst)" }
+          Compress-Archive -Path $symbolsFiles -DestinationPath $symbolsPath -Force
+          Get-FileHash $symbolsPath -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $symbolsName" } |
+            Set-Content "dist\$symbolsName.sha256" -Encoding ascii
+
           # Checksums
           Get-FileHash $zipPath -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  $zipName" } |
