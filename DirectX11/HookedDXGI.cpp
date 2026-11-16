@@ -116,11 +116,33 @@ out:
 	return dev_wrap;
 }
 
+// Swap chains created on an ID3D12CommandQueue are never rendered by the
+// DirectX 11 game. They come from DX12 tools that share the process, such as a
+// d3d11 proxy doing XeSS frame generation. Wrapping them in HackerSwapChain
+// hides IDXGISwapChain4 and breaks those tools, so pass them straight through.
+static bool is_d3d12_swap_chain_device(IUnknown *unknown_device)
+{
+	ID3D12CommandQueue *d3d12_queue = nullptr;
+
+	if (!unknown_device)
+		return false;
+	if (FAILED(unknown_device->QueryInterface(IID_ID3D12CommandQueue, (void **)&d3d12_queue)) || !d3d12_queue)
+		return false;
+
+	d3d12_queue->Release();
+	return true;
+}
+
 #else
 
 static HackerDevice *prepare_devices_for_dx12_warning(IUnknown *unknown_device)
 {
 	return nullptr;
+}
+
+static bool is_d3d12_swap_chain_device(IUnknown *)
+{
+	return false;
 }
 
 #endif
@@ -559,6 +581,16 @@ HRESULT __stdcall Hooked_CreateSwapChainForHwnd(IDXGIFactory2 *This,
 		// No known cases
 		return fnOrigCreateSwapChainForHwnd(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput,
 		                                    ppSwapChain);
+	}
+
+	if (is_d3d12_swap_chain_device(pDevice))
+	{
+		LogInfo("IDXGIFactory2::CreateSwapChainForHwnd with ID3D12CommandQueue, passing through unwrapped\n");
+		get_tls()->hooking_quirk_protection = true;
+		HRESULT hr =
+		    fnOrigCreateSwapChainForHwnd(This, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
+		get_tls()->hooking_quirk_protection = false;
+		return hr;
 	}
 
 	HackerDevice *hackerDevice = nullptr;
