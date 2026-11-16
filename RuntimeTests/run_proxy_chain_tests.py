@@ -164,8 +164,11 @@ def main():
                     # Creation and the opened receipt prove setup succeeded.
                     # Windows can suppress an exception during process teardown,
                     # so an exit code alone is insufficient for this control.
-                    record["passed"] = (completed_creations == 1 and completion.is_file()
-                                        and completion.read_bytes() == b"")
+                    setup_ok = completed_creations == 1
+                    if case.startswith("edup"):
+                        setup_ok = (setup_ok and record["edup_chain_selected"]
+                                    and record["edup_device_attached"] and record["edup_present_active"])
+                    record["passed"] = setup_ok and completion.is_file() and completion.read_bytes() == b""
             print(f"{'PASS' if record['passed'] else 'FAIL'} {case}: exit {completed.returncode}", flush=True)
             if not record["passed"]:
                 raise RuntimeError(f"{case}: {completed.stdout}\n{completed.stderr}")
