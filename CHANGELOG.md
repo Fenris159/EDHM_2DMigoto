@@ -14,6 +14,12 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 ## [Unreleased]
 
+### Fixed
+
+- Scope forwarded-Present suppression to its swap-chain wrapper, allowing an
+  independent primary frame to progress while another device has an in-flight
+  secondary proxy call.
+
 ### Planned
 
 - Further EDHM smoke validation against stock 3Dmigoto / EDHM packages
@@ -30,10 +36,6 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
   Normal presentation resumes without duplicate actions. Native D3D12 helper
   swap chains retain the 0.1.7 pass-through fix. Thanks to
   [Duceowen's follow-up report and proposed recovery patch](https://github.com/Fenris159/EDHM_2DMigoto/issues/52#issuecomment-6908828546).
-
-- Scope forwarded-Present suppression to its swap-chain wrapper, allowing an
-  independent primary frame to progress while another device has an in-flight
-  secondary proxy call.
 
 ### Added
 
