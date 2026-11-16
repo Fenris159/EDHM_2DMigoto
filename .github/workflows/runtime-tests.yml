@@ -45,12 +45,12 @@ permissions:
 
 jobs:
   readiness-tools:
-    name: Passive inventory and publication policy
+    name: Readiness tools and runner checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Check passive inventory behavior
-        run: python -m unittest discover -s RuntimeTests -p test_readiness_inventory.py -v
+      - name: Check Python tools and runners
+        run: python -m unittest discover -s RuntimeTests -p 'test_*.py' -v
       - name: Check context-owned publication policy
         run: |
           mkdir -p .quality/ini-publication
@@ -329,14 +329,14 @@ jobs:
         if: inputs.mechanism_benchmarks && matrix.platform == 'x64'
         shell: pwsh
         run: |
-          & .quality/ini-publication/x64/IniParamsUploadTests.exe --benchmark 21 --iterations 50000 > .quality/ini-publication/x64/upload-benchmark.csv
+          & .quality/ini-publication/x64/IniParamsUploadTests.exe --benchmark 21 --iterations 50000 > .quality/ini-publication/x64/upload-benchmark.log
           if ($LASTEXITCODE -ne 0) { throw 'Publication kernel measurements failed' }
       - name: Retain publication kernel evidence
         if: always() && inputs.mechanism_benchmarks && matrix.platform == 'x64' && steps.publication_measurements.outcome != 'skipped'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: publication-kernels-${{ github.sha }}
-          path: .quality/ini-publication/x64/upload-benchmark.csv
+          path: .quality/ini-publication/x64/upload-benchmark.log
           if-no-files-found: error
           retention-days: 14
       - name: Exercise runtime behavior
