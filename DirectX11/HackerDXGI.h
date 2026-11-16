@@ -1,6 +1,7 @@
 #pragma once
 
 #include <dxgi1_2.h>
+#include <atomic>
 
 #include "HackerDevice.h"
 #include "HackerContext.h"
@@ -15,6 +16,11 @@ class Overlay;
 
 void InstallSetWindowPosHook();
 
+// Private identity used by the outer-Present detour. Never cast an arbitrary
+// DXGI object (in particular, a D3D12 swap chain) to our wrapper.
+inline constexpr GUID IID_EdhmProxyFrame = {
+    0xf5ee37c1, 0x4d90, 0x4a53, {0xb1, 0xe5, 0x17, 0xfa, 0xe2, 0x6e, 0x0c, 0x36}};
+
 // -----------------------------------------------------------------------------
 // Hierarchy:
 //	HackerSwapChain -> IDXGISwapChain1 -> IDXGISwapChain -> IDXGIDeviceSubObject -> IDXGIObject -> IUnknown
@@ -25,12 +31,20 @@ class HackerSwapChain : public IDXGISwapChain1
 	IDXGISwapChain1 *mOrigSwapChain1;
 	HackerDevice *mHackerDevice;
 	HackerContext *mHackerContext;
+	std::atomic<DWORD> mFrameThread{0};
+	std::atomic<void *> mObservedPresent{nullptr};
+	std::atomic<void *> mObservedPresent1{nullptr};
+	bool mFrameOwnerTracked = false;
 
   public:
 	HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDevice, HackerContext *pContext);
 
 	IDXGISwapChain1 *GetOrigSwapChain1();
 	void RunFrameActions();
+	void ObserveProxyPresent();
+	bool AcquireProxyFrameOwner();
+	void BeginProxyFrame(bool &profiling);
+	void EndProxyFrame(bool profiling);
 	Overlay *mOverlay;
 
 	/** IUnknown **/

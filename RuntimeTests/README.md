@@ -140,6 +140,23 @@ both policies and the downstream swap-chain buffer count.
 
 ## Regression sensitivity
 
+`ProxyFrameTests.vcxproj` and `FrameProxyFixture.dll` exercise the product DLL
+when an outer proxy replaces Present/Present1 and suppresses native D3D11
+presentation. GPU readback verifies single pre/post increments, zero-draw
+frames, ignored buffer/test/foreign-thread/secondary-chain calls, failure
+cleanup, normal presentation and recreation. Separate controlled-input cases
+cover hotkeys, preset transitions and reload. See the
+[frame-action repair](../docs/edup-proxy-frame-actions.md) for exact outcomes.
+The runtime workflow builds both fixture configurations for x64 and Win32;
+`run_proxy_frame_tests.py --case flow|controls|flow1|controls1` runs one process
+per case. The x64 0.1.7 release control must fail on zero counters specifically.
+The manual `proxy_frame_mutations` workflow input checks ten deliberate breaks
+in frame dispatch, duplicate suppression, thread/chain ownership, input,
+presets, transitions and reload. It restores source, performs a clean product
+rebuild and reruns the protected cases using the existing tested restoration
+and quarantine logic. These are finite off-game correctness checks, not a
+presentation benchmark.
+
 `ReloadNotificationTests.vcxproj` checks the actual product DLL's rendered
 notification pixels after one off-game correctness Present. A sequential swap
 chain retains the image for readback, as specified by

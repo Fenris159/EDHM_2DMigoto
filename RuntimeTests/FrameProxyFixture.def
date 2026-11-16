@@ -1,0 +1,7 @@
+LIBRARY FrameProxyFixture
+EXPORTS
+    InstallFrameProxy
+    SetFrameProxyMode
+    ReadFrameProxyBuffer
+    RemoveFrameProxy
+    SetFrameProxyNestedChain
