@@ -72,6 +72,7 @@
 #include "profiling.h"
 #include "cursor.h" // For InstallHookLate
 #include "DLLMainHook.h"
+#include <new>
 
 // -----------------------------------------------------------------------------
 // EDUP can replace the wrapper's Present and never call the saved method. Hook
@@ -87,6 +88,66 @@ void *proxy_target;
 void *proxy_target1;
 SRWLOCK proxy_hook_lock = SRWLOCK_INIT;
 std::atomic<HackerSwapChain *> proxy_frame_owner{nullptr};
+std::atomic<unsigned> proxy_frames_active{0};
+constexpr GUID frame_owner_guid = {0x947bd476, 0x69e4, 0x4962, {0xbd, 0x4f, 0x46, 0x12, 0xb2, 0xd3, 0x1b, 0xe9}};
+
+// Native SwapChain2/3 references can outlive the wrapper's last Release. This
+// callback follows the native object's lifetime. Like resource retirement, it
+// must remain safe after CRT/global destruction: no G, logging, STL or delete.
+class ProxyFrameOwner final : public IUnknown
+{
+	LONG references = 1;
+	HackerSwapChain *wrapper;
+	HANDLE heap;
+	~ProxyFrameOwner() = default;
+
+  public:
+	ProxyFrameOwner(HackerSwapChain *owner, HANDLE allocation_heap) : wrapper(owner), heap(allocation_heap) {}
+	HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **object) override
+	{
+		if (!object)
+			return E_POINTER;
+		*object = nullptr;
+		if (iid != __uuidof(IUnknown))
+			return E_NOINTERFACE;
+		*object = static_cast<IUnknown *>(this);
+		AddRef();
+		return S_OK;
+	}
+	ULONG STDMETHODCALLTYPE AddRef() override
+	{
+		return InterlockedIncrement(&references);
+	}
+	ULONG STDMETHODCALLTYPE Release() override
+	{
+		ULONG remaining = InterlockedDecrement(&references);
+		if (remaining)
+			return remaining;
+		HackerSwapChain *owner = wrapper;
+		proxy_frame_owner.compare_exchange_strong(owner, nullptr, std::memory_order_relaxed);
+		HANDLE allocation_heap = heap;
+		this->~ProxyFrameOwner();
+		HeapFree(allocation_heap, 0, this);
+		return 0;
+	}
+	ProxyFrameOwner(const ProxyFrameOwner &) = delete;
+	ProxyFrameOwner &operator=(const ProxyFrameOwner &) = delete;
+	ProxyFrameOwner(ProxyFrameOwner &&) = delete;
+	ProxyFrameOwner &operator=(ProxyFrameOwner &&) = delete;
+};
+
+HRESULT TrackProxyFrameOwner(IDXGISwapChain1 *native, HackerSwapChain *wrapper)
+{
+	HANDLE heap = GetProcessHeap();
+	void *memory = HeapAlloc(heap, 0, sizeof(ProxyFrameOwner));
+	if (!memory)
+		return E_OUTOFMEMORY;
+	auto *owner = new (memory) ProxyFrameOwner(wrapper, heap);
+	HRESULT hr = native->SetPrivateDataInterface(frame_owner_guid, owner);
+	owner->Release();
+	return hr;
+}
+
 thread_local HackerSwapChain *proxy_frame_chain;
 class ProxyFrame;
 thread_local ProxyFrame *proxy_frame_scope;
@@ -97,6 +158,8 @@ class ProxyFrame
 	bool ran = false;
 	bool profiling = false;
 	bool attempted = false;
+	bool finished = false;
+	bool active = false;
 	UINT flags;
 
   public:
@@ -106,6 +169,9 @@ class ProxyFrame
 			return;
 		proxy_frame_chain = chain;
 		proxy_frame_scope = this;
+		active = !(flags & DXGI_PRESENT_TEST) && proxy_frame_owner.load(std::memory_order_relaxed) == chain;
+		if (active)
+			proxy_frames_active.fetch_add(1, std::memory_order_release);
 	}
 	void begin()
 	{
@@ -116,8 +182,9 @@ class ProxyFrame
 	}
 	void finish()
 	{
-		if (!ran)
+		if (!ran || finished)
 			return;
+		finished = true;
 		chain->EndProxyFrame(profiling);
 	}
 	~ProxyFrame()
@@ -126,6 +193,8 @@ class ProxyFrame
 			return;
 		proxy_frame_chain = nullptr;
 		proxy_frame_scope = nullptr;
+		if (active)
+			proxy_frames_active.fetch_sub(1, std::memory_order_release);
 		chain->Release();
 	}
 	ProxyFrame(const ProxyFrame &) = delete;
@@ -212,6 +281,8 @@ void HackerSwapChain::ObserveProxyPresent()
 
 bool HackerSwapChain::BeginProxyFrame(bool &profiling)
 {
+	if (!mFrameOwnerTracked)
+		return false;
 	DWORD thread = mFrameThread.load(std::memory_order_relaxed);
 	if (!thread)
 		mFrameThread.compare_exchange_strong(thread, GetCurrentThreadId(), std::memory_order_relaxed);
@@ -341,7 +412,12 @@ HackerSwapChain::HackerSwapChain(IDXGISwapChain1 *pSwapChain, HackerDevice *pDev
 	// Select the game chain before its first Present. An overlay may present
 	// another instance of this shared vtable before the game presents at all.
 	HackerSwapChain *owner = nullptr;
-	proxy_frame_owner.compare_exchange_strong(owner, this, std::memory_order_relaxed);
+	HRESULT tracking = TrackProxyFrameOwner(mOrigSwapChain1, this);
+	mFrameOwnerTracked = SUCCEEDED(tracking);
+	if (mFrameOwnerTracked)
+		proxy_frame_owner.compare_exchange_strong(owner, this, std::memory_order_relaxed);
+	else
+		LogInfo("*** Native swap-chain lifetime tracking failed: 0x%08x\n", tracking);
 
 	try
 	{
@@ -831,7 +907,7 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
                                           /* [in] */ UINT SyncInterval,
                                       /* [in] */ UINT Flags)
 {
-	if (proxy_frame_chain)
+	if (proxy_frame_chain || proxy_frames_active.load(std::memory_order_acquire))
 	{
 		if (proxy_frame_chain == this)
 			proxy_frame_scope->begin();
@@ -840,6 +916,8 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
 		HRESULT hr = mOrigSwapChain1->Present(SyncInterval, Flags);
 		get_tls()->hooking_quirk_protection = previous;
 		LogPresentDeviceLossOnce(mHackerDevice, hr);
+		if (proxy_frame_chain == this)
+			proxy_frame_scope->finish();
 		return hr;
 	}
 	DWORD thread = 0;
@@ -904,7 +982,10 @@ STDMETHODIMP HackerSwapChain::GetBuffer(THIS_
 	         NameFromIID(riid).c_str());
 	ObserveProxyPresent();
 	if (proxy_frame_chain == this)
+	{
 		proxy_frame_scope->begin();
+		proxy_frame_scope->finish();
+	}
 
 	HRESULT hr = mOrigSwapChain1->GetBuffer(Buffer, riid, ppSurface);
 	LogDebug("  returns %x\n", hr);
@@ -1162,7 +1243,7 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
                                        /* [annotation][in] */
                                        _In_ const DXGI_PRESENT_PARAMETERS *pPresentParameters)
 {
-	if (proxy_frame_chain)
+	if (proxy_frame_chain || proxy_frames_active.load(std::memory_order_acquire))
 	{
 		if (proxy_frame_chain == this)
 			proxy_frame_scope->begin();
@@ -1171,6 +1252,8 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
 		HRESULT hr = mOrigSwapChain1->Present1(SyncInterval, PresentFlags, pPresentParameters);
 		get_tls()->hooking_quirk_protection = previous;
 		LogPresentDeviceLossOnce(mHackerDevice, hr);
+		if (proxy_frame_chain == this)
+			proxy_frame_scope->finish();
 		return hr;
 	}
 	DWORD thread = 0;
@@ -1405,7 +1488,10 @@ STDMETHODIMP HackerUpscalingSwapChain::GetBuffer(THIS_
 
 	ObserveProxyPresent();
 	if (proxy_frame_chain == this)
+	{
 		proxy_frame_scope->begin();
+		proxy_frame_scope->finish();
+	}
 	HRESULT hr = S_OK;
 
 	// if upscaling is on give the game fake back buffer
