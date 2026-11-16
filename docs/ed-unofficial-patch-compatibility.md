@@ -1,7 +1,9 @@
 # ED Unofficial Patch with EDHM_2DMigoto
 
-**Current setup:** the 0.1.4 runtime includes the repaired EDUP chain and the
-optional `show_reload_message` control. Use the
+**Current setup:** the 0.1.8 runtime includes the repaired EDUP chain, native
+D3D12 helper pass-through and [frame actions through an outer Present
+replacement](edup-proxy-frame-actions.md), plus the optional
+`show_reload_message` control. Use the
 [recommended wiki configuration](https://github.com/Fenris159/EDHM_2DMigoto/wiki/EDUP-Compatibility-and-Configuration#recommended-configuration)
 for installation and tested scope. The dated source assessment below and its
 PDF retain the evidence and limits of their original checkpoints.
