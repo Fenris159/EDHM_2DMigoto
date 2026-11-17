@@ -64,6 +64,10 @@ void exercise(ID3D11Device *device, ID3D11DeviceContext *context)
 {
 	Image cpu{5, 6, 7, 8, 50, 60, 70, 80};
 	auto target = texture(device, Image{1, 2, 3, 4, 10, 20, 30, 40});
+	require(UploadIniParams(context, target.Get(), cpu.data(), 1) == E_INVALIDARG,
+	        "wrong texture capacity was accepted");
+	require(readback(device, context, target.Get()) == Image{1, 2, 3, 4, 10, 20, 30, 40},
+	        "wrong-capacity upload changed prior contents");
 	IniParamsPublication publication;
 	auto upload = [&]() { return SUCCEEDED(UploadIniParams(context, target.Get(), cpu.data(), 2)); };
 	{

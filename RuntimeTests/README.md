@@ -26,7 +26,7 @@ bounds, CB ranges, and INI/optimizer ordering and reload semantics. A real devic
 boundary records submitted buffer descriptors and can fail staging allocation;
 this catches errors that WARP normalizes in a completed buffer description.
 
-The 63 cases also cover monitor-mode/window/reload transitions and recursive or
+The 64 cases also cover monitor-mode/window/reload transitions and recursive or
 shared command counts; summary-only matching/view diagnostics; hash-first and
 ordered dual matching; documented expression operators; all four view kinds,
 resource/descriptor/raw/override fallbacks, changing `this` targets, warm-cache
@@ -104,6 +104,13 @@ transition or command state retires. They use GPU readback and a controlled Map
 failure; the transition clock is fixed. These new native cases are not accepted
 as verified until their Windows run and mutation checks pass. Current evidence
 and remaining gates live in the [pre-production status](../docs/pre-production-edo-readiness.md).
+
+`iniparams-contexts` verifies that recording through a deferred context does not
+acknowledge a failed immediate upload. The immediate retry publishes the newest
+CPU image, and executing the deferred work retains its earlier recorded image.
+The standalone adapter also requires wrong-capacity uploads to fail without
+changing the prior texture contents. Inventory checks cover inherited uncertain
+conditions and refusal to overwrite either an output or an input file.
 
 `entry-path` additionally protects later population of ordinary/dynamic lists,
 proxy retargeting and profiler counts. `benchmark-entries` measures the public
@@ -236,7 +243,7 @@ python RuntimeTests/run_reload_notification_tests.py --dll x64/Release/d3d11.dll
 ```
 
 The manual **Runtime regression checks** workflow accepts `mutation_checks=true`.
-The 63 cases have 66 deliberate breaks: the expiring-alias case independently
+The 64 cases have 66 deliberate breaks: the expiring-alias case independently
 breaks resource-creation metadata and reuse of the resolved destination, and the
 zero-frame case independently breaks command measurements while retaining their
 registration. Mutation labels distinguish the runs invoking the same native case.

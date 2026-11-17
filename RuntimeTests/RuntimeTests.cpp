@@ -388,6 +388,32 @@ void command_upload_retries_after_its_state_retires()
 	fixture.d3d.require_no_errors();
 }
 
+void deferred_recording_does_not_acknowledge_immediate_publication()
+{
+	IniParamsFixture fixture;
+	G->iniParams[0].x = 4;
+	{
+		D3DMapBoundary failure(fixture.d3d.context.Get(), fixture.device.mIniTexture);
+		failure.failures = 1;
+		require(!fixture.d3d.hacker_context->PublishIniParams(&fixture.device, true),
+		        "failed immediate publication was acknowledged");
+	}
+	Microsoft::WRL::ComPtr<ID3D11DeviceContext1> raw_deferred;
+	require(SUCCEEDED(fixture.d3d.device->CreateDeferredContext1(0, &raw_deferred)), "deferred context failed");
+	HackerContext deferred(fixture.d3d.device.Get(), raw_deferred.Get());
+	deferred.SetHackerDevice(&fixture.device, false);
+	require(deferred.PublishIniParams(&fixture.device, true), "deferred publication failed");
+	Microsoft::WRL::ComPtr<ID3D11CommandList> recorded;
+	require(SUCCEEDED(raw_deferred->FinishCommandList(FALSE, &recorded)), "deferred recording failed");
+	require(fixture.read() == std::array<float, 4>{0, 0, 0, 0}, "recording changed the immediate image");
+	G->iniParams[0].x = 7;
+	require(fixture.d3d.hacker_context->PublishIniParams(&fixture.device, false), "immediate retry failed");
+	require(fixture.read() == std::array<float, 4>{7, 0, 0, 0}, "deferred recording acknowledged immediate work");
+	fixture.d3d.context->ExecuteCommandList(recorded.Get(), FALSE);
+	require(fixture.read() == std::array<float, 4>{4, 0, 0, 0}, "deferred execution lost its recorded image");
+	fixture.d3d.require_no_errors();
+}
+
 void recreates_structured_data_as_a_constant_buffer()
 {
 	D3DFixture fixture;
@@ -3548,6 +3574,7 @@ int main(int argc, char **argv)
 	             {"constant-stride", recreates_structured_data_as_a_constant_buffer},
 	             {"iniparams-transition-retry", final_transition_upload_retries_after_retirement},
 	             {"iniparams-command-retry", command_upload_retries_after_its_state_retires},
+	             {"iniparams-contexts", deferred_recording_does_not_acknowledge_immediate_publication},
 	             {"entry-path", empty_entry_paths_preserve_later_work_and_profiling},
 	             {"reference-order", resolves_reference_chains_in_any_order},
 	             {"reference-cycles", terminates_incompatible_reference_cycles},

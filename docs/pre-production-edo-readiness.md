@@ -9,7 +9,9 @@ installation is part of this session.
 
 The [main plan](edo-next-readiness-2026-11-16.md) remains the work order. These
 changes are preliminary; native validation gates still apply.
-The branch is local: no push or PR was created during this session.
+The initial session kept the branch local. The user subsequently approved
+pushing it and running CI, the additional regression cases below, and the
+bounded offline preparer's regression cases. No merge or release is authorized.
 
 ## Checkpoints
 

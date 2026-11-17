@@ -74,6 +74,33 @@ void distinct_publication_points_preserve_both_images()
 	require(first_draw == Row{1, 2, 3, 4}, "first publication point lost its image");
 	require(gpu == Row{4, 3, 2, 1}, "second publication point lost its image");
 }
+void contexts_acknowledge_only_their_own_uploads()
+{
+	IniParamsPublication immediate;
+	IniParamsPublication deferred;
+	Row gpu{1, 0, 0, 0};
+	Row recorded{0, 0, 0, 0};
+	const Row cpu{4, 0, 0, 0};
+	require(!immediate.Publish(true, []() { return false; }), "failed immediate upload was acknowledged");
+	require(deferred.Publish(true,
+	                         [&]()
+	                         {
+		                         recorded = cpu;
+		                         return true;
+	                         }),
+	        "deferred recording failed");
+	require(recorded == Row{4, 0, 0, 0}, "deferred recording lost its image");
+	require(gpu == Row{1, 0, 0, 0}, "deferred recording changed the immediate image");
+	require(immediate.Publish(false,
+	                          [&]()
+	                          {
+		                          gpu = cpu;
+		                          return true;
+	                          }),
+	        "immediate retry failed");
+	require(gpu == Row{4, 0, 0, 0}, "another context acknowledged the immediate request");
+}
+
 } // namespace
 
 int main()
@@ -83,7 +110,8 @@ int main()
 		failed_upload_retries_the_latest_cpu_values();
 		missing_resources_retain_publication_until_recreated();
 		distinct_publication_points_preserve_both_images();
-		std::cout << "PASS context-owned publication policy (three behaviors)\n";
+		contexts_acknowledge_only_their_own_uploads();
+		std::cout << "PASS context-owned publication policy (four behaviors)\n";
 		return 0;
 	}
 	catch (const std::exception &error)

@@ -3,6 +3,8 @@
 import importlib.util
 from pathlib import Path
 import tempfile
+import subprocess
+import sys
 import unittest
 
 
@@ -79,6 +81,34 @@ class ReadinessInventoryTests(unittest.TestCase):
             self.assertEqual(shaders[0]["declared_shader_model"], "ps_5_0")
             self.assertEqual(shaders[0]["signature_comments"], {"Input": True, "Output": True, "Patch Constant": False})
             self.assertFalse(report["complete_runtime_equivalence"])
+
+    def test_unresolved_conditions_keep_descendants_uncertain(self):
+        contents = {
+            "d3dx.ini": b"[Include]\ninclude=conditional.ini\n",
+            "conditional.ini": b"condition = $unknown\n[Include]\ninclude=child.ini\n",
+            "child.ini": b"[TextureOverrideCandidate]\nhash=12345678\nfilter_index=7\n",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.layout(directory, contents)
+            report = inventory.Inventory(root / "d3dx.ini").run()
+            self.assertEqual({f["path"]: f["activation"] for f in report["files"]},
+                             {"d3dx.ini": "unconditional", "conditional.ini": "unknown_condition",
+                              "child.ini": "unknown_condition"})
+            self.assertEqual([r["activation"] for r in report["rules"]], ["unknown_condition", "unknown_condition"])
+            self.assertEqual([(d["path"], d["code"]) for d in report["diagnostics"]],
+                             [("conditional.ini", "unknown_condition")])
+
+    def test_cli_never_overwrites_an_existing_output_or_input(self):
+        contents = {"d3dx.ini": b"[Constants]\nx1=7\n", "existing.json": b"keep this exact file\n"}
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.layout(directory, contents)
+            for filename in ("existing.json", "d3dx.ini"):
+                with self.subTest(filename=filename):
+                    result = subprocess.run([sys.executable, str(Path(inventory.__file__)), str(root / "d3dx.ini"),
+                                             "--output", str(root / filename)], capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 1)
+                    self.assertIn("inventory failed:", result.stderr)
+                    self.assertEqual({name: (root / name).read_bytes() for name in contents}, contents)
 
 
 if __name__ == "__main__":

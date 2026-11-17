@@ -463,6 +463,12 @@ def get_mutations(command_list, settings, profiling):
         ),
 
         (
+            "iniparams-contexts",
+            ROOT / "DirectX11" / "HackerContext.h",
+            "IniParamsPublication mIniParamsPublication;",
+            "inline static IniParamsPublication mIniParamsPublication;",
+        ),
+        (
             "iniparams-command-retry--nonempty",
             command_list,
             "if (state->mHackerContext->PublishIniParams(state->mHackerDevice, state->update_params))",
