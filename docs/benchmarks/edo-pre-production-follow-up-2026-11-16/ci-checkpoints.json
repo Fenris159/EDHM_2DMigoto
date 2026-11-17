@@ -1,0 +1,24 @@
+{
+  "native_first_checkpoint": "eee51bd5cc1020bd9abcd62ee0b9f3cfc225de12",
+  "native_second_checkpoint": "6b490edc6ad280fc3b2f53d29c1ff783921d6b19",
+  "ci_runs": {
+    "eee51bd5_ci": 43996544269,
+    "eee51bd5_runtime": 43996546887,
+    "6b490edc_ci": 43998532098,
+    "6b490edc_runtime": 43998529957,
+    "d9e700c9_ci": 44000753321,
+    "d9e700c9_runtime": 44000755930,
+    "6f2e69e9_controlled_runtime": 44002493520
+  },
+  "first_runtime_failure": "Benchmark harness passed null namespace to global-variable parser; fixed in 6b490edc. All 64 native cases and product proxy suites passed.",
+  "second_runtime": "All jobs passed, including native mutation checks and matched entry measurements.",
+  "native_mutants": [
+    "iniparams-contexts",
+    "iniparams-command-retry--nonempty",
+    "iniparams-command-retry--empty",
+    "entry-path",
+    "iniparams-transition-retry"
+  ],
+  "d9e700c9_runtime": "All jobs passed; refined empty paths measured. One nonempty unprofiled candidate process is an unresolved timing outlier; controlled repeat required.",
+  "6f2e69e9_runtime": "All jobs passed. Benchmark thread affinity=1 for all eight processes; all raw runs retained."
+}

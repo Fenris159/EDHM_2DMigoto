@@ -1,0 +1,86 @@
+{
+  "detected": 16,
+  "restored_clean_checks_pass": true,
+  "mutants": [
+    {
+      "mutant": "shared-context-acknowledgement",
+      "exit_code": 1,
+      "detected": true
+    },
+    {
+      "mutant": "wrong-capacity-accepted",
+      "exit_code": 1,
+      "detected": true
+    },
+    {
+      "mutant": "uncertain-marked-unconditional",
+      "exit_code": 1,
+      "detected": true
+    },
+    {
+      "mutant": "lost-descendant-uncertainty",
+      "exit_code": 1,
+      "detected": true
+    },
+    {
+      "mutant": "overwrite-output",
+      "exit_code": 1,
+      "detected": true
+    },
+    {
+      "mutant": "lost-failed-publication",
+      "exit_code": 1,
+      "detected": true
+    },
+    {
+      "mutant": "never-acknowledged-publication",
+      "exit_code": 1,
+      "detected": true
+    },
+    {
+      "mutant": "invented-asset-digest",
+      "exit_code": 1,
+      "detected": true
+    },
+    {
+      "mutant": "invented-original-provenance",
+      "exit_code": 1,
+      "detected": true
+    },
+    {
+      "mutant": "ignored-recursive-exclusion",
+      "exit_code": 1,
+      "detected": true
+    },
+    {
+      "mutant": "lost-include-cycle-dedupe",
+      "exit_code": 1,
+      "detected": true
+    },
+    {
+      "mutant": "counted-literal-zero-include",
+      "exit_code": 1,
+      "detected": true
+    },
+    {
+      "mutant": "acknowledged-failed-Map",
+      "exit_code": 1,
+      "detected": true
+    },
+    {
+      "mutant": "partial-image-copy",
+      "exit_code": 1,
+      "detected": true
+    },
+    {
+      "mutant": "discarded-first-draw-publication",
+      "exit_code": 1,
+      "detected": true
+    },
+    {
+      "mutant": "inventory-writes-input",
+      "exit_code": 1,
+      "detected": true
+    }
+  ]
+}

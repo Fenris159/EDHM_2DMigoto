@@ -127,6 +127,8 @@ class PreparerTests(unittest.TestCase):
         os.utime(self.assembler, ns=(STAMP, STAMP))
         with self.assertRaisesRegex(preparer.PreparationError, "tool digest"):
             preparer.check(self.root, self.inventory, self.output, self.tools)
+        with self.boundary(), self.assertRaisesRegex(preparer.PreparationError, "tool digest"):
+            preparer.prepare(self.root, self.inventory, self.root / "stale-tool", self.tools)
         updated = preparer.Toolchain(self.assembler, self.compiler, UPDATED_TOOL_SHA, TOOL_SHA,
                                      Path("fixture-wine"), self.root / "prefix")
         with self.assertRaisesRegex(preparer.PreparationError, "recipe is stale"):
@@ -139,7 +141,7 @@ class PreparerTests(unittest.TestCase):
         self.compiler.write_bytes(pe_image(0x8664, 0x20B))
         tools = preparer.Toolchain(self.assembler, self.compiler, TOOL_SHA, X64_TOOL_SHA,
                                    Path("fixture-wine"), self.root / "prefix")
-        with self.assertRaisesRegex(preparer.PreparationError, "architecture mismatch"):
+        with self.boundary(), self.assertRaisesRegex(preparer.PreparationError, "architecture mismatch"):
             preparer.prepare(self.root, self.inventory, self.output, tools)
         self.assertFalse((self.output / "manifest.json").exists())
 
@@ -156,7 +158,7 @@ class PreparerTests(unittest.TestCase):
         source = SOURCE.replace(b"// Input signature:", b"// missing signature:")
         self.asset.write_bytes(source)
         self.write_inventory(source)
-        with self.assertRaisesRegex(preparer.PreparationError, "missing required input signature"):
+        with self.boundary(), self.assertRaisesRegex(preparer.PreparationError, "missing required input signature"):
             preparer.prepare(self.root, self.inventory, self.output, self.tools)
         self.assertFalse((self.output / "manifest.json").exists())
 
@@ -175,7 +177,7 @@ class PreparerTests(unittest.TestCase):
         sentinel = self.output / "manifest.json"
         sentinel.write_bytes(b"keep existing output\n")
         for output in (self.output, self.asset):
-            with self.subTest(output=output), self.assertRaisesRegex(preparer.PreparationError, "new directory"):
+            with self.subTest(output=output), self.boundary(), self.assertRaisesRegex(preparer.PreparationError, "new directory"):
                 preparer.prepare(self.root, self.inventory, output, self.tools)
         self.assertEqual(sentinel.read_bytes(), b"keep existing output\n")
         self.assertEqual(self.asset.read_bytes(), SOURCE)

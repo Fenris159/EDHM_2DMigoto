@@ -1,162 +1,139 @@
-# Edo-next preparation: pre-production implementation
+# Edo-next preparation: implementation status
 
-Session: 16 November 2026, 18:59–21:59 UTC. Branch:
-`pre-production-edo-readiness`, based on `develop` at
-`4ae925945879a897309992f58db6cc752f22289d`. Remote `develop` and `main` were
-rechecked during the session and matched that base. The older original checkout
-and release branches are untouched. No merge, release, version bump or game
-installation is part of this session.
+Branch: `pre-production-edo-readiness`, based on `develop` at
+`4ae925945879a897309992f58db6cc752f22289d`. The initial three-hour session ran
+16 November 2026, 18:59–21:59 UTC. The user then approved the additional cases,
+pushing the branch, native CI and a bounded offline preparer. Work remains
+preliminary: no merge, release, version bump or game installation was performed.
+The original checkout and release branches are untouched.
 
-The [main plan](edo-next-readiness-2026-11-16.md) remains the work order. These
-changes are preliminary; native validation gates still apply.
-The initial session kept the branch local. The user subsequently approved
-pushing it and running CI, the additional regression cases below, and the
-bounded offline preparer's regression cases. No merge or release is authorized.
+The [main plan](edo-next-readiness-2026-11-16.md) remains the work order.
+[Initial receipts](benchmarks/edo-pre-production-2026-11-16/README.md) are historical;
+[follow-up receipts](benchmarks/edo-pre-production-follow-up-2026-11-16/README.md)
+record the later native checks, measurements and preparer findings.
 
-## Checkpoints
+## Implemented checkpoints
 
-| Plan item | Preliminary result | Remaining gate |
+| Plan item | Result | Remaining gate |
 | --- | --- | --- |
-| Rank 1: upload safety/retry | Checked Map and retained requests, including publication after transition entries retire | Actual runtime transition/command cases on Windows |
-| Rank 2: passive inventory | Implemented standard-library tool with include graph, exact digests, matching fields, row references and explicit unknown provenance | Original game containers/build provenance and further semantic-cost inventory |
-| 2A: publication ownership | Shared context-owned pending policy and concrete D3D adapter; original CPU vector, upload points and transition request frequency retained | Strict MSVC x64/Win32 builds and product/WARP regressions |
-| 2C: empty-list path | Experimental guarded path and public-entry benchmark drafted; pending retries still run | Matched native A/B measurements and `entry-path` regression/mutation checks |
-| 2B / 2D / 2E | Retained as gated candidates | Query cost/invalidation proof; actual Region/Pool workload relevance |
-| Rank 4: offline assembly | All 77 copied replacements assembled, passed Flugan round trips and Microsoft disassembly | Local tool, negative cases, original identity, permissions and rendering proof |
-| Ranks 3 / 5–9 | SDK gates retained; bounded AMD/DXVK adapter checks pass in both architectures | Native product checks, built-in Wine 32-bit discrepancy, published SDK and original identity |
+| Rank 1 / 2A: publication safety and ownership | One context-owned pending request; checked complete-image upload shared by commands, transitions and initialization | Product/game validation remains separate from native fixture results |
+| Rank 2: passive inventory | Include graph, exact digests, explicit unknown provenance, candidate rules/rows and unreached-file recording | Original game containers/build provenance and semantic-cost inventory |
+| 2C: empty-list path | Per-invocation resolved-vector check; native regressions and controlled measurements pass | Narrow synthetic claim; nonempty process variability and real invocation frequency remain limits |
+| Rank 4: offline preparation | Pinned helper/compiler, separate immutable staging, signature coverage, validation and content manifests | One installed asset lacks metadata required by the conservative policy; native shader/render/SDK proof and asset permissions |
+| 2B / 2D / 2E | Remain gated | One repeated-read example needs cost proof; eight adjacent pairs cross effects; current pack has no Region/Pool workload |
+| Ranks 3 / 5–9 | Existing contract and SDK gates retained; bounded backend adapter evidence recorded | Published host/SDK and original identity where required |
 
-## Design choice
+## Publication behavior
 
-The minimal design retains pending work on `HackerContext`. The more flexible
-design adds device-owned publication channels and resource epochs. The common
-caller design keeps existing command dirty notifications and one context
-publication operation. The preliminary implementation follows the common caller
-design: it contains failure/retry policy while keeping current legal execution
-points and CPU assignment semantics.
+A failed upload retains a request on its context, without retaining a CPU
+pointer or stale image. Retry consumes the newest complete CPU values.
+Initialization still publishes zero values before [Constants], and transition
+request frequency and legal upload points are retained. Successful uploads alone
+increment the existing counter. Empty configurations remain no-ops; missing or
+wrong-capacity resources preserve pending work and prior contents.
 
-A failed upload retains a request, not a CPU pointer or stale copied value.
-Retry consumes the newest complete CPU image. Initialization still publishes
-zero values before [Constants]; successful uploads alone increment the existing
-profiler counter. Texture extent/format mismatch fails without writing. No
-frame-wide coalescing, global generation cache or new backend is introduced.
-The [proposed decision](adr/0001-context-owned-iniparams-publication.md) records
-why deferred-context recording cannot acknowledge another context's upload.
+The [proposed ownership decision](adr/0001-context-owned-iniparams-publication.md)
+keeps deferred recording separate from immediate acknowledgement. The new native
+case records value 4 on a deferred context, retries immediate value 7, then
+executes the recorded image and requires value 4. The approved checks also cover
+final-transition retirement, empty/nonempty retry points, two draws with distinct
+images, later list population, proxy retargeting and profiler outcomes.
 
-## Evidence so far
+There is no frame-wide coalescing, global generation cache, new renderer or
+SDK-specific runtime path. The missing-context fallback defers the queued
+transition tick and post commands; normal frame-action construction already
+obtains the wrapped context.
 
-- The three approved portable publication behaviors pass with C++17, warnings as
-  errors: failure/retry of newest values, missing-resource recreation and
-  distinct publication images.
-- The actual production D3D adapter passes in 64-bit Wine using an isolated prefix
-  and offscreen textures: failed Map leaves prior GPU contents, retry uploads
-  both rows, successive publication points retain their respective images, and
-  recreation receives complete current contents. Two offscreen draws with no
-  intervening readback retain different literal pixel values after one final
-  readback. No swap chain or Present runs.
-- Three inventory cases pass; the full existing Python runner suite plus them
-  passes 11 checks. Exact `abc` SHA-256 is independently fixed in the fixture.
-- Eleven deliberately broken variants are detected: lost pending state, missing
-  acknowledgement, invented digest, invented original provenance, ignored
-  recursive exclusion, missing include-cycle deduplication, counted literal-zero
-  includes, acknowledging a failed Map, partial-image copying,
-  inventory writes to an input and dropping the first draw's publication. The
-  latter fails specifically on the final pixel values. Active sources were not
-  mutated; restored isolated sources and clean executables pass afterward.
-- The portable policy also passes AddressSanitizer and UndefinedBehaviorSanitizer.
-- The approved adapter/draw checks also pass in 32- and 64-bit processes through
-  Wine + copied DXVK DLLs on AMD RADV. The 32-bit policy and draw-only checks pass
-  on built-in Wine, but the full adapter case fails on its second staging read.
-  The old upload kernel fails identically; raw values are wrong before the CPU
-  copy and next publication. The unchanged executable passes with DXVK. This
-  remains an unresolved backend-dependent result, with no assertion weakened or
-  production workaround applied. The [backend receipt](benchmarks/edo-pre-production-2026-11-16/backend-provenance.json)
-  records the passing and failing routes separately.
-- The same adapter fixture passes both architectures inside Steam Linux Runtime
-  with Proton 11.0-2e, through its native DXVK build on AMD and its built-in D3D
-  route. The Wine 10 failure does not reproduce there. Direct prefix invocations
-  require the exact pass message as well as zero exit; the first normal launcher
-  attempt lacked captured assertions and is excluded. See the
-  [Proton receipt](benchmarks/edo-pre-production-2026-11-16/proton-provenance.json).
-- The local installed inventory reproduces nine INI files, 77 assembly
-  replacements and 503 TextureOverride sections. It is a candidate inventory,
-  with no original game-build claim. A separately supplied unreached dev INI is
-  recorded without counting its contents. All 87 recorded file digests were
-  rechecked without changes. Adjacent texture mentions remain inspection hints,
-  with unverified reuse legality.
-- Two repeated upload-kernel probes change direction between runs; no speed
-  improvement is established. All 77 copied replacements assembled and passed
-  Flugan round trips and Microsoft disassembly, with a separately documented
-  Microsoft text precision failure for the first probe. [Raw samples and provenance](benchmarks/edo-pre-production-2026-11-16/README.md)
-  preserve both results and their limits. No shader assets or tool binaries are
-  redistributed in those receipts.
-- Pinned clang-format 23.1.1 and whitespace checks pass for the changed native
-  source. Both changed project XML files and the workflow YAML parse; new
-  runtime cases appear in the registry and workflow selection. Native checks
-  remain outstanding.
+## Validation
 
-Native runtime cases `iniparams-transition-retry`, `iniparams-command-retry` and
-`entry-path` are registered and selected by the runtime workflow. Command retry
-covers both empty and nonempty subsequent invocations. The existing mutation
-runner can select these native cases with repeated `--case` arguments; all 70
-current mutation anchors match exactly once. The four new native wiring
-mutations remain unexecuted. A standalone native D3D
-project and portable CI job are also wired. These Windows cases have not run.
-The Windows desktop's SSH/SMB endpoints were unavailable; the mapped C: mount
-reported no device. `~/bin/mount-lr-gamingpc.sh` is the existing mount helper if
-the desktop becomes available. A MinGW syntax probe meets pre-existing MSVC/STL
-compatibility errors; it is not a passing product build.
+- The first native checkpoint (`eee51bd5`) passed all 64 runtime cases in x64
+  and Win32, concrete WARP adapter checks and both product proxy suites. Its
+  benchmark harness failed because a global-variable parser received a null
+  namespace. `6b490edc` fixed that caller and retained stderr/exit diagnostics.
+- [CI at `6b490edc`](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43998532098)
+  and [runtime checks](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/43998529957)
+  passed, including five deliberate native wiring faults and the first matched
+  public-entry measurement. The public DLL proxy/EDUP/helper/reload checks ran
+  off-game; they are not installed-game smoke tests.
+- [CI at `d9e700c9`](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/44000753321)
+  and [runtime checks](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/44000755930)
+  also passed after extending the empty path to rechecked dynamic lists and
+  adding the offline preparer. Newer documentation/test refinements are recorded
+  separately from those pinned source checkpoints.
+- The portable publication policy covers four behaviors. Local Python checks
+  pass 21 cases, including eight preparer cases. Same-size asset/tool changes
+  are tested with fixed filesystem timestamps. Sixteen policy/inventory/adapter
+  faults and ten preparer faults were detected in isolated copies; clean checks
+  passed after restoration. Active production files were not mutated locally.
+- The concrete adapter/draw fixture passes in 32- and 64-bit Proton 11 inside
+  Steam Linux Runtime, through native DXVK on AMD and built-in D3D. The host
+  Wine 10 built-in 32-bit repeated-readback discrepancy is preserved: it also
+  occurs with the old upload kernel and does not reproduce on the tested DXVK,
+  Proton or native Windows routes. Its exact cause remains unresolved.
 
-Local logs, inventories and executables are in ignored
-`.quality/pre-production/`. Adapter results do not establish native Windows
-MSVC/WARP behavior or full product, EDUP, vendor-wide or Proton game compatibility. There
-is no FPS comparison or demonstrated performance benefit at this checkpoint.
+Native results establish their fixture/source configuration. They do not prove
+NVIDIA/Intel coverage, installed EDHM/EDUP game behavior, D3D12 rendering or
+future edo-next compatibility. No FPS or live-game monitoring was used.
 
-## Experimental entry-path gate
+## Measurements and inventory findings
 
-The new early path resolves the command list under the existing configuration
-lease and skips setup only for an empty list that is not runtime-populated. It
-rechecks every invocation and still attempts a retained publication. Nonempty
-execution receives the already-resolved list, avoiding a second proxy-chain
-walk. This is a prototype pending measurement, not an accepted speed claim.
+The initial upload-kernel repeats changed direction and established no gain.
+The matched entry runs use the same harness/compiler for ancestor
+`e7d5439427fb72ef1461a7a949f7edf448b79f67` and the candidate; CommandList.cpp is
+the sole production-file difference. Static/proxied empty entry cost fell about
+54% in the first run. Excluding dynamic lists added about 3% to that control;
+the refined path now rechecks every empty vector without retaining a classification.
 
-`benchmark-lists` uses a preallocated state and cannot measure this entry setup.
-The new `benchmark-entries` mode uses public `RunCommandList` for empty, proxied
-empty, dynamic empty and one-assignment workloads, with the D3D debug layer off.
-A manual workflow can build an ancestor with the identical current harness,
-then alternate A/B/B/A runs. It refuses a comparison with other production-file
-changes. Native baseline selection and the shared harness digest are recorded;
-no original-3Dmigoto or shipped-DLL claim follows from that comparison.
-For this branch, select `e7d5439427fb72ef1461a7a949f7edf448b79f67` as the baseline:
-it includes the publication repair and its documentation checkpoint, so the
-candidate's only production-file difference is the entry-path experiment.
+The refined run also cut dynamic-empty cost by about 54%, but one unprofiled
+nonempty candidate process was a large outlier. Both candidate processes and
+the full raw samples are retained. The controlled repeat pins the benchmark
+thread and uses A/B/B/A/B/A/A/B processes. It confirms about 51–53% lower
+empty-entry CPU cost. The large candidate outlier does not recur; nonempty
+medians differ by about +0.8%, with visible process variation. The
+[controlled workflow](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/44002493520)
+passes at `6f2e69e9`. Retain the prototype for review with that narrow claim;
+these nanoseconds per synthetic call do not establish a game or DLL-wide gain.
 
-The context guard also defers variable transitions and pending post commands
-when no wrapped context is available. Normal frame-action construction already
-obtains that context; this fallback remains part of the preliminary native/lazy
-startup verification gate. No extra GPU generation cache is needed for the
-current implementation because successful-publication identities are not cached.
+The passive pack inventory contains nine candidate INIs, 77 assembly replacements
+and 503 TextureOverride sections, plus one explicitly supplied unreached dev
+INI whose contents do not affect counts. All 87 file digests remained unchanged.
+Of nine adjacent root texture mentions, eight cross `checktextureoverride` and
+one is assignment then query. The count does not justify a general query cache.
 
-## Resume validation
+## Offline preparer and metadata gap
 
-1. After authorization to push this branch, run manual `ci.yml` with
-   `zip_release=true` and `runtime-tests.yml` at its exact head. Use
-   `mutation_checks=true`,
-   `mutation_case_filter=iniparams-transition-retry,iniparams-command-retry,entry-path`,
-   `mechanism_benchmarks=true`, and
-   `entry_benchmark_baseline_ref=e7d5439427fb72ef1461a7a949f7edf448b79f67`.
-   Retain source/compiler provenance and both correctness and timing artifacts.
-2. Resolve native MSVC x64/Win32 and WARP failures before proposing integration.
-   Interpret the known host Wine 10 32-bit discrepancy separately; it also
-   occurs with the old kernel and does not reproduce in the tested Proton 11
-   runtime. Keep the failing assertion intact.
-3. Evaluate the empty-list path using the matched public-entry runs. Retain it
-   only if it preserves outputs/profiling and saves material setup cost without
-   an unacceptable nonempty-path regression. Current upload-kernel numbers
-   establish no gain and cannot make this decision.
-4. Additional cases for deferred-context ownership, texture-capacity mismatch,
-   unknown include conditions and output no-clobber remain awaiting the user's
-   test-case confirmation. Proposed offline-preparer negative cases also await
-   confirmation; no new preparer has been implemented or shipped.
-5. Then implement the bounded rank 4 preparer from the pack-wide input proof,
-   or measure the one repeated-query example. Keep query effects, original
-   provenance, asset permissions and future SDK services as explicit gates.
+The [preparer](offline-dxbc-preparer.md) never overwrites an existing output.
+It pins both PE tools, rejects architecture mismatches, validates bounded DXBC
+structure and declared signature coverage, requires helper round-trip and
+Microsoft-disassembly success, then publishes a content-based selected-batch
+manifest. Read-only verification needs no helper execution. Source/tool changes
+invalidate results; original game identity remains explicitly unverified.
+
+The earlier helper-only experiment assembled and round-tripped all 77 assets.
+The stricter preparer correctly refuses the full batch at
+`ea5390a2f20c2368-ps.txt`: `dcl_input_ps_siv ... v1.y, position` has no input
+signature entry in its comments. This is a preparation metadata gap under the
+conservative policy, not proof the current D3D11 mod fails. No signature was
+invented and no installed asset was changed. The full-batch failure left no
+successful manifest. An explicitly selected 76-asset subset prepared and passed
+verification; every output digest matched the prior independent assembly.
+
+The real helper also accepted the authored minimal fixture with its frozen DXBC
+digest and rejected a parse-error fixture without a success manifest. Prepared
+files keep current D3D11 bindings, including t120. They are not a runtime cache,
+a distributable EDHM pack or a native edo-next plugin.
+
+## Next work
+
+1. Retain the publication repair and empty-entry prototype for review, with the
+   native regression gates and explicit measurement limits. Keep the offline
+   preparer independent of the runtime and retain its strict signature policy.
+2. Preserve the new regression gates and native CI results when preparing a PR
+   to develop. No merge or release is authorized by this follow-up.
+3. Obtain original signature/build evidence for the metadata-gap asset before
+   proposing a pack correction or host-ABI transform. Obtain asset permission
+   before distributing prepared replacements.
+4. Measure the one repeated-query example before introducing reuse policy.
+   Keep Region/Pool work conditional on an actual workload.
+5. Leave SDK types, settings/package integration, shader relocation and native
+   host rendering proofs gated by the published host contract and SDK.

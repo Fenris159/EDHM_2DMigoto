@@ -124,7 +124,7 @@ mode uses preallocated state and measures a different scope. For a focused
 native sensitivity run in a clean disposable checkout:
 
 ```bash
-python RuntimeTests/check_mutations.py --case iniparams-transition-retry --case iniparams-command-retry --case entry-path
+python RuntimeTests/check_mutations.py --case iniparams-transition-retry --case iniparams-command-retry --case iniparams-contexts --case entry-path
 ```
 
 The manual runtime workflow accepts `mutation_case_filter` as a comma-separated

@@ -1,0 +1,41 @@
+{
+  "candidate_source": "6b490edc6ad280fc3b2f53d29c1ff783921d6b19",
+  "os": "Microsoft Windows NT 10.0.20348.0",
+  "boundary_fixture_sha256": "255F889A5C0E36941B20ADF603DBF35FE216E22B9CFBBEAF4625222E770DEC5F",
+  "debug_layer": false,
+  "baseline_source": "e7d5439427fb72ef1461a7a949f7edf448b79f67",
+  "runs": [
+    {
+      "sequence": 0,
+      "exit_code": 0,
+      "variant": "A"
+    },
+    {
+      "sequence": 1,
+      "exit_code": 0,
+      "variant": "B"
+    },
+    {
+      "sequence": 2,
+      "exit_code": 0,
+      "variant": "B"
+    },
+    {
+      "sequence": 3,
+      "exit_code": 0,
+      "variant": "A"
+    }
+  ],
+  "processor": "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD",
+  "no_present_or_game": true,
+  "status": "complete",
+  "shared_harness_sha256": "17FE12CBFF45B8DCBBC3C111506D1313A15DDA0BBEE78648D11548D1AA1D111F",
+  "variants": {
+    "B": {
+      "sha256": "B86643E1EFAE26D0B5C0676CEB6B1AFB9B8C97AAA91E5F2DE2CB888A5AC5BBEF"
+    },
+    "A": {
+      "sha256": "33A2565152297AF9C86FB36B986B8253AD69C1BE4D1B0B16199B2FC6BF2683DE"
+    }
+  }
+}

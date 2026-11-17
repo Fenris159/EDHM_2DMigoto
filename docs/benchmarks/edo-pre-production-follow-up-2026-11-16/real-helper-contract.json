@@ -1,0 +1,19 @@
+{
+  "source_checkpoint": "d9e700c9",
+  "results": [
+    {
+      "fixture": "valid",
+      "status": "pass",
+      "error": null,
+      "input_unchanged": true,
+      "successful_manifest": true
+    },
+    {
+      "fixture": "parse-error",
+      "status": "rejected",
+      "error": "helper failed: assemble (exit 1)",
+      "input_unchanged": true,
+      "successful_manifest": false
+    }
+  ]
+}

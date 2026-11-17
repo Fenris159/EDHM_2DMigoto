@@ -1,0 +1,2932 @@
+{
+  "source_checkpoint": "d9e700c9",
+  "script_sha256": "6dfe6d0088fceb592d4a9fe24b2578ec667e05cdf75077941de5a7e696189948",
+  "selected_assets": 76,
+  "all_input_files_rechecked": 87,
+  "manifest_sha256": "138232a7bdf7f236cec12f2612bfedbce576005617513b64f2e2608ba567f829",
+  "recipe_key": "8c7dd72e9f028afc8ee732db4c7846bf9221f3d242acef6ebd20ed3be5d1a462",
+  "recipe": {
+    "protocol": "3dmigoto-cmd-assembly-v1",
+    "inventory_sha256": "63e58336960abdb001bd4c38e6ec411d291a711887779ce8cdfa0d425f267b30",
+    "inputs": [
+      {
+        "path": "d3dx.ini",
+        "sha256": "4cd59597cdfedf88654f0cdb91f3901afb1b895daac98bac82cadaf74d96dc51",
+        "bytes": 29387
+      },
+      {
+        "path": "EDHM-ini/3rdPartyMods/EDHM-Build-Warning/EDHM-Build-Warning.ini",
+        "sha256": "4389035108e23163c48e794343e702114d5400d2e58f174365746beea555f94a",
+        "bytes": 175234
+      },
+      {
+        "path": "EDHM-ini/3rdPartyMods/FSS-Overlay/FSS-Overlay.ini",
+        "sha256": "f67186bf585dd33d051b560a55392d65ce0137122b61da6c14938aaf2d4b852d",
+        "bytes": 12036
+      },
+      {
+        "path": "EDHM-ini/SuitHud.ini",
+        "sha256": "22de44d163907e80fad863799737fbdaad2034d6ed8a2f4ee4e2d2f8f3487363",
+        "bytes": 6308
+      },
+      {
+        "path": "EDHM-ini/35aac.ini",
+        "sha256": "a0640235e1b5dbde7a71b669c02bdcc59a969cee6aab0d91bdcd8513fac1f799",
+        "bytes": 25280
+      },
+      {
+        "path": "EDHM-ini/Startup-Profile.ini",
+        "sha256": "daee55280b1a76ea1c803d1f490fce7c61faf50c09d2cb5e0c31e653e0ac9740",
+        "bytes": 51294
+      },
+      {
+        "path": "EDHM-ini/XML-Profile.ini",
+        "sha256": "122a9fadf4d778e6bb9e2d1b909a2a8c25d5da62985d8fddfc42a2507c9855ab",
+        "bytes": 1108
+      },
+      {
+        "path": "EDHM-ini/Advanced.ini",
+        "sha256": "0d3dcafed3babce28fcd856b35e73853b4e624c07f2d1f10197663ee4086ffe0",
+        "bytes": 70559
+      },
+      {
+        "path": "EDHM-ini/DevMode/Dev.ini",
+        "sha256": "925b23bd848074c2e07ec11ff60ce541a2d7a9a137c4cc7cca19834b1217ec57",
+        "bytes": 82
+      },
+      {
+        "path": "EDHM-ini/DevMode/Dev-full.ini",
+        "sha256": "9db995757bf6edb4b06f57a3c2c97d73009969e5a9eae513b30f19787e66c89b",
+        "bytes": 182
+      },
+      {
+        "path": "ShaderFixes/04fc7f00bade5b4a-ps.txt",
+        "sha256": "a53daee7220d3c06e35228d0856e038f71851172f9d4896c77fab3eb1855fd36",
+        "bytes": 4379
+      },
+      {
+        "path": "ShaderFixes/09bf96d5b25f6ca5-ps.txt",
+        "sha256": "4643212c94c8ae36282d115fa36fcf85277069f92588c485ebb90bc9705a6eef",
+        "bytes": 13490
+      },
+      {
+        "path": "ShaderFixes/0f80d300a37639f3-ps.txt",
+        "sha256": "c47c9894e2fd31d5b622c2a081037467d8dfe80f7a554dd4c21161e80573093f",
+        "bytes": 8192
+      },
+      {
+        "path": "ShaderFixes/132770aba38e4d2a-ps.txt",
+        "sha256": "90ff74d7dc5a4e33742f408ffa9db19269129649d345433295c75545ca2960a6",
+        "bytes": 1676
+      },
+      {
+        "path": "ShaderFixes/1a696e8bae6eec02-ps.txt",
+        "sha256": "35ec4d88cb7e82e508b794226284ae5a8428bc726088416c6c6ced88b1b36627",
+        "bytes": 55076
+      },
+      {
+        "path": "ShaderFixes/1d5a317f0e831e9d-ps.txt",
+        "sha256": "08ddb90b3be09317500f75a9cfd03264907154bbe9a95042673d83868dfd31a4",
+        "bytes": 4379
+      },
+      {
+        "path": "ShaderFixes/20e0f44142f16cb3-ps.txt",
+        "sha256": "9eeda883b9aa38934d915eff8af808f8a02bdd397e7e13d56d37db5d211df061",
+        "bytes": 17688
+      },
+      {
+        "path": "ShaderFixes/25ca9f20b74e638b-ps.txt",
+        "sha256": "1760d7490e8c418743e2e8288feb35f7f2480c7403ae4a59fd1a36d74729410a",
+        "bytes": 5847
+      },
+      {
+        "path": "ShaderFixes/2726290f74827c14-ps.txt",
+        "sha256": "f9502f13a87f2a024af0fdc020ace93f6e739378e95dc657d56d54f418630ecb",
+        "bytes": 32168
+      },
+      {
+        "path": "ShaderFixes/29ab32c907cda633-ps.txt",
+        "sha256": "5044f3c49f288bd684f24722c376286ed2b923532103b626223738fcb3042faa",
+        "bytes": 16437
+      },
+      {
+        "path": "ShaderFixes/29cb4ffbc78ebdfe-ps.txt",
+        "sha256": "ba1451bc5eca5c27db8ae26ab79cdb365b61dbe170317ddb92f9ea0772ae858c",
+        "bytes": 19376
+      },
+      {
+        "path": "ShaderFixes/2b6f1cbdea446333-vs.txt",
+        "sha256": "33fbe2851910b5981fb472049e5aa7436e28bc394b065e139d12df0f63a18abc",
+        "bytes": 3671
+      },
+      {
+        "path": "ShaderFixes/2b803276d219086b-ps.txt",
+        "sha256": "da6823b212551a2a48cca5eac2f84a1b763485bdba30ae0dc24162e95e558d20",
+        "bytes": 2626
+      },
+      {
+        "path": "ShaderFixes/2e754bfb531333cf-ps.txt",
+        "sha256": "baf2eba51003e8e12222c177b53ca50fc1b052747503abcdc13822e8a4a0a215",
+        "bytes": 5299
+      },
+      {
+        "path": "ShaderFixes/3582a66bcb0903ae-ps.txt",
+        "sha256": "7300306d8d9f7a0b0cf5a38f81472a8c2d077b935b03c6baffb9fdf8c5d1996a",
+        "bytes": 5667
+      },
+      {
+        "path": "ShaderFixes/35aac13bbb1540de-ps.txt",
+        "sha256": "874a8b8c9effaaba90197d81e6f72ccb82e16d2bdf71882e14d25033f8c742e2",
+        "bytes": 174858
+      },
+      {
+        "path": "ShaderFixes/35ba0b484a75eb96-ps.txt",
+        "sha256": "538edf604c14616e0c4c32985a74d76940668bf1a271ec3e1b921aa785f46544",
+        "bytes": 10623
+      },
+      {
+        "path": "ShaderFixes/36b6f4a167460286-ps.txt",
+        "sha256": "1936f2c5ed95484c88e8f111f446f3299419094bc437c0f22b8f5eefa0eb74f4",
+        "bytes": 9231
+      },
+      {
+        "path": "ShaderFixes/380822531cf1f3d4-ps.txt",
+        "sha256": "44d5f2165552d48fe8186cb71acc63114c58c283ad610564c4c83af968eb54cb",
+        "bytes": 39490
+      },
+      {
+        "path": "ShaderFixes/3c368da8a7c2c1cb-ps.txt",
+        "sha256": "4a4a37c2277f73987e55bb133e052ab9a07804bc0d459be068c6940c984dcf27",
+        "bytes": 2312
+      },
+      {
+        "path": "ShaderFixes/3f366702d540af3e-ps.txt",
+        "sha256": "5b233df02c3d3f3aa00630c1a9b29995b8270acfe68dfc96776ae99d4863913d",
+        "bytes": 9290
+      },
+      {
+        "path": "ShaderFixes/42c139823eab75ae-vs.txt",
+        "sha256": "5e8b5b07213be34e1cdf51ed54f7625efbd1db6e2bc31e0841f4e7061172c440",
+        "bytes": 4351
+      },
+      {
+        "path": "ShaderFixes/4a533b975e4998bf-ps.txt",
+        "sha256": "4505f9b55943ea5acbdb61346fd517f3066fa09e00d2beafe0ba10372a4b92f4",
+        "bytes": 5690
+      },
+      {
+        "path": "ShaderFixes/4fb6c99f9fd4f9fc-ps.txt",
+        "sha256": "bcd315701ae13e94794b971003b3575325f7719e116fafbe4aaadf19077f0925",
+        "bytes": 3477
+      },
+      {
+        "path": "ShaderFixes/56fefcd82e3d3703-ps.txt",
+        "sha256": "6cf15fa7105ed3802644faf49eb8469bcdef701af5e60d979941d7cb6123ac9c",
+        "bytes": 12159
+      },
+      {
+        "path": "ShaderFixes/57d08ee218a628f7-ps.txt",
+        "sha256": "45dfba91db5bcc92e9e466795abaeb42744e8cf8ddf281a1a781c447593c3381",
+        "bytes": 6303
+      },
+      {
+        "path": "ShaderFixes/5d106a121c0a90bc-ps.txt",
+        "sha256": "55035eb46c0051fed06ba8e75584f1a10f4eb00604557cbe0bc1238613f48e22",
+        "bytes": 7929
+      },
+      {
+        "path": "ShaderFixes/5f6c54ac955ba85a-ps.txt",
+        "sha256": "b1608bd5403eb9ac649e14e4352b28a31b7a94ae5b21b8edd935995b69749389",
+        "bytes": 32452
+      },
+      {
+        "path": "ShaderFixes/636c89262dd982cf-ps.txt",
+        "sha256": "a03f202cafb5e18bf36ca294173ed65d71ae7fd6dc84f923de057365bea910a8",
+        "bytes": 6428
+      },
+      {
+        "path": "ShaderFixes/6ca6185b55ad6ec0-ps.txt",
+        "sha256": "96d4f768fff1586226f0058c49d0324d67fe8e93ae2ce7befca1c8c3641e5b24",
+        "bytes": 3406
+      },
+      {
+        "path": "ShaderFixes/6e3748ffcba12029-ps.txt",
+        "sha256": "d38f23e6c614dcbff1e08666212e5465b96396c2be1dbdc4b20f3087745a21e2",
+        "bytes": 19740
+      },
+      {
+        "path": "ShaderFixes/6e3f4126e9accce4-ps.txt",
+        "sha256": "85114eddd9491dea6853ef2b03647b3eba34fa9ff8405d47752a1fa6b5f8a546",
+        "bytes": 4931
+      },
+      {
+        "path": "ShaderFixes/6e5f1e69f8bfbcda-ps.txt",
+        "sha256": "e270ec35b1ce78d5095752dd96d7a004d8e25fc1fa4720fa1b0320c99efd0a62",
+        "bytes": 6369
+      },
+      {
+        "path": "ShaderFixes/70e91536d34607c7-ps.txt",
+        "sha256": "7679f544f87d060772b1d1a0826ed5fe82a0386253eeef2682a2b69d430f178f",
+        "bytes": 5590
+      },
+      {
+        "path": "ShaderFixes/723db111682fbc7b-ps.txt",
+        "sha256": "cc36f7f688714e7c79a22ba5835def1c3bc14ccad0cd838e64734925e25345c2",
+        "bytes": 3699
+      },
+      {
+        "path": "ShaderFixes/77622058d555360f-ps.txt",
+        "sha256": "f4319631ef5f8aaa14a45c55e4fa019ed8db37512865daff3d8a5bcb55e82321",
+        "bytes": 21079
+      },
+      {
+        "path": "ShaderFixes/7ab88ec07a37c012-ps.txt",
+        "sha256": "35140fa8ce54dfb345a2f3bb34ae69f9c8ff41d19cb67bd1ef03719b1810ebd2",
+        "bytes": 5751
+      },
+      {
+        "path": "ShaderFixes/7c6152f2bcddb0af-ps.txt",
+        "sha256": "a75b149c858654c15141c92a978e0b9c823662e2af7033cf6a7ac1d108ca6d5d",
+        "bytes": 5591
+      },
+      {
+        "path": "ShaderFixes/7e1a1611c7afa0bd-ps.txt",
+        "sha256": "2a1c040eb4c40a617e9647b5d78569f67788daaf0326b69bd979762a0cfcbeb4",
+        "bytes": 17688
+      },
+      {
+        "path": "ShaderFixes/85464878a444a6a6-ps.txt",
+        "sha256": "7a9a086fe52005ac160475e030ede2cac0cefcf778b1c4054a0ad82f0eb5789e",
+        "bytes": 5045
+      },
+      {
+        "path": "ShaderFixes/89c697b237594f04-ps.txt",
+        "sha256": "8187f18c733ba350b78cfc84a79be7ee8924696916de368333ce9f2a301f2739",
+        "bytes": 5778
+      },
+      {
+        "path": "ShaderFixes/8b41d538be791f4a-ps.txt",
+        "sha256": "3948e7adb9c9506b898e78b8611b8330cdbe42ec746f7a2bea894f98bff824c2",
+        "bytes": 3220
+      },
+      {
+        "path": "ShaderFixes/8bcd28b6cc56b5b5-ps.txt",
+        "sha256": "802a4349c49a81ef947f32e409fe89c861fc29ba2e48a9cb73b722cd2cd9bff2",
+        "bytes": 7008
+      },
+      {
+        "path": "ShaderFixes/8f5bd2ca7bf0d382-ps.txt",
+        "sha256": "874a7241d32216aeea8822f04083c7c5f6da3b8103c06f792303370cc87c7430",
+        "bytes": 12923
+      },
+      {
+        "path": "ShaderFixes/9129cec0b67ffecf-vs.txt",
+        "sha256": "598a780e703765f65f572b5292e9ca9b2c2e9c5779b9aff91feb7e6d1e64a8b0",
+        "bytes": 3858
+      },
+      {
+        "path": "ShaderFixes/91badcb77f115370-ps.txt",
+        "sha256": "a572bfc2d350ba56da861488ebeb2f93eb6dd4fdbc0ba16a618228aeb0ff2ebb",
+        "bytes": 7693
+      },
+      {
+        "path": "ShaderFixes/95a3b90cf4696605-ps.txt",
+        "sha256": "bc7cd5da827f5b2586fd6f675f2441acf6179eafe828953d3a033a235d5c7b31",
+        "bytes": 5572
+      },
+      {
+        "path": "ShaderFixes/9798f7cba8194a6c-ps.txt",
+        "sha256": "52e358a6a66a10e47c767e65eb8379b836dd2ca986cbd7bc470154842ad6a502",
+        "bytes": 23550
+      },
+      {
+        "path": "ShaderFixes/97e6b9ff825cb157-ps.txt",
+        "sha256": "3d812e728f23486005dd8d81102d32e828b4a1514b8eaaec4db517c157824568",
+        "bytes": 9149
+      },
+      {
+        "path": "ShaderFixes/9bc29613c2377e7a-ps.txt",
+        "sha256": "b5987af2b6750c82f080a5042953a9bca9bd3b21c4397f5f8f9a792a3db23ef7",
+        "bytes": 11252
+      },
+      {
+        "path": "ShaderFixes/9c8893e01f362425-ps.txt",
+        "sha256": "769d3881b48e6d310682e8d91450b0afa28cd432f50cd3f4cdcb7a71f1704ecc",
+        "bytes": 5236
+      },
+      {
+        "path": "ShaderFixes/a0d3dd801a049909-ps.txt",
+        "sha256": "96d930b4a76b353807e93404ecf4a8f2c84dbce19bf4c441d4f7bb923e4d4915",
+        "bytes": 50297
+      },
+      {
+        "path": "ShaderFixes/a1e1d27a77a666fb-ps.txt",
+        "sha256": "8f9cd5e04cea198c45a157be0b72675294c148a71171061c477d0c0e3f80f456",
+        "bytes": 216938
+      },
+      {
+        "path": "ShaderFixes/a555a6cdc80553e3-ps.txt",
+        "sha256": "cd68e4870bce8aa3f7fa1847dfcf04e1b93792d2d219bdb4661065711a6434df",
+        "bytes": 5764
+      },
+      {
+        "path": "ShaderFixes/aa30aee481369221-ps.txt",
+        "sha256": "6b627ed8674785865f0fbf28b210a29ade6f457f4a32246f5f76d0372a8b967f",
+        "bytes": 10573
+      },
+      {
+        "path": "ShaderFixes/ad5ad611d07db185-ps.txt",
+        "sha256": "491bca8f1e13d9e42cfa16369713a6d464efe98a1d8fcd5e9b50c1a33a3ade98",
+        "bytes": 3803
+      },
+      {
+        "path": "ShaderFixes/ad901c638154978f-ps.txt",
+        "sha256": "2c121142b3414e142c5ee422aa28474d20f30551594a69086dac554526606c86",
+        "bytes": 9069
+      },
+      {
+        "path": "ShaderFixes/adbd966677e79a6d-ps.txt",
+        "sha256": "422aaa017ee44b81eb15e34f9e252caeea8336262d610b4b6cef09124f64822b",
+        "bytes": 17688
+      },
+      {
+        "path": "ShaderFixes/b1f29dc866cb17fa-ps.txt",
+        "sha256": "ce583c4e963d006db9b7cd7dfd3c59ee0a3375dc090be88b6da4ef5faf570a4f",
+        "bytes": 3287
+      },
+      {
+        "path": "ShaderFixes/b37fb3a09ce94ea2-ps.txt",
+        "sha256": "5aada5a1d442eb49ec966422f81f514346dd3a4d62bc14580922c6cfaebae5bc",
+        "bytes": 6817
+      },
+      {
+        "path": "ShaderFixes/b4523c39a461fd35-ps.txt",
+        "sha256": "5d0b430db07aad01c4a471ebd904775286217174896367ab495f23a6a332a0f1",
+        "bytes": 48823
+      },
+      {
+        "path": "ShaderFixes/b8f8a45d83195fc1-ps.txt",
+        "sha256": "4a8ecb8c4b4ca5840f62e718c21bc93ed5a6f119c23e8687c136ac475037c1ae",
+        "bytes": 5554
+      },
+      {
+        "path": "ShaderFixes/bddd51b47f0d2531-ps.txt",
+        "sha256": "5c0768e94fc93622865409c1867f201416983a27e7d6a843f872bb5c01f220cc",
+        "bytes": 12508
+      },
+      {
+        "path": "ShaderFixes/c3187a57b31c4c68-ps.txt",
+        "sha256": "0bf943f4fcebe002a2dfc3f0150bd18a5fc38a8ba37f260bf5b57ca386e63ce0",
+        "bytes": 7668
+      },
+      {
+        "path": "ShaderFixes/c4f04894e3f6ae79-ps.txt",
+        "sha256": "1caceb2194d05952de24147f5696bfcb74c1d39724ffb8482ff89a321dc06524",
+        "bytes": 19928
+      },
+      {
+        "path": "ShaderFixes/c85e80bd224453bc-ps.txt",
+        "sha256": "33c3ba3684c0342f85755208619812791cbf0be5f435dba190b88cac6f46a8e1",
+        "bytes": 10573
+      },
+      {
+        "path": "ShaderFixes/c96ccbcb35950166-ps.txt",
+        "sha256": "beff5dc7dc19c7aba3f8cb71ca569952d4e446f790a7f0c271903ed82be209ef",
+        "bytes": 4633
+      },
+      {
+        "path": "ShaderFixes/d34c61f68082fbcf-ps.txt",
+        "sha256": "c36059e5ec9def90106eedf2b0c7159aa9bb5a4d70f7135c010d14fbe697a3b4",
+        "bytes": 48610
+      },
+      {
+        "path": "ShaderFixes/d5838a28179d8e0d-ps.txt",
+        "sha256": "ce1ecda74f7c453db6bdefff6a40b6e493b9d94d0cca5a4a180b08703df26622",
+        "bytes": 8926
+      },
+      {
+        "path": "ShaderFixes/d6c6b9abdf104b6d-ps.txt",
+        "sha256": "b8e1763787c26e0573cb6fdcbc5017af487aac29cb65619daa26308d39264d26",
+        "bytes": 4379
+      },
+      {
+        "path": "ShaderFixes/d9f064c6e8ce4554-ps.txt",
+        "sha256": "8ef8892daedd196e28df892b00fc8f538798b77884b44668776bd703d58bd5f2",
+        "bytes": 16249
+      },
+      {
+        "path": "ShaderFixes/da96bea640af499c-ps.txt",
+        "sha256": "a95d511565f8b7cdc39d971b17bf7321e268682ba277f6867c19651e0d608e38",
+        "bytes": 5019
+      },
+      {
+        "path": "ShaderFixes/de50876eaac9218c-ps.txt",
+        "sha256": "177c49efc65e7819dafa2ad5efab365a4cbce5ae29ad0365605ac13422381811",
+        "bytes": 6561
+      },
+      {
+        "path": "ShaderFixes/e32e69ee30c36af6-ps.txt",
+        "sha256": "b1608bd5403eb9ac649e14e4352b28a31b7a94ae5b21b8edd935995b69749389",
+        "bytes": 32452
+      },
+      {
+        "path": "ShaderFixes/ea5390a2f20c2368-ps.txt",
+        "sha256": "641aade87bbd5f7806a70778a872fb01be7e1cf683a3f09ac454e918ae16a73a",
+        "bytes": 3331
+      },
+      {
+        "path": "ShaderFixes/f01f0329d0460c74-ps.txt",
+        "sha256": "eb9977ea1e0bc868f5825ad5c0d38db77eb5eff9579d177a8e4a1ae54c72959d",
+        "bytes": 3480
+      },
+      {
+        "path": "ShaderFixes/f2ce89f2c5d390ce-ps.txt",
+        "sha256": "b1608bd5403eb9ac649e14e4352b28a31b7a94ae5b21b8edd935995b69749389",
+        "bytes": 32452
+      }
+    ],
+    "assets": [
+      {
+        "path": "ShaderFixes/04fc7f00bade5b4a-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 7,
+            "2": 7,
+            "3": 7,
+            "4": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/09bf96d5b25f6ca5-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 1,
+            "1": 15
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/0f80d300a37639f3-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/132770aba38e4d2a-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/1a696e8bae6eec02-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/1d5a317f0e831e9d-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 7,
+            "2": 7,
+            "3": 7,
+            "4": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/20e0f44142f16cb3-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 7,
+            "2": 7,
+            "3": 7,
+            "4": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/25ca9f20b74e638b-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/2726290f74827c14-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 12,
+            "1": 1
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/29ab32c907cda633-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 3,
+            "1": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/29cb4ffbc78ebdfe-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 7,
+            "1": 3,
+            "2": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/2b6f1cbdea446333-vs.txt",
+        "model": "vs_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 9,
+            "3": 9
+          },
+          "output": {
+            "0": 15,
+            "1": 15,
+            "2": 15,
+            "3": 1,
+            "4": 15,
+            "5": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/2b803276d219086b-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 7
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/2e754bfb531333cf-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 7,
+            "2": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/3582a66bcb0903ae-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/35aac13bbb1540de-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 15,
+            "3": 15,
+            "4": 1
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/35ba0b484a75eb96-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 15,
+            "3": 15,
+            "4": 15,
+            "5": 15,
+            "6": 15,
+            "7": 15,
+            "8": 3,
+            "9": 7
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/36b6f4a167460286-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 1
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/380822531cf1f3d4-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 7
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/3c368da8a7c2c1cb-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/3f366702d540af3e-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 7,
+            "3": 3
+          },
+          "output": {
+            "0": 7,
+            "1": 1
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/42c139823eab75ae-vs.txt",
+        "model": "vs_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 9,
+            "3": 9,
+            "4": 3
+          },
+          "output": {
+            "0": 7,
+            "1": 15,
+            "2": 15,
+            "3": 15,
+            "4": 15,
+            "5": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/4a533b975e4998bf-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 3,
+            "2": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/4fb6c99f9fd4f9fc-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 15,
+            "3": 15,
+            "4": 15,
+            "5": 15,
+            "6": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/56fefcd82e3d3703-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 1,
+            "1": 15
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/57d08ee218a628f7-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 3,
+            "1": 7,
+            "2": 7,
+            "3": 3
+          },
+          "output": {
+            "0": 15,
+            "1": 15,
+            "2": 15,
+            "3": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/5d106a121c0a90bc-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 7
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/5f6c54ac955ba85a-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "4": 3,
+            "5": 1
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/636c89262dd982cf-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/6ca6185b55ad6ec0-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 15,
+            "3": 15,
+            "4": 15,
+            "5": 15
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/6e3748ffcba12029-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/6e3f4126e9accce4-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 3,
+            "1": 7
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/6e5f1e69f8bfbcda-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 7,
+            "3": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/70e91536d34607c7-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 1
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/723db111682fbc7b-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/77622058d555360f-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 7,
+            "3": 7,
+            "4": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/7ab88ec07a37c012-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/7c6152f2bcddb0af-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 7,
+            "2": 15,
+            "3": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/7e1a1611c7afa0bd-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 7,
+            "2": 7,
+            "3": 7,
+            "4": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/85464878a444a6a6-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/89c697b237594f04-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 7,
+            "1": 15,
+            "2": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/8b41d538be791f4a-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 7,
+            "1": 7,
+            "2": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/8bcd28b6cc56b5b5-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 1,
+            "2": 1,
+            "3": 15
+          },
+          "output": {
+            "0": 15,
+            "1": 15,
+            "2": 15,
+            "3": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/8f5bd2ca7bf0d382-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 15,
+            "3": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/9129cec0b67ffecf-vs.txt",
+        "model": "vs_5_0",
+        "declared": {
+          "input": {
+            "0": 7,
+            "1": 15
+          },
+          "output": {
+            "0": 15,
+            "1": 7,
+            "2": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/91badcb77f115370-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/95a3b90cf4696605-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 7,
+            "1": 15,
+            "2": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/9798f7cba8194a6c-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 7,
+            "1": 3,
+            "2": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/97e6b9ff825cb157-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/9bc29613c2377e7a-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 1,
+            "1": 15
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/9c8893e01f362425-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 3,
+            "1": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/a0d3dd801a049909-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 7,
+            "1": 15,
+            "2": 15,
+            "3": 15,
+            "4": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/a1e1d27a77a666fb-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 15,
+            "3": 1,
+            "4": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/a555a6cdc80553e3-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 7,
+            "1": 15
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/aa30aee481369221-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 7,
+            "3": 7,
+            "4": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/ad5ad611d07db185-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/ad901c638154978f-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 1,
+            "3": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/adbd966677e79a6d-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 7,
+            "2": 7,
+            "3": 7,
+            "4": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/b1f29dc866cb17fa-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 7,
+            "1": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/b37fb3a09ce94ea2-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 1,
+            "1": 7,
+            "2": 15,
+            "3": 3
+          },
+          "output": {
+            "0": 15,
+            "1": 15,
+            "2": 15,
+            "3": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/b4523c39a461fd35-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "2": 7,
+            "4": 3,
+            "5": 1
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/b8f8a45d83195fc1-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/bddd51b47f0d2531-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 1,
+            "1": 15
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/c3187a57b31c4c68-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/c4f04894e3f6ae79-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 7,
+            "1": 3,
+            "2": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/c85e80bd224453bc-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 7,
+            "3": 7,
+            "4": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/c96ccbcb35950166-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/d34c61f68082fbcf-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 12,
+            "1": 7,
+            "2": 1
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/d5838a28179d8e0d-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 15,
+            "2": 1
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/d6c6b9abdf104b6d-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 7,
+            "2": 7,
+            "3": 7,
+            "4": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/d9f064c6e8ce4554-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/da96bea640af499c-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 7
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/de50876eaac9218c-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 15,
+            "1": 1,
+            "2": 8
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/e32e69ee30c36af6-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "4": 3,
+            "5": 1
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/f01f0329d0460c74-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "0": 3
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      },
+      {
+        "path": "ShaderFixes/f2ce89f2c5d390ce-ps.txt",
+        "model": "ps_5_0",
+        "declared": {
+          "input": {
+            "4": 3,
+            "5": 1
+          },
+          "output": {
+            "0": 15
+          }
+        }
+      }
+    ],
+    "tools": {
+      "cmd_Decompiler.exe": {
+        "sha256": "625a252161cb8ba7927c72287fa436badae0d19b4079d7dd2b3207b1af2a05ac",
+        "bytes": 599040
+      },
+      "d3dcompiler_47.dll": {
+        "sha256": "0ae6e52072857c3acfde53b98f56c3c6d9bd0e7b09f247ae7f40bfd451593c4c",
+        "bytes": 4147544
+      },
+      "machine": "0x14c",
+      "protocol": "3dmigoto-cmd-assembly-v1"
+    }
+  },
+  "outputs": [
+    {
+      "input": "ShaderFixes/04fc7f00bade5b4a-ps.txt",
+      "file": "shaders/04fc7f00bade5b4a-ps.dxbc",
+      "sha256": "ab620409f74f4a79109036b2546b95800efeb488cdf3589688e917ae8afe03ef",
+      "bytes": 2432,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 5,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/09bf96d5b25f6ca5-ps.txt",
+      "file": "shaders/09bf96d5b25f6ca5-ps.dxbc",
+      "sha256": "1e923c47095fe97bcf787507910af1c752624dea8a278a471180a368c2a93054",
+      "bytes": 10032,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/0f80d300a37639f3-ps.txt",
+      "file": "shaders/0f80d300a37639f3-ps.dxbc",
+      "sha256": "25b0a96a6c868ed5eb8a9f8e0e7c28f00290baabdcad3cf4b5b9b8d431bb0b4b",
+      "bytes": 5404,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/132770aba38e4d2a-ps.txt",
+      "file": "shaders/132770aba38e4d2a-ps.dxbc",
+      "sha256": "ba35f28526f6615a1c084d6a25bbe738c0ae156c7ce7a5e053293b8669c97437",
+      "bytes": 732,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/1a696e8bae6eec02-ps.txt",
+      "file": "shaders/1a696e8bae6eec02-ps.dxbc",
+      "sha256": "06edc0d7188c4edce0bdf94b6dcf32280b4a90ed6ce5c50607654d3ef87be223",
+      "bytes": 27360,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/1d5a317f0e831e9d-ps.txt",
+      "file": "shaders/1d5a317f0e831e9d-ps.dxbc",
+      "sha256": "01f3861cf460a3cd6a9ebef2d92b818756e5fecb9dad2057acc9c92e9ba7f0c1",
+      "bytes": 2432,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 5,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/20e0f44142f16cb3-ps.txt",
+      "file": "shaders/20e0f44142f16cb3-ps.dxbc",
+      "sha256": "6c08354d514fa5a90216ef6da38068a3e9fe077114c8d5252207185368a33ceb",
+      "bytes": 11904,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 5,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/25ca9f20b74e638b-ps.txt",
+      "file": "shaders/25ca9f20b74e638b-ps.dxbc",
+      "sha256": "1a8381e38455fbd2b6f5091f8665fc3fd5a82ad3de6a604c7447eae6f01e8725",
+      "bytes": 3152,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/2726290f74827c14-ps.txt",
+      "file": "shaders/2726290f74827c14-ps.dxbc",
+      "sha256": "55322fcedee0a8394bfd4b474415e2591cb922e0244b75a9904ba8d324277806",
+      "bytes": 21772,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/29ab32c907cda633-ps.txt",
+      "file": "shaders/29ab32c907cda633-ps.dxbc",
+      "sha256": "3d689b1758237007362d8ac25dcb972f54864c5fca3ef3ce29ee87ccbb036a50",
+      "bytes": 13304,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/29cb4ffbc78ebdfe-ps.txt",
+      "file": "shaders/29cb4ffbc78ebdfe-ps.dxbc",
+      "sha256": "a85e4216c0aeb17bae2065164c84e50ec0053b8e558e98e72bf11d94a163d7be",
+      "bytes": 13548,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 3,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/2b6f1cbdea446333-vs.txt",
+      "file": "shaders/2b6f1cbdea446333-vs.dxbc",
+      "sha256": "cf0d6f904991d84a54d5998ed5adb9d3c26f5cfd64121f507c753b59b93caa2c",
+      "bytes": 1464,
+      "structure": {
+        "model": "vs_5_0",
+        "signature_entries": {
+          "input": 5,
+          "output": 6
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/2b803276d219086b-ps.txt",
+      "file": "shaders/2b803276d219086b-ps.dxbc",
+      "sha256": "638b5a7d762d8419595989c4cdc385065cc6e6d6d5ef82ed4e99c4adb158b8a6",
+      "bytes": 1016,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/2e754bfb531333cf-ps.txt",
+      "file": "shaders/2e754bfb531333cf-ps.dxbc",
+      "sha256": "2e09dd0ec1199e36abc3c932fc4880255ba31fe6ad9efb465dc5560805c672a6",
+      "bytes": 2864,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 3,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/3582a66bcb0903ae-ps.txt",
+      "file": "shaders/3582a66bcb0903ae-ps.dxbc",
+      "sha256": "1ddce5c2e375fbb2a3d1de69ee03b7ef5834095be73e904cbff366246c79ef73",
+      "bytes": 3244,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/35aac13bbb1540de-ps.txt",
+      "file": "shaders/35aac13bbb1540de-ps.dxbc",
+      "sha256": "6da4fb594f4b1d1db092a0156f94a6e9b4d3da732a0e32d0439afc08dbaf6830",
+      "bytes": 127236,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 5,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/35ba0b484a75eb96-ps.txt",
+      "file": "shaders/35ba0b484a75eb96-ps.dxbc",
+      "sha256": "1ee426dc5f9eb50e1f2e61c2a71e8a21a178e889a69b0aa2b02879ee5405163b",
+      "bytes": 7504,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 10,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/36b6f4a167460286-ps.txt",
+      "file": "shaders/36b6f4a167460286-ps.dxbc",
+      "sha256": "d925269d5b838b955e8e7fc87d05a89732e4d3bf04b302e772738654cc3c5daa",
+      "bytes": 6272,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/380822531cf1f3d4-ps.txt",
+      "file": "shaders/380822531cf1f3d4-ps.dxbc",
+      "sha256": "b62a2985a9ca89f0d567137cb2f07bace7ba8bd864dd6c1a5417acc7263878c7",
+      "bytes": 19768,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/3c368da8a7c2c1cb-ps.txt",
+      "file": "shaders/3c368da8a7c2c1cb-ps.dxbc",
+      "sha256": "4d380a01f225312bab457a70c087b6f7f762730639fea2ce116956596c7ddc65",
+      "bytes": 932,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/3f366702d540af3e-ps.txt",
+      "file": "shaders/3f366702d540af3e-ps.dxbc",
+      "sha256": "add4431282b3ef11b413856a63dff955f9d436671c2a4c1ac432c738d39ae15f",
+      "bytes": 7192,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 4,
+          "output": 2
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/42c139823eab75ae-vs.txt",
+      "file": "shaders/42c139823eab75ae-vs.dxbc",
+      "sha256": "17077c445a41dea02c35de67a709cd781c95914585e24d9a445cc564b15a74ff",
+      "bytes": 1960,
+      "structure": {
+        "model": "vs_5_0",
+        "signature_entries": {
+          "input": 5,
+          "output": 6
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/4a533b975e4998bf-ps.txt",
+      "file": "shaders/4a533b975e4998bf-ps.dxbc",
+      "sha256": "2ec9e16e0903969de9b7b13d201aae71117b3a9ae9c1b6c2534735b42a22906b",
+      "bytes": 2788,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 3,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/4fb6c99f9fd4f9fc-ps.txt",
+      "file": "shaders/4fb6c99f9fd4f9fc-ps.dxbc",
+      "sha256": "62067afd8cdad1cc8a4351e60e7f23c24ee77361e4a7e06a2a3eedfd8325676b",
+      "bytes": 1836,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 7,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/56fefcd82e3d3703-ps.txt",
+      "file": "shaders/56fefcd82e3d3703-ps.dxbc",
+      "sha256": "7a872eb443a0625aaf8d99358d3b94d42c39cc12cc6648bd3c7a1401aca575ea",
+      "bytes": 8852,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/57d08ee218a628f7-ps.txt",
+      "file": "shaders/57d08ee218a628f7-ps.dxbc",
+      "sha256": "a0484aa3ec085d036fd119fee6adcc2397e4b5870cde6ae313cf648c0eda5ea7",
+      "bytes": 4236,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 4,
+          "output": 4
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/5d106a121c0a90bc-ps.txt",
+      "file": "shaders/5d106a121c0a90bc-ps.dxbc",
+      "sha256": "862cdc78802ed4293347534735fb3401fc8092eea53bf0986c988f60c703bd8e",
+      "bytes": 5016,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/5f6c54ac955ba85a-ps.txt",
+      "file": "shaders/5f6c54ac955ba85a-ps.dxbc",
+      "sha256": "2cddf74d306da8809a5ab4547fa57fe5fed7910eeeafca9f980a49c396958f83",
+      "bytes": 21868,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 6,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/636c89262dd982cf-ps.txt",
+      "file": "shaders/636c89262dd982cf-ps.dxbc",
+      "sha256": "dae7bab0b4a6cc7636517b1fce4d4e7d3d59f998cd929c7eed0feeb1d9636055",
+      "bytes": 3484,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/6ca6185b55ad6ec0-ps.txt",
+      "file": "shaders/6ca6185b55ad6ec0-ps.dxbc",
+      "sha256": "1fe5db49cbeb14fbd05ecf7f9af3cabb82e0ffa14a1d3c8c5d610552a8fc6048",
+      "bytes": 1700,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 6,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/6e3748ffcba12029-ps.txt",
+      "file": "shaders/6e3748ffcba12029-ps.dxbc",
+      "sha256": "1ea87c25dcd9c7c44e1ada8f4b58e5eb655b1b949168b482e762343aef51156d",
+      "bytes": 15476,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/6e3f4126e9accce4-ps.txt",
+      "file": "shaders/6e3f4126e9accce4-ps.dxbc",
+      "sha256": "6d712469948c6be1f2e58cc6b5e0410ca39fe1eba4f6fe3c16d7ac3ddf5c0a16",
+      "bytes": 2844,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/6e5f1e69f8bfbcda-ps.txt",
+      "file": "shaders/6e5f1e69f8bfbcda-ps.dxbc",
+      "sha256": "34d61c4264e6cc31c5381d28144a82f9031a8b00b3ac5cfb32e573d66f525543",
+      "bytes": 3604,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 4,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/70e91536d34607c7-ps.txt",
+      "file": "shaders/70e91536d34607c7-ps.dxbc",
+      "sha256": "3477274a73e718c5cc12433ad002363dad5c6ebfd917ca7fd3777fe07207ab91",
+      "bytes": 3208,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/723db111682fbc7b-ps.txt",
+      "file": "shaders/723db111682fbc7b-ps.dxbc",
+      "sha256": "12757774b3a5899bcb200875f351c8c74aac0b82667abec7df07f12782134e2b",
+      "bytes": 1572,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/77622058d555360f-ps.txt",
+      "file": "shaders/77622058d555360f-ps.dxbc",
+      "sha256": "70d24f7848ab6efecde52d608bd5261359ed048eb63533a8e5ec457f3289657a",
+      "bytes": 16492,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 5,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/7ab88ec07a37c012-ps.txt",
+      "file": "shaders/7ab88ec07a37c012-ps.dxbc",
+      "sha256": "f63e69f64e9e82f7aac08a85f5e9b3036e7018eec3562863f61ace670dd89445",
+      "bytes": 3352,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/7c6152f2bcddb0af-ps.txt",
+      "file": "shaders/7c6152f2bcddb0af-ps.dxbc",
+      "sha256": "c87ba16c1c77e04850b640ed722b56aa383b474c13482e123e871ba4421ff2fb",
+      "bytes": 3340,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 4,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/7e1a1611c7afa0bd-ps.txt",
+      "file": "shaders/7e1a1611c7afa0bd-ps.dxbc",
+      "sha256": "5afc0ba6b3be45e2fc94c2c1557627bcd2f75aacd3dace1e7a310f088eac47ce",
+      "bytes": 11904,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 5,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/85464878a444a6a6-ps.txt",
+      "file": "shaders/85464878a444a6a6-ps.dxbc",
+      "sha256": "0c0e7d05cbe651e1e00f4477c0ca61545257cdb6231e8cc6f23d5011dbbb9c1b",
+      "bytes": 3604,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 3,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/89c697b237594f04-ps.txt",
+      "file": "shaders/89c697b237594f04-ps.dxbc",
+      "sha256": "055ef2b246df9035cb7011d3febd779dee64c4a3c6ecc61b4932a24543c895b5",
+      "bytes": 3392,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 3,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/8b41d538be791f4a-ps.txt",
+      "file": "shaders/8b41d538be791f4a-ps.dxbc",
+      "sha256": "541d925a27b50df1b1f9128c9b33b832236c10e5cfb18a6bfd1f6650df24c2a4",
+      "bytes": 1424,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 3,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/8bcd28b6cc56b5b5-ps.txt",
+      "file": "shaders/8bcd28b6cc56b5b5-ps.dxbc",
+      "sha256": "0f244de5d971c0403ca4d6436243309b1383400a87993c7779e6ce2b7034c2c1",
+      "bytes": 3908,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 4,
+          "output": 4
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/8f5bd2ca7bf0d382-ps.txt",
+      "file": "shaders/8f5bd2ca7bf0d382-ps.dxbc",
+      "sha256": "5e7cb9ab526646a6de4e7fc7d50d179e5a17d5272c154d55e5c70c06b30d605b",
+      "bytes": 7452,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 4,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/9129cec0b67ffecf-vs.txt",
+      "file": "shaders/9129cec0b67ffecf-vs.dxbc",
+      "sha256": "7a47a459d54152a6828fcb74456ae85f3f30ffec54b56cd0326c5096bea8358d",
+      "bytes": 1972,
+      "structure": {
+        "model": "vs_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 3
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/91badcb77f115370-ps.txt",
+      "file": "shaders/91badcb77f115370-ps.dxbc",
+      "sha256": "4a64b2d9d5658778f4cfa717a6f1b0cb646f0c1972412de8593028c00a75ed12",
+      "bytes": 4444,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/95a3b90cf4696605-ps.txt",
+      "file": "shaders/95a3b90cf4696605-ps.dxbc",
+      "sha256": "b7ca27672a36d796c65b236b64e2e3d9ef82b5fdf55d0f214677c4f69303abc3",
+      "bytes": 3352,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 3,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/9798f7cba8194a6c-ps.txt",
+      "file": "shaders/9798f7cba8194a6c-ps.dxbc",
+      "sha256": "af368df88a719a7ee75d8e9931f82188b3ef9aeba71b350e1516edb1db796a01",
+      "bytes": 16312,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 3,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/97e6b9ff825cb157-ps.txt",
+      "file": "shaders/97e6b9ff825cb157-ps.dxbc",
+      "sha256": "440581f659c7c05ecfe2c2dd12ea5122f545ee3d65de3bff9a0af15c867e9434",
+      "bytes": 6076,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/9bc29613c2377e7a-ps.txt",
+      "file": "shaders/9bc29613c2377e7a-ps.dxbc",
+      "sha256": "53db3cf05b6fded6fde0e5ca25635beee2b9469b6cfe5c42568707f5a784cea5",
+      "bytes": 7956,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/9c8893e01f362425-ps.txt",
+      "file": "shaders/9c8893e01f362425-ps.dxbc",
+      "sha256": "d4e98a78862c2aa4f603b3b0644ebd9a4a8298b2fa1340faa32698be1631b64f",
+      "bytes": 2660,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/a0d3dd801a049909-ps.txt",
+      "file": "shaders/a0d3dd801a049909-ps.dxbc",
+      "sha256": "6deeb99bcd52cf0caf91f7352d77f5b45e805d3e14da2657d58caa8036197fc7",
+      "bytes": 34272,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 5,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/a1e1d27a77a666fb-ps.txt",
+      "file": "shaders/a1e1d27a77a666fb-ps.dxbc",
+      "sha256": "1af97b107bd9a561eda248d2e9853467e1ca3ac71f9e4dbb4e214d97adf358ef",
+      "bytes": 86788,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 5,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/a555a6cdc80553e3-ps.txt",
+      "file": "shaders/a555a6cdc80553e3-ps.dxbc",
+      "sha256": "5efb95d2a5c74e7a6e0df54a56bea0679bf8d4f905956c9d61123491747a2f4e",
+      "bytes": 3696,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/aa30aee481369221-ps.txt",
+      "file": "shaders/aa30aee481369221-ps.dxbc",
+      "sha256": "95b6ffd4f5e7496eebbad5f3bb438252efb4af77166996e277b7bfecc50f9bcd",
+      "bytes": 7288,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 5,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/ad5ad611d07db185-ps.txt",
+      "file": "shaders/ad5ad611d07db185-ps.dxbc",
+      "sha256": "a310a15a64306759fcd3526e8041c6a19dda94a99743e7a847949f27c948c09d",
+      "bytes": 2044,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/ad901c638154978f-ps.txt",
+      "file": "shaders/ad901c638154978f-ps.dxbc",
+      "sha256": "fc224ba62ae6a99f75826c185f66fa0e882f061811114a8ba4ee2de6c5b2f665",
+      "bytes": 6008,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 4,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/adbd966677e79a6d-ps.txt",
+      "file": "shaders/adbd966677e79a6d-ps.dxbc",
+      "sha256": "69f692f4cc749bb2e92fbf8ffb0c4fe1e0e849dfc341858762a00a1bea9d0fc7",
+      "bytes": 11904,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 5,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/b1f29dc866cb17fa-ps.txt",
+      "file": "shaders/b1f29dc866cb17fa-ps.dxbc",
+      "sha256": "5fb580be8516ff92a9e43927ac275608e714206a8c19eb22d3edde49b3424492",
+      "bytes": 1696,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/b37fb3a09ce94ea2-ps.txt",
+      "file": "shaders/b37fb3a09ce94ea2-ps.dxbc",
+      "sha256": "51afe561707a07c186ca1f6e2878fbcb4e03ca662ad0817d385a56a0bbbadbd2",
+      "bytes": 3456,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 4,
+          "output": 4
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/b4523c39a461fd35-ps.txt",
+      "file": "shaders/b4523c39a461fd35-ps.dxbc",
+      "sha256": "0c4baad699a64e3d145e5be905b9a76d6b4f92545ff2442530181be74d132b2e",
+      "bytes": 36156,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 6,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/b8f8a45d83195fc1-ps.txt",
+      "file": "shaders/b8f8a45d83195fc1-ps.dxbc",
+      "sha256": "44e817b429746ac8932477e01a23c088a02904c236c2702c101c0ec05b49e711",
+      "bytes": 3572,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/bddd51b47f0d2531-ps.txt",
+      "file": "shaders/bddd51b47f0d2531-ps.dxbc",
+      "sha256": "ac2dff0ae79f100dcc5d708cfa11a5a71275cda257c2b5d6294b2d1d4e01aaf1",
+      "bytes": 9092,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/c3187a57b31c4c68-ps.txt",
+      "file": "shaders/c3187a57b31c4c68-ps.dxbc",
+      "sha256": "81deaac7a150b213c214c6f0cb2db4e2bd0fddec88bc084b2d90cd977203be9b",
+      "bytes": 4700,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/c4f04894e3f6ae79-ps.txt",
+      "file": "shaders/c4f04894e3f6ae79-ps.dxbc",
+      "sha256": "60110ea8b54c7b3b47647c730c478d07129678b2276225a2ca81f2bb51349c07",
+      "bytes": 13376,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 3,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/c85e80bd224453bc-ps.txt",
+      "file": "shaders/c85e80bd224453bc-ps.dxbc",
+      "sha256": "a691fffad7d35b71841c80e3d118ac0e21209edd37814819e47c598d49ff3a3f",
+      "bytes": 7288,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 5,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/c96ccbcb35950166-ps.txt",
+      "file": "shaders/c96ccbcb35950166-ps.dxbc",
+      "sha256": "ec00b7cf55d05ecb639578f62cc6d65551755f8e86b27f4f3e2f7b64c479432e",
+      "bytes": 2656,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/d34c61f68082fbcf-ps.txt",
+      "file": "shaders/d34c61f68082fbcf-ps.dxbc",
+      "sha256": "96ca228362162070c409d4fa8ca3ef0bb8f8e41e470d6e8a0d5bd13f4c1d9c2e",
+      "bytes": 36084,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 3,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/d5838a28179d8e0d-ps.txt",
+      "file": "shaders/d5838a28179d8e0d-ps.dxbc",
+      "sha256": "e61892aba656837613b7502c163cbdc934f35b7ea6410dbbdbb49a3cba0980c8",
+      "bytes": 5800,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 3,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/d6c6b9abdf104b6d-ps.txt",
+      "file": "shaders/d6c6b9abdf104b6d-ps.dxbc",
+      "sha256": "867d1fb4045e272d47bd745bf0c98f03c62973d3d50219c4306ab73846741a5b",
+      "bytes": 2432,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 5,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/d9f064c6e8ce4554-ps.txt",
+      "file": "shaders/d9f064c6e8ce4554-ps.dxbc",
+      "sha256": "3e0f4caa4ff4ec7c541ad106b881138502dd87321fb5ab98b6e62cb63d10761b",
+      "bytes": 10852,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/da96bea640af499c-ps.txt",
+      "file": "shaders/da96bea640af499c-ps.dxbc",
+      "sha256": "bc9f2c6b5ca56a2ee8c1e55597fda727541ebfbe0a0720d00e5c325e7f7c7a89",
+      "bytes": 2948,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 2,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/de50876eaac9218c-ps.txt",
+      "file": "shaders/de50876eaac9218c-ps.dxbc",
+      "sha256": "8ed4a83007bca304cd404ab475427b085abc5428a1baab788842d29180480f55",
+      "bytes": 4008,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 3,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/e32e69ee30c36af6-ps.txt",
+      "file": "shaders/e32e69ee30c36af6-ps.dxbc",
+      "sha256": "2cddf74d306da8809a5ab4547fa57fe5fed7910eeeafca9f980a49c396958f83",
+      "bytes": 21868,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 6,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/f01f0329d0460c74-ps.txt",
+      "file": "shaders/f01f0329d0460c74-ps.dxbc",
+      "sha256": "a8103a13abaa5a876028afa0e0242261a07f52b850a12a79c95daf986250b893",
+      "bytes": 1584,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 1,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    },
+    {
+      "input": "ShaderFixes/f2ce89f2c5d390ce-ps.txt",
+      "file": "shaders/f2ce89f2c5d390ce-ps.dxbc",
+      "sha256": "2cddf74d306da8809a5ab4547fa57fe5fed7910eeeafca9f980a49c396958f83",
+      "bytes": 21868,
+      "structure": {
+        "model": "ps_5_0",
+        "signature_entries": {
+          "input": 6,
+          "output": 1
+        }
+      },
+      "original_identity": {
+        "status": "unverified",
+        "original_container_sha256": null,
+        "game_build": null
+      }
+    }
+  ],
+  "full_batch": {
+    "status": "incomplete",
+    "successful_manifest_exists": false,
+    "signature_policy_failures": [
+      {
+        "asset": "ShaderFixes/ea5390a2f20c2368-ps.txt",
+        "input_sha256": "641aade87bbd5f7806a70778a872fb01be7e1cf683a3f09ac454e918ae16a73a",
+        "prepared_sha256": "c3d81fa91f506a69255b8713e7359750eea6de103198d0ef11d2b853c3691443",
+        "reason": "missing declared input signature register/components"
+      }
+    ]
+  },
+  "verification": "prepare and read-only check succeeded for explicit 76-asset subset; all output hashes match earlier independent assembly",
+  "limits": [
+    "Declaration coverage is a conservative offline policy, not proof of a current D3D11 game failure.",
+    "No installed assets changed, no metadata inferred or repaired, no original-container/build identity established.",
+    "No t120 relocation, native shader-object/rendered-output or future SDK compatibility proof."
+  ]
+}

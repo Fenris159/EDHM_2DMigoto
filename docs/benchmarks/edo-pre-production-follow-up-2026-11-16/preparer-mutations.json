@@ -1,0 +1,122 @@
+{
+  "detected": 10,
+  "restored_clean_checks_pass": true,
+  "script_sha256": "6dfe6d0088fceb592d4a9fe24b2578ec667e05cdf75077941de5a7e696189948",
+  "test_sha256": "9f2a93d59302e7fdaa7e9d1d9b8b7d86d694855660f1432ca1fd052385bac446",
+  "mutants": [
+    {
+      "mutant": "ignored-tool-pin",
+      "exit_code": 1,
+      "detected": true,
+      "changes": [
+        {
+          "before": "digest(data) != expected.lower()",
+          "after": "False"
+        }
+      ]
+    },
+    {
+      "mutant": "ignored-architecture",
+      "exit_code": 1,
+      "detected": true,
+      "changes": [
+        {
+          "before": "if machines[0] != machines[1]:",
+          "after": "if False:"
+        }
+      ]
+    },
+    {
+      "mutant": "missing-signature-comments",
+      "exit_code": 1,
+      "detected": true,
+      "changes": [
+        {
+          "before": "if not re.search(r\"^\\s*//\\s*\" + kind",
+          "after": "if False and not re.search(r\"^\\s*//\\s*\" + kind"
+        }
+      ]
+    },
+    {
+      "mutant": "missing-declared-signature",
+      "exit_code": 1,
+      "detected": true,
+      "changes": [
+        {
+          "before": "if any(registers.get(reg, 0) & mask != mask",
+          "after": "if False and any(registers.get(reg, 0) & mask != mask"
+        }
+      ]
+    },
+    {
+      "mutant": "accepted-malformed-container",
+      "exit_code": 1,
+      "detected": true,
+      "changes": [
+        {
+          "before": "summary = validate_dxbc(code, model, declared)",
+          "after": "summary = {}"
+        }
+      ]
+    },
+    {
+      "mutant": "ignored-helper-failure",
+      "exit_code": 1,
+      "detected": true,
+      "changes": [
+        {
+          "before": "if result.returncode != 0:",
+          "after": "if False:"
+        }
+      ]
+    },
+    {
+      "mutant": "overwritten-output",
+      "exit_code": 1,
+      "detected": true,
+      "changes": [
+        {
+          "before": "if output.exists() or output.is_symlink():",
+          "after": "if False:"
+        },
+        {
+          "before": "    output.mkdir()\n",
+          "after": "    output.mkdir(exist_ok=True)\n"
+        }
+      ]
+    },
+    {
+      "mutant": "accepted-stale-recipe",
+      "exit_code": 1,
+      "detected": true,
+      "changes": [
+        {
+          "before": "if key != manifest[\"recipe_key\"] or recipe != manifest[\"recipe\"] or len(manifest[\"outputs\"]) != len(selected):",
+          "after": "if False:"
+        }
+      ]
+    },
+    {
+      "mutant": "accepted-changed-bytecode",
+      "exit_code": 1,
+      "detected": true,
+      "changes": [
+        {
+          "before": "data = (output / expected).read_bytes()\n        if digest(data) != record[\"sha256\"] or len(data) != record[\"bytes\"]:",
+          "after": "data = (output / expected).read_bytes()\n        if False:"
+        }
+      ]
+    },
+    {
+      "mutant": "invented-original-identity",
+      "exit_code": 1,
+      "detected": true,
+      "changes": [
+        {
+          "before": "\"status\": \"unverified\"",
+          "after": "\"status\": \"verified\""
+        }
+      ]
+    }
+  ]
+}

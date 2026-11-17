@@ -1,0 +1,61 @@
+{
+  "debug_layer": false,
+  "variants": {
+    "B": {
+      "sha256": "B71A6441E07384CECE7364BF1C63A7F56A0986015B5D3B60A9A7D71EAB5AD4F8"
+    },
+    "A": {
+      "sha256": "2E678330B95135105E4D84E71A122180333AAAC097B0678B657A9663259A85FC"
+    }
+  },
+  "status": "complete",
+  "candidate_source": "6f2e69e92f403d2b22d381153efbbe39e5c8c937",
+  "runs": [
+    {
+      "exit_code": 0,
+      "sequence": 0,
+      "variant": "A"
+    },
+    {
+      "exit_code": 0,
+      "sequence": 1,
+      "variant": "B"
+    },
+    {
+      "exit_code": 0,
+      "sequence": 2,
+      "variant": "B"
+    },
+    {
+      "exit_code": 0,
+      "sequence": 3,
+      "variant": "A"
+    },
+    {
+      "exit_code": 0,
+      "sequence": 4,
+      "variant": "B"
+    },
+    {
+      "exit_code": 0,
+      "sequence": 5,
+      "variant": "A"
+    },
+    {
+      "exit_code": 0,
+      "sequence": 6,
+      "variant": "A"
+    },
+    {
+      "exit_code": 0,
+      "sequence": 7,
+      "variant": "B"
+    }
+  ],
+  "shared_harness_sha256": "9E69DE1325F4AA874EABF4674BC45F6C2BA9AB739AF2A7602F6ABA7BEB3BC538",
+  "no_present_or_game": true,
+  "processor": "AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD",
+  "boundary_fixture_sha256": "255F889A5C0E36941B20ADF603DBF35FE216E22B9CFBBEAF4625222E770DEC5F",
+  "os": "Microsoft Windows NT 10.0.20348.0",
+  "baseline_source": "e7d5439427fb72ef1461a7a949f7edf448b79f67"
+}

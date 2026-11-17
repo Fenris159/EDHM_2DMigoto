@@ -1,0 +1,41 @@
+{
+  "runs": [
+    {
+      "sequence": 0,
+      "exit_code": 0,
+      "variant": "A"
+    },
+    {
+      "sequence": 1,
+      "exit_code": 0,
+      "variant": "B"
+    },
+    {
+      "sequence": 2,
+      "exit_code": 0,
+      "variant": "B"
+    },
+    {
+      "sequence": 3,
+      "exit_code": 0,
+      "variant": "A"
+    }
+  ],
+  "candidate_source": "d9e700c956fa493c051789611970cfa34a3969ba",
+  "shared_harness_sha256": "17FE12CBFF45B8DCBBC3C111506D1313A15DDA0BBEE78648D11548D1AA1D111F",
+  "boundary_fixture_sha256": "255F889A5C0E36941B20ADF603DBF35FE216E22B9CFBBEAF4625222E770DEC5F",
+  "variants": {
+    "A": {
+      "sha256": "83950904D7C93E9E151A9A1A9AEC117289221DB2E0EC296BC52F414F355AAC9C"
+    },
+    "B": {
+      "sha256": "5B2418B8CF8F2A09C5CD07CC72EBD47C7768CB8727678D8AA1352D53A39E4E4D"
+    }
+  },
+  "status": "complete",
+  "debug_layer": false,
+  "no_present_or_game": true,
+  "processor": "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD",
+  "os": "Microsoft Windows NT 10.0.20348.0",
+  "baseline_source": "e7d5439427fb72ef1461a7a949f7edf448b79f67"
+}

@@ -28,7 +28,7 @@
 - **Investigation limits:** installed files were read without launching the game.
   Runtime edits and new checks now exist only in the preliminary branch; no game
   installation, merge, release or message to another developer was made.
-  No D3D12 rendering, performance gain, MSAA, VR or full product/game Proton
+  No D3D12 rendering, end-to-end game performance gain, MSAA, VR or full product/game Proton
   compatibility is proved.
 
 ## Decision and evidence
@@ -299,7 +299,7 @@ promise to validate against the SDK, not permission to share live globals.
 
 | Order | Work | Entry condition |
 | --- | --- | --- |
-| 1 | Guard failed transition uploads and retain pending final values | Small local follow-up; confirm proposed cases before implementation/tests. |
+| 1 | Guard failed transition uploads and retain pending final values | Preliminary repair and approved native cases pass; retain the existing publication order. |
 | 2 | Inventory identities, selectors, uploads and readbacks | Useful now; read existing inputs only. |
 | 2A | Centralize parameter publication and retry ownership | After the rank 1 repair and upload inventory; migrate callers incrementally. |
 | 2B | Reuse pure query results within bounded command segments | After identifying actual repeated queries and all invalidation effects. |
@@ -316,16 +316,19 @@ promise to validate against the SDK, not permission to share live globals.
 ### 1. Guard transition-upload failure and final-value retry — local follow-up
 
 **Benefit/scope:** prevent a failed Map from reaching an invalid memcpy/Unmap.
-`UpdateIniParams` currently ignores Map's HRESULT; the command-list upload path
-checks it ([transition upload][transition-upload], [checked upload][flush]).
+At the inspected baseline, `UpdateIniParams` ignores Map's HRESULT; the
+command-list upload path checks it ([transition upload][transition-upload],
+[checked upload][flush]). The preliminary branch now repairs both through
+context-owned publication; see [implementation status](pre-production-edo-readiness.md).
 Guard success-dependent work and retain pending CPU values until an upload
 succeeds or a defined device-loss path takes over. Completed transitions are
 erased before upload ([transition update][transitions]); simply returning on
 failure could permanently omit the final GPU value. Keep the repair separate
 from interpolation extraction or upload coalescing.
 **Risk/dependencies:** small code scope, medium retry/order risk; no SDK needed.
-This hazard is untested and is not attributed to issue #52. Agree observable
-failure/retry cases before adding tests under the repository's process.
+This hazard is not attributed to issue #52. The approved failure/retry cases
+now pass in native CI, including sensitivity checks; game validation remains
+separate.
 **Proof:** failed mapping performs no copy/Unmap and does not report a completed
 upload. For a transition ending at 4, failure at completion retains 4 for the
 next successful upload even after its transition entry was removed. Repeated
@@ -406,7 +409,7 @@ Reject a proposed module if callers must still coordinate the same policy.
 
 #### 2A. Deepen IniParams publication — Strong
 
-**Preliminary implementation:** context-owned pending publication is now drafted,
+**Preliminary implementation:** context-owned pending publication is implemented,
 with original upload points and CPU values retained. The
 [proposed decision](adr/0001-context-owned-iniparams-publication.md) and
 [validation status](pre-production-edo-readiness.md) qualify this first stage;
@@ -418,7 +421,8 @@ CPU values, GPU contents, retry and legal upload ordering across
 [initialization][init-params] and [texture recreation during reload][reload].
 **Candidate:** concentrate that publication policy in one module after rank 1.
 Interpolation, preset selection, parsing and file persistence remain separate
-responsibilities. The interface and representation are still open decisions.
+responsibilities. The preliminary interface and representation are recorded in
+the proposed decision; further extraction needs a demonstrated consumer.
 **Deletion test/locality:** removing the module should make retry, recreation
 and successful-publication knowledge reappear in those callers. A Map helper
 that leaves all that knowledge at each caller is shallow. The desired depth
@@ -474,9 +478,13 @@ control; retain existing command/resource checks at their current interface.
 
 #### 2C. Measure the empty-list path — small optimization experiment
 
-**Preliminary experiment:** the guarded path and a public-entry benchmark are
-now drafted on the pre-production branch. Retention still requires the native
-comparison and regression gates in the [session status](pre-production-edo-readiness.md).
+**Preliminary experiment:** native output/profiling and mutation checks pass.
+Matched Windows measurements show lower empty-entry CPU cost. A controlled
+eight-process repeat confirms about 51–53% reduction, roughly 11 ns per synthetic
+call; the earlier large nonempty candidate outlier does not recur. Nonempty
+process medians differ by about +0.8% with visible variability. Retain the small
+prototype for review with the [full evidence and limits](benchmarks/edo-pre-production-follow-up-2026-11-16/README.md).
+There is no whole-game or DLL-wide numerical gain claim.
 
 This change does not establish a deepening opportunity by itself. After the
 existing configuration lease, [RunCommandListComplete][execution-entry] might
