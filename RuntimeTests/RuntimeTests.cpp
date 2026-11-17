@@ -3406,7 +3406,8 @@ void benchmark_command_entries(int samples)
 		auto assignment = std::make_shared<VariableAssignment>();
 		assignment->var = &value;
 		const std::wstring expression = L"$entrybenchmark + 1";
-		require(assignment->expression.parse(&expression, nullptr, nullptr), "entry benchmark expression rejected");
+		require(assignment->expression.parse(&expression, &config_namespace, nullptr),
+		        "entry benchmark expression rejected");
 		nonempty[index].commands.push_back(assignment);
 	}
 	constexpr int iterations = 200000;

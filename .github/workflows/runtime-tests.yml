@@ -420,6 +420,7 @@ jobs:
             debug_layer = $false
             no_present_or_game = $true
             variants = @{}
+            runs = @()
           }
           foreach ($variant in $variants.Keys) {
             $metadata.variants[$variant] = @{ sha256 = (Get-FileHash $variants[$variant] -Algorithm SHA256).Hash }
@@ -427,8 +428,12 @@ jobs:
           $metadata | ConvertTo-Json -Depth 8 | Set-Content "$entryDirectory/metadata.json" -Encoding utf8
           $sequence = 0
           foreach ($variant in $order) {
-            & $variants[$variant] benchmark-entries 11 > "$entryDirectory/$sequence-$variant.csv"
-            if ($LASTEXITCODE -ne 0) { throw "Public-entry benchmark failed: $variant" }
+            & $variants[$variant] benchmark-entries 11 > "$entryDirectory/$sequence-$variant.csv" 2> "$entryDirectory/$sequence-$variant.stderr.log"
+            $exitCode = $LASTEXITCODE
+            $metadata.runs += @{ sequence = $sequence; variant = $variant; exit_code = $exitCode }
+            $metadata.status = if ($exitCode -eq 0) { 'running' } else { 'failed' }
+            $metadata | ConvertTo-Json -Depth 8 | Set-Content "$entryDirectory/metadata.json" -Encoding utf8
+            if ($exitCode -ne 0) { throw "Public-entry benchmark failed: $variant (exit $exitCode)" }
             $sequence++
           }
           $metadata.status = 'complete'
@@ -441,6 +446,7 @@ jobs:
           path: |
             .quality/entry-benchmark/*/metadata.json
             .quality/entry-benchmark/*/*.csv
+            .quality/entry-benchmark/*/*.stderr.log
           if-no-files-found: error
           retention-days: 14
       - name: Measure CPU mechanisms without the debug layer
