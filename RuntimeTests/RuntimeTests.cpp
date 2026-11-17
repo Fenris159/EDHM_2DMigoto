@@ -3395,6 +3395,12 @@ void benchmark_command_lists(int samples)
 void benchmark_command_entries(int samples)
 {
 	IniParamsFixture fixture(false);
+	DWORD_PTR process_mask = 0, system_mask = 0;
+	require(GetProcessAffinityMask(GetCurrentProcess(), &process_mask, &system_mask) != FALSE && process_mask != 0,
+	        "entry benchmark process affinity is unavailable");
+	const DWORD_PTR selected_cpu = process_mask & (~process_mask + 1);
+	require(SetThreadAffinityMask(GetCurrentThread(), selected_cpu) != 0, "entry benchmark thread affinity failed");
+	std::cerr << "ENV entry_benchmark_thread_affinity=" << selected_cpu << '\n';
 	auto inserted = command_list_globals.emplace(L"$entrybenchmark",
 	                                             CommandListVariable(L"$entrybenchmark", 0.0f, VariableFlags::NONE));
 	auto &value = inserted.first->second;

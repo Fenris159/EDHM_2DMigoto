@@ -407,7 +407,7 @@ jobs:
               -nodeReuse:false -verbosity:minimal -restore:false
             if ($LASTEXITCODE -ne 0) { throw 'Shared-harness entry baseline build failed' }
             $variants.A = (Resolve-Path "$baselineRoot/.quality/runtime-tests/x64/Release/RuntimeTests.exe").Path
-            $order = @('A', 'B', 'B', 'A')
+            $order = @('A', 'B', 'B', 'A', 'B', 'A', 'A', 'B')
           }
           $metadata = @{
             status = 'prepared'
