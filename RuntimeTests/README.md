@@ -78,6 +78,11 @@ CPU timing is never a regression threshold.
 
 ## IniParams publication preparation
 
+`test_dxbc_preparer.py` checks the [offline preparer](../docs/offline-dxbc-preparer.md)
+at its filesystem and external-process boundary. Its authored fixture is
+`fixtures/preparer-minimal-ps.asm`; the hex fixture is the 212-byte DXBC assembled
+with the pinned upstream 1.4.9 helper. No game assets or external tools are bundled.
+
 The preliminary publication checks preserve existing upload points and protect
 failure/retry ownership. The portable policy check runs without D3D:
 

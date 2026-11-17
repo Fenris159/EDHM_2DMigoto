@@ -482,8 +482,9 @@ This change does not establish a deepening opportunity by itself. After the
 existing configuration lease, [RunCommandListComplete][execution-entry] might
 avoid execution-state and device/context setup for a proven empty resolved list;
 today [_RunCommandList][list-dispatch] discovers emptiness afterward.
-Preserve per-invocation proxy resolution and conservative handling of
-runtime-populated lists. Nested leases already reuse outer ownership, and the
+Preserve per-invocation proxy resolution and recheck the current command vector
+even for runtime-populated lists; never retain an empty classification.
+Nested leases already reuse outer ownership, and the
 [optimizer][command-optimizer] already folds constants and eliminates no-ops.
 **Proof:** empty pre/post lists retain output and profiler results; lists that
 gain commands execute them on their next invocation. Measure empty and nonempty
@@ -567,6 +568,15 @@ the draft, expected for automatic updates; agree signed-byte format, issue time,
 key pinning/rotation and prerelease feed before adding it.
 
 ### 4. Build a small offline DXBC preparer — conditional on inventory evidence
+
+**Preliminary implementation:** the [bounded preparer](offline-dxbc-preparer.md)
+now stages pinned inputs/tools, validates declared signature coverage, runs both
+helper validation routes, and checks content-based manifests. The first full
+batch correctly refuses `ea5390a2f20c2368-ps.txt`: its position declaration
+`v1.y` has no corresponding input-signature entry in the comments. The prior
+helper round trip alone missed this metadata gap. This is an offline preparation
+blocker under the conservative signature policy, not proof of a current game
+failure. The installed file is unchanged; do not invent replacement metadata.
 
 **Preliminary evidence:** all 77 copied HUD assembly replacements produced DXBC
 with the existing upstream helper and passed its Flugan round trip and Microsoft

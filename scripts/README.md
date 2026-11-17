@@ -3,6 +3,7 @@
 | Script | Description |
 |--------|-------------|
 | `inventory-edhm.py` | Read-only INI/include and shader provenance inventory; see [usage and limits](../docs/readiness-inventory.md) |
+| `prepare-edhm-dxbc.py` | Pinned, offline assembly preparation and content verification; see [scope and usage](../docs/offline-dxbc-preparer.md) |
 | `fetch-upstream.ps1` | Fetch `xxmi` / `3dmigoto`; optionally fast-forward `xxmi-base` |
 | `version.ps1` | Read/bump `VERSION`, compute SemVer tags, sync `CURRENT_RELEASE_NOTES.md` |
 | `update-vendor-cache.ps1` | Copy a built `d3d11.dll` into `vendor/edhm-runtime/` with VERSION/tag metadata |
