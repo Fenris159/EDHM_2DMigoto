@@ -3,6 +3,7 @@
 import importlib.util
 import hashlib
 import json
+import os
 from pathlib import Path
 import struct
 import subprocess
@@ -24,9 +25,10 @@ DXBC = bytes.fromhex((FIXTURES / "preparer-minimal-ps.dxbc.hex").read_text())
 SOURCE_SHA = "43f30d79d98bd13922e2d38e07d94a96600ec93cf3e9a78f0f406aa7315b8ff7"
 DXBC_SHA = "bf498b34c6ce22e0f77e6ad9502c0204a134309edff5e39184a8a30eab6579a8"
 TOOL_SHA = "3069cb325abda70f85a92b4227480b9d98e5482bd9b855d6884fd9060d0502fa"
-UPDATED_TOOL_SHA = "5cfee2410b8bb71af0d9353366b77418954067c1f7ebbbc25e8f0d730a49013b"
+UPDATED_TOOL_SHA = "ff76c33d9d06769c97fd6cd43cdeb991f903e9ad5ad385b598a43e8d9877714c"
 X64_TOOL_SHA = "41ea1679608cb790a9f2916e774b582afc9aac15737de7d71e79538f43aca0f3"
 ASSET = "ShaderFixes/0123456789abcdef-ps.txt"
+STAMP = 946684800000000000
 
 
 def pe_image(machine=0x14C, magic=0x10B):
@@ -54,6 +56,8 @@ class PreparerTests(unittest.TestCase):
         self.compiler = self.root / "d3dcompiler_47.dll"
         self.assembler.write_bytes(pe_image())
         self.compiler.write_bytes(pe_image())
+        for path in (self.asset, self.assembler, self.compiler):
+            os.utime(path, ns=(STAMP, STAMP))
         self.tools = preparer.Toolchain(self.assembler, self.compiler, TOOL_SHA, TOOL_SHA,
                                        Path("fixture-wine"), self.root / "prefix")
         self.output = self.root / "prepared"
@@ -64,6 +68,7 @@ class PreparerTests(unittest.TestCase):
             {"path": ASSET, "role": "replacement", "kind": "assembly",
              "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
         ]}))
+        os.utime(self.inventory, ns=(STAMP, STAMP))
 
     def boundary(self, code=DXBC, fail=None):
         def run(command, *, cwd, env, stdout, stderr, timeout):
@@ -104,15 +109,22 @@ class PreparerTests(unittest.TestCase):
     def test_changed_assets_and_tools_invalidate_prepared_results(self):
         with self.boundary():
             first = preparer.prepare(self.root, self.inventory, self.output, self.tools)
-        self.asset.write_bytes(SOURCE + b"// changed\n")
+        self.asset.write_bytes(SOURCE.replace(b"TEXCOORD", b"CHANGED_"))
+        os.utime(self.asset, ns=(STAMP, STAMP))
         with self.assertRaisesRegex(preparer.PreparationError, "input digest"):
             preparer.check(self.root, self.inventory, self.output, self.tools)
+        with self.boundary(), self.assertRaisesRegex(preparer.PreparationError, "input digest"):
+            preparer.prepare(self.root, self.inventory, self.root / "stale-input", self.tools)
         self.write_inventory(self.asset.read_bytes())
         with self.assertRaisesRegex(preparer.PreparationError, "recipe is stale"):
             preparer.check(self.root, self.inventory, self.output, self.tools)
         self.asset.write_bytes(SOURCE)
+        os.utime(self.asset, ns=(STAMP, STAMP))
         self.write_inventory(SOURCE)
-        self.assembler.write_bytes(pe_image() + b"x")
+        changed_tool = bytearray(pe_image())
+        changed_tool[72] = 1  # Change PE timestamp bytes while retaining file size and filesystem mtime.
+        self.assembler.write_bytes(changed_tool)
+        os.utime(self.assembler, ns=(STAMP, STAMP))
         with self.assertRaisesRegex(preparer.PreparationError, "tool digest"):
             preparer.check(self.root, self.inventory, self.output, self.tools)
         updated = preparer.Toolchain(self.assembler, self.compiler, UPDATED_TOOL_SHA, TOOL_SHA,
