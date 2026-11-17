@@ -456,7 +456,7 @@ static void RunCommandListComplete(HackerDevice *mHackerDevice, HackerContext *m
 {
 	const ConfigurationReadLock configuration;
 	CommandList *resolved = command_list->ResolveCommandList();
-	if (!resolved->runtime_populated && resolved->commands.empty())
+	if (resolved->commands.empty())
 	{
 		// An empty invocation can still be the next legal retry point for a
 		// previous failed upload. Never retain an empty classification.

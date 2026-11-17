@@ -483,8 +483,8 @@ def get_mutations(command_list, settings, profiling):
         (
             "entry-path",
             command_list,
-            "if (!resolved->runtime_populated && resolved->commands.empty())",
-            "static std::unordered_set<CommandList *> empty_cache;\n\tif (empty_cache.count(resolved) || (!resolved->runtime_populated && resolved->commands.empty()))\n\t{ empty_cache.insert(resolved); }\n\tif (empty_cache.count(resolved))",
+            "if (resolved->commands.empty())",
+            "static std::unordered_set<CommandList *> empty_cache;\n\tif (empty_cache.count(resolved) || resolved->commands.empty())\n\t{ empty_cache.insert(resolved); }\n\tif (empty_cache.count(resolved))",
         ),
         (
             "iniparams-transition-retry",
