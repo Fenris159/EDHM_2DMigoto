@@ -3355,6 +3355,8 @@ struct TextureQueryFixture
 	std::array<Microsoft::WRL::ComPtr<ID3D11Buffer>, 2> buffers;
 	std::array<Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>, 2> views;
 	std::vector<DirectX::XMFLOAT4> saved_rows = G->iniParams;
+	const int saved_reserved = G->iniParamsReserved;
+	CommandListScope scope;
 	CommandListExpression query, repeated, assigned;
 
 	explicit TextureQueryFixture(bool validation = true) : d3d(validation)
@@ -3378,9 +3380,9 @@ struct TextureQueryFixture
 			rule.filter_index = index == 0 ? 158.0f : 215.0f;
 		}
 		const std::wstring read = L"ps-t0", repeat = L"ps-t0 == 158", reuse = L"w49 == 158";
-		require(query.parse(&read, &config_namespace, nullptr) && repeated.parse(&repeat, &config_namespace, nullptr) &&
-		            assigned.parse(&reuse, &config_namespace, nullptr),
-		        "query expressions were rejected");
+		require(query.parse(&read, &config_namespace, &scope), "texture query was rejected in command scope");
+		require(repeated.parse(&repeat, &config_namespace, &scope), "query predicate was rejected in command scope");
+		require(assigned.parse(&reuse, &config_namespace, &scope), "assigned row predicate was rejected");
 		bind(0);
 	}
 
@@ -3393,6 +3395,7 @@ struct TextureQueryFixture
 	~TextureQueryFixture()
 	{
 		G->iniParams = std::move(saved_rows);
+		G->iniParamsReserved = saved_reserved;
 		for (auto &buffer : buffers)
 			G->mResources.erase(buffer.Get());
 		G->mTextureOverrideMap.erase(0x1234);
