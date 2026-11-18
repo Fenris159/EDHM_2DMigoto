@@ -27,6 +27,10 @@ on:
         description: Compare repeated texture queries with reading the assigned row, without a game
         type: boolean
         default: false
+      shader_pack_validation:
+        description: Collect native acceptance observations from pinned public shader sources; never upload assets
+        type: boolean
+        default: false
       entry_benchmark_baseline_ref:
         description: Optional ancestor commit for an isolated public-entry comparison with the same harness
         type: string
@@ -352,6 +356,24 @@ jobs:
               (Get-FileHash $invalid -Algorithm SHA256).Hash -ne $badBefore) {
             throw 'Shader checker changed an input'
           }
+      - name: Collect public-pack shader acceptance observations
+        if: inputs.shader_pack_validation
+        shell: pwsh
+        run: |
+          $output = '.quality/prepared-pack-evidence/${{ matrix.platform }}'
+          New-Item -ItemType Directory -Force -Path $output | Out-Null
+          & python RuntimeTests/run_prepared_shader_pack.py `
+            --checker '.quality/prepared-shaders/${{ matrix.platform }}/PreparedShaderTests.exe' `
+            --output "$output/results.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not collect complete shader acceptance observations' }
+      - name: Retain shader acceptance metadata only
+        if: always() && inputs.shader_pack_validation
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: prepared-pack-evidence-${{ matrix.platform }}-${{ github.sha }}
+          path: .quality/prepared-pack-evidence/${{ matrix.platform }}/results.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Measure successful publication kernels
         id: publication_measurements
         if: inputs.mechanism_benchmarks && matrix.platform == 'x64'

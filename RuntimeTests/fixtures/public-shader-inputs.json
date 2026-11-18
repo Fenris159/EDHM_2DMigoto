@@ -1,0 +1,718 @@
+{
+  "schema_version": 1,
+  "purpose": "Pinned public assembly inputs for ephemeral off-game shader creation validation; no redistribution of assets or ownership claim.",
+  "repository": "psychicEgg/EDHM",
+  "commit": "73588af9a1a17cf4aa66aca582afde9d98da60d5",
+  "all_installed_replacements": 77,
+  "matched": 77,
+  "absent_or_mismatched": [],
+  "archives": [
+    {
+      "id": "edhm-base",
+      "url": "https://raw.githubusercontent.com/psychicEgg/EDHM/73588af9a1a17cf4aa66aca582afde9d98da60d5/Odyssey/EDHM_Odyssey_v22.04.zip",
+      "bytes": 3663081,
+      "sha256": "4c0c016086650920f94b6702ba7737f89b43d10eda5351dc83743335ba270b57"
+    },
+    {
+      "id": "fss-overlay",
+      "url": "https://raw.githubusercontent.com/psychicEgg/EDHM/73588af9a1a17cf4aa66aca582afde9d98da60d5/Odyssey/3rdPartyMods/FSS-Overlay/FSS_Overlay_Mod_ED4.3.1.0_v1.102.2.zip",
+      "bytes": 1766105,
+      "sha256": "3e5854c23b6ff4c85c0dc1f682297b0c5099b79b7003898e77bc32b65fb7fb0f"
+    }
+  ],
+  "files": [
+    {
+      "path": "ShaderFixes/04fc7f00bade5b4a-ps.txt",
+      "archive": "fss-overlay",
+      "entry": "ShaderFixes/04fc7f00bade5b4a-ps.txt",
+      "bytes": 4379,
+      "sha256": "a53daee7220d3c06e35228d0856e038f71851172f9d4896c77fab3eb1855fd36",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/09bf96d5b25f6ca5-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/09bf96d5b25f6ca5-ps.txt",
+      "bytes": 13490,
+      "sha256": "4643212c94c8ae36282d115fa36fcf85277069f92588c485ebb90bc9705a6eef",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/0f80d300a37639f3-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/0f80d300a37639f3-ps.txt",
+      "bytes": 8192,
+      "sha256": "c47c9894e2fd31d5b622c2a081037467d8dfe80f7a554dd4c21161e80573093f",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/132770aba38e4d2a-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/132770aba38e4d2a-ps.txt",
+      "bytes": 1676,
+      "sha256": "90ff74d7dc5a4e33742f408ffa9db19269129649d345433295c75545ca2960a6",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/1a696e8bae6eec02-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/1a696e8bae6eec02-ps.txt",
+      "bytes": 55076,
+      "sha256": "35ec4d88cb7e82e508b794226284ae5a8428bc726088416c6c6ced88b1b36627",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/1d5a317f0e831e9d-ps.txt",
+      "archive": "fss-overlay",
+      "entry": "ShaderFixes/1d5a317f0e831e9d-ps.txt",
+      "bytes": 4379,
+      "sha256": "08ddb90b3be09317500f75a9cfd03264907154bbe9a95042673d83868dfd31a4",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/20e0f44142f16cb3-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/20e0f44142f16cb3-ps.txt",
+      "bytes": 17688,
+      "sha256": "9eeda883b9aa38934d915eff8af808f8a02bdd397e7e13d56d37db5d211df061",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/25ca9f20b74e638b-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/25ca9f20b74e638b-ps.txt",
+      "bytes": 5847,
+      "sha256": "1760d7490e8c418743e2e8288feb35f7f2480c7403ae4a59fd1a36d74729410a",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/2726290f74827c14-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/2726290f74827c14-ps.txt",
+      "bytes": 32168,
+      "sha256": "f9502f13a87f2a024af0fdc020ace93f6e739378e95dc657d56d54f418630ecb",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/29ab32c907cda633-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/29ab32c907cda633-ps.txt",
+      "bytes": 16437,
+      "sha256": "5044f3c49f288bd684f24722c376286ed2b923532103b626223738fcb3042faa",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/29cb4ffbc78ebdfe-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/29cb4ffbc78ebdfe-ps.txt",
+      "bytes": 19376,
+      "sha256": "ba1451bc5eca5c27db8ae26ab79cdb365b61dbe170317ddb92f9ea0772ae858c",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/2b6f1cbdea446333-vs.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/2b6f1cbdea446333-vs.txt",
+      "bytes": 3671,
+      "sha256": "33fbe2851910b5981fb472049e5aa7436e28bc394b065e139d12df0f63a18abc",
+      "stage": "vs",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/2b803276d219086b-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/2b803276d219086b-ps.txt",
+      "bytes": 2626,
+      "sha256": "da6823b212551a2a48cca5eac2f84a1b763485bdba30ae0dc24162e95e558d20",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/2e754bfb531333cf-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/2e754bfb531333cf-ps.txt",
+      "bytes": 5299,
+      "sha256": "baf2eba51003e8e12222c177b53ca50fc1b052747503abcdc13822e8a4a0a215",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/3582a66bcb0903ae-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/3582a66bcb0903ae-ps.txt",
+      "bytes": 5667,
+      "sha256": "7300306d8d9f7a0b0cf5a38f81472a8c2d077b935b03c6baffb9fdf8c5d1996a",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/35aac13bbb1540de-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/35aac13bbb1540de-ps.txt",
+      "bytes": 174858,
+      "sha256": "874a8b8c9effaaba90197d81e6f72ccb82e16d2bdf71882e14d25033f8c742e2",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/35ba0b484a75eb96-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/35ba0b484a75eb96-ps.txt",
+      "bytes": 10623,
+      "sha256": "538edf604c14616e0c4c32985a74d76940668bf1a271ec3e1b921aa785f46544",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/36b6f4a167460286-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/36b6f4a167460286-ps.txt",
+      "bytes": 9231,
+      "sha256": "1936f2c5ed95484c88e8f111f446f3299419094bc437c0f22b8f5eefa0eb74f4",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/380822531cf1f3d4-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/380822531cf1f3d4-ps.txt",
+      "bytes": 39490,
+      "sha256": "44d5f2165552d48fe8186cb71acc63114c58c283ad610564c4c83af968eb54cb",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/3c368da8a7c2c1cb-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/3c368da8a7c2c1cb-ps.txt",
+      "bytes": 2312,
+      "sha256": "4a4a37c2277f73987e55bb133e052ab9a07804bc0d459be068c6940c984dcf27",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/3f366702d540af3e-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/3f366702d540af3e-ps.txt",
+      "bytes": 9290,
+      "sha256": "5b233df02c3d3f3aa00630c1a9b29995b8270acfe68dfc96776ae99d4863913d",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/42c139823eab75ae-vs.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/42c139823eab75ae-vs.txt",
+      "bytes": 4351,
+      "sha256": "5e8b5b07213be34e1cdf51ed54f7625efbd1db6e2bc31e0841f4e7061172c440",
+      "stage": "vs",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/4a533b975e4998bf-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/4a533b975e4998bf-ps.txt",
+      "bytes": 5690,
+      "sha256": "4505f9b55943ea5acbdb61346fd517f3066fa09e00d2beafe0ba10372a4b92f4",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/4fb6c99f9fd4f9fc-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/4fb6c99f9fd4f9fc-ps.txt",
+      "bytes": 3477,
+      "sha256": "bcd315701ae13e94794b971003b3575325f7719e116fafbe4aaadf19077f0925",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/56fefcd82e3d3703-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/56fefcd82e3d3703-ps.txt",
+      "bytes": 12159,
+      "sha256": "6cf15fa7105ed3802644faf49eb8469bcdef701af5e60d979941d7cb6123ac9c",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/57d08ee218a628f7-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/57d08ee218a628f7-ps.txt",
+      "bytes": 6303,
+      "sha256": "45dfba91db5bcc92e9e466795abaeb42744e8cf8ddf281a1a781c447593c3381",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/5d106a121c0a90bc-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/5d106a121c0a90bc-ps.txt",
+      "bytes": 7929,
+      "sha256": "55035eb46c0051fed06ba8e75584f1a10f4eb00604557cbe0bc1238613f48e22",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/5f6c54ac955ba85a-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/5f6c54ac955ba85a-ps.txt",
+      "bytes": 32452,
+      "sha256": "b1608bd5403eb9ac649e14e4352b28a31b7a94ae5b21b8edd935995b69749389",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/636c89262dd982cf-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/636c89262dd982cf-ps.txt",
+      "bytes": 6428,
+      "sha256": "a03f202cafb5e18bf36ca294173ed65d71ae7fd6dc84f923de057365bea910a8",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/6ca6185b55ad6ec0-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/6ca6185b55ad6ec0-ps.txt",
+      "bytes": 3406,
+      "sha256": "96d4f768fff1586226f0058c49d0324d67fe8e93ae2ce7befca1c8c3641e5b24",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/6e3748ffcba12029-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/6e3748ffcba12029-ps.txt",
+      "bytes": 19740,
+      "sha256": "d38f23e6c614dcbff1e08666212e5465b96396c2be1dbdc4b20f3087745a21e2",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/6e3f4126e9accce4-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/6e3f4126e9accce4-ps.txt",
+      "bytes": 4931,
+      "sha256": "85114eddd9491dea6853ef2b03647b3eba34fa9ff8405d47752a1fa6b5f8a546",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/6e5f1e69f8bfbcda-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/6e5f1e69f8bfbcda-ps.txt",
+      "bytes": 6369,
+      "sha256": "e270ec35b1ce78d5095752dd96d7a004d8e25fc1fa4720fa1b0320c99efd0a62",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/70e91536d34607c7-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/70e91536d34607c7-ps.txt",
+      "bytes": 5590,
+      "sha256": "7679f544f87d060772b1d1a0826ed5fe82a0386253eeef2682a2b69d430f178f",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/723db111682fbc7b-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/723db111682fbc7b-ps.txt",
+      "bytes": 3699,
+      "sha256": "cc36f7f688714e7c79a22ba5835def1c3bc14ccad0cd838e64734925e25345c2",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/77622058d555360f-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/77622058d555360f-ps.txt",
+      "bytes": 21079,
+      "sha256": "f4319631ef5f8aaa14a45c55e4fa019ed8db37512865daff3d8a5bcb55e82321",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/7ab88ec07a37c012-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/7ab88ec07a37c012-ps.txt",
+      "bytes": 5751,
+      "sha256": "35140fa8ce54dfb345a2f3bb34ae69f9c8ff41d19cb67bd1ef03719b1810ebd2",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/7c6152f2bcddb0af-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/7c6152f2bcddb0af-ps.txt",
+      "bytes": 5591,
+      "sha256": "a75b149c858654c15141c92a978e0b9c823662e2af7033cf6a7ac1d108ca6d5d",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/7e1a1611c7afa0bd-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/7e1a1611c7afa0bd-ps.txt",
+      "bytes": 17688,
+      "sha256": "2a1c040eb4c40a617e9647b5d78569f67788daaf0326b69bd979762a0cfcbeb4",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/85464878a444a6a6-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/85464878a444a6a6-ps.txt",
+      "bytes": 5045,
+      "sha256": "7a9a086fe52005ac160475e030ede2cac0cefcf778b1c4054a0ad82f0eb5789e",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/89c697b237594f04-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/89c697b237594f04-ps.txt",
+      "bytes": 5778,
+      "sha256": "8187f18c733ba350b78cfc84a79be7ee8924696916de368333ce9f2a301f2739",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/8b41d538be791f4a-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/8b41d538be791f4a-ps.txt",
+      "bytes": 3220,
+      "sha256": "3948e7adb9c9506b898e78b8611b8330cdbe42ec746f7a2bea894f98bff824c2",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/8bcd28b6cc56b5b5-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/8bcd28b6cc56b5b5-ps.txt",
+      "bytes": 7008,
+      "sha256": "802a4349c49a81ef947f32e409fe89c861fc29ba2e48a9cb73b722cd2cd9bff2",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/8f5bd2ca7bf0d382-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/8f5bd2ca7bf0d382-ps.txt",
+      "bytes": 12923,
+      "sha256": "874a7241d32216aeea8822f04083c7c5f6da3b8103c06f792303370cc87c7430",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/9129cec0b67ffecf-vs.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/9129cec0b67ffecf-vs.txt",
+      "bytes": 3858,
+      "sha256": "598a780e703765f65f572b5292e9ca9b2c2e9c5779b9aff91feb7e6d1e64a8b0",
+      "stage": "vs",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/91badcb77f115370-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/91badcb77f115370-ps.txt",
+      "bytes": 7693,
+      "sha256": "a572bfc2d350ba56da861488ebeb2f93eb6dd4fdbc0ba16a618228aeb0ff2ebb",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/95a3b90cf4696605-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/95a3b90cf4696605-ps.txt",
+      "bytes": 5572,
+      "sha256": "bc7cd5da827f5b2586fd6f675f2441acf6179eafe828953d3a033a235d5c7b31",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/9798f7cba8194a6c-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/9798f7cba8194a6c-ps.txt",
+      "bytes": 23550,
+      "sha256": "52e358a6a66a10e47c767e65eb8379b836dd2ca986cbd7bc470154842ad6a502",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/97e6b9ff825cb157-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/97e6b9ff825cb157-ps.txt",
+      "bytes": 9149,
+      "sha256": "3d812e728f23486005dd8d81102d32e828b4a1514b8eaaec4db517c157824568",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/9bc29613c2377e7a-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/9bc29613c2377e7a-ps.txt",
+      "bytes": 11252,
+      "sha256": "b5987af2b6750c82f080a5042953a9bca9bd3b21c4397f5f8f9a792a3db23ef7",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/9c8893e01f362425-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/9c8893e01f362425-ps.txt",
+      "bytes": 5236,
+      "sha256": "769d3881b48e6d310682e8d91450b0afa28cd432f50cd3f4cdcb7a71f1704ecc",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/a0d3dd801a049909-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/a0d3dd801a049909-ps.txt",
+      "bytes": 50297,
+      "sha256": "96d930b4a76b353807e93404ecf4a8f2c84dbce19bf4c441d4f7bb923e4d4915",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/a1e1d27a77a666fb-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/a1e1d27a77a666fb-ps.txt",
+      "bytes": 216938,
+      "sha256": "8f9cd5e04cea198c45a157be0b72675294c148a71171061c477d0c0e3f80f456",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/a555a6cdc80553e3-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/a555a6cdc80553e3-ps.txt",
+      "bytes": 5764,
+      "sha256": "cd68e4870bce8aa3f7fa1847dfcf04e1b93792d2d219bdb4661065711a6434df",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/aa30aee481369221-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/aa30aee481369221-ps.txt",
+      "bytes": 10573,
+      "sha256": "6b627ed8674785865f0fbf28b210a29ade6f457f4a32246f5f76d0372a8b967f",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/ad5ad611d07db185-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/ad5ad611d07db185-ps.txt",
+      "bytes": 3803,
+      "sha256": "491bca8f1e13d9e42cfa16369713a6d464efe98a1d8fcd5e9b50c1a33a3ade98",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/ad901c638154978f-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/ad901c638154978f-ps.txt",
+      "bytes": 9069,
+      "sha256": "2c121142b3414e142c5ee422aa28474d20f30551594a69086dac554526606c86",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/adbd966677e79a6d-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/adbd966677e79a6d-ps.txt",
+      "bytes": 17688,
+      "sha256": "422aaa017ee44b81eb15e34f9e252caeea8336262d610b4b6cef09124f64822b",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/b1f29dc866cb17fa-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/b1f29dc866cb17fa-ps.txt",
+      "bytes": 3287,
+      "sha256": "ce583c4e963d006db9b7cd7dfd3c59ee0a3375dc090be88b6da4ef5faf570a4f",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/b37fb3a09ce94ea2-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/b37fb3a09ce94ea2-ps.txt",
+      "bytes": 6817,
+      "sha256": "5aada5a1d442eb49ec966422f81f514346dd3a4d62bc14580922c6cfaebae5bc",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/b4523c39a461fd35-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/b4523c39a461fd35-ps.txt",
+      "bytes": 48823,
+      "sha256": "5d0b430db07aad01c4a471ebd904775286217174896367ab495f23a6a332a0f1",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/b8f8a45d83195fc1-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/b8f8a45d83195fc1-ps.txt",
+      "bytes": 5554,
+      "sha256": "4a8ecb8c4b4ca5840f62e718c21bc93ed5a6f119c23e8687c136ac475037c1ae",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/bddd51b47f0d2531-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/bddd51b47f0d2531-ps.txt",
+      "bytes": 12508,
+      "sha256": "5c0768e94fc93622865409c1867f201416983a27e7d6a843f872bb5c01f220cc",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/c3187a57b31c4c68-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/c3187a57b31c4c68-ps.txt",
+      "bytes": 7668,
+      "sha256": "0bf943f4fcebe002a2dfc3f0150bd18a5fc38a8ba37f260bf5b57ca386e63ce0",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/c4f04894e3f6ae79-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/c4f04894e3f6ae79-ps.txt",
+      "bytes": 19928,
+      "sha256": "1caceb2194d05952de24147f5696bfcb74c1d39724ffb8482ff89a321dc06524",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/c85e80bd224453bc-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/c85e80bd224453bc-ps.txt",
+      "bytes": 10573,
+      "sha256": "33c3ba3684c0342f85755208619812791cbf0be5f435dba190b88cac6f46a8e1",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/c96ccbcb35950166-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/c96ccbcb35950166-ps.txt",
+      "bytes": 4633,
+      "sha256": "beff5dc7dc19c7aba3f8cb71ca569952d4e446f790a7f0c271903ed82be209ef",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/d34c61f68082fbcf-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/d34c61f68082fbcf-ps.txt",
+      "bytes": 48610,
+      "sha256": "c36059e5ec9def90106eedf2b0c7159aa9bb5a4d70f7135c010d14fbe697a3b4",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/d5838a28179d8e0d-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/d5838a28179d8e0d-ps.txt",
+      "bytes": 8926,
+      "sha256": "ce1ecda74f7c453db6bdefff6a40b6e493b9d94d0cca5a4a180b08703df26622",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/d6c6b9abdf104b6d-ps.txt",
+      "archive": "fss-overlay",
+      "entry": "ShaderFixes/d6c6b9abdf104b6d-ps.txt",
+      "bytes": 4379,
+      "sha256": "b8e1763787c26e0573cb6fdcbc5017af487aac29cb65619daa26308d39264d26",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/d9f064c6e8ce4554-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/d9f064c6e8ce4554-ps.txt",
+      "bytes": 16249,
+      "sha256": "8ef8892daedd196e28df892b00fc8f538798b77884b44668776bd703d58bd5f2",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/da96bea640af499c-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/da96bea640af499c-ps.txt",
+      "bytes": 5019,
+      "sha256": "a95d511565f8b7cdc39d971b17bf7321e268682ba277f6867c19651e0d608e38",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/de50876eaac9218c-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/de50876eaac9218c-ps.txt",
+      "bytes": 6561,
+      "sha256": "177c49efc65e7819dafa2ad5efab365a4cbce5ae29ad0365605ac13422381811",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/e32e69ee30c36af6-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/e32e69ee30c36af6-ps.txt",
+      "bytes": 32452,
+      "sha256": "b1608bd5403eb9ac649e14e4352b28a31b7a94ae5b21b8edd935995b69749389",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/ea5390a2f20c2368-ps.txt",
+      "archive": "fss-overlay",
+      "entry": "ShaderFixes/ea5390a2f20c2368-ps.txt",
+      "bytes": 3331,
+      "sha256": "641aade87bbd5f7806a70778a872fb01be7e1cf683a3f09ac454e918ae16a73a",
+      "stage": "ps",
+      "strict_preparer_expected": "reject_missing_declared_input_signature"
+    },
+    {
+      "path": "ShaderFixes/f01f0329d0460c74-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/f01f0329d0460c74-ps.txt",
+      "bytes": 3480,
+      "sha256": "eb9977ea1e0bc868f5825ad5c0d38db77eb5eff9579d177a8e4a1ae54c72959d",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    },
+    {
+      "path": "ShaderFixes/f2ce89f2c5d390ce-ps.txt",
+      "archive": "edhm-base",
+      "entry": "ShaderFixes/f2ce89f2c5d390ce-ps.txt",
+      "bytes": 32452,
+      "sha256": "b1608bd5403eb9ac649e14e4352b28a31b7a94ae5b21b8edd935995b69749389",
+      "stage": "ps",
+      "strict_preparer_expected": "pass"
+    }
+  ]
+}

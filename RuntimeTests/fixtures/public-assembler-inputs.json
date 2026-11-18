@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "repository": "bo3b/3Dmigoto",
+  "release_tag": "1.4.9",
+  "release_url": "https://github.com/bo3b/3Dmigoto/releases/tag/1.4.9",
+  "source_commit": "4ce5f2f72b2777223d2e809dcdafec514ac98295",
+  "archive": {
+    "id": "3dmigoto-1.4.9",
+    "url": "https://github.com/bo3b/3Dmigoto/releases/download/1.4.9/3Dmigoto_v1.4.9.7z",
+    "asset_id": 358684109,
+    "asset_api_url": "https://api.github.com/repos/bo3b/3Dmigoto/releases/assets/358684109",
+    "format": "7z",
+    "bytes": 4695932,
+    "sha256": "d5d05e78f0f6df7cce8ef10c669c088db6b8dbe1428ce783d8c3c93ac842dce1",
+    "internal_version_marker": "Version-1.4.10.txt (archive member name; published release tag remains1.4.9)"
+  },
+  "tools": [
+    {
+      "archive": "3dmigoto-1.4.9",
+      "entry": "cmd_Decompiler/cmd_Decompiler.exe",
+      "output_name": "cmd_Decompiler.exe",
+      "bytes": 599040,
+      "sha256": "625a252161cb8ba7927c72287fa436badae0d19b4079d7dd2b3207b1af2a05ac",
+      "pe_machine": "0x014c",
+      "architecture": "i386"
+    },
+    {
+      "archive": "3dmigoto-1.4.9",
+      "entry": "x32/d3dcompiler_47.dll",
+      "output_name": "d3dcompiler_47.dll",
+      "bytes": 4147544,
+      "sha256": "0ae6e52072857c3acfde53b98f56c3c6d9bd0e7b09f247ae7f40bfd451593c4c",
+      "pe_machine": "0x014c",
+      "architecture": "i386"
+    }
+  ],
+  "identity_policy": "Verify archive and every tool digest before use; a mutable release URL/tag alone is not a content pin. Preserve Microsoft compiler notice; ephemeral validation only; no binaries redistributed."
+}
