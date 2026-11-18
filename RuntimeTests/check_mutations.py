@@ -463,6 +463,12 @@ def get_mutations(command_list, settings, profiling):
         ),
 
         (
+            "query-assigned-row",
+            command_list,
+            "return (*rit)->filter_index;",
+            "return 158.0f;",
+        ),
+        (
             "iniparams-contexts",
             ROOT / "DirectX11" / "HackerContext.h",
             "IniParamsPublication mIniParamsPublication;",

@@ -110,6 +110,45 @@ class ReadinessInventoryTests(unittest.TestCase):
                     self.assertIn("inventory failed:", result.stderr)
                     self.assertEqual({name: (root / name).read_bytes() for name in contents}, contents)
 
+    def test_semantic_inventory_separates_values_reads_and_effects(self):
+        contents = {"d3dx.ini": (
+            b"[Constants]\nx1 = -0.0\ny1 = $theme\nz1 = ps-t0\nw1 = x2 + 1\n"
+            b"[CommandListPanel]\n$panel = ps-t0\nif $panel == 7\nx3 = 4\nendif\n"
+            b"store = $old ps-t0 0\nchecktextureoverride = ps-t0\nrun = CommandListOther\n"
+            b"ps-t0 = ResourceOther\n[PresetRed]\nx4 = 1\n")}
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.layout(directory, contents)
+            report = inventory.Inventory(root / "d3dx.ini").run()
+            semantic = report["files"][0]["semantic_commands"]
+            self.assertEqual([(r["line"], r["kind"]) for r in semantic], [
+                (2, "literal_assignment"), (3, "expression_assignment"),
+                (4, "expression_assignment"), (5, "expression_assignment"),
+                (7, "expression_assignment"), (8, "control_flow"),
+                (9, "literal_assignment"), (10, "control_flow"),
+                (11, "synchronous_readback"), (12, "effectful_command"),
+                (13, "effectful_command"), (14, "resource_write"),
+                (16, "literal_assignment")])
+            self.assertEqual(semantic[0]["literal"], "-0.0")
+            self.assertEqual(semantic[0]["target"], {"kind": "row", "row": 1, "component": "x"})
+            self.assertEqual(semantic[0]["availability"], "unconditional_constants_candidate")
+            self.assertEqual([r["dependencies"] for r in semantic[1:5]],
+                             [["variable"], ["resource_query"], ["row_read"], ["resource_query"]])
+            self.assertEqual(semantic[6]["availability"], "runtime_conditional")
+            self.assertEqual(semantic[-1]["availability"], "on_invocation")
+            self.assertTrue(all(r["reuse_boundary"] for r in semantic[8:12]))
+            self.assertEqual({name: (root / name).read_bytes() for name in contents}, contents)
+
+    def test_uncertain_include_never_exports_an_unconditional_literal(self):
+        contents = {"d3dx.ini": b"[Include]\ninclude = child.ini\n",
+                    "child.ini": b"condition = $unknown\n[Constants]\nx0 = 7\n"}
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.layout(directory, contents)
+            report = inventory.Inventory(root / "d3dx.ini").run()
+            child = next(r for r in report["files"] if r["path"] == "child.ini")
+            self.assertEqual(child["semantic_commands"][0]["availability"], "unknown_condition")
+            self.assertEqual(child["semantic_commands"][0]["literal"], "7")
+            self.assertEqual({name: (root / name).read_bytes() for name in contents}, contents)
+
 
 if __name__ == "__main__":
     unittest.main()

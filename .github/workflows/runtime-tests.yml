@@ -23,6 +23,10 @@ on:
         description: Capture interpreter and WARP view CPU mechanism measurements
         type: boolean
         default: false
+      query_benchmarks:
+        description: Compare repeated texture queries with reading the assigned row, without a game
+        type: boolean
+        default: false
       entry_benchmark_baseline_ref:
         description: Optional ancestor commit for an isolated public-entry comparison with the same harness
         type: string
@@ -324,6 +328,30 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'IniParams upload fixture build failed' }
           & ".quality/ini-publication/${{ matrix.platform }}/IniParamsUploadTests.exe"
           if ($LASTEXITCODE -ne 0) { throw 'IniParams D3D upload checks failed' }
+      - name: Validate prepared shader objects without the product DLL
+        shell: pwsh
+        run: |
+          & msbuild RuntimeTests/PreparedShaderTests.vcxproj -target:Build `
+            -property:Configuration=Release -property:Platform=${{ matrix.platform }} `
+            -property:EdhmStrictBuild=true -nodeReuse:false -verbosity:minimal -restore:false
+          if ($LASTEXITCODE -ne 0) { throw 'Prepared shader checker build failed' }
+          $checker = '.quality/prepared-shaders/${{ matrix.platform }}/PreparedShaderTests.exe'
+          & $checker --self-test
+          if ($LASTEXITCODE -ne 0) { throw 'Prepared shader self-check failed' }
+          $valid = '.quality/prepared-shaders/${{ matrix.platform }}/authored-ps.dxbc'
+          $invalid = '.quality/prepared-shaders/${{ matrix.platform }}/malformed.dxbc'
+          & python -c "from pathlib import Path; Path('$valid').write_bytes(bytes.fromhex(Path('RuntimeTests/fixtures/preparer-minimal-ps.dxbc.hex').read_text())); Path('$invalid').write_bytes(b'DXBC' + bytes(12))"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not stage authored shader fixtures' }
+          $before = (Get-FileHash $valid -Algorithm SHA256).Hash
+          $badBefore = (Get-FileHash $invalid -Algorithm SHA256).Hash
+          & $checker ps $valid
+          if ($LASTEXITCODE -ne 0) { throw 'Authored frozen PS failed native creation' }
+          & $checker ps $invalid
+          if ($LASTEXITCODE -ne 1) { throw 'Malformed input did not return validation failure' }
+          if ((Get-FileHash $valid -Algorithm SHA256).Hash -ne $before -or
+              (Get-FileHash $invalid -Algorithm SHA256).Hash -ne $badBefore) {
+            throw 'Shader checker changed an input'
+          }
       - name: Measure successful publication kernels
         id: publication_measurements
         if: inputs.mechanism_benchmarks && matrix.platform == 'x64'
@@ -346,7 +374,7 @@ jobs:
         run: |
           $exe = ".quality/runtime-tests/$env:TEST_PLATFORM/Release/RuntimeTests.exe"
           $failures = @()
-          foreach ($case in @('empty-groups', 'leading-dot', 'pending-save', 'pool-reset', 'constant-stride', 'iniparams-transition-retry', 'iniparams-command-retry', 'iniparams-contexts', 'entry-path', 'reference-order', 'reference-cycles', 'pool-metadata', 'missing-metadata', 'nested-metadata', 'metadata-resource', 'metadata-resource-identity', 'metadata-lazy-index', 'metadata-fifo', 'metadata-expiration', 'metadata-hot-identity', 'metadata-cached-spatial', 'metadata-static-pin', 'metadata-alias', 'metadata-alias-expiration', 'metadata-destination-key-spatial', 'metadata-destination-key-fifo', 'pool-identifiers', 'store-values', 'store-views', 'store-failure', 'region-copy', 'region-vertex-bytes', 'region-views', 'region-cb', 'settings-atomic', 'settings-lifecycle', 'settings-deferred', 'settings-save-update', 'settings-batch-reload', 'settings-save-reload', 'analysis-reload', 'constants-order', 'ini-sections', 'if-conditions', 'expression-grammar', 'profiling-collections', 'profiling-reload', 'matching-diagnostics', 'view-reuse', 'view-descriptors', 'view-cache-metadata', 'view-ownership', 'view-failure', 'region-cb-small', 'view-clear', 'view-clear-integer', 'view-clear-stencil', 'metadata-static-variable', 'pool-learned-flags', 'pool-scalar-precedence', 'view-this-cache', 'profiling-zero-frame', 'resource-final-release', 'resource-retirement')) {
+          foreach ($case in @('empty-groups', 'leading-dot', 'pending-save', 'pool-reset', 'constant-stride', 'iniparams-transition-retry', 'iniparams-command-retry', 'iniparams-contexts', 'entry-path', 'query-assigned-row', 'reference-order', 'reference-cycles', 'pool-metadata', 'missing-metadata', 'nested-metadata', 'metadata-resource', 'metadata-resource-identity', 'metadata-lazy-index', 'metadata-fifo', 'metadata-expiration', 'metadata-hot-identity', 'metadata-cached-spatial', 'metadata-static-pin', 'metadata-alias', 'metadata-alias-expiration', 'metadata-destination-key-spatial', 'metadata-destination-key-fifo', 'pool-identifiers', 'store-values', 'store-views', 'store-failure', 'region-copy', 'region-vertex-bytes', 'region-views', 'region-cb', 'settings-atomic', 'settings-lifecycle', 'settings-deferred', 'settings-save-update', 'settings-batch-reload', 'settings-save-reload', 'analysis-reload', 'constants-order', 'ini-sections', 'if-conditions', 'expression-grammar', 'profiling-collections', 'profiling-reload', 'matching-diagnostics', 'view-reuse', 'view-descriptors', 'view-cache-metadata', 'view-ownership', 'view-failure', 'region-cb-small', 'view-clear', 'view-clear-integer', 'view-clear-stencil', 'metadata-static-variable', 'pool-learned-flags', 'pool-scalar-precedence', 'view-this-cache', 'profiling-zero-frame', 'resource-final-release', 'resource-retirement')) {
             & $exe $case
             if ($LASTEXITCODE -ne 0) { $failures += "$case (exit $LASTEXITCODE)" }
           }
@@ -501,6 +529,29 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw "Benchmark failed: $variant/$mode" }
             }
           }
+      - name: Measure the bounded query expression candidate
+        if: inputs.query_benchmarks && matrix.platform == 'x64'
+        shell: pwsh
+        run: |
+          $output = '.quality/query-benchmarks'
+          New-Item -ItemType Directory -Force -Path $output | Out-Null
+          $candidate = (Resolve-Path '.quality/runtime-tests/x64/Release/RuntimeTests.exe').Path
+          @{
+            source = $env:GITHUB_SHA
+            executable_sha256 = (Get-FileHash $candidate -Algorithm SHA256).Hash
+            harness_sha256 = (Get-FileHash RuntimeTests/RuntimeTests.cpp -Algorithm SHA256).Hash
+            processor = $env:PROCESSOR_IDENTIFIER
+            os = [Environment]::OSVersion.VersionString
+            runner_image = $env:ImageVersion
+            processes = 4
+            debug_layer = $false
+            no_game_or_present = $true
+            comparison = 'same executable; repeated query vs already-assigned w49'
+          } | ConvertTo-Json | Set-Content "$output/metadata.json" -Encoding utf8
+          for ($trial = 0; $trial -lt 4; ++$trial) {
+            & $candidate benchmark-queries 11 > "$output/queries-$trial.csv" 2> "$output/queries-$trial.stderr.log"
+            if ($LASTEXITCODE -ne 0) { throw 'Query expression measurements failed' }
+          }
       - name: Upload validated native test executable and mutation evidence
         if: success()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -508,8 +559,10 @@ jobs:
           name: runtime-checks-${{ matrix.platform }}-${{ github.sha }}
           path: |
             .quality/runtime-tests/${{ matrix.platform }}/Release/RuntimeTests.exe
+            .quality/prepared-shaders/${{ matrix.platform }}/PreparedShaderTests.exe
             .quality/runtime-mutations/
             .quality/runtime-benchmarks/
+            .quality/query-benchmarks/
           if-no-files-found: warn
           retention-days: 14
       - name: Upload failure evidence without an executable
@@ -520,5 +573,6 @@ jobs:
           path: |
             .quality/runtime-mutations/
             .quality/runtime-benchmarks/
+            .quality/query-benchmarks/
           if-no-files-found: ignore
           retention-days: 14

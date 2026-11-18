@@ -3349,6 +3349,124 @@ void zero_frame_updates_preserve_reload_measurements()
 	}
 }
 
+struct TextureQueryFixture
+{
+	D3DFixture d3d;
+	std::array<Microsoft::WRL::ComPtr<ID3D11Buffer>, 2> buffers;
+	std::array<Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>, 2> views;
+	std::vector<DirectX::XMFLOAT4> saved_rows = G->iniParams;
+	CommandListExpression query, repeated, assigned;
+
+	explicit TextureQueryFixture(bool validation = true) : d3d(validation)
+	{
+		G->iniParams.resize(50);
+		D3D11_BUFFER_DESC desc{};
+		desc.ByteWidth = 32;
+		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+		D3D11_SHADER_RESOURCE_VIEW_DESC view{};
+		view.Format = DXGI_FORMAT_R32_FLOAT;
+		view.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+		view.Buffer.NumElements = 8;
+		for (size_t index = 0; index < buffers.size(); ++index)
+		{
+			require(SUCCEEDED(d3d.device->CreateBuffer(&desc, nullptr, &buffers[index])), "query buffer failed");
+			require(SUCCEEDED(d3d.device->CreateShaderResourceView(buffers[index].Get(), &view, &views[index])),
+			        "query view failed");
+			const uint32_t hash = index == 0 ? 0x1234U : 0x5678U;
+			G->mResources[buffers[index].Get()].hash = hash;
+			auto &rule = G->mTextureOverrideMap[hash].emplace_back();
+			rule.filter_index = index == 0 ? 158.0f : 215.0f;
+		}
+		const std::wstring read = L"ps-t0", repeat = L"ps-t0 == 158", reuse = L"w49 == 158";
+		require(query.parse(&read, &config_namespace, nullptr) && repeated.parse(&repeat, &config_namespace, nullptr) &&
+		            assigned.parse(&reuse, &config_namespace, nullptr),
+		        "query expressions were rejected");
+		bind(0);
+	}
+
+	void bind(size_t index)
+	{
+		auto *view = views[index].Get();
+		d3d.context->PSSetShaderResources(0, 1, &view);
+	}
+
+	~TextureQueryFixture()
+	{
+		G->iniParams = std::move(saved_rows);
+		for (auto &buffer : buffers)
+			G->mResources.erase(buffer.Get());
+		G->mTextureOverrideMap.erase(0x1234);
+		G->mTextureOverrideMap.erase(0x5678);
+	}
+};
+
+void repeated_queries_and_assigned_rows_follow_rebinding()
+{
+	TextureQueryFixture fixture;
+	for (const size_t index : {0U, 1U, 0U})
+	{
+		fixture.bind(index);
+		for (int repeat = 0; repeat < 3; ++repeat)
+		{
+			G->iniParams[49].w = fixture.query.evaluate(&fixture.d3d.state);
+			require(G->iniParams[49].w == (index == 0 ? 158.0f : 215.0f), "query retained a previous binding");
+			require(fixture.repeated.evaluate(&fixture.d3d.state) == (index == 0 ? 1.0f : 0.0f),
+			        "repeated query changed the filter predicate");
+			require(fixture.assigned.evaluate(&fixture.d3d.state) == (index == 0 ? 1.0f : 0.0f),
+			        "assigned row changed the filter predicate");
+		}
+	}
+	fixture.d3d.require_no_errors();
+}
+
+void benchmark_texture_queries(int samples)
+{
+	TextureQueryFixture fixture(false);
+	ProfilingFixture profiling;
+	DWORD_PTR process_mask = 0, system_mask = 0;
+	require(GetProcessAffinityMask(GetCurrentProcess(), &process_mask, &system_mask) != 0 && process_mask != 0,
+	        "query benchmark affinity unavailable");
+	const DWORD_PTR selected_cpu = process_mask & (~process_mask + 1);
+	require(SetThreadAffinityMask(GetCurrentThread(), selected_cpu) != 0, "query benchmark affinity failed");
+	std::cerr << "ENV query_benchmark_thread_affinity=" << selected_cpu << '\n';
+	constexpr int iterations = 100000;
+	std::cout << "workload,mode,sample,variant,iterations,ns_per_pair,row_value,predicate_sum,match_calls\n";
+	for (auto mode : {Profiling::Mode::NONE, Profiling::Mode::SUMMARY})
+	{
+		Profiling::mode = mode;
+		for (bool rebind : {false, true})
+		{
+			for (int sample = 0; sample < samples; ++sample)
+			{
+				// Alternate the within-process order; report every paired sample.
+				for (bool assigned : {sample % 2 != 0, sample % 2 == 0})
+				{
+					fixture.bind(0);
+					Profiling::clear();
+					float predicates = 0;
+					auto &expression = assigned ? fixture.assigned : fixture.repeated;
+					const auto start = std::chrono::steady_clock::now();
+					for (int iteration = 0; iteration < iterations; ++iteration)
+					{
+						if (rebind)
+							fixture.bind(static_cast<size_t>(iteration) % 2);
+						G->iniParams[49].w = fixture.query.evaluate(&fixture.d3d.state);
+						predicates += expression.evaluate(&fixture.d3d.state);
+					}
+					const auto elapsed = std::chrono::steady_clock::now() - start;
+					require(predicates == (rebind ? 50000.0f : 100000.0f), "query benchmark predicate changed");
+					require(G->iniParams[49].w == (rebind ? 215.0f : 158.0f), "query benchmark final row changed");
+					std::cout << (rebind ? "rebind" : "stable") << ',' << static_cast<int>(mode) << ',' << sample << ','
+					          << (assigned ? "assigned_row" : "repeated_query") << ',' << iterations << ','
+					          << std::chrono::duration<double, std::nano>(elapsed).count() / iterations << ','
+					          << G->iniParams[49].w << ',' << predicates << ','
+					          << Profiling::texture_override_match_overhead.count << '\n';
+				}
+			}
+		}
+	}
+}
+
 void benchmark_command_lists(int samples)
 {
 	HackerContext context(nullptr, nullptr);
@@ -3525,7 +3643,7 @@ int main(int argc, char **argv)
 	InitializeCriticalSection(&G->mResourcesLock);
 	InitializeCriticalSection(&resource_creation_mode_lock);
 	if (argc > 1 && (std::string(argv[1]) == "benchmark-lists" || std::string(argv[1]) == "benchmark-views" ||
-	                 std::string(argv[1]) == "benchmark-entries"))
+	                 std::string(argv[1]) == "benchmark-entries" || std::string(argv[1]) == "benchmark-queries"))
 	{
 		const int samples = argc > 2 ? std::stoi(argv[2]) : 11;
 		if (samples < 1 || samples > 1000)
@@ -3534,6 +3652,8 @@ int main(int argc, char **argv)
 			benchmark_command_lists(samples);
 		else if (std::string(argv[1]) == "benchmark-entries")
 			benchmark_command_entries(samples);
+		else if (std::string(argv[1]) == "benchmark-queries")
+			benchmark_texture_queries(samples);
 		else
 			benchmark_resource_views(samples);
 		return 0;
@@ -3583,6 +3703,7 @@ int main(int argc, char **argv)
 	             {"iniparams-command-retry", command_upload_retries_after_its_state_retires},
 	             {"iniparams-contexts", deferred_recording_does_not_acknowledge_immediate_publication},
 	             {"entry-path", empty_entry_paths_preserve_later_work_and_profiling},
+	             {"query-assigned-row", repeated_queries_and_assigned_rows_follow_rebinding},
 	             {"reference-order", resolves_reference_chains_in_any_order},
 	             {"reference-cycles", terminates_incompatible_reference_cycles},
 	             {"pool-metadata", metadata_queries_do_not_extend_pool_lifetime},

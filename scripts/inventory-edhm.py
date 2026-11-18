@@ -21,6 +21,64 @@ SETTINGS = {
     "shader_hash", "texture_hash", "override_directory", "cache_directory",
     "assemble_signature_comments", "recursive_include", "skip_early_includes_load",
 }
+LITERAL = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?", re.I)
+ROW_TARGET = re.compile(r"([xyzw])(\d*)", re.I)
+VARIABLE_TARGET = re.compile(r"(?:(?:global|local|persist)\s+)*(\$[\w\\-]+)", re.I)
+COMMAND_SECTIONS = ("constants", "commandlist", "shaderoverride", "textureoverride", "customshader", "preset", "key", "present", "clearrendertargetview", "cleardepthstencilview", "clearunorderedaccessview")
+
+
+def semantic_commands(lines, activation):
+    """Classify source candidates without evaluating expressions or selecting values."""
+    commands, depth = [], 0
+    for number, section, key, value in lines:
+        if key is None:
+            depth = 0
+            continue
+        if not section.casefold().startswith(COMMAND_SECTIONS):
+            continue
+        directive = key.removeprefix("post ").strip()
+        text = f"{directive} {value}".strip()
+        control = re.match(r"^(?:if|else(?:\s+if)?|elif|endif)\b", text, re.I)
+        row, variable = ROW_TARGET.fullmatch(directive), VARIABLE_TARGET.fullmatch(directive)
+        dependencies = []
+        if "$" in value:
+            dependencies.append("variable")
+        if QUERY.search(value):
+            dependencies.append("resource_query")
+        if ROW.search(value):
+            dependencies.append("row_read")
+        if re.search(r"\b(?:rt_width|rt_height|res_width|res_height|time|frame_no)\b", value, re.I):
+            dependencies.append("runtime_value")
+        record = {"line": number, "section": section, "directive": key, "dependencies": dependencies,
+                  "availability": activation if activation != "unconditional" else "runtime_conditional" if depth else
+                  "unconditional_constants_candidate" if section.casefold() == "constants" and not key.startswith("post ") else "on_invocation",
+                  "reuse_boundary": True}
+        if control:
+            record["kind"] = "control_flow"
+            if re.match(r"^if\b", text, re.I):
+                depth += 1
+            elif re.match(r"^endif\b", text, re.I):
+                depth = max(0, depth - 1)
+        elif row or variable:
+            record["target"] = ({"kind": "row", "row": int(row[2] or 0), "component": row[1].lower()}
+                                if row else {"kind": "variable", "name": variable[1]})
+            record["kind"] = "literal_assignment" if LITERAL.fullmatch(value) else "expression_assignment"
+            if record["kind"] == "literal_assignment":
+                record["literal"] = value  # Preserve signed zero and decimal spelling; do not convert/execute it.
+            elif not dependencies:
+                record["dependencies"] = ["unclassified_expression"]
+        elif directive == "store":
+            record["kind"] = "synchronous_readback"
+        elif re.match(r"^(?:run|checktextureoverride|clear\w*|draw\w*|dispatch\w*|handling|reset_per_frame)$", directive):
+            record["kind"] = "effectful_command"
+        elif QUERY.fullmatch(directive) or directive.startswith(("resource", "pool")):
+            record["kind"] = "resource_write"
+        else:
+            # Parser options and matching metadata are not commands. This list
+            # is deliberately incomplete; omissions never authorize query reuse.
+            continue
+        commands.append(record)
+    return commands
 
 
 class InventoryLimit(RuntimeError):
@@ -166,6 +224,7 @@ class Inventory:
             rows.setdefault(int(index), set()).add(component.lower())
         record["texture_target_mentions"] = mentions
         record["adjacent_texture_mentions"] = adjacent
+        record["semantic_commands"] = semantic_commands(lines, record["activation"])
         record["row_references"] = [{"row": n, "components": "".join(c for c in "xyzw" if c in rows[n])} for n in sorted(rows)]
         for number, key, value in includes:
             edge = {"from": self.label(path), "line": number, "directive": key, "value": value}
