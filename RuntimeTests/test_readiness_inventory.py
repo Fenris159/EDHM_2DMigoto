@@ -115,7 +115,7 @@ class ReadinessInventoryTests(unittest.TestCase):
             b"[Constants]\nx1 = -0.0\ny1 = $theme\nz1 = ps-t0\nw1 = x2 + 1\n"
             b"[CommandListPanel]\n$panel = ps-t0\nif $panel == 7\nx3 = 4\nendif\n"
             b"store = $old ps-t0 0\nchecktextureoverride = ps-t0\nrun = CommandListOther\n"
-            b"ps-t0 = ResourceOther\n[PresetRed]\nx4 = 1\n")}
+            b"ps-t0 = ResourceOther\nfuture_command = $unknown\n[PresetRed]\nx4 = 1\n")}
         with tempfile.TemporaryDirectory() as directory:
             root = self.layout(directory, contents)
             report = inventory.Inventory(root / "d3dx.ini").run()
@@ -127,7 +127,7 @@ class ReadinessInventoryTests(unittest.TestCase):
                 (9, "literal_assignment"), (10, "control_flow"),
                 (11, "synchronous_readback"), (12, "effectful_command"),
                 (13, "effectful_command"), (14, "resource_write"),
-                (16, "literal_assignment")])
+                (15, "unclassified_directive"), (17, "literal_assignment")])
             self.assertEqual(semantic[0]["literal"], "-0.0")
             self.assertEqual(semantic[0]["target"], {"kind": "row", "row": 1, "component": "x"})
             self.assertEqual(semantic[0]["availability"], "unconditional_constants_candidate")
@@ -135,7 +135,7 @@ class ReadinessInventoryTests(unittest.TestCase):
                              [["variable"], ["resource_query"], ["row_read"], ["resource_query"]])
             self.assertEqual(semantic[6]["availability"], "runtime_conditional")
             self.assertEqual(semantic[-1]["availability"], "on_invocation")
-            self.assertTrue(all(r["reuse_boundary"] for r in semantic[8:12]))
+            self.assertTrue(all(r["reuse_boundary"] for r in semantic[8:13]))
             self.assertEqual({name: (root / name).read_bytes() for name in contents}, contents)
 
     def test_uncertain_include_never_exports_an_unconditional_literal(self):

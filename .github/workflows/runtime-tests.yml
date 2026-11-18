@@ -346,8 +346,8 @@ jobs:
           $badBefore = (Get-FileHash $invalid -Algorithm SHA256).Hash
           & $checker ps $valid
           if ($LASTEXITCODE -ne 0) { throw 'Authored frozen PS failed native creation' }
-          & $checker ps $invalid
-          if ($LASTEXITCODE -ne 1) { throw 'Malformed input did not return validation failure' }
+          $rejection = Start-Process -FilePath $checker -ArgumentList @('ps', $invalid) -NoNewWindow -Wait -PassThru
+          if ($rejection.ExitCode -ne 1) { throw 'Malformed input did not return validation failure' }
           if ((Get-FileHash $valid -Algorithm SHA256).Hash -ne $before -or
               (Get-FileHash $invalid -Algorithm SHA256).Hash -ne $badBefore) {
             throw 'Shader checker changed an input'

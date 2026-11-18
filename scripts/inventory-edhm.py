@@ -74,9 +74,11 @@ def semantic_commands(lines, activation):
         elif QUERY.fullmatch(directive) or directive.startswith(("resource", "pool")):
             record["kind"] = "resource_write"
         else:
-            # Parser options and matching metadata are not commands. This list
-            # is deliberately incomplete; omissions never authorize query reuse.
-            continue
+            if directive in ("hash", "filter_index") or directive.startswith("match_"):
+                continue  # These matching fields are retained separately in rules.
+            # Preserve anything not understood instead of silently flattening it
+            # into a theme. Parser options may also appear here; no execution claim.
+            record["kind"] = "unclassified_directive"
         commands.append(record)
     return commands
 
