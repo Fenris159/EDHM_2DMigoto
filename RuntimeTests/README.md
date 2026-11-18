@@ -26,7 +26,7 @@ bounds, CB ranges, and INI/optimizer ordering and reload semantics. A real devic
 boundary records submitted buffer descriptors and can fail staging allocation;
 this catches errors that WARP normalizes in a completed buffer description.
 
-The 64 cases also cover monitor-mode/window/reload transitions and recursive or
+The 65 cases also cover monitor-mode/window/reload transitions and recursive or
 shared command counts; summary-only matching/view diagnostics; hash-first and
 ordered dual matching; documented expression operators; all four view kinds,
 resource/descriptor/raw/override fallbacks, changing `this` targets, warm-cache
@@ -133,6 +133,27 @@ an ancestor for a shared-harness A/B/B/A entry comparison. Leave it empty for
 candidate-only measurements. It accepts only a comparison where CommandList.cpp
 is the sole changed production file. Keep output types and source provenance
 separate from the publication kernel probe in `IniParamsUploadTests`.
+
+`query-assigned-row` requires repeated `ps-t0` reads and an immediately assigned
+`w49` predicate to retain exact filter values across rebinding. It does not
+authorize caching across other commands or changing the installed pack.
+`benchmark-queries` compares those two expressions in the same executable, with
+stable and rebinding workloads, alternating sample order, thread affinity and
+debug validation disabled. No uploads, draws, swap chain or Present occur in
+the timed loop. Timings remain separate from correctness thresholds.
+The manual `query_benchmarks` input records four processes, raw CSV/stderr and
+source/executable/host metadata independently of the older mechanism benchmarks.
+The focused sensitivity case is `check_mutations.py --case query-assigned-row`.
+
+`PreparedShaderTests.vcxproj` is a standalone shader-object checker, documented
+with the [offline preparer](../docs/offline-dxbc-preparer.md#independent-native-shader-object-check).
+It does not link product hooks or load the product DLL. Native x64/Win32 CI
+requires PS/VS creation, malformed-bytecode rejection, the authored frozen PS,
+and unchanged file inputs. Creation success does not establish rendered output.
+The optional `shader_pack_validation` lane runs the pinned public-pack collector
+on each architecture and retains JSON only. Acceptance/rejection data are
+separate from collection completion; no downloaded shader/tool payload is
+included in artifacts. See the preparer guide for the exact scope.
 
 ## D3D12 helper swap chains
 

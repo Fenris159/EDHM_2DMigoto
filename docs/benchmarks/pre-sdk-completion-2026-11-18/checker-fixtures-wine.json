@@ -1,0 +1,37 @@
+{
+  "backend": "Host Wine 10 built-in D3D11/DXGI, requested WARP; not native Windows or hardware proof",
+  "source_sha256": "a6916ff1865264f336c0074f081c8c9a2ce2a115b2b9d9d7b9c9ebcd2071c4f5",
+  "executable_sha256": "11bf4f7183dd0ff51ee3c3220c01eb59dba38b51ca0b4380a3e42054f85e759a",
+  "checks": [
+    {
+      "stage": "ps",
+      "input_sha256": "bf498b34c6ce22e0f77e6ad9502c0204a134309edff5e39184a8a30eab6579a8",
+      "input_bytes": 212,
+      "exit_code": 0,
+      "stdout": "ENV driver_requested=WARP feature_level=b000 scope=shader-object-creation-only\r\nPASS ps HRESULT=0x0 bytes=212 file=<checkout>/.quality/pre-sdk-completion/checker-validation/authored.dxbc\r\n",
+      "stderr": "",
+      "input_unchanged": true
+    },
+    {
+      "stage": "ps",
+      "input_sha256": "c80810a29a85aed2ded225eafee81f50f93dafbf5c4c8c51e24f1d6d41edad81",
+      "input_bytes": 16,
+      "exit_code": 1,
+      "stdout": "ENV driver_requested=WARP feature_level=b000 scope=shader-object-creation-only\r\nFAIL ps HRESULT=0x80070057 bytes=16 file=<checkout>/.quality/pre-sdk-completion/checker-validation/malformed.dxbc\r\n",
+      "stderr": "",
+      "input_unchanged": true
+    },
+    {
+      "stage": "vs",
+      "input_sha256": "c80810a29a85aed2ded225eafee81f50f93dafbf5c4c8c51e24f1d6d41edad81",
+      "input_bytes": 16,
+      "exit_code": 1,
+      "stdout": "ENV driver_requested=WARP feature_level=b000 scope=shader-object-creation-only\r\nFAIL vs HRESULT=0x80070057 bytes=16 file=<checkout>/.quality/pre-sdk-completion/checker-validation/malformed.dxbc\r\n",
+      "stderr": "",
+      "input_unchanged": true
+    }
+  ],
+  "malformed_acceptance_mutant_detected": true,
+  "clean_self_test_after_mutation": true,
+  "receipt_normalization": "Checkout prefix replaced with <checkout> in diagnostic paths only."
+}

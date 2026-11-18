@@ -1,0 +1,38 @@
+{
+  "upstream-fss-receipt.json": {
+    "url": "https://raw.githubusercontent.com/psychicEgg/EDHM/73588af9a1a17cf4aa66aca582afde9d98da60d5/Odyssey/3rdPartyMods/FSS-Overlay/FSS_Overlay_Mod_ED4.3.1.0_v1.102.2.zip",
+    "commit": "73588af9a1a17cf4aa66aca582afde9d98da60d5",
+    "zip_bytes": 1766105,
+    "zip_sha256": "3e5854c23b6ff4c85c0dc1f682297b0c5099b79b7003898e77bc32b65fb7fb0f",
+    "matching_entries": [
+      {
+        "entry": "ShaderFixes/ea5390a2f20c2368-ps.txt",
+        "bytes": 3331,
+        "sha256": "641aade87bbd5f7806a70778a872fb01be7e1cf683a3f09ac454e918ae16a73a"
+      }
+    ]
+  },
+  "executable-scan.json": {
+    "file": "EliteDangerous64.exe",
+    "sha256": "ed5a8f8cd10f9a80d3bda5badd7ba1d4fcfc15996c8c7e018852cb170e264b63",
+    "dxbc_markers": 1,
+    "bounded_container_candidates": [
+      {
+        "offset": 81955744,
+        "bytes": 15156,
+        "sha256": "00fc5d80a667e204875b56f5b93b3767dd65c7d021f14b09296f264f262072f5",
+        "legacy_full_buffer_key": "79bb41f431b8210d",
+        "chunks": [
+          "RDEF",
+          "ISGN",
+          "OSGN",
+          "SHEX",
+          "STAT",
+          "SPDB",
+          "RTS0"
+        ]
+      }
+    ],
+    "scope": "Raw contiguous containers in this executable only; not packed assets or runtime-created identity proof."
+  }
+}

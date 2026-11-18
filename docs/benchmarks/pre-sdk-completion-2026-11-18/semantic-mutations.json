@@ -1,0 +1,49 @@
+{
+  "script_sha256": "1cfe7d87b8538744467e634ec79a9f4f492106eeac27a61b215df3efc68bb53d",
+  "test_sha256": "a6d0956314f3c018f48515bee0fb3e224f7055a607f90b572ad881069b1a3ea3",
+  "restored_passed": true,
+  "mutants": [
+    {
+      "mutant": "literal-not-recorded",
+      "detected": true,
+      "exit_code": 1,
+      "before": "LITERAL.fullmatch(value)",
+      "after": "False"
+    },
+    {
+      "mutant": "unknown-as-certain",
+      "detected": true,
+      "exit_code": 1,
+      "before": "activation if activation != \"unconditional\" else",
+      "after": "\"unconditional_constants_candidate\" if activation != \"unconditional\" else"
+    },
+    {
+      "mutant": "conditional-as-invoked",
+      "detected": true,
+      "exit_code": 1,
+      "before": "\"runtime_conditional\" if depth else",
+      "after": "\"on_invocation\" if depth else"
+    },
+    {
+      "mutant": "lost-query-dependency",
+      "detected": true,
+      "exit_code": 1,
+      "before": "if QUERY.search(value):",
+      "after": "if False:"
+    },
+    {
+      "mutant": "lost-readback",
+      "detected": true,
+      "exit_code": 1,
+      "before": "elif directive == \"store\":",
+      "after": "elif directive == \"never_store\":"
+    },
+    {
+      "mutant": "lost-unknown-directive",
+      "detected": true,
+      "exit_code": 1,
+      "before": "record[\"kind\"] = \"unclassified_directive\"",
+      "after": "continue"
+    }
+  ]
+}

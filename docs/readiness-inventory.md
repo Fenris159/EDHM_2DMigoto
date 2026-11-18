@@ -32,6 +32,11 @@ The JSON records:
   explicit `reuse_legality: unverified`. These identify inspection candidates,
   not a safe query cache or an estimate of saved work.
 - Shader/texture matching fields with their original file and line.
+- Per-file `semantic_commands`: literal versus expression assignments, row or
+  variable destinations, lexical dependencies, control flow, synchronous
+  readbacks, resource writes and effectful commands. Other directives in
+  command-capable sections remain explicitly unclassified. Values preserve
+  their source spelling, including signed zero; nothing is executed.
 - First-observed settings affecting hashing, directories, signature assembly and
   startup. Conflicting observations receive a diagnostic; this is not a runtime
   setting-selection result.
@@ -56,3 +61,14 @@ Inspect diagnostics and activation fields before interpreting counts. The
 inspected local installation produced nine INI records, 77 assembly replacements
 and 503 TextureOverride sections. That is one pack's static evidence; it proves
 no performance gain, game-build identity or D3D12 compatibility.
+
+Semantic availability is separate from syntax: a literal inside an uncertain
+include stays `unknown_condition`; a literal inside runtime control flow stays
+`runtime_conditional`; preset/command/key values are `on_invocation`.
+`unconditional_constants_candidate` is a source candidate, not the final value
+after includes, duplicate assignments or execution. `reuse_boundary=true` is
+conservative for every classified directive. It is not a cache-validity model.
+Dependencies are lexical evidence; comments/unsupported syntax can overcount.
+Use the [settings proposal](edo-settings-package-contract.md) for the bounded
+future import policy and the [pre-SDK status](pre-sdk-preparation-status.md) for
+the decisions made from this inventory.

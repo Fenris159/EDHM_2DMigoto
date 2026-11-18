@@ -1,0 +1,49 @@
+{
+  "scope": "Lexical candidate semantics, not evaluated runtime paths/final values/costs",
+  "inventory_sha256": "c7ea19308a7166fe3340d2f52ed00a5353216c64d02b06d5e846fff882b29703",
+  "script_sha256": "1cfe7d87b8538744467e634ec79a9f4f492106eeac27a61b215df3efc68bb53d",
+  "files": 87,
+  "inputs_unchanged_from_previous_receipt": true,
+  "sections": {
+    "commandlist": 3,
+    "constants": 7,
+    "customshader": 1,
+    "device": 1,
+    "hunting": 1,
+    "include": 1,
+    "key": 2,
+    "loader": 1,
+    "logging": 1,
+    "present": 2,
+    "preset": 32,
+    "profile": 1,
+    "rendering": 1,
+    "resource": 782,
+    "shaderoverride": 45,
+    "stereo": 1,
+    "system": 1,
+    "textureoverride": 503
+  },
+  "kinds": {
+    "literal_assignment": 858,
+    "expression_assignment": 32,
+    "effectful_command": 20,
+    "control_flow": 1684,
+    "unclassified_directive": 72,
+    "resource_write": 2344
+  },
+  "availability": {
+    "unconditional_constants_candidate": 823,
+    "on_invocation": 2484,
+    "runtime_conditional": 1703
+  },
+  "dependencies": {
+    "unclassified_expression": 6,
+    "resource_query": 1570,
+    "row_read": 8,
+    "variable": 29,
+    "runtime_value": 2
+  },
+  "original_identity": "unverified",
+  "diagnostics": []
+}

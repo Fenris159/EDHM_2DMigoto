@@ -1,0 +1,2 @@
+# Preserve raw Windows workflow receipts and their recorded hashes.
+queries/* -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

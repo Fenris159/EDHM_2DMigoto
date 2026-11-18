@@ -25,6 +25,9 @@
 - **Pre-production:** work now proceeds on `pre-production-edo-readiness`; see
   [checkpoints and validation limits](pre-production-edo-readiness.md). The source
   descriptions below remain pinned to the investigation baseline.
+  The [18 November preparation status](pre-sdk-preparation-status.md) adds
+  semantic inventory, shader-object checks, query measurements and the concrete
+  settings/package proposal, with external evidence gates kept explicit.
 - **Investigation limits:** installed files were read without launching the game.
   Runtime edits and new checks now exist only in the preliminary branch; no game
   installation, merge, release or message to another developer was made.
@@ -46,7 +49,8 @@ view planning and sparse pool metadata are conditional on advanced workloads.
 Parameter publication is the strongest deepening candidate. The empty-list
 experiment is a small optimization that can be evaluated first while publication
 ownership is scoped. The architecture review below separates depth, measured
-cost and workload relevance; speed benefits remain unmeasured.
+cost and workload relevance. Only separately documented synthetic measurements
+support numerical claims; they do not establish a game-speed improvement.
 
 Keep the D3D11 runtime and its raw-DLL feed. The draft's native renderer needs a
 separate `edo_plugin_entry` plugin; today's DLL exports D3D11 creation functions
@@ -340,7 +344,10 @@ justify removing redundant uploads; no speed improvement is assumed here.
 
 **Preliminary implementation:** [the passive inventory tool](readiness-inventory.md)
 now covers local INI/include and replacement evidence. It does not complete the
-original-identity, build-provenance or semantic-cost evidence gates below.
+original-identity or semantic-cost evidence gates below. The 18 November
+extension classifies source semantics without executing commands. The
+[original-evidence investigation](pre-sdk-shader-evidence-2026-11-18.md) pins the
+current installation's build/executable separately from missing original bytes.
 
 **Benefit/scope:** detect mismatched shader keys, missing provenance and
 unsupported add-ons before a port. Read existing inputs only; record the fields
@@ -443,6 +450,16 @@ contents. Existing hotkey/transition/reload GPU checks remain applicable
 central ownership alone supplies no measured speed result.
 
 #### 2B. Deepen direct-query lifetime and effects — Worth exploring
+
+**Pre-SDK follow-up:** an off-game native fixture now compares the actual
+assignment-then-query pattern with reading its immediately assigned `w49`,
+including exact values after rebinding. The manual `query_benchmarks` lane
+records paired expression measurements without changing runtime code or the
+installed pack. Use the [completion receipts](benchmarks/pre-sdk-completion-2026-11-18/README.md)
+for the decision: the operation cost falls about 47% in the stable fixture and
+41% with rebinding, using the already-assigned row. Recommend that one local
+pack expression for maintainer review, with no installed-file edit and no
+general query cache or numerical game-speed claim.
 
 **Inventory refinement:** the root's nine adjacent texture mentions include
 eight `checktextureoverride`-then-query pairs and one assignment-then-query pair
@@ -557,6 +574,11 @@ no demonstrated second consumer. These observations do not block ranks 1–9.
 
 ### 3. Agree the settings and distribution contract — useful now as design
 
+**Prepared proposal:** [settings and package contract](edo-settings-package-contract.md)
+now defines data ownership, the existing editor's conversion/completed-batch
+handoff, integrity records, failure/rollback rules and a distinct native feed.
+It is ready for review, not evidence of maintainer agreement or a published ABI.
+
 **Benefit/scope:** avoid updater damage to editable themes and retain the current
 DLL channel. Existing [manifest generator][manifest] already emits tag-pinned
 URL, version, architecture, size and SHA-256; [release packaging][release]
@@ -576,6 +598,13 @@ the draft, expected for automatic updates; agree signed-byte format, issue time,
 key pinning/rotation and prerelease feed before adding it.
 
 ### 4. Build a small offline DXBC preparer — conditional on inventory evidence
+
+**Additional off-game gate:** the [native checker](offline-dxbc-preparer.md#independent-native-shader-object-check)
+creates actual PS/VS objects through system D3D11, with authored fixtures and
+malformed-bytecode rejection in both Windows architectures. This is independent
+of structural preparation and does not prove rendering. The
+[FSS source investigation](pre-sdk-shader-evidence-2026-11-18.md) closes the
+available provenance search without inventing original identity or metadata.
 
 **Preliminary implementation:** the [bounded preparer](offline-dxbc-preparer.md)
 now stages pinned inputs/tools, validates declared signature coverage, runs both

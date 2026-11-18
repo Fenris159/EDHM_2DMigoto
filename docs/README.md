@@ -24,3 +24,7 @@
 | [next-release-implementation.md](next-release-implementation.md) | Implemented changes, measurements, validation and release limits |
 | [upstream-next-release.md](upstream-next-release.md) | Pinned upstream intake and cherry-pick decisions |
 | [performance-audit.md](performance-audit.md) | Historical source/performance audit and evidence |
+| [pre-sdk-preparation-status.md](pre-sdk-preparation-status.md) | Current pre-production preparation, completed decisions and named external gates |
+| [edo-next-readiness-2026-11-16.md](edo-next-readiness-2026-11-16.md) | Ranked plan for current-runtime preparation and future SDK integration |
+| [edo-settings-package-contract.md](edo-settings-package-contract.md) | Proposed theme handoff, update ownership and separate native-plugin packaging |
+| [pre-sdk-shader-evidence-2026-11-18.md](pre-sdk-shader-evidence-2026-11-18.md) | Pinned FSS metadata findings, native-creation limits and original-export retrieval recipe |

@@ -83,3 +83,46 @@ Native shader-object creation, rendered output and future-host compatibility
 remain separate gates in the [main plan](edo-next-readiness-2026-11-16.md).
 Prepared files are not a current-runtime cache or a distributable plugin pack;
 asset permissions and host integration must be settled before distribution.
+
+## Independent native shader-object check
+
+`RuntimeTests/PreparedShaderTests.vcxproj` builds a separate off-game checker:
+
+```powershell
+msbuild RuntimeTests/PreparedShaderTests.vcxproj -target:Build `
+  -property:Configuration=Release -property:Platform=x64 `
+  -property:EdhmStrictBuild=true -nodeReuse:false -verbosity:minimal -restore:false
+& .quality/prepared-shaders/x64/PreparedShaderTests.exe --self-test
+& .quality/prepared-shaders/x64/PreparedShaderTests.exe ps C:/private/prepared/panel.dxbc vs C:/private/prepared/vertex.dxbc
+```
+
+Use `Platform=Win32` for the other architecture. The checker loads system D3D11
+and requests WARP at feature level 11_0, with no hardware fallback. It creates
+and releases actual shader objects, requires every input to remain unchanged,
+and returns 1 if creation fails. Each file is bounded to 16 MiB. Self-checks use
+authored PS/VS sources and malformed bytecode; CI also checks the frozen 212-byte
+authored PS through the file interface and requires malformed input to return 1.
+
+This result is independent of preparation metadata policy. It neither changes
+the preparer's manifest nor establishes stage linkage, bound resources,
+rendered output or a future host's accepted profiles. A Wine run reports the
+requested driver; it does not establish Microsoft WARP or physical-GPU coverage.
+The [shader evidence report](pre-sdk-shader-evidence-2026-11-18.md) explains the
+remaining FSS asset gap and distinguishes original identity from prepared bytes.
+
+The optional manual runtime input `shader_pack_validation=true` collects the
+public pack's native acceptance on both Windows architectures. Its runner is
+`RuntimeTests/run_prepared_shader_pack.py`, with two source archives and the
+helper/compiler pinned in `RuntimeTests/fixtures/public-*-inputs.json`.
+Only exact named members are read; no archive tree is installed. Assembly,
+bytecode and external tools live in a temporary directory that is removed.
+Artifacts contain JSON observations/hashes only, never the downloaded assets,
+bytecode, compiler or helper disassembly logs.
+
+The collector's `status=collected` means its observations are complete. Check
+`accepted`, `rejected`, `all_assets_accepted` and each HRESULT before claiming
+native acceptance. A shader rejection remains explicit even when collection
+succeeds. Structural exclusions remain independent; the FSS asset's unchanged
+assembly is probed separately without adding it to the strict manifest.
+The source recipe reproduces this installation's replacements, not game-original
+identity or asset-distribution rights.

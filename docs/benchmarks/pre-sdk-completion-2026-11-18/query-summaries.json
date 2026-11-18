@@ -1,0 +1,96 @@
+{
+  "scope": "Paired expression CPU cost in the same binary, including one source query in both variants; not a runtime change or a game measurement",
+  "estimator": "Median of process medians, retaining every within-process sample and profiling mode separately",
+  "files_sha256": {
+    "queries-0.csv": "1e524ee3ba88cb501ca50938ab2def5de71dd37245d2453de5fd93e18d6e2abc",
+    "queries-1.csv": "b5d6bce4a4dad0385120dec429799ebe38e6440002dcd509bc721e008cec7dd7",
+    "queries-2.csv": "577dcc880102043a085408dd3c9a013cf5eed45308b60a92d7ee42ed4170a8f2",
+    "queries-3.csv": "ae1fc95e771bb45ed9aece304505b2f90f78abb69c86b857c73c77db53637263"
+  },
+  "results": [
+    {
+      "mode": 0,
+      "workload": "stable",
+      "process_medians_ns": {
+        "repeated_query": {
+          "queries-0.csv": 268.732,
+          "queries-1.csv": 263.328,
+          "queries-2.csv": 263.374,
+          "queries-3.csv": 265.796
+        },
+        "assigned_row": {
+          "queries-0.csv": 141.746,
+          "queries-1.csv": 139.039,
+          "queries-2.csv": 136.817,
+          "queries-3.csv": 139.42
+        }
+      },
+      "repeated_query_median_ns": 264.58500000000004,
+      "assigned_row_median_ns": 139.22949999999997,
+      "change_percent": -47.37815824782208
+    },
+    {
+      "mode": 0,
+      "workload": "rebind",
+      "process_medians_ns": {
+        "repeated_query": {
+          "queries-0.csv": 300.791,
+          "queries-1.csv": 302.758,
+          "queries-2.csv": 300.45,
+          "queries-3.csv": 301.602
+        },
+        "assigned_row": {
+          "queries-0.csv": 175.738,
+          "queries-1.csv": 178.779,
+          "queries-2.csv": 177.958,
+          "queries-3.csv": 176.867
+        }
+      },
+      "repeated_query_median_ns": 301.1965,
+      "assigned_row_median_ns": 177.4125,
+      "change_percent": -41.09742311082633
+    },
+    {
+      "mode": 1,
+      "workload": "stable",
+      "process_medians_ns": {
+        "repeated_query": {
+          "queries-0.csv": 516.167,
+          "queries-1.csv": 521.47,
+          "queries-2.csv": 517.909,
+          "queries-3.csv": 521.676
+        },
+        "assigned_row": {
+          "queries-0.csv": 263.899,
+          "queries-1.csv": 269.025,
+          "queries-2.csv": 264.129,
+          "queries-3.csv": 266.162
+        }
+      },
+      "repeated_query_median_ns": 519.6895,
+      "assigned_row_median_ns": 265.14549999999997,
+      "change_percent": -48.980015951832776
+    },
+    {
+      "mode": 1,
+      "workload": "rebind",
+      "process_medians_ns": {
+        "repeated_query": {
+          "queries-0.csv": 555.362,
+          "queries-1.csv": 558.875,
+          "queries-2.csv": 556.758,
+          "queries-3.csv": 556.644
+        },
+        "assigned_row": {
+          "queries-0.csv": 304.976,
+          "queries-1.csv": 306.745,
+          "queries-2.csv": 304.34,
+          "queries-3.csv": 304.295
+        }
+      },
+      "repeated_query_median_ns": 556.701,
+      "assigned_row_median_ns": 304.658,
+      "change_percent": -45.27439325598481
+    }
+  ]
+}

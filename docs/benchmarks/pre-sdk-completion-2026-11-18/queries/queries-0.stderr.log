@@ -1,0 +1,1 @@
+ENV query_benchmark_thread_affinity=1

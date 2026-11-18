@@ -1,0 +1,12 @@
+{
+  "processes": 4,
+  "debug_layer": false,
+  "harness_sha256": "53E04315EA0C20D27503AFE3083618B0FD6B87D4CB123DC494E6559AE6C10C70",
+  "source": "6c35c5527b9bc0d834f9fba8003da6bddae29144",
+  "no_game_or_present": true,
+  "runner_image": "20261112.366.7",
+  "os": "Microsoft Windows NT 10.0.20348.0",
+  "processor": "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD",
+  "executable_sha256": "E0600ABEB3FDF04270F78061E19C413FB4314BE379672CE4F6E8CCFE840BA930",
+  "comparison": "same executable; repeated query vs already-assigned w49"
+}

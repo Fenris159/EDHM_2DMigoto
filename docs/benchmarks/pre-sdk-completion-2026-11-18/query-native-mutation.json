@@ -1,0 +1,10 @@
+[
+  {
+    "case": "query-assigned-row",
+    "mutation": "query-assigned-row",
+    "baseline_exit": 0,
+    "mutant_exit": 1,
+    "original_sha256": "7d3ef6a40610597c169e8ddc40af2f9ee40230304a5eec54e6a668775be2b71c",
+    "mutant_sha256": "624e3b36c6e79847400cb678c6bb17066372095b6a72e1a8f5981ca3699ae744"
+  }
+]

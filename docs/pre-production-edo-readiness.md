@@ -11,17 +11,23 @@ The [main plan](edo-next-readiness-2026-11-16.md) remains the work order.
 [Initial receipts](benchmarks/edo-pre-production-2026-11-16/README.md) are historical;
 [follow-up receipts](benchmarks/edo-pre-production-follow-up-2026-11-16/README.md)
 record the later native checks, measurements and preparer findings.
+The [18 November preparation status](pre-sdk-preparation-status.md) and
+[new receipts](benchmarks/pre-sdk-completion-2026-11-18/README.md) complete the
+available inventory, settings/package design, query experiment and native
+shader-object validation. Original bytes, permissions and actual SDK/host
+integration remain named external inputs.
 
 ## Implemented checkpoints
 
 | Plan item | Result | Remaining gate |
 | --- | --- | --- |
 | Rank 1 / 2A: publication safety and ownership | One context-owned pending request; checked complete-image upload shared by commands, transitions and initialization | Product/game validation remains separate from native fixture results |
-| Rank 2: passive inventory | Include graph, exact digests, explicit unknown provenance, candidate rules/rows and unreached-file recording | Original game containers/build provenance and semantic-cost inventory |
+| Rank 2: passive inventory | Include graph, exact digests, explicit unknown provenance, semantic candidates and unreached-file recording | Original game containers/build provenance; lexical counts are not execution costs |
 | 2C: empty-list path | Per-invocation resolved-vector check; native regressions and controlled measurements pass | Narrow synthetic claim; nonempty process variability and real invocation frequency remain limits |
-| Rank 4: offline preparation | Pinned helper/compiler, separate immutable staging, signature coverage, validation and content manifests | One installed asset lacks metadata required by the conservative policy; native shader/render/SDK proof and asset permissions |
-| 2B / 2D / 2E | Remain gated | One repeated-read example needs cost proof; eight adjacent pairs cross effects; current pack has no Region/Pool workload |
-| Ranks 3 / 5–9 | Existing contract and SDK gates retained; bounded backend adapter evidence recorded | Published host/SDK and original identity where required |
+| Rank 4: offline preparation | Pinned immutable preparation plus native Windows x64/Win32 creation of all 77 unchanged shader objects | One asset still fails the conservative signature policy; original identity, rendered/SDK proof and asset permissions remain separate |
+| 2B | One repeated-read example measured; recommend the local assigned-row expression for pack review | No installed edit or general runtime cache; eight adjacent pairs cross effects |
+| 2D / 2E / 5 | Conditional refactors deliberately deferred | No Region/Pool workload or demonstrated second consumer |
+| Rank 3 / ranks 6–9 | Concrete settings/package proposal ready for review; existing host/SDK gates retained | Maintainer agreement, published host/SDK and original identity where required |
 
 ## Publication behavior
 
@@ -61,10 +67,16 @@ obtains the wrapped context.
   adding the offline preparer. Newer documentation/test refinements are recorded
   separately from those pinned source checkpoints.
 - The portable publication policy covers four behaviors. Local Python checks
-  pass 21 cases, including eight preparer cases. Same-size asset/tool changes
+  pass 23 cases, including eight preparer and seven inventory cases. Same-size asset/tool changes
   are tested with fixed filesystem timestamps. Sixteen policy/inventory/adapter
   faults and ten preparer faults were detected in isolated copies; clean checks
   passed after restoration. Active production files were not mutated locally.
+- The 18 November [native runtime run](https://github.com/Fenris159/EDHM_2DMigoto/actions/runs/44339031730)
+  passes 65 cases on both architectures, shader-checker fixtures and the query
+  sensitivity fault. Six additional isolated inventory faults and a checker
+  acceptance fault are detected. Public-pack collection records all 77 unchanged
+  shaders accepted by native Windows WARP on x64 and Win32; source equality,
+  structural policy, creation and rendered correctness remain separate claims.
 - The concrete adapter/draw fixture passes in 32- and 64-bit Proton 11 inside
   Steam Linux Runtime, through native DXVK on AMD and built-in D3D. The host
   Wine 10 built-in 32-bit repeated-readback discrepancy is preserved: it also
@@ -133,7 +145,7 @@ a distributable EDHM pack or a native edo-next plugin.
 3. Obtain original signature/build evidence for the metadata-gap asset before
    proposing a pack correction or host-ABI transform. Obtain asset permission
    before distributing prepared replacements.
-4. Measure the one repeated-query example before introducing reuse policy.
-   Keep Region/Pool work conditional on an actual workload.
+4. Offer the measured local query expression for pack-maintainer review without
+   a general runtime cache. Keep Region/Pool work conditional on a workload.
 5. Leave SDK types, settings/package integration, shader relocation and native
    host rendering proofs gated by the published host contract and SDK.
