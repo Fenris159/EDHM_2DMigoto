@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "label": "main vs develop",
+  "message": "in sync",
+  "color": "brightgreen",
+  "cacheSeconds": 3600
+}
