@@ -107,6 +107,7 @@ def main():
                 shutil.copy2(system, directory / "invalid.dll")
                 proxy = "invalid.dll"
             device_settings = "[Device]\nwidth=640\nheight=480\n" if case.startswith("d3d12-") else ""
+            constants_settings = "[Constants]\nx=1\n" if "feature-level" in case else ""
             create_device_setting = "allow_create_device=2\n" if case == "feature-level-force" else ""
             hook_setting = "hook=recommended\n" if case == "feature-level-hooked" else ""
             # Omit allow_platform_update in feature-level cases to verify its modern default,
@@ -118,7 +119,7 @@ def main():
                 f"{create_device_setting}{hook_setting}"
                 f"proxy_d3d11={proxy}\n"
                 "[Hunting]\nhunting=0\n[Rendering]\nstereo_params=-1\nini_params=120\n"
-                "[Logging]\nenabled=1\ncalls=0\ndebug=0\n" + device_settings,
+                "[Logging]\nenabled=1\ncalls=0\ndebug=0\n" + device_settings + constants_settings,
                 encoding="utf-8",
             )
             command = [str(directory / "ProxyChainTests.exe"), case]
