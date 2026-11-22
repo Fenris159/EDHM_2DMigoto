@@ -46,6 +46,11 @@ Present on a worker thread; input and commands stay on the established thread.
 Test presents, nested calls, other threads and secondary chains do not advance
 the established proxy frame source.
 
+Post-0.1.8 (unreleased; not included in the 0.1.8 runtime): the active-frame
+count is tracked per swap-chain wrapper rather than process-wide, so a
+secondary wrapper's forwarding scope does not suppress an independent primary
+frame on another thread.
+
 The first wrapped D3D11 chain is selected during creation, so an early secondary
 Present cannot steal its role. Native private-data lifetime tracking retires the
 source even when a native SwapChain2/3 interface is released last, allowing
