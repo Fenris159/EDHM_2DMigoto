@@ -1,5 +1,6 @@
 #include "DLLMainHook.h"
 
+#include <atomic>
 #include <new>
 
 #include "HookedDXGI.h"
@@ -8,6 +9,34 @@
 #include "globals.h"
 
 HINSTANCE migoto_handle;
+
+namespace
+{
+std::atomic<bool> g_is_primary_d3d11_module_initialized{false};
+std::atomic<bool> g_is_primary_d3d11_module{true};
+
+bool DetectPrimaryD3D11Module(HINSTANCE module)
+{
+	if (!module)
+		return true;
+
+	wchar_t module_path[MAX_PATH] = {};
+	DWORD length = GetModuleFileNameW(module, module_path, ARRAYSIZE(module_path));
+	if (!length || length >= ARRAYSIZE(module_path))
+		return true;
+
+	const wchar_t *leaf = wcsrchr(module_path, L'\\');
+	const wchar_t *name = leaf ? leaf + 1 : module_path;
+	return _wcsicmp(name, L"d3d11.dll") == 0;
+}
+} // namespace
+
+bool IsLoadedAsPrimaryD3D11Module()
+{
+	if (g_is_primary_d3d11_module_initialized.load())
+		return g_is_primary_d3d11_module.load();
+	return DetectPrimaryD3D11Module(migoto_handle);
+}
 
 // ----------------------------------------------------------------------------
 // Add in Deviare in-proc for hooking system traps using a Detours approach.  We need access to the
@@ -363,6 +392,17 @@ BOOL WINAPI DllMain(_In_ HINSTANCE hinstDLL, _In_ DWORD fdwReason, _In_ LPVOID l
 		tls_idx = TlsAlloc();
 		if (tls_idx == TLS_OUT_OF_INDEXES)
 			return false;
+
+		// Determine module identity before installing LoadLibraryExW hooks so a
+		// renamed chained DLL (e.g. d3d11_edhm.dll) never redirects System32\d3d11.dll
+		// back to an outer proxy prior to LoadConfigFile() or during reload.
+		{
+			const bool is_primary_d3d11 = DetectPrimaryD3D11Module(hinstDLL);
+			g_is_primary_d3d11_module.store(is_primary_d3d11);
+			g_is_primary_d3d11_module_initialized.store(true);
+			if (!is_primary_d3d11)
+				G->load_library_redirect = 0;
+		}
 
 		// Hook d3d11.dll if we are loaded via injection either
 		// under a different name, or just not as the primary

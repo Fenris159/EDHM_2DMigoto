@@ -112,11 +112,13 @@ def main():
             create_device_setting = "allow_create_device=2\n" if case == "feature-level-force" else ""
             hook_setting = "hook=recommended\n" if case == "feature-level-hooked" else ""
             # Omit allow_platform_update in feature-level cases to verify its modern default,
-            # and keep load_library_redirect=2 in chain-feature-level to verify renamed-DLL auto-disable.
+            # and keep load_library_redirect=2 with wine_compat=0 in chain-feature-level so
+            # the system-load assertion exercises the renamed-DLL rule even under Wine.
             redirect_setting = "load_library_redirect=2\n" if case == "chain-feature-level" else "load_library_redirect=0\n"
+            wine_compat_setting = "wine_compat=0\n" if case == "chain-feature-level" else ""
             platform_setting = "" if "feature-level" in case else "allow_platform_update=1\n"
             (directory / "d3dx.ini").write_text(
-                f"[System]\n{redirect_setting}{platform_setting}"
+                f"[System]\n{redirect_setting}{wine_compat_setting}{platform_setting}"
                 f"{create_device_setting}{hook_setting}"
                 f"proxy_d3d11={proxy}\n"
                 "[Hunting]\nhunting=0\n[Rendering]\nstereo_params=-1\nini_params=120\n"

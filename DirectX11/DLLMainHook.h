@@ -9,6 +9,8 @@
 
 extern CNktHookLib cHookMgr;
 
+bool IsLoadedAsPrimaryD3D11Module();
+
 // Don't really want these here, but otherwise hooking infrastructure needs
 // changing.
 

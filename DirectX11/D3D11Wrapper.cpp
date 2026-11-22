@@ -645,6 +645,18 @@ static bool ForceDX11(const D3D_FEATURE_LEVEL **featureLevels, UINT *featureLeve
 	return true;
 }
 
+static bool HasFeatureLevelAbove11_0(const D3D_FEATURE_LEVEL *featureLevels, UINT featureLevelCount)
+{
+	if (!featureLevels || !featureLevelCount)
+		return false;
+	for (UINT i = 0; i < featureLevelCount; ++i)
+	{
+		if (featureLevels[i] > D3D_FEATURE_LEVEL_11_0)
+			return true;
+	}
+	return false;
+}
+
 static HackerDevice *wrap_d3d11_device_and_context(ID3D11Device **ppDevice, ID3D11DeviceContext **ppImmediateContext)
 {
 	// Optional parameters means these might be null.
@@ -837,6 +849,14 @@ static HRESULT CreateDeviceThrough(PFN_D3D11_CREATE_DEVICE *next, _In_opt_ IDXGI
 	get_tls()->hooking_quirk_protection = true;
 	HRESULT ret = (*next)(pAdapter, DriverType, Software, Flags, pFeatureLevels, FeatureLevels, SDKVersion, ppDevice,
 	                      pFeatureLevel, ppImmediateContext);
+	if (ret == E_INVALIDARG && G->enable_create_device == 2 && HasFeatureLevelAbove11_0(pFeatureLevels, FeatureLevels))
+	{
+		const D3D_FEATURE_LEVEL fallbackLevel = D3D_FEATURE_LEVEL_11_0;
+		LogInfo("  allow_create_device=2: runtime rejected >11.0 feature level list with E_INVALIDARG; retrying with "
+		        "11.0\n");
+		ret = (*next)(pAdapter, DriverType, Software, Flags, &fallbackLevel, 1, SDKVersion, ppDevice, pFeatureLevel,
+		              ppImmediateContext);
+	}
 	get_tls()->hooking_quirk_protection = false;
 
 	if (FAILED(ret))
@@ -980,6 +1000,14 @@ static HRESULT CreateDeviceAndSwapChainThrough(
 	get_tls()->hooking_quirk_protection = true;
 	HRESULT ret = (*next)(pAdapter, DriverType, Software, Flags, pFeatureLevels, FeatureLevels, SDKVersion,
 	                      pSwapChainDesc, ppSwapChain, ppDevice, pFeatureLevel, ppImmediateContext);
+	if (ret == E_INVALIDARG && G->enable_create_device == 2 && HasFeatureLevelAbove11_0(pFeatureLevels, FeatureLevels))
+	{
+		const D3D_FEATURE_LEVEL fallbackLevel = D3D_FEATURE_LEVEL_11_0;
+		LogInfo("  allow_create_device=2: runtime rejected >11.0 feature level list with E_INVALIDARG; retrying with "
+		        "11.0\n");
+		ret = (*next)(pAdapter, DriverType, Software, Flags, &fallbackLevel, 1, SDKVersion, pSwapChainDesc, ppSwapChain,
+		              ppDevice, pFeatureLevel, ppImmediateContext);
+	}
 	get_tls()->hooking_quirk_protection = false;
 
 	if (FAILED(ret))
@@ -1164,7 +1192,7 @@ HMODULE __stdcall Hooked_LoadLibraryExW(_In_ LPCWSTR lpLibFileName, _Reserved_ H
 	if (!tls->suppress_d3d11_redirect_once)
 	{
 
-		if (G->load_library_redirect > 1)
+		if (G->load_library_redirect > 1 && IsLoadedAsPrimaryD3D11Module())
 		{
 			hModule = ReplaceOnMatch(lpLibFileName, hFile, dwFlags, L"original_d3d11.dll", L"d3d11.dll");
 			if (hModule)

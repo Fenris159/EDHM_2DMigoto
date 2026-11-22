@@ -697,6 +697,11 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 	{
 		// Return interface without wrapper to support HDR10 metadata (SetHDRMetaData)
 		// and modern DXGI 1.5 consumers, matching IDXGISwapChain2 and IDXGISwapChain3.
+		// Known limitation: like IDXGISwapChain2/3, Present/Present1 calls made
+		// directly through this unwrapped pointer bypass HackerSwapChain::Present
+		// (RunFrameActions, overlay, and pre/post-present command lists); games that
+		// present via IDXGISwapChain/IDXGISwapChain1 and only QI IDXGISwapChain4 for
+		// metadata or color-space setup are unaffected.
 		LogInfo("  return IDXGISwapChain4 interface (%p) without wrapper.\n", ppvObject);
 		LogInfo("  returns result = %x for %p\n", hr, ppvObject);
 		return hr;

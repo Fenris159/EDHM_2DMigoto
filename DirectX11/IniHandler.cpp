@@ -36,21 +36,6 @@
 static PersistentSettingsState persistent_settings_state;
 static std::mutex persistent_settings_save_mutex;
 
-static bool IsLoadedAsPrimaryD3D11Module()
-{
-	if (!migoto_handle)
-		return true;
-
-	wchar_t module_path[MAX_PATH] = {};
-	DWORD length = GetModuleFileNameW(migoto_handle, module_path, ARRAYSIZE(module_path));
-	if (!length || length >= ARRAYSIZE(module_path))
-		return true;
-
-	const wchar_t *leaf = wcsrchr(module_path, L'\\');
-	const wchar_t *name = leaf ? leaf + 1 : module_path;
-	return _wcsicmp(name, L"d3d11.dll") == 0;
-}
-
 static bool GetMigotoDirectory(wchar_t *path, size_t path_size)
 {
 	if (!path || path_size > MAXDWORD)
@@ -5051,7 +5036,7 @@ void LoadConfigFile()
 	// [System]
 	LogInfo("[System]\n");
 	GetIniStringAndLog(L"System", L"proxy_d3d11", nullptr, G->CHAIN_DLL_PATH, MAX_PATH);
-	G->load_library_redirect = GetIniInt(L"System", L"load_library_redirect", 2, nullptr);
+	int load_library_redirect = GetIniInt(L"System", L"load_library_redirect", 2, nullptr);
 
 	if (GetIniStringAndLog(L"System", L"hook", nullptr, setting, MAX_PATH))
 	{
@@ -5077,16 +5062,17 @@ void LoadConfigFile()
 	if (G->wine_compat > 1)
 		G->wine_compat = 1;
 	G->wine_compat_profile_applied =
-	    ApplyWineCompatProfile(G->wine_compat, &G->load_library_redirect, &G->check_foreground_window);
+	    ApplyWineCompatProfile(G->wine_compat, &load_library_redirect, &G->check_foreground_window);
 
 	// When loaded under a chained name (such as d3d11_edhm.dll behind an outer
 	// d3d11.dll proxy like ED-UP), redirecting System32\d3d11.dll to the game
 	// folder would point system/SDK probes back at the outer proxy.
-	if (G->load_library_redirect > 1 && !IsLoadedAsPrimaryD3D11Module())
+	if (load_library_redirect > 1 && !IsLoadedAsPrimaryD3D11Module())
 	{
 		LogInfo("  Chained module name (not d3d11.dll); forcing load_library_redirect=0\n");
-		G->load_library_redirect = 0;
+		load_library_redirect = 0;
 	}
+	G->load_library_redirect = load_library_redirect;
 
 	// EDHM: auto_refresh_file_to_monitor=EDHM-ini/ThemeSettings.json
 	// When the file's mtime changes, schedule ReloadConfig (theme apply without F11).

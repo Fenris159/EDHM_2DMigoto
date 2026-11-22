@@ -205,11 +205,16 @@ void check_lazy_context1(PFN_D3D11_CREATE_DEVICE create, const char *mode)
 	        "lazy device buffer creation failed");
 	lazy_context1->DiscardResource(cb.Get());
 	lazy_context1->ClearState();
+	ComPtr<ID3D11ShaderResourceView> rebound_srv;
+	lazy_context1->PSGetShaderResources(120, 1, &rebound_srv);
+	require(rebound_srv.Get() == ini_params_srv.Get(),
+	        "lazy GetImmediateContext1 ClearState did not rebind IniParams SRV");
 	std::printf("PASS %s lazy context1\n", mode);
 }
 
 void check_feature_levels(HMODULE proxy, PFN_D3D11_CREATE_DEVICE create, PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN swap,
-                          HWND window, const char *mode, UINT wanted, UINT buffers, bool chained)
+                          HWND window, const char *mode, UINT wanted, UINT buffers, bool chained,
+                          D3D_FEATURE_LEVEL native_swap_level)
 {
 	if (std::strcmp(mode, "feature-level-lazy") == 0)
 	{
@@ -305,13 +310,14 @@ void check_feature_levels(HMODULE proxy, PFN_D3D11_CREATE_DEVICE create, PFN_D3D
 	          &device, &negotiated, &context);
 	require(SUCCEEDED(hr), "D3D11CreateDeviceAndSwapChain rejected 12.0/11.1 feature level request");
 	require(swap_chain != nullptr, "creation returned no swap chain");
-	if (negotiated < D3D_FEATURE_LEVEL_11_1 || device->GetFeatureLevel() != negotiated)
+	if (negotiated != native_swap_level || device->GetFeatureLevel() != native_swap_level)
 	{
-		std::fprintf(stderr, "SwapChain feature level: out 0x%x, device 0x%x\n", static_cast<unsigned>(negotiated),
+		std::fprintf(stderr, "SwapChain feature level: native 0x%x, out 0x%x, device 0x%x\n",
+		             static_cast<unsigned>(native_swap_level), static_cast<unsigned>(negotiated),
 		             static_cast<unsigned>(device->GetFeatureLevel()));
 	}
-	require(negotiated >= D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == negotiated,
-	        "D3D11CreateDeviceAndSwapChain did not preserve >= 11.1 feature level");
+	require(negotiated == native_swap_level && device->GetFeatureLevel() == native_swap_level,
+	        "D3D11CreateDeviceAndSwapChain did not match native WARP feature level");
 	check_device(device.Get(), wanted, false);
 	DXGI_SWAP_CHAIN_DESC actual = {};
 	require(SUCCEEDED(swap_chain->GetDesc(&actual)), "swap-chain description unavailable");
@@ -417,6 +423,20 @@ void check_feature_levels(HMODULE proxy, PFN_D3D11_CREATE_DEVICE create, PFN_D3D
 void run(const char *mode)
 {
 	load_system(L"dxgi.dll");
+	const bool feature_level = std::strstr(mode, "feature-level") != nullptr;
+	D3D_FEATURE_LEVEL native_swap_level = static_cast<D3D_FEATURE_LEVEL>(0);
+	if (feature_level)
+	{
+		const D3D_FEATURE_LEVEL request_12_0[] = {D3D_FEATURE_LEVEL_12_0, D3D_FEATURE_LEVEL_11_1,
+		                                          D3D_FEATURE_LEVEL_11_0};
+		HMODULE sys_d3d11 = load_system(L"d3d11.dll");
+		auto native_create = exported<PFN_D3D11_CREATE_DEVICE>(sys_d3d11, "D3D11CreateDevice");
+		const HRESULT probe_hr = native_create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_12_0, 3,
+		                                       D3D11_SDK_VERSION, nullptr, &native_swap_level, nullptr);
+		FreeLibrary(sys_d3d11);
+		require(SUCCEEDED(probe_hr) && native_swap_level >= D3D_FEATURE_LEVEL_11_1,
+		        "native WARP probe for 12.0/11.1/11.0 failed");
+	}
 	const bool d3d12 = std::strncmp(mode, "d3d12-", 6) == 0;
 	const HRESULT native_null_device = d3d12 ? check_d3d12_swap_chain(nullptr, mode, true) : S_OK;
 	const HRESULT native_failure =
@@ -472,10 +492,9 @@ void run(const char *mode)
 	require(window != nullptr, "hidden test window unavailable");
 	// EDUP deliberately owns one rendering device per process. Its real-DLL
 	// check uses that one device; the boundary fixture covers repeated creation.
-	const bool feature_level = std::strstr(mode, "feature-level") != nullptr;
 	if (feature_level)
 	{
-		check_feature_levels(proxy, create, swap, window, mode, wanted, buffers, chain);
+		check_feature_levels(proxy, create, swap, window, mode, wanted, buffers, chain, native_swap_level);
 		DestroyWindow(window);
 		return;
 	}

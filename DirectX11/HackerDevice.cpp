@@ -3034,7 +3034,7 @@ HackerDevice::GetImmediateContext(THIS_
 		    mHackerContext, mHackerContext->GetPossiblyHookedOrigContext1(), *ppImmediateContext);
 	}
 
-	if (!(G->enable_hooks & EnableHooks::IMMEDIATE_CONTEXT))
+	if (mHackerContext != nullptr && !mHackerContext->IsHooked())
 		*ppImmediateContext = mHackerContext;
 	LogDebug("  returns handle = %p\n", *ppImmediateContext);
 }
@@ -3094,7 +3094,7 @@ HackerDevice::GetImmediateContext1(
 		    mHackerContext, mHackerContext->GetPossiblyHookedOrigContext1(), *ppImmediateContext);
 	}
 
-	if (!(G->enable_hooks & EnableHooks::IMMEDIATE_CONTEXT) && mHackerContext != nullptr)
+	if (mHackerContext != nullptr && !mHackerContext->IsHooked())
 		*ppImmediateContext = mHackerContext;
 	LogInfo("  returns handle = %p\n", *ppImmediateContext);
 }
