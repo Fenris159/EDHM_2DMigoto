@@ -3066,24 +3066,30 @@ HackerDevice::GetImmediateContext1(
 	// we can arrive here with no mHackerContext created if one was not
 	// requested from CreateDevice/CreateDeviceFromSwapChain. In that case
 	// we need to wrap the immediate context now:
-	if (mHackerContext == nullptr)
+	if (mHackerContext == nullptr && *ppImmediateContext != nullptr)
 	{
 		LogInfo("*** HackerContext1 missing at HackerDevice::GetImmediateContext1\n");
 
 		analyse_iunknown(*ppImmediateContext);
 
-		mHackerContext = HackerContextFactory(mOrigDevice1, *ppImmediateContext);
+		mHackerContext = HackerContextFactory(mRealOrigDevice1, *ppImmediateContext);
 		mHackerContext->SetHackerDevice(this);
+		mHackerContext->Bind3DMigotoResources();
+		if (!G->constants_run)
+			mHackerContext->InitIniParams();
+		if (G->enable_hooks & EnableHooks::IMMEDIATE_CONTEXT)
+			mHackerContext->HookContext();
 		LogInfo("  mHackerContext %p created to wrap %p\n", mHackerContext, *ppImmediateContext);
 	}
-	else if (mHackerContext->GetPossiblyHookedOrigContext1() != *ppImmediateContext)
+	else if (mHackerContext != nullptr && mHackerContext->GetPossiblyHookedOrigContext1() != *ppImmediateContext)
 	{
 		LogInfo(
 		    "WARNING: mHackerContext %p found to be wrapping %p instead of %p at HackerDevice::GetImmediateContext1!\n",
 		    mHackerContext, mHackerContext->GetPossiblyHookedOrigContext1(), *ppImmediateContext);
 	}
 
-	*ppImmediateContext = reinterpret_cast<ID3D11DeviceContext1 *>(mHackerContext);
+	if (!(G->enable_hooks & EnableHooks::IMMEDIATE_CONTEXT) && mHackerContext != nullptr)
+		*ppImmediateContext = mHackerContext;
 	LogInfo("  returns handle = %p\n", *ppImmediateContext);
 }
 

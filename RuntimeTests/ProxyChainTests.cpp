@@ -177,8 +177,60 @@ void check_feature_levels(HMODULE proxy, PFN_D3D11_CREATE_DEVICE create, PFN_D3D
 	ComPtr<ID3D11DeviceContext1> context1;
 	require(SUCCEEDED(context.As(&context1)) && context1 != nullptr,
 	        "ID3D11DeviceContext1 unavailable with default settings");
+	{
+		D3D11_BLEND_DESC1 blend_desc = {};
+		blend_desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+		ComPtr<ID3D11BlendState1> blend_state1;
+		require(SUCCEEDED(device1->CreateBlendState1(&blend_desc, &blend_state1)) && blend_state1 != nullptr,
+		        "ID3D11Device1::CreateBlendState1 failed");
+
+		D3D11_BUFFER_DESC cb_desc = {};
+		cb_desc.ByteWidth = 256;
+		cb_desc.Usage = D3D11_USAGE_DEFAULT;
+		cb_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		ComPtr<ID3D11Buffer> cb;
+		require(SUCCEEDED(device->CreateBuffer(&cb_desc, nullptr, &cb)) && cb != nullptr,
+		        "constant buffer creation failed");
+		context1->DiscardResource(cb.Get());
+		const UINT first_const = 0;
+		const UINT num_consts = 16;
+		ID3D11Buffer *const cb_ptr = cb.Get();
+		context1->VSSetConstantBuffers1(0, 1, &cb_ptr, &first_const, &num_consts);
+		ComPtr<ID3D11Buffer> bound_cb;
+		UINT got_first = 99;
+		UINT got_num = 99;
+		context1->VSGetConstantBuffers1(0, 1, &bound_cb, &got_first, &got_num);
+		require(bound_cb != nullptr && got_first == 0 && got_num == 16,
+		        "ID3D11DeviceContext1 constant buffer round-trip failed");
+	}
 	context->ClearState();
 	std::printf("PASS %s creation 1 (device)\n", mode);
+
+	{
+		ComPtr<ID3D11Device> lazy_device;
+		D3D_FEATURE_LEVEL lazy_level = static_cast<D3D_FEATURE_LEVEL>(0);
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_11_1, 2, D3D11_SDK_VERSION, &lazy_device,
+		            &lazy_level, nullptr);
+		require(SUCCEEDED(hr) && lazy_device != nullptr && lazy_level == D3D_FEATURE_LEVEL_11_1,
+		        "D3D11CreateDevice without immediate context failed");
+		ComPtr<ID3D11Device1> lazy_device1;
+		require(SUCCEEDED(lazy_device.As(&lazy_device1)) && lazy_device1 != nullptr, "lazy ID3D11Device1 query failed");
+		ComPtr<ID3D11DeviceContext1> lazy_context1;
+		lazy_device1->GetImmediateContext1(&lazy_context1);
+		require(lazy_context1 != nullptr, "ID3D11Device1::GetImmediateContext1 returned null");
+		ComPtr<ID3D11ShaderResourceView> ini_params_srv;
+		lazy_context1->PSGetShaderResources(120, 1, &ini_params_srv);
+		require(ini_params_srv != nullptr, "lazy GetImmediateContext1 did not bind IniParams SRV");
+		D3D11_BUFFER_DESC cb_desc = {};
+		cb_desc.ByteWidth = 64;
+		cb_desc.Usage = D3D11_USAGE_DEFAULT;
+		cb_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		ComPtr<ID3D11Buffer> cb;
+		require(SUCCEEDED(lazy_device->CreateBuffer(&cb_desc, nullptr, &cb)) && cb != nullptr,
+		        "lazy device buffer creation failed");
+		lazy_context1->DiscardResource(cb.Get());
+		lazy_context1->ClearState();
+	}
 
 	device.Reset();
 	context.Reset();
@@ -255,6 +307,26 @@ void check_feature_levels(HMODULE proxy, PFN_D3D11_CREATE_DEVICE create, PFN_D3D
 		require(SUCCEEDED(hr) && device != nullptr, "allow_create_device=2 failed to upgrade down-level request");
 		require(negotiated == D3D_FEATURE_LEVEL_11_0 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_0,
 		        "allow_create_device=2 did not upgrade down-level request to 11.0");
+		device.Reset();
+		context.Reset();
+
+		const D3D_FEATURE_LEVEL request_mixed_leading[] = {D3D_FEATURE_LEVEL_10_0, D3D_FEATURE_LEVEL_11_1};
+		negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_mixed_leading, 2, D3D11_SDK_VERSION, &device,
+		            &negotiated, &context);
+		require(SUCCEEDED(hr) && device != nullptr, "allow_create_device=2 rejected mixed down-level/11.1 request");
+		require(negotiated == D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_1,
+		        "allow_create_device=2 did not preserve 11.1 from mixed request");
+		device.Reset();
+		context.Reset();
+
+		const D3D_FEATURE_LEVEL request_mixed_trailing[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_9_2};
+		negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_mixed_trailing, 2, D3D11_SDK_VERSION, &device,
+		            &negotiated, &context);
+		require(SUCCEEDED(hr) && device != nullptr, "allow_create_device=2 rejected 11.1/9.2 fallback request");
+		require(negotiated == D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_1,
+		        "allow_create_device=2 did not preserve 11.1 with down-level fallback");
 	}
 	else
 	{
@@ -262,6 +334,30 @@ void check_feature_levels(HMODULE proxy, PFN_D3D11_CREATE_DEVICE create, PFN_D3D
 		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_9_2, 1, D3D11_SDK_VERSION, &device, &negotiated,
 		            &context);
 		require(hr == E_INVALIDARG && device == nullptr, "down-level feature level request was not rejected");
+
+		const D3D_FEATURE_LEVEL request_all_downlevel[] = {D3D_FEATURE_LEVEL_10_0, D3D_FEATURE_LEVEL_9_2};
+		negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_all_downlevel, 2, D3D11_SDK_VERSION, &device,
+		            &negotiated, &context);
+		require(hr == E_INVALIDARG && device == nullptr, "all-down-level feature level list was not rejected");
+
+		const D3D_FEATURE_LEVEL request_mixed_trailing[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_9_2};
+		negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_mixed_trailing, 2, D3D11_SDK_VERSION, &device,
+		            &negotiated, &context);
+		require(SUCCEEDED(hr) && device != nullptr, "mixed 11.1/9.2 request was rejected");
+		require(negotiated == D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_1,
+		        "mixed 11.1/9.2 request did not preserve 11.1");
+		device.Reset();
+		context.Reset();
+
+		const D3D_FEATURE_LEVEL request_mixed_leading[] = {D3D_FEATURE_LEVEL_10_0, D3D_FEATURE_LEVEL_11_1};
+		negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_mixed_leading, 2, D3D11_SDK_VERSION, &device,
+		            &negotiated, &context);
+		require(SUCCEEDED(hr) && device != nullptr, "mixed 10.0/11.1 request was rejected");
+		require(negotiated == D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_1,
+		        "mixed 10.0/11.1 request did not preserve 11.1");
 	}
 	std::printf("PASS %s downlevel policy\n", mode);
 }

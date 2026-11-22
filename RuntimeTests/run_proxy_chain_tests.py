@@ -61,6 +61,7 @@ def main():
             "invalid-proxy",
             "feature-level-default",
             "feature-level-force",
+            "feature-level-hooked",
             "chain-feature-level",
         ]
     if args.edup:
@@ -107,13 +108,14 @@ def main():
                 proxy = "invalid.dll"
             device_settings = "[Device]\nwidth=640\nheight=480\n" if case.startswith("d3d12-") else ""
             create_device_setting = "allow_create_device=2\n" if case == "feature-level-force" else ""
+            hook_setting = "hook=recommended\n" if case == "feature-level-hooked" else ""
             # Omit allow_platform_update in feature-level cases to verify its modern default,
             # and keep load_library_redirect=2 in chain-feature-level to verify renamed-DLL auto-disable.
             redirect_setting = "load_library_redirect=2\n" if case == "chain-feature-level" else "load_library_redirect=0\n"
             platform_setting = "" if "feature-level" in case else "allow_platform_update=1\n"
             (directory / "d3dx.ini").write_text(
                 f"[System]\n{redirect_setting}{platform_setting}"
-                f"{create_device_setting}"
+                f"{create_device_setting}{hook_setting}"
                 f"proxy_d3d11={proxy}\n"
                 "[Hunting]\nhunting=0\n[Rendering]\nstereo_params=-1\nini_params=120\n"
                 "[Logging]\nenabled=1\ncalls=0\ndebug=0\n" + device_settings,

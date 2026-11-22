@@ -11,6 +11,7 @@
 #include <locale>
 #include <chrono>
 #include <thread>
+#include <vector>
 #include <windows.graphics.directx.direct3d11.interop.h>
 
 //#include <Shlobj.h>
@@ -573,9 +574,9 @@ static void ShowDebugInfo(ID3D11Device *origDevice)
 //
 // Down-level requests (e.g. FarCry 4 requesting 9.2) still lack CreateTexture1D and
 // other D3D11 features we rely on when wrapping and generating IniParams:
-//   allow_create_device=0 (default): allow >= 11.0 unchanged; reject < 11.0 with E_INVALIDARG
+//   allow_create_device=0 (default): strip < 11.0 fallback levels; reject all-<11.0 with E_INVALIDARG
 //   allow_create_device=1: allow all feature levels through unchanged
-//   allow_create_device=2: allow >= 11.0 unchanged; upgrade < 11.0 requests to 11.0
+//   allow_create_device=2: strip < 11.0 fallback levels (adding 11.0 fallback if needed); upgrade all-<11.0 to 11.0
 //
 // If pFeatureLevels is null (or count is 0), pass through unchanged so the
 // runtime uses its standard default list.
@@ -583,7 +584,7 @@ static void ShowDebugInfo(ID3D11Device *origDevice)
 // Returns true if we need to error out with E_INVALIDARG.
 
 static bool ForceDX11(const D3D_FEATURE_LEVEL **featureLevels, UINT *featureLevelCount,
-                      D3D_FEATURE_LEVEL *forcedFeatureLevel)
+                      std::vector<D3D_FEATURE_LEVEL> *filteredFeatureLevels)
 {
 	if (!*featureLevels || !*featureLevelCount)
 	{
@@ -597,24 +598,50 @@ static bool ForceDX11(const D3D_FEATURE_LEVEL **featureLevels, UINT *featureLeve
 		return false;
 	}
 
-	if (**featureLevels >= D3D_FEATURE_LEVEL_11_0)
+	filteredFeatureLevels->clear();
+	filteredFeatureLevels->reserve(*featureLevelCount);
+	bool has11_0 = false;
+	for (UINT i = 0; i < *featureLevelCount; ++i)
 	{
-		LogInfo("->Feature level >= 11.0 allowed through unchanged: %#x\n", **featureLevels);
+		const D3D_FEATURE_LEVEL level = (*featureLevels)[i];
+		if (level >= D3D_FEATURE_LEVEL_11_0)
+		{
+			filteredFeatureLevels->push_back(level);
+			if (level == D3D_FEATURE_LEVEL_11_0)
+				has11_0 = true;
+		}
+	}
+
+	if (filteredFeatureLevels->size() == *featureLevelCount)
+	{
+		LogInfo("->All requested feature levels >= 11.0 allowed through unchanged (first=%#x, count=%u)\n",
+		        **featureLevels, *featureLevelCount);
+		return false;
+	}
+
+	if (!filteredFeatureLevels->empty())
+	{
+		if (G->enable_create_device == 2 && !has11_0)
+			filteredFeatureLevels->push_back(D3D_FEATURE_LEVEL_11_0);
+		*featureLevels = filteredFeatureLevels->data();
+		*featureLevelCount = static_cast<UINT>(filteredFeatureLevels->size());
+		LogInfo("->Filtered down-level (< 11.0) feature levels from request (first=%#x, count=%u)\n", **featureLevels,
+		        *featureLevelCount);
 		return false;
 	}
 
 	if (G->enable_create_device == 2)
 	{
-		*forcedFeatureLevel = D3D_FEATURE_LEVEL_11_0;
-		*featureLevels = forcedFeatureLevel;
+		filteredFeatureLevels->push_back(D3D_FEATURE_LEVEL_11_0);
+		*featureLevels = filteredFeatureLevels->data();
 		*featureLevelCount = 1;
 
 		LogInfo("->Down-level feature level forced to 11.0: %#x\n", **featureLevels);
 		return false;
 	}
 
-	// Error out if we are looking for a down-level (< 11.0) feature level.
-	LogInfo("->Feature level < 11.0: %#x, returning E_INVALIDARG\n", **featureLevels);
+	// Error out if every requested feature level is down-level (< 11.0).
+	LogInfo("->All requested feature levels < 11.0 (first=%#x), returning E_INVALIDARG\n", **featureLevels);
 	return true;
 }
 
@@ -799,8 +826,8 @@ static HRESULT CreateDeviceThrough(PFN_D3D11_CREATE_DEVICE *next, _In_opt_ IDXGI
 		               pFeatureLevel, ppImmediateContext);
 	}
 
-	D3D_FEATURE_LEVEL forcedFeatureLevel;
-	if (ForceDX11(&pFeatureLevels, &FeatureLevels, &forcedFeatureLevel))
+	std::vector<D3D_FEATURE_LEVEL> filteredFeatureLevels;
+	if (ForceDX11(&pFeatureLevels, &FeatureLevels, &filteredFeatureLevels))
 		return E_INVALIDARG;
 
 #if _DEBUG_LAYER
@@ -940,8 +967,8 @@ static HRESULT CreateDeviceAndSwapChainThrough(
 		               ppSwapChain, ppDevice, pFeatureLevel, ppImmediateContext);
 	}
 
-	D3D_FEATURE_LEVEL forcedFeatureLevel;
-	if (ForceDX11(&pFeatureLevels, &FeatureLevels, &forcedFeatureLevel))
+	std::vector<D3D_FEATURE_LEVEL> filteredFeatureLevels;
+	if (ForceDX11(&pFeatureLevels, &FeatureLevels, &filteredFeatureLevels))
 		return E_INVALIDARG;
 
 #if _DEBUG_LAYER

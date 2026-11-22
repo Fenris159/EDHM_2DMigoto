@@ -124,7 +124,7 @@ static ULONG STDMETHODCALLTYPE Release(ID3D11Device1 *This)
 	{
 		ref = ID3D11Device1_Release(i->second);
 		if (!ref)
-			device_map.erase(i);
+			device_map.erase(This);
 	}
 	else
 		ref = orig_vtable.Release(This);
@@ -993,13 +993,19 @@ static ULONG STDMETHODCALLTYPE TrampolineAddRef(ID3D11Device1 *This)
 }
 static ULONG STDMETHODCALLTYPE TrampolineRelease(ID3D11Device1 *This)
 {
+	ID3D11Device1 *orig_this = ((ID3D11Device1Trampoline *)This)->orig_this;
 	ULONG ref;
 
 	HookDebug("TrampolineDevice::Release()\n");
-	ref = orig_vtable.Release(((ID3D11Device1Trampoline *)This)->orig_this);
+	ref = orig_vtable.Release(orig_this);
 
 	if (!ref)
+	{
+		EnterCriticalSectionPretty(&device_map_lock);
+		device_map.erase(orig_this);
+		LeaveCriticalSection(&device_map_lock);
 		delete This;
+	}
 
 	return ref;
 }
@@ -1445,6 +1451,64 @@ static UINT STDMETHODCALLTYPE TrampolineGetExceptionMode(ID3D11Device1 *This)
 	return orig_vtable.GetExceptionMode(((ID3D11Device1Trampoline *)This)->orig_this);
 }
 
+// ID3D11Device1 extended methods are not detoured by install_hooks(),
+// so trampoline calls can forward directly through orig_this->lpVtbl.
+static void STDMETHODCALLTYPE TrampolineGetImmediateContext1(ID3D11Device1 *This,
+                                                             ID3D11DeviceContext1 **ppImmediateContext)
+{
+	ID3D11Device1 *orig_this = ((ID3D11Device1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineDevice::GetImmediateContext1()\n");
+	orig_this->lpVtbl->GetImmediateContext1(orig_this, ppImmediateContext);
+}
+static HRESULT STDMETHODCALLTYPE TrampolineCreateDeferredContext1(ID3D11Device1 *This, UINT ContextFlags,
+                                                                  ID3D11DeviceContext1 **ppDeferredContext)
+{
+	ID3D11Device1 *orig_this = ((ID3D11Device1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineDevice::CreateDeferredContext1()\n");
+	return orig_this->lpVtbl->CreateDeferredContext1(orig_this, ContextFlags, ppDeferredContext);
+}
+static HRESULT STDMETHODCALLTYPE TrampolineCreateBlendState1(ID3D11Device1 *This,
+                                                             const D3D11_BLEND_DESC1 *pBlendStateDesc,
+                                                             ID3D11BlendState1 **ppBlendState)
+{
+	ID3D11Device1 *orig_this = ((ID3D11Device1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineDevice::CreateBlendState1()\n");
+	return orig_this->lpVtbl->CreateBlendState1(orig_this, pBlendStateDesc, ppBlendState);
+}
+static HRESULT STDMETHODCALLTYPE TrampolineCreateRasterizerState1(ID3D11Device1 *This,
+                                                                  const D3D11_RASTERIZER_DESC1 *pRasterizerDesc,
+                                                                  ID3D11RasterizerState1 **ppRasterizerState)
+{
+	ID3D11Device1 *orig_this = ((ID3D11Device1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineDevice::CreateRasterizerState1()\n");
+	return orig_this->lpVtbl->CreateRasterizerState1(orig_this, pRasterizerDesc, ppRasterizerState);
+}
+static HRESULT STDMETHODCALLTYPE TrampolineCreateDeviceContextState(
+    ID3D11Device1 *This, UINT Flags, const D3D_FEATURE_LEVEL *pFeatureLevels, UINT FeatureLevels, UINT SDKVersion,
+    REFIID EmulatedInterface, D3D_FEATURE_LEVEL *pChosenFeatureLevel, ID3DDeviceContextState **ppContextState)
+{
+	ID3D11Device1 *orig_this = ((ID3D11Device1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineDevice::CreateDeviceContextState()\n");
+	return orig_this->lpVtbl->CreateDeviceContextState(orig_this, Flags, pFeatureLevels, FeatureLevels, SDKVersion,
+	                                                   EmulatedInterface, pChosenFeatureLevel, ppContextState);
+}
+static HRESULT STDMETHODCALLTYPE TrampolineOpenSharedResource1(ID3D11Device1 *This, HANDLE hResource,
+                                                               REFIID returnedInterface, void **ppResource)
+{
+	ID3D11Device1 *orig_this = ((ID3D11Device1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineDevice::OpenSharedResource1()\n");
+	return orig_this->lpVtbl->OpenSharedResource1(orig_this, hResource, returnedInterface, ppResource);
+}
+static HRESULT STDMETHODCALLTYPE TrampolineOpenSharedResourceByName(ID3D11Device1 *This, LPCWSTR lpName,
+                                                                    DWORD dwDesiredAccess, REFIID returnedInterface,
+                                                                    void **ppResource)
+{
+	ID3D11Device1 *orig_this = ((ID3D11Device1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineDevice::OpenSharedResourceByName()\n");
+	return orig_this->lpVtbl->OpenSharedResourceByName(orig_this, lpName, dwDesiredAccess, returnedInterface,
+	                                                   ppResource);
+}
+
 static CONST_VTBL struct ID3D11Device1Vtbl trampoline_vtable = {
     TrampolineQueryInterface,
     TrampolineAddRef,
@@ -1489,6 +1553,13 @@ static CONST_VTBL struct ID3D11Device1Vtbl trampoline_vtable = {
     TrampolineGetImmediateContext,
     TrampolineSetExceptionMode,
     TrampolineGetExceptionMode,
+    TrampolineGetImmediateContext1,
+    TrampolineCreateDeferredContext1,
+    TrampolineCreateBlendState1,
+    TrampolineCreateRasterizerState1,
+    TrampolineCreateDeviceContextState,
+    TrampolineOpenSharedResource1,
+    TrampolineOpenSharedResourceByName,
 };
 
 ID3D11Device1 *hook_device(ID3D11Device1 *orig_device, ID3D11Device1 *hacker_device)
