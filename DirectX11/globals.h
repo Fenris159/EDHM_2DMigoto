@@ -706,7 +706,7 @@ struct Globals
 	      SCISSOR_DISABLE(0),
 
 	      load_library_redirect(2), enable_hooks(EnableHooks::INVALID), enable_check_interface(false),
-	      enable_create_device(0), enable_platform_update(false), gInitialized(false), bIntendedTargetExe(false),
+	      enable_create_device(0), enable_platform_update(true), gInitialized(false), bIntendedTargetExe(false),
 	      gReloadConfigPending(false), gConfigInitialized(false), gWipeUserConfig(false), user_config_dirty(0),
 	      gLogInput(false), gShowWarnings(true), gShowReloadMessage(true), gDllInitializationDelay(0),
 	      gSettingsAutoSaveInterval(0), gConfigInitializationDelay(0),

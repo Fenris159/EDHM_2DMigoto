@@ -231,6 +231,10 @@ class HackerContext : public ID3D11DeviceContext1
 	ID3D11DeviceContext1 *GetPossiblyHookedOrigContext1();
 	ID3D11DeviceContext1 *GetPassThroughOrigContext1();
 	void HookContext();
+	bool IsHooked() const
+	{
+		return mOrigContext1 != mRealOrigContext1;
+	}
 
 	// public to allow CommandList access
 	virtual void FrameAnalysisLog(const char *fmt [[maybe_unused]], ...) {};

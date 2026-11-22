@@ -2964,43 +2964,53 @@ void FrameAnalysisContext::DumpDepthStencilTargets()
 void FrameAnalysisContext::DumpUAVs(bool compute)
 {
 	UINT i;
-	ID3D11UnorderedAccessView *uavs[D3D11_PS_CS_UAV_REGISTER_COUNT];
+	ID3D11UnorderedAccessView *uavs[D3D11_1_UAV_SLOT_COUNT] = {};
 	ID3D11Resource *resource;
 	D3D11_UNORDERED_ACCESS_VIEW_DESC view_desc;
 	wchar_t filename[MAX_PATH];
 	HRESULT hr;
+	UINT num_uavs = D3D11_PS_CS_UAV_REGISTER_COUNT;
+	ID3D11Device *device = nullptr;
+
+	GetPassThroughOrigContext1()->GetDevice(&device);
+	if (device)
+	{
+		if (device->GetFeatureLevel() >= D3D_FEATURE_LEVEL_11_1)
+			num_uavs = D3D11_1_UAV_SLOT_COUNT;
+		device->Release();
+	}
 
 	if (compute)
-		GetPassThroughOrigContext1()->CSGetUnorderedAccessViews(0, D3D11_PS_CS_UAV_REGISTER_COUNT, uavs);
+		GetPassThroughOrigContext1()->CSGetUnorderedAccessViews(0, num_uavs, uavs);
 	else
-		GetPassThroughOrigContext1()->OMGetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, 0,
-		                                                                        D3D11_PS_CS_UAV_REGISTER_COUNT, uavs);
+		GetPassThroughOrigContext1()->OMGetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, 0, num_uavs, uavs);
 
-	for (i = 0; i < D3D11_PS_CS_UAV_REGISTER_COUNT && G->analyse_frame; ++i)
+	for (i = 0; i < num_uavs; ++i)
 	{
 		if (!uavs[i])
 			continue;
 
-		uavs[i]->GetResource(&resource);
-		if (!resource)
+		if (G->analyse_frame)
 		{
-			uavs[i]->Release();
-			continue;
+			uavs[i]->GetResource(&resource);
+			if (resource)
+			{
+				uavs[i]->GetDesc(&view_desc);
+
+				// Future work: process description to get offset & size for buffer
+				// type UAVs and pass down to dump routines.
+
+				hr = FrameAnalysisFilename(filename, MAX_PATH, compute, L"u", 0, static_cast<int>(i), resource);
+				if (SUCCEEDED(hr))
+				{
+					DumpResource(resource, filename, FrameAnalysisOptions::DUMP_RT, static_cast<int>(i),
+					             view_desc.Format, 0, 0);
+				}
+
+				resource->Release();
+			}
 		}
 
-		uavs[i]->GetDesc(&view_desc);
-
-		// Future work: process description to get offset & size for buffer
-		// type UAVs and pass down to dump routines.
-
-		hr = FrameAnalysisFilename(filename, MAX_PATH, compute, L"u", 0, static_cast<int>(i), resource);
-		if (SUCCEEDED(hr))
-		{
-			DumpResource(resource, filename, FrameAnalysisOptions::DUMP_RT, static_cast<int>(i), view_desc.Format, 0,
-			             0);
-		}
-
-		resource->Release();
 		uavs[i]->Release();
 	}
 }

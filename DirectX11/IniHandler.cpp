@@ -5036,7 +5036,7 @@ void LoadConfigFile()
 	// [System]
 	LogInfo("[System]\n");
 	GetIniStringAndLog(L"System", L"proxy_d3d11", nullptr, G->CHAIN_DLL_PATH, MAX_PATH);
-	G->load_library_redirect = GetIniInt(L"System", L"load_library_redirect", 2, nullptr);
+	int load_library_redirect = GetIniInt(L"System", L"load_library_redirect", 2, nullptr);
 
 	if (GetIniStringAndLog(L"System", L"hook", nullptr, setting, MAX_PATH))
 	{
@@ -5048,7 +5048,7 @@ void LoadConfigFile()
 	}
 	G->enable_check_interface = GetIniBool(L"System", L"allow_check_interface", false, nullptr);
 	G->enable_create_device = GetIniInt(L"System", L"allow_create_device", 0, nullptr);
-	G->enable_platform_update = GetIniBool(L"System", L"allow_platform_update", false, nullptr);
+	G->enable_platform_update = GetIniBool(L"System", L"allow_platform_update", true, nullptr);
 	// Future work: Enable this by default if wider testing goes well:
 	G->check_foreground_window = GetIniBool(L"System", L"check_foreground_window", false, nullptr);
 
@@ -5062,7 +5062,17 @@ void LoadConfigFile()
 	if (G->wine_compat > 1)
 		G->wine_compat = 1;
 	G->wine_compat_profile_applied =
-	    ApplyWineCompatProfile(G->wine_compat, &G->load_library_redirect, &G->check_foreground_window);
+	    ApplyWineCompatProfile(G->wine_compat, &load_library_redirect, &G->check_foreground_window);
+
+	// When loaded under a chained name (such as d3d11_edhm.dll behind an outer
+	// d3d11.dll proxy like ED-UP), redirecting System32\d3d11.dll to the game
+	// folder would point system/SDK probes back at the outer proxy.
+	if (load_library_redirect > 1 && !IsLoadedAsPrimaryD3D11Module())
+	{
+		LogInfo("  Chained module name (not d3d11.dll); forcing load_library_redirect=0\n");
+		load_library_redirect = 0;
+	}
+	G->load_library_redirect = load_library_redirect;
 
 	// EDHM: auto_refresh_file_to_monitor=EDHM-ini/ThemeSettings.json
 	// When the file's mtime changes, schedule ReloadConfig (theme apply without F11).
