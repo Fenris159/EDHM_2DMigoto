@@ -1,5 +1,5 @@
 #include <windows.h>
-#include <d3d11.h>
+#include <d3d11_1.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <wrl/client.h>
@@ -152,6 +152,120 @@ HRESULT check_d3d12_swap_chain(HWND window, const char *mode, bool invalid_devic
 	return S_OK;
 }
 
+void check_feature_levels(HMODULE proxy, PFN_D3D11_CREATE_DEVICE create, PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN swap,
+                          HWND window, const char *mode, UINT wanted, UINT buffers, bool chained)
+{
+	const D3D_FEATURE_LEVEL request_11_1[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
+	ComPtr<ID3D11Device> device;
+	ComPtr<ID3D11DeviceContext> context;
+	D3D_FEATURE_LEVEL negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+	HRESULT hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_11_1, 2, D3D11_SDK_VERSION, &device,
+	                    &negotiated, &context);
+	require(SUCCEEDED(hr), "D3D11CreateDevice rejected 11.1 feature level request");
+	if (negotiated != D3D_FEATURE_LEVEL_11_1 || device->GetFeatureLevel() != D3D_FEATURE_LEVEL_11_1)
+	{
+		std::fprintf(stderr, "Feature level: wanted 0x%x, out 0x%x, device 0x%x\n",
+		             static_cast<unsigned>(D3D_FEATURE_LEVEL_11_1), static_cast<unsigned>(negotiated),
+		             static_cast<unsigned>(device->GetFeatureLevel()));
+	}
+	require(negotiated == D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_1,
+	        "D3D11CreateDevice did not preserve feature level 11.1");
+	check_device(device.Get(), wanted, false);
+	require(context != nullptr, "creation returned no context");
+	ComPtr<ID3D11Device1> device1;
+	require(SUCCEEDED(device.As(&device1)) && device1 != nullptr, "ID3D11Device1 unavailable with default settings");
+	ComPtr<ID3D11DeviceContext1> context1;
+	require(SUCCEEDED(context.As(&context1)) && context1 != nullptr,
+	        "ID3D11DeviceContext1 unavailable with default settings");
+	context->ClearState();
+	std::printf("PASS %s creation 1 (device)\n", mode);
+
+	device.Reset();
+	context.Reset();
+	device1.Reset();
+	context1.Reset();
+	ComPtr<IDXGISwapChain> swap_chain;
+	DXGI_SWAP_CHAIN_DESC description = {};
+	description.BufferDesc.Width = 16;
+	description.BufferDesc.Height = 16;
+	description.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	description.SampleDesc.Count = 1;
+	description.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	description.BufferCount = 1;
+	description.OutputWindow = window;
+	description.Windowed = TRUE;
+	description.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+	const D3D_FEATURE_LEVEL request_12_0[] = {D3D_FEATURE_LEVEL_12_0, D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
+	negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+	hr = swap(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_12_0, 3, D3D11_SDK_VERSION, &description, &swap_chain,
+	          &device, &negotiated, &context);
+	require(SUCCEEDED(hr), "D3D11CreateDeviceAndSwapChain rejected 12.0/11.1 feature level request");
+	require(swap_chain != nullptr, "creation returned no swap chain");
+	if (negotiated < D3D_FEATURE_LEVEL_11_1 || device->GetFeatureLevel() != negotiated)
+	{
+		std::fprintf(stderr, "SwapChain feature level: out 0x%x, device 0x%x\n", static_cast<unsigned>(negotiated),
+		             static_cast<unsigned>(device->GetFeatureLevel()));
+	}
+	require(negotiated >= D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == negotiated,
+	        "D3D11CreateDeviceAndSwapChain did not preserve >= 11.1 feature level");
+	check_device(device.Get(), wanted, false);
+	DXGI_SWAP_CHAIN_DESC actual = {};
+	require(SUCCEEDED(swap_chain->GetDesc(&actual)), "swap-chain description unavailable");
+	require(actual.BufferCount == buffers, "proxy swap-chain policy was bypassed");
+	ComPtr<IDXGISwapChain4> swap_chain4;
+	require(SUCCEEDED(swap_chain.As(&swap_chain4)) && swap_chain4 != nullptr,
+	        "IDXGISwapChain4 unavailable on wrapped D3D11 swap chain");
+	require(context != nullptr, "creation returned no context");
+	context->ClearState();
+	std::printf("PASS %s creation 2 (device+swap)\n", mode);
+
+	auto create_factory2 =
+	    exported<HRESULT(WINAPI *)(UINT, REFIID, void **)>(load_system(L"dxgi.dll"), "CreateDXGIFactory2");
+	ComPtr<IDXGIFactory2> factory2;
+	require(SUCCEEDED(create_factory2(0, IID_PPV_ARGS(&factory2))) && factory2 != nullptr,
+	        "IDXGIFactory2 unavailable with default settings");
+	ComPtr<IDXGIFactory4> factory4;
+	require(SUCCEEDED(create_factory2(0, IID_PPV_ARGS(&factory4))) && factory4 != nullptr,
+	        "IDXGIFactory4 unavailable via hooked CreateDXGIFactory2");
+	ComPtr<IDXGIAdapter> warp_adapter;
+	require(SUCCEEDED(factory4->EnumWarpAdapter(IID_PPV_ARGS(&warp_adapter))) && warp_adapter != nullptr,
+	        "IDXGIFactory4 interface was corrupted by CreateDXGIFactory2 hook");
+	if (chained)
+	{
+		wchar_t sys_d3d11[MAX_PATH] = {};
+		require(GetSystemDirectoryW(sys_d3d11, MAX_PATH) != 0, "system directory unavailable");
+		require(wcscat_s(sys_d3d11, L"\\d3d11.dll") == 0, "system d3d11 path overflow");
+		HMODULE sys_module = LoadLibraryExW(sys_d3d11, nullptr, 0);
+		require(sys_module != nullptr && sys_module != proxy,
+		        "chained module redirected System32\\d3d11.dll back to outer proxy");
+		FreeLibrary(sys_module);
+	}
+	std::printf("PASS %s modern interfaces\n", mode);
+
+	device.Reset();
+	context.Reset();
+	swap_chain.Reset();
+	swap_chain4.Reset();
+	negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+	if (std::strcmp(mode, "feature-level-force") == 0)
+	{
+		const D3D_FEATURE_LEVEL request_10_0[] = {D3D_FEATURE_LEVEL_10_0};
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_10_0, 1, D3D11_SDK_VERSION, &device, &negotiated,
+		            &context);
+		require(SUCCEEDED(hr) && device != nullptr, "allow_create_device=2 failed to upgrade down-level request");
+		require(negotiated == D3D_FEATURE_LEVEL_11_0 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_0,
+		        "allow_create_device=2 did not upgrade down-level request to 11.0");
+	}
+	else
+	{
+		const D3D_FEATURE_LEVEL request_9_2[] = {D3D_FEATURE_LEVEL_9_2};
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_9_2, 1, D3D11_SDK_VERSION, &device, &negotiated,
+		            &context);
+		require(hr == E_INVALIDARG && device == nullptr, "down-level feature level request was not rejected");
+	}
+	std::printf("PASS %s downlevel policy\n", mode);
+}
+
 void run(const char *mode)
 {
 	load_system(L"dxgi.dll");
@@ -210,6 +324,13 @@ void run(const char *mode)
 	require(window != nullptr, "hidden test window unavailable");
 	// EDUP deliberately owns one rendering device per process. Its real-DLL
 	// check uses that one device; the boundary fixture covers repeated creation.
+	const bool feature_level = std::strstr(mode, "feature-level") != nullptr;
+	if (feature_level)
+	{
+		check_feature_levels(proxy, create, swap, window, mode, wanted, buffers, chain);
+		DestroyWindow(window);
+		return;
+	}
 	const unsigned passes = edup || shutdown ? 1 : 4;
 	for (unsigned pass = 0; pass < passes; ++pass)
 	{

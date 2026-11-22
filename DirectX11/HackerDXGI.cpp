@@ -695,10 +695,11 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 	}
 	if (riid == __uuidof(IDXGISwapChain4))
 	{
-		LogInfo("***  returns E_NOINTERFACE as error for IDXGISwapChain4.\n");
-		reinterpret_cast<IUnknown *>(*ppvObject)->Release();
-		*ppvObject = nullptr;
-		return E_NOINTERFACE;
+		// Return interface without wrapper to support HDR10 metadata (SetHDRMetaData)
+		// and modern DXGI 1.5 consumers, matching IDXGISwapChain2 and IDXGISwapChain3.
+		LogInfo("  return IDXGISwapChain4 interface (%p) without wrapper.\n", ppvObject);
+		LogInfo("  returns result = %x for %p\n", hr, ppvObject);
+		return hr;
 	}
 
 	IUnknown *unk_this = nullptr;

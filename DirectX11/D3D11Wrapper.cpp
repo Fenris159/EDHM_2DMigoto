@@ -563,41 +563,24 @@ static void ShowDebugInfo(ID3D11Device *origDevice)
 	d3dDebug->Release();
 }
 
-// Any request for greater than 11.0 DX needs an E_INVALIDARG return, to match the
-// documented behavior. We want to return an error for any higher level requests,
-// at least for the time being, to avoid having to implement all the possible
-// variants past 11.0, with nothing to show for it.  There's no performance or
-// graphic advantage at present, and game devs need to support Win7, no evil-update
-// until the market shrinks, or there is some compelling advance.
-// Feature level D3D_FEATURE_LEVEL_11_1 requires Win8 (WDDM 1.2)
-// https://msdn.microsoft.com/en-us/library/windows/desktop/ff476875(v=vs.85).aspx
+// Protect against down-level (< 11.0) device creation requests while preserving
+// Direct3D 11 and newer feature levels (11.0, 11.1, 12.0, 12.1, ...).
 //
-// Also, when we are called with down-level requests, we need to not wrap the objects
-// and not generate iniParams or StereoTextures, because a bunch of features are
-// missing there, and can cause problems.  FarCry4 hangs on Win10 because they
-// call with pFeatureLevels=9.2.  As seen in the link, CreateTexture1D does not
-// exist in 9.x, so it's not legal to call that with a 9.x Device.  We will
-// assume that they don't plan to use that device for the game, and will look
-// only for a DX11 device. No point in supporting DX10 here, too few games to matter.
-// https://msdn.microsoft.com/en-us/library/windows/desktop/ff476150(v=vs.85).aspx#ID3D11Device_CreateTexture1D
+// Historically 3DMigoto returned E_INVALIDARG for anything != D3D_FEATURE_LEVEL_11_0
+// and allow_create_device=2 unconditionally replaced the requested array with 11.0.
+// That breaks modern D3D11 consumers such as FSR 3.1 (including under DXMT), which
+// require D3D_FEATURE_LEVEL_11_1 (64 compute UAV slots) when the caller requests 11.1+.
 //
-// So current approach is to just force an error for any request that is not 11.0.
-// That seems pretty heavy handed, but testing this technique worked on 15 games,
-// half x32, half x64.  And fixes a hang in FC4 on Win10, and makes Watch_Dogs work.
-// We'd expect this to make games error out, but it's actually working very well
-// during testing.  If this proves problematic later, it's probably worth keeping
-// it as a .ini option to force this mode.
-// (Can be an array. We are looking only at first element. Seems OK.)
+// Down-level requests (e.g. FarCry 4 requesting 9.2) still lack CreateTexture1D and
+// other D3D11 features we rely on when wrapping and generating IniParams:
+//   allow_create_device=0 (default): allow >= 11.0 unchanged; reject < 11.0 with E_INVALIDARG
+//   allow_create_device=1: allow all feature levels through unchanged
+//   allow_create_device=2: allow >= 11.0 unchanged; upgrade < 11.0 requests to 11.0
 //
-// 7-21-16: Now adding the ability to disable this forcing function, because Marlow
-// Briggs and Narco Terror do not launch when we do this.
-// This will now make it a option in the d3dx.ini, default to force DX11, but can be
-// disabled, or forced to always use DX11.
+// If pFeatureLevels is null (or count is 0), pass through unchanged so the
+// runtime uses its standard default list.
 //
-// If pFeatureLevels comes in null, that is OK, because the default behavior for
-// CreateDevice is to create a DX11 Device.
-//
-// Returns true if we need to error out with E_INVALIDARG, which is default in d3dx.ini.
+// Returns true if we need to error out with E_INVALIDARG.
 
 static bool ForceDX11(const D3D_FEATURE_LEVEL **featureLevels, UINT *featureLevelCount,
                       D3D_FEATURE_LEVEL *forcedFeatureLevel)
@@ -613,24 +596,26 @@ static bool ForceDX11(const D3D_FEATURE_LEVEL **featureLevels, UINT *featureLeve
 		LogInfo("->Feature level allowed through unchanged: %#x\n", **featureLevels);
 		return false;
 	}
+
+	if (**featureLevels >= D3D_FEATURE_LEVEL_11_0)
+	{
+		LogInfo("->Feature level >= 11.0 allowed through unchanged: %#x\n", **featureLevels);
+		return false;
+	}
+
 	if (G->enable_create_device == 2)
 	{
 		*forcedFeatureLevel = D3D_FEATURE_LEVEL_11_0;
 		*featureLevels = forcedFeatureLevel;
 		*featureLevelCount = 1;
 
-		LogInfo("->Feature level forced to 11.0: %#x\n", **featureLevels);
+		LogInfo("->Down-level feature level forced to 11.0: %#x\n", **featureLevels);
 		return false;
 	}
 
-	// Error out if we aren't looking for D3D_FEATURE_LEVEL_11_0.
-	if (**featureLevels != D3D_FEATURE_LEVEL_11_0)
-	{
-		LogInfo("->Feature level != 11.0: %#x, returning E_INVALIDARG\n", **featureLevels);
-		return true;
-	}
-
-	return false;
+	// Error out if we are looking for a down-level (< 11.0) feature level.
+	LogInfo("->Feature level < 11.0: %#x, returning E_INVALIDARG\n", **featureLevels);
+	return true;
 }
 
 static HackerDevice *wrap_d3d11_device_and_context(ID3D11Device **ppDevice, ID3D11DeviceContext **ppImmediateContext)
