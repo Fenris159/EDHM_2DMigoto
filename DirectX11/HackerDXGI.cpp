@@ -272,12 +272,12 @@ void HackerSwapChain::ObserveProxyPresent()
 
 void HackerSwapChain::EnterProxyFrame()
 {
-	mProxyFramesActive.fetch_add(1, std::memory_order_release);
+	mProxyFramesActive.fetch_add(1);
 }
 
 void HackerSwapChain::LeaveProxyFrame()
 {
-	mProxyFramesActive.fetch_sub(1, std::memory_order_release);
+	mProxyFramesActive.fetch_sub(1);
 }
 
 bool HackerSwapChain::AcquireProxyFrameOwner()
@@ -912,7 +912,7 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
                                           /* [in] */ UINT SyncInterval,
                                       /* [in] */ UINT Flags)
 {
-	if (proxy_frame_chain || mProxyFramesActive.load(std::memory_order_acquire))
+	if (proxy_frame_chain || mProxyFramesActive.load())
 	{
 		bool previous = get_tls()->hooking_quirk_protection;
 		get_tls()->hooking_quirk_protection = true;
@@ -1239,7 +1239,7 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
                                        /* [annotation][in] */
                                        _In_ const DXGI_PRESENT_PARAMETERS *pPresentParameters)
 {
-	if (proxy_frame_chain || mProxyFramesActive.load(std::memory_order_acquire))
+	if (proxy_frame_chain || mProxyFramesActive.load())
 	{
 		bool previous = get_tls()->hooking_quirk_protection;
 		get_tls()->hooking_quirk_protection = true;
