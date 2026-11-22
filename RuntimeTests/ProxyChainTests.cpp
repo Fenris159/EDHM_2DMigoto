@@ -385,9 +385,40 @@ void check_feature_levels(HMODULE proxy, PFN_D3D11_CREATE_DEVICE create, PFN_D3D
 		require(SUCCEEDED(hr) && device != nullptr, "allow_create_device=2 rejected 11.1/9.2 fallback request");
 		require(negotiated == D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_1,
 		        "allow_create_device=2 did not preserve 11.1 with down-level fallback");
+		device.Reset();
+		context.Reset();
+
+		// An unrecognized higher feature-level enum triggers E_INVALIDARG from the
+		// runtime; mode 2 must step down by stripping only that enum and preserve 11.1.
+		const D3D_FEATURE_LEVEL request_future_enum[] = {static_cast<D3D_FEATURE_LEVEL>(0xf000), D3D_FEATURE_LEVEL_11_1,
+		                                                 D3D_FEATURE_LEVEL_11_0};
+		negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_future_enum, 3, D3D11_SDK_VERSION, &device,
+		            &negotiated, &context);
+		require(SUCCEEDED(hr) && device != nullptr,
+		        "allow_create_device=2 failed to step down unrecognized high feature level (device)");
+		require(negotiated == D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_1,
+		        "allow_create_device=2 did not preserve intermediate 11.1 on E_INVALIDARG step-down (device)");
+		device.Reset();
+		context.Reset();
+
+		negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+		hr = swap(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_future_enum, 3, D3D11_SDK_VERSION, &description,
+		          &swap_chain, &device, &negotiated, &context);
+		require(SUCCEEDED(hr) && device != nullptr && swap_chain != nullptr,
+		        "allow_create_device=2 failed to step down unrecognized high feature level (swap chain)");
+		require(negotiated == D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_1,
+		        "allow_create_device=2 did not preserve intermediate 11.1 on E_INVALIDARG step-down (swap chain)");
 	}
 	else
 	{
+		const D3D_FEATURE_LEVEL request_future_enum[] = {static_cast<D3D_FEATURE_LEVEL>(0xf000), D3D_FEATURE_LEVEL_11_1,
+		                                                 D3D_FEATURE_LEVEL_11_0};
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_future_enum, 3, D3D11_SDK_VERSION, &device,
+		            &negotiated, &context);
+		require(hr == E_INVALIDARG && device == nullptr,
+		        "mode 0 did not preserve runtime E_INVALIDARG for unrecognized high feature level");
+
 		const D3D_FEATURE_LEVEL request_9_2[] = {D3D_FEATURE_LEVEL_9_2};
 		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_9_2, 1, D3D11_SDK_VERSION, &device, &negotiated,
 		            &context);

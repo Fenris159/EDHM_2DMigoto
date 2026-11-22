@@ -645,16 +645,33 @@ static bool ForceDX11(const D3D_FEATURE_LEVEL **featureLevels, UINT *featureLeve
 	return true;
 }
 
-static bool HasFeatureLevelAbove11_0(const D3D_FEATURE_LEVEL *featureLevels, UINT featureLevelCount)
+static bool BuildNextMode2RetryLevels(const D3D_FEATURE_LEVEL *currentLevels, UINT currentCount,
+                                      std::vector<D3D_FEATURE_LEVEL> *nextLevels)
 {
-	if (!featureLevels || !featureLevelCount)
+	if (!currentLevels || !currentCount)
 		return false;
-	for (UINT i = 0; i < featureLevelCount; ++i)
+
+	D3D_FEATURE_LEVEL maxLevel = currentLevels[0];
+	for (UINT i = 1; i < currentCount; ++i)
 	{
-		if (featureLevels[i] > D3D_FEATURE_LEVEL_11_0)
-			return true;
+		if (currentLevels[i] > maxLevel)
+			maxLevel = currentLevels[i];
 	}
-	return false;
+	if (maxLevel <= D3D_FEATURE_LEVEL_11_0)
+		return false;
+
+	std::vector<D3D_FEATURE_LEVEL> reduced;
+	reduced.reserve(currentCount);
+	for (UINT i = 0; i < currentCount; ++i)
+	{
+		if (currentLevels[i] < maxLevel)
+			reduced.push_back(currentLevels[i]);
+	}
+	if (reduced.empty())
+		reduced.push_back(D3D_FEATURE_LEVEL_11_0);
+
+	*nextLevels = std::move(reduced);
+	return true;
 }
 
 static HackerDevice *wrap_d3d11_device_and_context(ID3D11Device **ppDevice, ID3D11DeviceContext **ppImmediateContext)
@@ -849,13 +866,21 @@ static HRESULT CreateDeviceThrough(PFN_D3D11_CREATE_DEVICE *next, _In_opt_ IDXGI
 	get_tls()->hooking_quirk_protection = true;
 	HRESULT ret = (*next)(pAdapter, DriverType, Software, Flags, pFeatureLevels, FeatureLevels, SDKVersion, ppDevice,
 	                      pFeatureLevel, ppImmediateContext);
-	if (ret == E_INVALIDARG && G->enable_create_device == 2 && HasFeatureLevelAbove11_0(pFeatureLevels, FeatureLevels))
+	if (ret == E_INVALIDARG && G->enable_create_device == 2)
 	{
-		const D3D_FEATURE_LEVEL fallbackLevel = D3D_FEATURE_LEVEL_11_0;
-		LogInfo("  allow_create_device=2: runtime rejected >11.0 feature level list with E_INVALIDARG; retrying with "
-		        "11.0\n");
-		ret = (*next)(pAdapter, DriverType, Software, Flags, &fallbackLevel, 1, SDKVersion, ppDevice, pFeatureLevel,
-		              ppImmediateContext);
+		std::vector<D3D_FEATURE_LEVEL> retryLevels;
+		const D3D_FEATURE_LEVEL *attemptLevels = pFeatureLevels;
+		UINT attemptCount = FeatureLevels;
+		while (ret == E_INVALIDARG && BuildNextMode2RetryLevels(attemptLevels, attemptCount, &retryLevels))
+		{
+			attemptLevels = retryLevels.data();
+			attemptCount = static_cast<UINT>(retryLevels.size());
+			LogInfo("  allow_create_device=2: runtime rejected feature level list with E_INVALIDARG; retrying "
+			        "(first=%#x, count=%u)\n",
+			        *attemptLevels, attemptCount);
+			ret = (*next)(pAdapter, DriverType, Software, Flags, attemptLevels, attemptCount, SDKVersion, ppDevice,
+			              pFeatureLevel, ppImmediateContext);
+		}
 	}
 	get_tls()->hooking_quirk_protection = false;
 
@@ -1000,13 +1025,21 @@ static HRESULT CreateDeviceAndSwapChainThrough(
 	get_tls()->hooking_quirk_protection = true;
 	HRESULT ret = (*next)(pAdapter, DriverType, Software, Flags, pFeatureLevels, FeatureLevels, SDKVersion,
 	                      pSwapChainDesc, ppSwapChain, ppDevice, pFeatureLevel, ppImmediateContext);
-	if (ret == E_INVALIDARG && G->enable_create_device == 2 && HasFeatureLevelAbove11_0(pFeatureLevels, FeatureLevels))
+	if (ret == E_INVALIDARG && G->enable_create_device == 2)
 	{
-		const D3D_FEATURE_LEVEL fallbackLevel = D3D_FEATURE_LEVEL_11_0;
-		LogInfo("  allow_create_device=2: runtime rejected >11.0 feature level list with E_INVALIDARG; retrying with "
-		        "11.0\n");
-		ret = (*next)(pAdapter, DriverType, Software, Flags, &fallbackLevel, 1, SDKVersion, pSwapChainDesc, ppSwapChain,
-		              ppDevice, pFeatureLevel, ppImmediateContext);
+		std::vector<D3D_FEATURE_LEVEL> retryLevels;
+		const D3D_FEATURE_LEVEL *attemptLevels = pFeatureLevels;
+		UINT attemptCount = FeatureLevels;
+		while (ret == E_INVALIDARG && BuildNextMode2RetryLevels(attemptLevels, attemptCount, &retryLevels))
+		{
+			attemptLevels = retryLevels.data();
+			attemptCount = static_cast<UINT>(retryLevels.size());
+			LogInfo("  allow_create_device=2: runtime rejected feature level list with E_INVALIDARG; retrying "
+			        "(first=%#x, count=%u)\n",
+			        *attemptLevels, attemptCount);
+			ret = (*next)(pAdapter, DriverType, Software, Flags, attemptLevels, attemptCount, SDKVersion,
+			              pSwapChainDesc, ppSwapChain, ppDevice, pFeatureLevel, ppImmediateContext);
+		}
 	}
 	get_tls()->hooking_quirk_protection = false;
 
