@@ -124,9 +124,14 @@ static ULONG STDMETHODCALLTYPE Release(ID3D11DeviceContext1 *This)
 	i = context_map.find(This);
 	if (i != context_map.end())
 	{
-		ref = ID3D11DeviceContext1_Release(i->second);
+		ID3D11DeviceContext1 *hacker_context = i->second;
+		ref = ID3D11DeviceContext1_Release(hacker_context);
 		if (!ref)
-			context_map.erase(This);
+		{
+			i = context_map.find(This);
+			if (i != context_map.end() && i->second == hacker_context)
+				context_map.erase(i);
+		}
 	}
 	else
 		ref = orig_vtable.Release(This);
@@ -2373,6 +2378,7 @@ typedef struct ID3D11DeviceContext1Trampoline
 {
 	CONST_VTBL struct ID3D11DeviceContext1Vtbl *lpVtbl;
 	ID3D11DeviceContext1 *orig_this;
+	ID3D11DeviceContext1 *hacker_this;
 } ID3D11DeviceContext1Trampoline;
 
 // IUnknown
@@ -2388,7 +2394,9 @@ static ULONG STDMETHODCALLTYPE TrampolineAddRef(ID3D11DeviceContext1 *This)
 }
 static ULONG STDMETHODCALLTYPE TrampolineRelease(ID3D11DeviceContext1 *This)
 {
-	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	auto *trampoline = reinterpret_cast<ID3D11DeviceContext1Trampoline *>(This);
+	ID3D11DeviceContext1 *orig_this = trampoline->orig_this;
+	ID3D11DeviceContext1 *hacker_this = trampoline->hacker_this;
 	ULONG ref;
 
 	HookDebug("TrampolineContext::Release()\n");
@@ -2397,9 +2405,11 @@ static ULONG STDMETHODCALLTYPE TrampolineRelease(ID3D11DeviceContext1 *This)
 	if (!ref)
 	{
 		EnterCriticalSectionPretty(&context_map_lock);
-		context_map.erase(orig_this);
+		auto i = context_map.find(orig_this);
+		if (i != context_map.end() && i->second == hacker_this)
+			context_map.erase(i);
 		LeaveCriticalSection(&context_map_lock);
-		delete This;
+		delete trampoline;
 	}
 
 	return ref;
@@ -4040,6 +4050,7 @@ ID3D11DeviceContext1 *hook_context(ID3D11DeviceContext1 *orig_context, ID3D11Dev
 	auto *trampoline_context = new ID3D11DeviceContext1Trampoline();
 	trampoline_context->lpVtbl = &trampoline_vtable;
 	trampoline_context->orig_this = orig_context;
+	trampoline_context->hacker_this = hacker_context;
 
 	install_hooks(orig_context);
 	EnterCriticalSectionPretty(&context_map_lock);

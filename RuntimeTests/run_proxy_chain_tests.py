@@ -61,6 +61,7 @@ def main():
             "invalid-proxy",
             "feature-level-default",
             "feature-level-force",
+            "feature-level-lazy",
             "feature-level-hooked",
             "chain-feature-level",
         ]
@@ -135,7 +136,12 @@ def main():
                 raise
             (directory / "stdout.txt").write_text(completed.stdout, encoding="utf-8")
             (directory / "stderr.txt").write_text(completed.stderr, encoding="utf-8")
-            expected_creations = 1 if case.startswith("edup") or "shutdown" in case else 2 if "feature-level" in case else 4
+            expected_creations = (
+                0 if case == "feature-level-lazy"
+                else 1 if case.startswith("edup") or "shutdown" in case
+                else 2 if "feature-level" in case
+                else 4
+            )
             completed_creations = sum(line.startswith(f"PASS {case} creation ") for line in completed.stdout.splitlines())
             record = {"case": case, "exit_code": completed.returncode,
                       "completed_creations": completed_creations, "passed": False}
@@ -175,12 +181,22 @@ def main():
                     record["missing_exports_rejected"] = "Rejected chained d3d11: required exports are missing" in log
                     record["passed"] = (creations_ok and record["invalid_proxy_machine"] == target_machine
                                         and record["missing_exports_rejected"])
+                elif case == "feature-level-lazy":
+                    lines = completed.stdout.splitlines()
+                    record["lazy_context1_checked"] = f"PASS {case} lazy context1" in lines
+                    record["passed"] = creations_ok and record["lazy_context1_checked"]
                 elif "feature-level" in case:
                     lines = completed.stdout.splitlines()
                     record["modern_interfaces_checked"] = f"PASS {case} modern interfaces" in lines
                     record["downlevel_policy_checked"] = f"PASS {case} downlevel policy" in lines
-                    record["passed"] = (creations_ok and record["modern_interfaces_checked"]
-                                        and record["downlevel_policy_checked"])
+                    if case == "feature-level-hooked":
+                        record["lazy_context1_checked"] = f"PASS {case} lazy context1" in lines
+                        record["passed"] = (creations_ok and record["lazy_context1_checked"]
+                                            and record["modern_interfaces_checked"]
+                                            and record["downlevel_policy_checked"])
+                    else:
+                        record["passed"] = (creations_ok and record["modern_interfaces_checked"]
+                                            and record["downlevel_policy_checked"])
                 else:
                     record["passed"] = creations_ok
             if case.startswith("d3d12-"):

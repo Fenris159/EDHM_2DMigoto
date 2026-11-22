@@ -152,9 +152,73 @@ HRESULT check_d3d12_swap_chain(HWND window, const char *mode, bool invalid_devic
 	return S_OK;
 }
 
+void check_lazy_context1(PFN_D3D11_CREATE_DEVICE create, const char *mode)
+{
+	const D3D_FEATURE_LEVEL request_11_1[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
+	ComPtr<ID3D11Device> lazy_device;
+	D3D_FEATURE_LEVEL lazy_level = static_cast<D3D_FEATURE_LEVEL>(0);
+	HRESULT hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_11_1, 2, D3D11_SDK_VERSION, &lazy_device,
+	                    &lazy_level, nullptr);
+	require(SUCCEEDED(hr) && lazy_device != nullptr && lazy_level == D3D_FEATURE_LEVEL_11_1,
+	        "D3D11CreateDevice without immediate context failed");
+	ComPtr<ID3D11Device1> lazy_device1;
+	require(SUCCEEDED(lazy_device.As(&lazy_device1)) && lazy_device1 != nullptr, "lazy ID3D11Device1 query failed");
+	ComPtr<ID3D11DeviceContext1> lazy_context1;
+	lazy_device1->GetImmediateContext1(&lazy_context1);
+	require(lazy_context1 != nullptr, "ID3D11Device1::GetImmediateContext1 returned null");
+	ComPtr<ID3D11ShaderResourceView> ini_params_srv;
+	lazy_context1->PSGetShaderResources(120, 1, &ini_params_srv);
+	require(ini_params_srv != nullptr, "lazy GetImmediateContext1 did not bind IniParams SRV");
+
+	ComPtr<ID3D11Resource> ini_resource;
+	ini_params_srv->GetResource(&ini_resource);
+	require(ini_resource != nullptr, "IniParams SRV had no backing resource");
+	ComPtr<ID3D11Texture1D> ini_texture;
+	require(SUCCEEDED(ini_resource.As(&ini_texture)) && ini_texture != nullptr, "IniParams resource was not Texture1D");
+	D3D11_TEXTURE1D_DESC src_desc = {};
+	ini_texture->GetDesc(&src_desc);
+	require(src_desc.Width >= 1 && src_desc.Format == DXGI_FORMAT_R32G32B32A32_FLOAT,
+	        "unexpected IniParams texture descriptor");
+	D3D11_TEXTURE1D_DESC staging_desc = src_desc;
+	staging_desc.Usage = D3D11_USAGE_STAGING;
+	staging_desc.BindFlags = 0;
+	staging_desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	staging_desc.MiscFlags = 0;
+	ComPtr<ID3D11Texture1D> staging;
+	require(SUCCEEDED(lazy_device->CreateTexture1D(&staging_desc, nullptr, &staging)) && staging != nullptr,
+	        "could not create IniParams staging texture");
+	lazy_context1->CopyResource(staging.Get(), ini_texture.Get());
+	D3D11_MAPPED_SUBRESOURCE mapped = {};
+	require(SUCCEEDED(lazy_context1->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped)) && mapped.pData != nullptr,
+	        "could not map IniParams staging texture");
+	float x_value = 0.0f;
+	std::memcpy(&x_value, mapped.pData, sizeof(x_value));
+	lazy_context1->Unmap(staging.Get(), 0);
+	require(x_value == 1.0f, "lazy GetImmediateContext1 did not initialize [Constants] x=1");
+
+	D3D11_BUFFER_DESC cb_desc = {};
+	cb_desc.ByteWidth = 64;
+	cb_desc.Usage = D3D11_USAGE_DEFAULT;
+	cb_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	ComPtr<ID3D11Buffer> cb;
+	require(SUCCEEDED(lazy_device->CreateBuffer(&cb_desc, nullptr, &cb)) && cb != nullptr,
+	        "lazy device buffer creation failed");
+	lazy_context1->DiscardResource(cb.Get());
+	lazy_context1->ClearState();
+	std::printf("PASS %s lazy context1\n", mode);
+}
+
 void check_feature_levels(HMODULE proxy, PFN_D3D11_CREATE_DEVICE create, PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN swap,
                           HWND window, const char *mode, UINT wanted, UINT buffers, bool chained)
 {
+	if (std::strcmp(mode, "feature-level-lazy") == 0)
+	{
+		check_lazy_context1(create, mode);
+		return;
+	}
+	if (std::strcmp(mode, "feature-level-hooked") == 0)
+		check_lazy_context1(create, mode);
+
 	const D3D_FEATURE_LEVEL request_11_1[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
 	ComPtr<ID3D11Device> device;
 	ComPtr<ID3D11DeviceContext> context;
@@ -184,6 +248,14 @@ void check_feature_levels(HMODULE proxy, PFN_D3D11_CREATE_DEVICE create, PFN_D3D
 		require(SUCCEEDED(device1->CreateBlendState1(&blend_desc, &blend_state1)) && blend_state1 != nullptr,
 		        "ID3D11Device1::CreateBlendState1 failed");
 
+		D3D11_RASTERIZER_DESC1 raster_desc = {};
+		raster_desc.FillMode = D3D11_FILL_SOLID;
+		raster_desc.CullMode = D3D11_CULL_BACK;
+		raster_desc.DepthClipEnable = TRUE;
+		ComPtr<ID3D11RasterizerState1> raster_state1;
+		require(SUCCEEDED(device1->CreateRasterizerState1(&raster_desc, &raster_state1)) && raster_state1 != nullptr,
+		        "ID3D11Device1::CreateRasterizerState1 failed");
+
 		D3D11_BUFFER_DESC cb_desc = {};
 		cb_desc.ByteWidth = 256;
 		cb_desc.Usage = D3D11_USAGE_DEFAULT;
@@ -202,35 +274,15 @@ void check_feature_levels(HMODULE proxy, PFN_D3D11_CREATE_DEVICE create, PFN_D3D
 		context1->VSGetConstantBuffers1(0, 1, &bound_cb, &got_first, &got_num);
 		require(bound_cb != nullptr && got_first == 0 && got_num == 16,
 		        "ID3D11DeviceContext1 constant buffer round-trip failed");
+
+		ComPtr<ID3D11DeviceContext1> deferred1;
+		require(SUCCEEDED(device1->CreateDeferredContext1(0, &deferred1)) && deferred1 != nullptr,
+		        "ID3D11Device1::CreateDeferredContext1 failed");
+		deferred1->DiscardResource(cb.Get());
+		deferred1->ClearState();
 	}
 	context->ClearState();
 	std::printf("PASS %s creation 1 (device)\n", mode);
-
-	{
-		ComPtr<ID3D11Device> lazy_device;
-		D3D_FEATURE_LEVEL lazy_level = static_cast<D3D_FEATURE_LEVEL>(0);
-		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_11_1, 2, D3D11_SDK_VERSION, &lazy_device,
-		            &lazy_level, nullptr);
-		require(SUCCEEDED(hr) && lazy_device != nullptr && lazy_level == D3D_FEATURE_LEVEL_11_1,
-		        "D3D11CreateDevice without immediate context failed");
-		ComPtr<ID3D11Device1> lazy_device1;
-		require(SUCCEEDED(lazy_device.As(&lazy_device1)) && lazy_device1 != nullptr, "lazy ID3D11Device1 query failed");
-		ComPtr<ID3D11DeviceContext1> lazy_context1;
-		lazy_device1->GetImmediateContext1(&lazy_context1);
-		require(lazy_context1 != nullptr, "ID3D11Device1::GetImmediateContext1 returned null");
-		ComPtr<ID3D11ShaderResourceView> ini_params_srv;
-		lazy_context1->PSGetShaderResources(120, 1, &ini_params_srv);
-		require(ini_params_srv != nullptr, "lazy GetImmediateContext1 did not bind IniParams SRV");
-		D3D11_BUFFER_DESC cb_desc = {};
-		cb_desc.ByteWidth = 64;
-		cb_desc.Usage = D3D11_USAGE_DEFAULT;
-		cb_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-		ComPtr<ID3D11Buffer> cb;
-		require(SUCCEEDED(lazy_device->CreateBuffer(&cb_desc, nullptr, &cb)) && cb != nullptr,
-		        "lazy device buffer creation failed");
-		lazy_context1->DiscardResource(cb.Get());
-		lazy_context1->ClearState();
-	}
 
 	device.Reset();
 	context.Reset();

@@ -488,7 +488,13 @@ void HackerDevice::HookDevice()
 	// interface which we use in place of mOrigDevice1 to call the real
 	// original device, thereby side stepping the problem that calling the
 	// old mOrigDevice1 would be hooked and call back into us endlessly:
-	mOrigDevice1 = hook_device(mOrigDevice1, this);
+	ID3D11Device1 *device1_probe = nullptr;
+	const bool has_device1 =
+	    SUCCEEDED(mOrigDevice1->QueryInterface(IID_PPV_ARGS(&device1_probe))) && device1_probe != nullptr;
+	if (device1_probe)
+		device1_probe->Release();
+
+	mOrigDevice1 = hook_device(mOrigDevice1, this, has_device1);
 }
 
 // -----------------------------------------------------------------------------------------------
