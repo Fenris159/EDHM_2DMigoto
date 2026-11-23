@@ -424,6 +424,8 @@ jobs:
                 --body "Automated vendor runtime cache update for release $tag."
               if ($LASTEXITCODE -ne 0) {
                 Write-Warning "Could not open PR automatically (enable 'Allow GitHub Actions to create and approve pull requests' in Settings -> Actions -> General). Open manually from branch '$vendorBranch' into '$branch'."
+                $global:LASTEXITCODE = 0
+                exit 0
               }
             } else {
               Write-Host "Vendor cache PR already open: $existingPr"
