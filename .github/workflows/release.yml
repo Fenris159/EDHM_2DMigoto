@@ -25,14 +25,15 @@ on:
           - bump-prerelease
         default: use-current
       pre_label:
-        description: 'Pre-release label (develop only): alpha | beta | rc'
-        required: true
+        description: 'Pre-release label (develop only; ignored on main): none | alpha | beta | rc'
+        required: false
         type: choice
         options:
+          - none
           - beta
           - rc
           - alpha
-        default: beta
+        default: none
       create_tag:
         description: 'Create and push a git tag for this release'
         required: true
@@ -102,11 +103,19 @@ jobs:
         shell: pwsh
         run: |
           $action = '${{ inputs.version_action }}'
-          $preLabel = '${{ inputs.pre_label }}'
+          $preLabel = '${{ inputs.pre_label }}'.Trim()
           $channel = '${{ steps.channel.outputs.channel }}'
 
-          if ($channel -eq 'release' -and $action -eq 'bump-prerelease') {
-            throw "bump-prerelease is not valid for main/stable releases"
+          if ($channel -eq 'release') {
+            if ($action -eq 'bump-prerelease') {
+              throw "bump-prerelease is not valid for main/stable releases"
+            }
+            if ($preLabel -and $preLabel -ne 'none') {
+              Write-Host "Ignoring pre_label '$preLabel' for main/stable release"
+            }
+            $preLabel = ''
+          } elseif ($preLabel -eq 'none') {
+            $preLabel = ''
           }
 
           switch ($action) {
@@ -115,6 +124,9 @@ jobs:
             'bump-minor' { & .\scripts\version.ps1 -Action bump-minor | Out-Null }
             'bump-major' { & .\scripts\version.ps1 -Action bump-major | Out-Null }
             'bump-prerelease' {
+              if (-not $preLabel) {
+                throw "Select pre_label (alpha, beta, or rc) when using version_action=bump-prerelease"
+              }
               & .\scripts\version.ps1 -Action bump-prerelease -PreLabel $preLabel | Out-Null
             }
           }
@@ -122,6 +134,9 @@ jobs:
           # For develop pre-releases, ensure VERSION has a pre-release suffix if still clean
           $raw = (Get-Content VERSION -Raw).Trim()
           if ($channel -eq 'prerelease' -and $raw -notmatch '-') {
+            if (-not $preLabel) {
+              throw "VERSION '$raw' has no pre-release suffix; select pre_label (alpha, beta, or rc) for a develop pre-release"
+            }
             & .\scripts\version.ps1 -Action bump-prerelease -PreLabel $preLabel | Out-Null
             $raw = (Get-Content VERSION -Raw).Trim()
           }
@@ -134,7 +149,11 @@ jobs:
             Write-Host "Normalized VERSION to release core: $raw"
           }
 
-          $tagOut = & .\scripts\version.ps1 -Action tag -Channel $channel -PreLabel $preLabel
+          if ($channel -eq 'prerelease' -and $preLabel) {
+            $tagOut = & .\scripts\version.ps1 -Action tag -Channel $channel -PreLabel $preLabel
+          } else {
+            $tagOut = & .\scripts\version.ps1 -Action tag -Channel $channel
+          }
           $tag = if ($tagOut -is [array]) { $tagOut[-1] } else { "$tagOut" }
           $tag = $tag.Trim()
           if ($tag -notmatch '^v') { $tag = "v$tag" }
