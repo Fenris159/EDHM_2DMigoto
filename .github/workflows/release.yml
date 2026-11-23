@@ -51,6 +51,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: release-${{ inputs.branch }}
@@ -153,12 +154,31 @@ jobs:
 
       - name: Commit VERSION / notes if changed
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git add VERSION CURRENT_RELEASE_NOTES.md CHANGELOG.md 2>$null
           git diff --cached --quiet
           if ($LASTEXITCODE -ne 0) {
-            git commit -m "chore(release): ${{ steps.ver.outputs.tag }}"
-            git push origin "HEAD:${{ inputs.branch }}"
+            $tag = '${{ steps.ver.outputs.tag }}'
+            $branch = '${{ inputs.branch }}'
+            git commit -m "chore(release): $tag"
+            git push origin "HEAD:$branch"
+            if ($LASTEXITCODE -ne 0) {
+              $prepBranch = "chore/release-$tag"
+              Write-Warning "Direct push to protected branch '$branch' failed; opening PR from '$prepBranch'."
+              git push --force origin "HEAD:refs/heads/$prepBranch"
+              if ($LASTEXITCODE -ne 0) { throw "Failed to push release prep branch $prepBranch" }
+              $existingPr = gh pr list --base $branch --head $prepBranch --state open --json url --jq '.[0].url'
+              if (-not $existingPr) {
+                gh pr create --base $branch --head $prepBranch `
+                  --title "chore(release): prepare $tag" `
+                  --body "Automated release prep for $tag (VERSION and CURRENT_RELEASE_NOTES.md). Merge this PR, then re-run Release on '$branch' with version_action=use-current."
+              } else {
+                Write-Host "Release prep PR already open: $existingPr"
+              }
+              throw "Protected branch '$branch' requires VERSION/notes updates via PR ($prepBranch). Merge the PR and re-run Release with version_action=use-current."
+            }
           } else {
             Write-Host 'No version/notes commit needed'
           }
@@ -348,7 +368,13 @@ jobs:
       - name: Commit and push vendor cache
         if: ${{ inputs.update_vendor_cache && !inputs.draft }}
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          $branch = '${{ inputs.branch }}'
+          $tag = '${{ steps.ver.outputs.tag }}'
+          $version = '${{ steps.ver.outputs.version }}'
+          $channel = '${{ steps.channel.outputs.channel }}'
           git add vendor/edhm-runtime/ vendor/edup-runtime/ .gitattributes
           git status
           git diff --cached --quiet
@@ -356,13 +382,31 @@ jobs:
             Write-Host 'Vendor cache unchanged; nothing to commit'
             exit 0
           }
-          git commit -m "chore(vendor): runtime caches ${{ steps.ver.outputs.tag }}"
-          # Retry push in case of concurrent updates
+          git commit -m "chore(vendor): runtime caches $tag"
+          # Try direct push first (works on unprotected branches or develop).
           $ok = $false
-          for ($i = 0; $i -lt 3; $i++) {
-            git pull --rebase origin ${{ inputs.branch }}
-            git push origin "HEAD:${{ inputs.branch }}"
+          for ($i = 0; $i -lt 2; $i++) {
+            git pull --rebase origin $branch
+            git push origin "HEAD:$branch"
             if ($LASTEXITCODE -eq 0) { $ok = $true; break }
             Start-Sleep -Seconds 3
           }
-          if (-not $ok) { throw 'Failed to push vendor cache commit' }
+          if (-not $ok) {
+            # Protected branch (e.g. main): push to a dedicated vendor branch and open a PR.
+            $prefix = if ($channel -eq 'release') { 'vendor-stable' } else { "vendor-$channel" }
+            $vendorBranch = "$prefix-$version"
+            Write-Warning "Direct push to '$branch' rejected; pushing vendor cache to '$vendorBranch' and opening a PR."
+            git push --force origin "HEAD:refs/heads/$vendorBranch"
+            if ($LASTEXITCODE -ne 0) { throw "Failed to push vendor cache branch $vendorBranch" }
+            $existingPr = gh pr list --base $branch --head $vendorBranch --state open --json url --jq '.[0].url'
+            if (-not $existingPr) {
+              gh pr create --base $branch --head $vendorBranch `
+                --title "chore(vendor): runtime caches $tag" `
+                --body "Automated vendor runtime cache update for release $tag."
+              if ($LASTEXITCODE -ne 0) {
+                Write-Warning "Could not open PR automatically (enable 'Allow GitHub Actions to create and approve pull requests' in Settings -> Actions -> General). Open manually from branch '$vendorBranch' into '$branch'."
+              }
+            } else {
+              Write-Host "Vendor cache PR already open: $existingPr"
+            }
+          }
