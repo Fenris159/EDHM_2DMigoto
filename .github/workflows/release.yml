@@ -283,6 +283,19 @@ jobs:
             ForEach-Object { "$($_.Hash.ToLower())  $symbolsName" } |
             Set-Content "dist\$symbolsName.sha256" -Encoding ascii
 
+          # GPLv3 Corresponding Source tarball attached directly to the release so
+          # downstream consumers can pin an immutable asset hash instead of
+          # relying on GitHub's dynamically generated archive endpoint.
+          $sourceName = "EDHM_2DMigoto-$tag-source.tar.gz"
+          $sourcePath = Join-Path 'dist' $sourceName
+          git archive --format=tar.gz --prefix="EDHM_2DMigoto-$tag/" -o $sourcePath HEAD
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $sourcePath) -or (Get-Item $sourcePath).Length -eq 0) {
+            throw "Failed to create source archive: $sourcePath"
+          }
+          Get-FileHash $sourcePath -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $sourceName" } |
+            Set-Content "dist\$sourceName.sha256" -Encoding ascii
+
           # Checksums
           Get-FileHash $zipPath -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  $zipName" } |
@@ -311,6 +324,7 @@ jobs:
             dist/d3d11_edhm.dll
             dist/edup-runtime.json
             dist/*.zip
+            dist/*.tar.gz
             dist/*.sha256
           fail_on_unmatched_files: false
           generate_release_notes: false
