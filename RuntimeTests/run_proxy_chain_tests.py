@@ -53,7 +53,18 @@ def main():
     control = args.expect_bypass or args.expect_downstream_bypass
     cases = mixed_cases if args.expect_downstream_bypass else ["chain-lazy", "chain-early", "chain-swap-early"] + mixed_cases
     if not control:
-        cases += ["standalone", "downstream", "missing-proxy", "self-proxy", "invalid-proxy"]
+        cases += [
+            "standalone",
+            "downstream",
+            "missing-proxy",
+            "self-proxy",
+            "invalid-proxy",
+            "feature-level-default",
+            "feature-level-force",
+            "feature-level-lazy",
+            "feature-level-hooked",
+            "chain-feature-level",
+        ]
     if args.edup:
         cases += ["edup"]
     if args.shutdown_only:
@@ -97,11 +108,21 @@ def main():
                 shutil.copy2(system, directory / "invalid.dll")
                 proxy = "invalid.dll"
             device_settings = "[Device]\nwidth=640\nheight=480\n" if case.startswith("d3d12-") else ""
+            constants_settings = "[Constants]\nx=1\n" if "feature-level" in case else ""
+            create_device_setting = "allow_create_device=2\n" if case == "feature-level-force" else ""
+            hook_setting = "hook=recommended\n" if case == "feature-level-hooked" else ""
+            # Omit allow_platform_update in feature-level cases to verify its modern default,
+            # and keep load_library_redirect=2 with wine_compat=0 in chain-feature-level so
+            # the system-load assertion exercises the renamed-DLL rule even under Wine.
+            redirect_setting = "load_library_redirect=2\n" if case == "chain-feature-level" else "load_library_redirect=0\n"
+            wine_compat_setting = "wine_compat=0\n" if case == "chain-feature-level" else ""
+            platform_setting = "" if "feature-level" in case else "allow_platform_update=1\n"
             (directory / "d3dx.ini").write_text(
-                "[System]\nload_library_redirect=0\nallow_platform_update=1\n"
+                f"[System]\n{redirect_setting}{wine_compat_setting}{platform_setting}"
+                f"{create_device_setting}{hook_setting}"
                 f"proxy_d3d11={proxy}\n"
                 "[Hunting]\nhunting=0\n[Rendering]\nstereo_params=-1\nini_params=120\n"
-                "[Logging]\nenabled=1\ncalls=0\ndebug=0\n" + device_settings,
+                "[Logging]\nenabled=1\ncalls=0\ndebug=0\n" + device_settings + constants_settings,
                 encoding="utf-8",
             )
             command = [str(directory / "ProxyChainTests.exe"), case]
@@ -117,7 +138,12 @@ def main():
                 raise
             (directory / "stdout.txt").write_text(completed.stdout, encoding="utf-8")
             (directory / "stderr.txt").write_text(completed.stderr, encoding="utf-8")
-            expected_creations = 1 if case.startswith("edup") or "shutdown" in case else 4
+            expected_creations = (
+                0 if case == "feature-level-lazy"
+                else 1 if case.startswith("edup") or "shutdown" in case
+                else 2 if "feature-level" in case
+                else 4
+            )
             completed_creations = sum(line.startswith(f"PASS {case} creation ") for line in completed.stdout.splitlines())
             record = {"case": case, "exit_code": completed.returncode,
                       "completed_creations": completed_creations, "passed": False}
@@ -157,6 +183,22 @@ def main():
                     record["missing_exports_rejected"] = "Rejected chained d3d11: required exports are missing" in log
                     record["passed"] = (creations_ok and record["invalid_proxy_machine"] == target_machine
                                         and record["missing_exports_rejected"])
+                elif case == "feature-level-lazy":
+                    lines = completed.stdout.splitlines()
+                    record["lazy_context1_checked"] = f"PASS {case} lazy context1" in lines
+                    record["passed"] = creations_ok and record["lazy_context1_checked"]
+                elif "feature-level" in case:
+                    lines = completed.stdout.splitlines()
+                    record["modern_interfaces_checked"] = f"PASS {case} modern interfaces" in lines
+                    record["downlevel_policy_checked"] = f"PASS {case} downlevel policy" in lines
+                    if case == "feature-level-hooked":
+                        record["lazy_context1_checked"] = f"PASS {case} lazy context1" in lines
+                        record["passed"] = (creations_ok and record["lazy_context1_checked"]
+                                            and record["modern_interfaces_checked"]
+                                            and record["downlevel_policy_checked"])
+                    else:
+                        record["passed"] = (creations_ok and record["modern_interfaces_checked"]
+                                            and record["downlevel_policy_checked"])
                 else:
                     record["passed"] = creations_ok
             if case.startswith("d3d12-"):

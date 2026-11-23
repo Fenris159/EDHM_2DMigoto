@@ -995,11 +995,27 @@ static void HookCreateSwapChain(void *factory)
 }
 
 // -----------------------------------------------------------------------------
+// Install IDXGIFactory2 swap-chain hooks without replacing the caller's
+// requested factory interface pointer (which may be IDXGIFactory4/5/6/7).
+
+static void HookFactory2IfSupported(void *factory)
+{
+	if (!factory || fnOrigCreateSwapChainForHwnd)
+		return;
+
+	IDXGIFactory2 *dxgiFactory = nullptr;
+	HRESULT res = reinterpret_cast<IUnknown *>(factory)->QueryInterface(IID_PPV_ARGS(&dxgiFactory));
+	if (SUCCEEDED(res) && dxgiFactory)
+	{
+		LogInfo("  QueryInterface(IDXGIFactory2) for swap-chain hooks succeeded, factory = %p\n", dxgiFactory);
+		HookFactory2CreateSwapChainMethods(dxgiFactory);
+		dxgiFactory->Release();
+	}
+}
+
+// -----------------------------------------------------------------------------
 // Actual function called by the game for every CreateDXGIFactory they make.
 // This is only called for the in-process game, not system wide.
-//
-// We are going to always upcast to an IDXGIFactory2 for any calls here.
-// The only time we'll not use Factory2 is on Win7 without the evil update.
 
 HRESULT(__stdcall *fnOrigCreateDXGIFactory)(REFIID riid, _Out_ void **ppFactory) = CreateDXGIFactory;
 
@@ -1017,11 +1033,12 @@ HRESULT __stdcall Hooked_CreateDXGIFactory(REFIID riid, void **ppFactory)
 		return fnOrigCreateDXGIFactory(riid, ppFactory);
 	}
 
-	// If we are being requested to create a DXGIFactory2, lie and say it's not possible.
+	// If allow_platform_update=0 was explicitly requested, refuse IDXGIFactory2.
 	if (riid == __uuidof(IDXGIFactory2) && !G->enable_platform_update)
 	{
 		LogInfo("  returns E_NOINTERFACE as error for IDXGIFactory2.\n");
-		*ppFactory = nullptr;
+		if (ppFactory)
+			*ppFactory = nullptr;
 		return E_NOINTERFACE;
 	}
 
@@ -1032,41 +1049,18 @@ HRESULT __stdcall Hooked_CreateDXGIFactory(REFIID riid, void **ppFactory)
 		return hr;
 	}
 
-	if (!fnOrigCreateSwapChain)
-		HookCreateSwapChain(*ppFactory);
-
-	// With the addition of the platform_update, we need to allow for specifically
-	// creating a DXGIFactory2 instead of DXGIFactory1.  We want to always upcast
-	// the highest supported object for each scenario, to properly suppport
-	// QueryInterface and GetParent upcasts.
-
-	auto *factoryUnknown = reinterpret_cast<IUnknown *>(*ppFactory);
-	auto *dxgiFactory = reinterpret_cast<IDXGIFactory2 *>(*ppFactory);
-	HRESULT res = factoryUnknown->QueryInterface(IID_PPV_ARGS(&dxgiFactory));
-	if (SUCCEEDED(res))
+	if (ppFactory && *ppFactory)
 	{
-		factoryUnknown->Release();
-		*ppFactory = (void *)dxgiFactory;
-		LogInfo("  Upcast QueryInterface(IDXGIFactory2) returned result = %x, factory = %p\n", res, dxgiFactory);
-
-		if (!fnOrigCreateSwapChainForHwnd)
-			HookFactory2CreateSwapChainMethods(dxgiFactory);
+		if (!fnOrigCreateSwapChain)
+			HookCreateSwapChain(*ppFactory);
+		HookFactory2IfSupported(*ppFactory);
 	}
 
-	LogInfo("  CreateDXGIFactory returned factory = %p, result = %x\n", *ppFactory, hr);
+	LogInfo("  CreateDXGIFactory returned factory = %p, result = %x\n", ppFactory ? *ppFactory : nullptr, hr);
 	return hr;
 }
 
 // -----------------------------------------------------------------------------
-//
-// We are going to always upcast to an IDXGIFactory2 for any calls here.
-// The only time we'll not use Factory2 is on Win7 without the evil update.
-//
-// ToDo: It is probably possible for a game to fetch a Factory2 via QueryInterface,
-//  and we might need to hook that as well.  However, in order to Query, they
-//  need a Factory or Factory1 to do so, which will call us here anyway.  At least
-//  until Win10, where the d3d11.dll also then includes CreateDXGIFactory2. We only
-//  really care about installing a hook for CreateSwapChain which will still get done.
 
 HRESULT(__stdcall *fnOrigCreateDXGIFactory1)(REFIID riid, _Out_ void **ppFactory) = CreateDXGIFactory1;
 
@@ -1084,11 +1078,12 @@ HRESULT __stdcall Hooked_CreateDXGIFactory1(REFIID riid, void **ppFactory1)
 		return fnOrigCreateDXGIFactory1(riid, ppFactory1);
 	}
 
-	// If we are being requested to create a DXGIFactory2, lie and say it's not possible.
+	// If allow_platform_update=0 was explicitly requested, refuse IDXGIFactory2.
 	if (riid == __uuidof(IDXGIFactory2) && !G->enable_platform_update)
 	{
 		LogInfo("  returns E_NOINTERFACE as error for IDXGIFactory2.\n");
-		*ppFactory1 = nullptr;
+		if (ppFactory1)
+			*ppFactory1 = nullptr;
 		return E_NOINTERFACE;
 	}
 
@@ -1101,28 +1096,14 @@ HRESULT __stdcall Hooked_CreateDXGIFactory1(REFIID riid, void **ppFactory1)
 		return hr;
 	}
 
-	if (!fnOrigCreateSwapChain)
-		HookCreateSwapChain(*ppFactory1);
-
-	// With the addition of the platform_update, we need to allow for specifically
-	// creating a DXGIFactory2 instead of DXGIFactory1.  We want to always upcast
-	// the highest supported object for each scenario, to properly suppport
-	// QueryInterface and GetParent upcasts.
-
-	auto *factoryUnknown = reinterpret_cast<IUnknown *>(*ppFactory1);
-	auto *dxgiFactory = reinterpret_cast<IDXGIFactory2 *>(*ppFactory1);
-	HRESULT res = factoryUnknown->QueryInterface(IID_PPV_ARGS(&dxgiFactory));
-	if (SUCCEEDED(res))
+	if (ppFactory1 && *ppFactory1)
 	{
-		factoryUnknown->Release();
-		*ppFactory1 = (void *)dxgiFactory;
-		LogInfo("  Upcast QueryInterface(IDXGIFactory2) returned result = %x, factory = %p\n", res, dxgiFactory);
-
-		if (!fnOrigCreateSwapChainForHwnd)
-			HookFactory2CreateSwapChainMethods(dxgiFactory);
+		if (!fnOrigCreateSwapChain)
+			HookCreateSwapChain(*ppFactory1);
+		HookFactory2IfSupported(*ppFactory1);
 	}
 
-	LogInfo("  CreateDXGIFactory1 returned factory = %p, result = %x\n", *ppFactory1, hr);
+	LogInfo("  CreateDXGIFactory1 returned factory = %p, result = %x\n", ppFactory1 ? *ppFactory1 : nullptr, hr);
 	return hr;
 }
 
@@ -1146,11 +1127,12 @@ HRESULT __stdcall Hooked_CreateDXGIFactory2(UINT Flags, REFIID riid, void **ppFa
 		return fnOrigCreateDXGIFactory2(Flags, riid, ppFactory2);
 	}
 
-	// If we are being requested to create a DXGIFactory2, lie and say it's not possible.
+	// If allow_platform_update=0 was explicitly requested, refuse IDXGIFactory2.
 	if (riid == __uuidof(IDXGIFactory2) && !G->enable_platform_update)
 	{
 		LogInfo("  returns E_NOINTERFACE as error for IDXGIFactory2.\n");
-		*ppFactory2 = nullptr;
+		if (ppFactory2)
+			*ppFactory2 = nullptr;
 		return E_NOINTERFACE;
 	}
 
@@ -1163,31 +1145,14 @@ HRESULT __stdcall Hooked_CreateDXGIFactory2(UINT Flags, REFIID riid, void **ppFa
 		return hr;
 	}
 
-	if (!fnOrigCreateSwapChain)
-		HookCreateSwapChain(*ppFactory2);
-
-	// We still upcast, even in CreateDXGIFactory2, because the game could
-	// have passed a lower version riid, and this way is safer. The version
-	// of this function isn't actually strongly related to the interface
-	// version it returns at all - CreateFactory2 is for DXGI 1.3, but
-	// really it just has an extra flags field compared to the previous
-	// version. There's also a Factory 4, 5 and 6, but no CreateFactory 4,
-	// 5 or 6 - the version numbers aren't related.
-
-	auto *factoryUnknown = reinterpret_cast<IUnknown *>(*ppFactory2);
-	auto *dxgiFactory = reinterpret_cast<IDXGIFactory2 *>(*ppFactory2);
-	HRESULT res = factoryUnknown->QueryInterface(IID_PPV_ARGS(&dxgiFactory));
-	if (SUCCEEDED(res))
+	if (ppFactory2 && *ppFactory2)
 	{
-		factoryUnknown->Release();
-		*ppFactory2 = (void *)dxgiFactory;
-		LogInfo("  Upcast QueryInterface(IDXGIFactory2) returned result = %x, factory = %p\n", res, dxgiFactory);
-
-		if (!fnOrigCreateSwapChainForHwnd)
-			HookFactory2CreateSwapChainMethods(dxgiFactory);
+		if (!fnOrigCreateSwapChain)
+			HookCreateSwapChain(*ppFactory2);
+		HookFactory2IfSupported(*ppFactory2);
 	}
 
-	LogInfo("  CreateDXGIFactory2 returned factory = %p, result = %x\n", *ppFactory2, hr);
+	LogInfo("  CreateDXGIFactory2 returned factory = %p, result = %x\n", ppFactory2 ? *ppFactory2 : nullptr, hr);
 	return hr;
 }
 

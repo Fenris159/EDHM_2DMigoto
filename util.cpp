@@ -1,5 +1,6 @@
 #include <util.h>
 
+#include <array>
 #include <atomic>
 #include <sddl.h>
 #include <io.h>
@@ -517,9 +518,23 @@ void restore_om_state(IDirect3DDevice9 *device, struct OMState *state)
 		state->dsv->Release();
 }
 #elif MIGOTO_DX == 11
+static UINT max_uav_slots_for_context(ID3D11DeviceContext *context)
+{
+	ID3D11Device *device = nullptr;
+	context->GetDevice(&device);
+	UINT max_slots = D3D11_PS_CS_UAV_REGISTER_COUNT;
+	if (device)
+	{
+		if (device->GetFeatureLevel() >= D3D_FEATURE_LEVEL_11_1)
+			max_slots = D3D11_1_UAV_SLOT_COUNT;
+		device->Release();
+	}
+	return max_slots;
+}
+
 void save_om_state(ID3D11DeviceContext *context, struct OMState *state)
 {
-	int i;
+	UINT i;
 
 	// OMGetRenderTargetAndUnorderedAccessViews is a poorly designed API as
 	// to use it properly to get all RTVs and UAVs we need to pass it some
@@ -535,11 +550,12 @@ void save_om_state(ID3D11DeviceContext *context, struct OMState *state)
 			state->NumRTVs = i + 1;
 	}
 
+	const UINT max_uavs = max_uav_slots_for_context(context);
 	state->UAVStartSlot = state->NumRTVs;
 	// Set NumUAVs to the max to retrieve them all now, and so that later
 	// when rebinding them we will unbind any others that the command list
 	// bound in the meantime
-	state->NumUAVs = D3D11_PS_CS_UAV_REGISTER_COUNT - state->UAVStartSlot;
+	state->NumUAVs = max_uavs > state->UAVStartSlot ? max_uavs - state->UAVStartSlot : 0;
 
 	// Finally get all the UAVs. Since we already retrieved the RTVs and
 	// DSV we can skip getting them:
@@ -550,12 +566,18 @@ void save_om_state(ID3D11DeviceContext *context, struct OMState *state)
 
 void restore_om_state(ID3D11DeviceContext *context, struct OMState *state)
 {
-	static const UINT uav_counts[D3D11_PS_CS_UAV_REGISTER_COUNT] = {(UINT)-1, (UINT)-1, (UINT)-1, (UINT)-1,
-	                                                                (UINT)-1, (UINT)-1, (UINT)-1, (UINT)-1};
+	static constexpr std::array<UINT, D3D11_1_UAV_SLOT_COUNT> uav_counts = []() constexpr
+	{
+		std::array<UINT, D3D11_1_UAV_SLOT_COUNT> counts{};
+		for (UINT idx = 0; idx < D3D11_1_UAV_SLOT_COUNT; ++idx)
+			counts[idx] = static_cast<UINT>(-1);
+		return counts;
+	}();
 	UINT i;
+	const UINT num_uavs = state->NumUAVs <= D3D11_1_UAV_SLOT_COUNT ? state->NumUAVs : D3D11_1_UAV_SLOT_COUNT;
 
 	context->OMSetRenderTargetsAndUnorderedAccessViews(state->NumRTVs, state->rtvs, state->dsv, state->UAVStartSlot,
-	                                                   state->NumUAVs, state->uavs, uav_counts);
+	                                                   num_uavs, state->uavs, uav_counts.data());
 
 	for (i = 0; i < state->NumRTVs; i++)
 	{
@@ -566,7 +588,7 @@ void restore_om_state(ID3D11DeviceContext *context, struct OMState *state)
 	if (state->dsv)
 		state->dsv->Release();
 
-	for (i = 0; i < state->NumUAVs; i++)
+	for (i = 0; i < num_uavs; i++)
 	{
 		if (state->uavs[i])
 			state->uavs[i]->Release();

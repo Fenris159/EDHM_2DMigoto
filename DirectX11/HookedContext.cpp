@@ -124,9 +124,14 @@ static ULONG STDMETHODCALLTYPE Release(ID3D11DeviceContext1 *This)
 	i = context_map.find(This);
 	if (i != context_map.end())
 	{
-		ref = ID3D11DeviceContext1_Release(i->second);
+		ID3D11DeviceContext1 *hacker_context = i->second;
+		ref = ID3D11DeviceContext1_Release(hacker_context);
 		if (!ref)
-			context_map.erase(i);
+		{
+			i = context_map.find(This);
+			if (i != context_map.end() && i->second == hacker_context)
+				context_map.erase(i);
+		}
 	}
 	else
 		ref = orig_vtable.Release(This);
@@ -2373,6 +2378,7 @@ typedef struct ID3D11DeviceContext1Trampoline
 {
 	CONST_VTBL struct ID3D11DeviceContext1Vtbl *lpVtbl;
 	ID3D11DeviceContext1 *orig_this;
+	ID3D11DeviceContext1 *hacker_this;
 } ID3D11DeviceContext1Trampoline;
 
 // IUnknown
@@ -2388,13 +2394,23 @@ static ULONG STDMETHODCALLTYPE TrampolineAddRef(ID3D11DeviceContext1 *This)
 }
 static ULONG STDMETHODCALLTYPE TrampolineRelease(ID3D11DeviceContext1 *This)
 {
+	auto *trampoline = reinterpret_cast<ID3D11DeviceContext1Trampoline *>(This);
+	ID3D11DeviceContext1 *orig_this = trampoline->orig_this;
+	ID3D11DeviceContext1 *hacker_this = trampoline->hacker_this;
 	ULONG ref;
 
 	HookDebug("TrampolineContext::Release()\n");
-	ref = orig_vtable.Release(((ID3D11DeviceContext1Trampoline *)This)->orig_this);
+	ref = orig_vtable.Release(orig_this);
 
 	if (!ref)
-		delete This;
+	{
+		EnterCriticalSectionPretty(&context_map_lock);
+		auto i = context_map.find(orig_this);
+		if (i != context_map.end() && i->second == hacker_this)
+			context_map.erase(i);
+		LeaveCriticalSection(&context_map_lock);
+		delete trampoline;
+	}
 
 	return ref;
 }
@@ -3727,6 +3743,171 @@ static HRESULT STDMETHODCALLTYPE TrampolineFinishCommandList(ID3D11DeviceContext
 	                                     RestoreDeferredContextState, ppCommandList);
 }
 
+// ID3D11DeviceContext1 extended methods are not detoured by install_hooks(),
+// so trampoline calls can forward directly through orig_this->lpVtbl.
+static void STDMETHODCALLTYPE TrampolineCopySubresourceRegion1(ID3D11DeviceContext1 *This, ID3D11Resource *pDstResource,
+                                                               UINT DstSubresource, UINT DstX, UINT DstY, UINT DstZ,
+                                                               ID3D11Resource *pSrcResource, UINT SrcSubresource,
+                                                               const D3D11_BOX *pSrcBox, UINT CopyFlags)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::CopySubresourceRegion1()\n");
+	orig_this->lpVtbl->CopySubresourceRegion1(orig_this, pDstResource, DstSubresource, DstX, DstY, DstZ, pSrcResource,
+	                                          SrcSubresource, pSrcBox, CopyFlags);
+}
+static void STDMETHODCALLTYPE TrampolineUpdateSubresource1(ID3D11DeviceContext1 *This, ID3D11Resource *pDstResource,
+                                                           UINT DstSubresource, const D3D11_BOX *pDstBox,
+                                                           const void *pSrcData, UINT SrcRowPitch, UINT SrcDepthPitch,
+                                                           UINT CopyFlags)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::UpdateSubresource1()\n");
+	orig_this->lpVtbl->UpdateSubresource1(orig_this, pDstResource, DstSubresource, pDstBox, pSrcData, SrcRowPitch,
+	                                      SrcDepthPitch, CopyFlags);
+}
+static void STDMETHODCALLTYPE TrampolineDiscardResource(ID3D11DeviceContext1 *This, ID3D11Resource *pResource)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::DiscardResource()\n");
+	orig_this->lpVtbl->DiscardResource(orig_this, pResource);
+}
+static void STDMETHODCALLTYPE TrampolineDiscardView(ID3D11DeviceContext1 *This, ID3D11View *pResourceView)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::DiscardView()\n");
+	orig_this->lpVtbl->DiscardView(orig_this, pResourceView);
+}
+static void STDMETHODCALLTYPE TrampolineVSSetConstantBuffers1(ID3D11DeviceContext1 *This, UINT StartSlot,
+                                                              UINT NumBuffers, ID3D11Buffer *const *ppConstantBuffers,
+                                                              const UINT *pFirstConstant, const UINT *pNumConstants)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::VSSetConstantBuffers1()\n");
+	orig_this->lpVtbl->VSSetConstantBuffers1(orig_this, StartSlot, NumBuffers, ppConstantBuffers, pFirstConstant,
+	                                         pNumConstants);
+}
+static void STDMETHODCALLTYPE TrampolineHSSetConstantBuffers1(ID3D11DeviceContext1 *This, UINT StartSlot,
+                                                              UINT NumBuffers, ID3D11Buffer *const *ppConstantBuffers,
+                                                              const UINT *pFirstConstant, const UINT *pNumConstants)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::HSSetConstantBuffers1()\n");
+	orig_this->lpVtbl->HSSetConstantBuffers1(orig_this, StartSlot, NumBuffers, ppConstantBuffers, pFirstConstant,
+	                                         pNumConstants);
+}
+static void STDMETHODCALLTYPE TrampolineDSSetConstantBuffers1(ID3D11DeviceContext1 *This, UINT StartSlot,
+                                                              UINT NumBuffers, ID3D11Buffer *const *ppConstantBuffers,
+                                                              const UINT *pFirstConstant, const UINT *pNumConstants)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::DSSetConstantBuffers1()\n");
+	orig_this->lpVtbl->DSSetConstantBuffers1(orig_this, StartSlot, NumBuffers, ppConstantBuffers, pFirstConstant,
+	                                         pNumConstants);
+}
+static void STDMETHODCALLTYPE TrampolineGSSetConstantBuffers1(ID3D11DeviceContext1 *This, UINT StartSlot,
+                                                              UINT NumBuffers, ID3D11Buffer *const *ppConstantBuffers,
+                                                              const UINT *pFirstConstant, const UINT *pNumConstants)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::GSSetConstantBuffers1()\n");
+	orig_this->lpVtbl->GSSetConstantBuffers1(orig_this, StartSlot, NumBuffers, ppConstantBuffers, pFirstConstant,
+	                                         pNumConstants);
+}
+static void STDMETHODCALLTYPE TrampolinePSSetConstantBuffers1(ID3D11DeviceContext1 *This, UINT StartSlot,
+                                                              UINT NumBuffers, ID3D11Buffer *const *ppConstantBuffers,
+                                                              const UINT *pFirstConstant, const UINT *pNumConstants)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::PSSetConstantBuffers1()\n");
+	orig_this->lpVtbl->PSSetConstantBuffers1(orig_this, StartSlot, NumBuffers, ppConstantBuffers, pFirstConstant,
+	                                         pNumConstants);
+}
+static void STDMETHODCALLTYPE TrampolineCSSetConstantBuffers1(ID3D11DeviceContext1 *This, UINT StartSlot,
+                                                              UINT NumBuffers, ID3D11Buffer *const *ppConstantBuffers,
+                                                              const UINT *pFirstConstant, const UINT *pNumConstants)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::CSSetConstantBuffers1()\n");
+	orig_this->lpVtbl->CSSetConstantBuffers1(orig_this, StartSlot, NumBuffers, ppConstantBuffers, pFirstConstant,
+	                                         pNumConstants);
+}
+static void STDMETHODCALLTYPE TrampolineVSGetConstantBuffers1(ID3D11DeviceContext1 *This, UINT StartSlot,
+                                                              UINT NumBuffers, ID3D11Buffer **ppConstantBuffers,
+                                                              UINT *pFirstConstant, UINT *pNumConstants)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::VSGetConstantBuffers1()\n");
+	orig_this->lpVtbl->VSGetConstantBuffers1(orig_this, StartSlot, NumBuffers, ppConstantBuffers, pFirstConstant,
+	                                         pNumConstants);
+}
+static void STDMETHODCALLTYPE TrampolineHSGetConstantBuffers1(ID3D11DeviceContext1 *This, UINT StartSlot,
+                                                              UINT NumBuffers, ID3D11Buffer **ppConstantBuffers,
+                                                              UINT *pFirstConstant, UINT *pNumConstants)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::HSGetConstantBuffers1()\n");
+	orig_this->lpVtbl->HSGetConstantBuffers1(orig_this, StartSlot, NumBuffers, ppConstantBuffers, pFirstConstant,
+	                                         pNumConstants);
+}
+static void STDMETHODCALLTYPE TrampolineDSGetConstantBuffers1(ID3D11DeviceContext1 *This, UINT StartSlot,
+                                                              UINT NumBuffers, ID3D11Buffer **ppConstantBuffers,
+                                                              UINT *pFirstConstant, UINT *pNumConstants)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::DSGetConstantBuffers1()\n");
+	orig_this->lpVtbl->DSGetConstantBuffers1(orig_this, StartSlot, NumBuffers, ppConstantBuffers, pFirstConstant,
+	                                         pNumConstants);
+}
+static void STDMETHODCALLTYPE TrampolineGSGetConstantBuffers1(ID3D11DeviceContext1 *This, UINT StartSlot,
+                                                              UINT NumBuffers, ID3D11Buffer **ppConstantBuffers,
+                                                              UINT *pFirstConstant, UINT *pNumConstants)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::GSGetConstantBuffers1()\n");
+	orig_this->lpVtbl->GSGetConstantBuffers1(orig_this, StartSlot, NumBuffers, ppConstantBuffers, pFirstConstant,
+	                                         pNumConstants);
+}
+static void STDMETHODCALLTYPE TrampolinePSGetConstantBuffers1(ID3D11DeviceContext1 *This, UINT StartSlot,
+                                                              UINT NumBuffers, ID3D11Buffer **ppConstantBuffers,
+                                                              UINT *pFirstConstant, UINT *pNumConstants)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::PSGetConstantBuffers1()\n");
+	orig_this->lpVtbl->PSGetConstantBuffers1(orig_this, StartSlot, NumBuffers, ppConstantBuffers, pFirstConstant,
+	                                         pNumConstants);
+}
+static void STDMETHODCALLTYPE TrampolineCSGetConstantBuffers1(ID3D11DeviceContext1 *This, UINT StartSlot,
+                                                              UINT NumBuffers, ID3D11Buffer **ppConstantBuffers,
+                                                              UINT *pFirstConstant, UINT *pNumConstants)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::CSGetConstantBuffers1()\n");
+	orig_this->lpVtbl->CSGetConstantBuffers1(orig_this, StartSlot, NumBuffers, ppConstantBuffers, pFirstConstant,
+	                                         pNumConstants);
+}
+static void STDMETHODCALLTYPE TrampolineSwapDeviceContextState(ID3D11DeviceContext1 *This,
+                                                               ID3DDeviceContextState *pState,
+                                                               ID3DDeviceContextState **ppPreviousState)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::SwapDeviceContextState()\n");
+	orig_this->lpVtbl->SwapDeviceContextState(orig_this, pState, ppPreviousState);
+}
+static void STDMETHODCALLTYPE TrampolineClearView(ID3D11DeviceContext1 *This, ID3D11View *pView, const FLOAT Color[4],
+                                                  const D3D11_RECT *pRect, UINT NumRects)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::ClearView()\n");
+	orig_this->lpVtbl->ClearView(orig_this, pView, Color, pRect, NumRects);
+}
+static void STDMETHODCALLTYPE TrampolineDiscardView1(ID3D11DeviceContext1 *This, ID3D11View *pResourceView,
+                                                     const D3D11_RECT *pRects, UINT NumRects)
+{
+	ID3D11DeviceContext1 *orig_this = ((ID3D11DeviceContext1Trampoline *)This)->orig_this;
+	HookDebug("TrampolineContext::DiscardView1()\n");
+	orig_this->lpVtbl->DiscardView1(orig_this, pResourceView, pRects, NumRects);
+}
+
 static CONST_VTBL struct ID3D11DeviceContext1Vtbl trampoline_vtable = {
     TrampolineQueryInterface,
     TrampolineAddRef,
@@ -3843,6 +4024,25 @@ static CONST_VTBL struct ID3D11DeviceContext1Vtbl trampoline_vtable = {
     TrampolineGetType,
     TrampolineGetContextFlags,
     TrampolineFinishCommandList,
+    TrampolineCopySubresourceRegion1,
+    TrampolineUpdateSubresource1,
+    TrampolineDiscardResource,
+    TrampolineDiscardView,
+    TrampolineVSSetConstantBuffers1,
+    TrampolineHSSetConstantBuffers1,
+    TrampolineDSSetConstantBuffers1,
+    TrampolineGSSetConstantBuffers1,
+    TrampolinePSSetConstantBuffers1,
+    TrampolineCSSetConstantBuffers1,
+    TrampolineVSGetConstantBuffers1,
+    TrampolineHSGetConstantBuffers1,
+    TrampolineDSGetConstantBuffers1,
+    TrampolineGSGetConstantBuffers1,
+    TrampolinePSGetConstantBuffers1,
+    TrampolineCSGetConstantBuffers1,
+    TrampolineSwapDeviceContextState,
+    TrampolineClearView,
+    TrampolineDiscardView1,
 };
 
 ID3D11DeviceContext1 *hook_context(ID3D11DeviceContext1 *orig_context, ID3D11DeviceContext1 *hacker_context)
@@ -3850,6 +4050,7 @@ ID3D11DeviceContext1 *hook_context(ID3D11DeviceContext1 *orig_context, ID3D11Dev
 	auto *trampoline_context = new ID3D11DeviceContext1Trampoline();
 	trampoline_context->lpVtbl = &trampoline_vtable;
 	trampoline_context->orig_this = orig_context;
+	trampoline_context->hacker_this = hacker_context;
 
 	install_hooks(orig_context);
 	EnterCriticalSectionPretty(&context_map_lock);

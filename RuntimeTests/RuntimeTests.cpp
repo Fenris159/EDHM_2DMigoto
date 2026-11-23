@@ -3250,6 +3250,91 @@ void benchmark_resource_views(int samples)
 	Profiling::clear();
 }
 
+void save_om_state_preserves_fl11_1_uavs()
+{
+	struct ModuleGuard
+	{
+		HMODULE handle;
+		~ModuleGuard()
+		{
+			if (handle)
+				FreeLibrary(handle);
+		}
+	} module{LoadLibraryExW(L"d3d11.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32)};
+	require(module.handle != nullptr, "could not load system D3D11");
+	auto address = GetProcAddress(module.handle, "D3D11CreateDevice");
+	decltype(&D3D11CreateDevice) create = nullptr;
+	static_assert(sizeof(create) == sizeof(address), "unexpected function pointer size");
+	memcpy(&create, &address, sizeof(create));
+	require(create != nullptr, "system D3D11CreateDevice is unavailable");
+
+	const D3D_FEATURE_LEVEL levels[] = {D3D_FEATURE_LEVEL_11_1};
+	D3D_FEATURE_LEVEL actual_level = static_cast<D3D_FEATURE_LEVEL>(0);
+	Microsoft::WRL::ComPtr<ID3D11Device> device;
+	Microsoft::WRL::ComPtr<ID3D11DeviceContext> context;
+	HRESULT result = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, D3D11_CREATE_DEVICE_DEBUG, levels, 1,
+	                        D3D11_SDK_VERSION, &device, &actual_level, &context);
+	if (result == DXGI_ERROR_SDK_COMPONENT_MISSING)
+	{
+		result = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, levels, 1, D3D11_SDK_VERSION, &device, &actual_level,
+		                &context);
+	}
+	require(SUCCEEDED(result) && actual_level == D3D_FEATURE_LEVEL_11_1, "could not create FL 11.1 WARP device");
+
+	D3D11_TEXTURE2D_DESC tex_desc = {};
+	tex_desc.Width = 4;
+	tex_desc.Height = 4;
+	tex_desc.MipLevels = 1;
+	tex_desc.ArraySize = 1;
+	tex_desc.Format = DXGI_FORMAT_R32_UINT;
+	tex_desc.SampleDesc.Count = 1;
+	tex_desc.Usage = D3D11_USAGE_DEFAULT;
+	tex_desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+	require(SUCCEEDED(device->CreateTexture2D(&tex_desc, nullptr, &texture)), "could not create UAV texture");
+
+	Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> uav;
+	require(SUCCEEDED(device->CreateUnorderedAccessView(texture.Get(), nullptr, &uav)), "could not create UAV");
+
+	const UINT keep_count = static_cast<UINT>(-1);
+	ID3D11UnorderedAccessView *const bound_uav = uav.Get();
+	context->OMSetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, 10, 1, &bound_uav, &keep_count);
+
+	OMState saved = {};
+	save_om_state(context.Get(), &saved);
+	require(saved.UAVStartSlot == 0 && saved.NumUAVs == D3D11_1_UAV_SLOT_COUNT,
+	        "save_om_state did not capture 64 FL 11.1 UAV slots");
+	require(saved.uavs[10] == uav.Get(), "save_om_state missed UAV bound at slot 10");
+
+	context->ClearState();
+	Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> cleared;
+	context->OMGetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, 10, 1, &cleared);
+	require(cleared == nullptr, "ClearState did not unbind UAV slot 10");
+
+	restore_om_state(context.Get(), &saved);
+	Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> restored;
+	context->OMGetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, 10, 1, &restored);
+	require(restored.Get() == uav.Get(), "restore_om_state did not restore UAV at slot 10");
+
+	Microsoft::WRL::ComPtr<ID3D11InfoQueue> messages;
+	if (SUCCEEDED(device.As(&messages)) && messages)
+	{
+		for (UINT64 index = 0; index < messages->GetNumStoredMessagesAllowedByRetrievalFilter(); ++index)
+		{
+			SIZE_T size = 0;
+			require(SUCCEEDED(messages->GetMessage(index, nullptr, &size)), "could not query D3D diagnostics");
+			std::vector<unsigned char> storage(size);
+			auto *message = reinterpret_cast<D3D11_MESSAGE *>(storage.data());
+			require(SUCCEEDED(messages->GetMessage(index, message, &size)), "could not read D3D diagnostic");
+			if (message->Severity == D3D11_MESSAGE_SEVERITY_ERROR ||
+			    message->Severity == D3D11_MESSAGE_SEVERITY_CORRUPTION)
+				throw std::runtime_error(message->pDescription);
+		}
+	}
+
+	context->ClearState();
+}
+
 }
 
 int main(int argc, char **argv)
@@ -3366,7 +3451,8 @@ int main(int argc, char **argv)
 	             {"view-this-cache", this_references_reuse_views_until_the_kind_changes},
 	             {"profiling-zero-frame", zero_frame_updates_preserve_reload_measurements},
 	             {"resource-final-release", final_resource_release_removes_live_metadata},
-	             {"resource-retirement", resource_release_survives_registry_destruction}};
+	             {"resource-retirement", resource_release_survives_registry_destruction},
+	             {"save-om-state-uavs", save_om_state_preserves_fl11_1_uavs}};
 	int failures = 0;
 	int selected = 0;
 	for (const auto &test : tests)

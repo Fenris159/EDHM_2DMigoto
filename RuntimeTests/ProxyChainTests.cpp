@@ -1,5 +1,5 @@
 #include <windows.h>
-#include <d3d11.h>
+#include <d3d11_1.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <wrl/client.h>
@@ -152,9 +152,322 @@ HRESULT check_d3d12_swap_chain(HWND window, const char *mode, bool invalid_devic
 	return S_OK;
 }
 
+void check_lazy_context1(PFN_D3D11_CREATE_DEVICE create, const char *mode)
+{
+	const D3D_FEATURE_LEVEL request_11_1[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
+	ComPtr<ID3D11Device> lazy_device;
+	D3D_FEATURE_LEVEL lazy_level = static_cast<D3D_FEATURE_LEVEL>(0);
+	HRESULT hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_11_1, 2, D3D11_SDK_VERSION, &lazy_device,
+	                    &lazy_level, nullptr);
+	require(SUCCEEDED(hr) && lazy_device != nullptr && lazy_level == D3D_FEATURE_LEVEL_11_1,
+	        "D3D11CreateDevice without immediate context failed");
+	ComPtr<ID3D11Device1> lazy_device1;
+	require(SUCCEEDED(lazy_device.As(&lazy_device1)) && lazy_device1 != nullptr, "lazy ID3D11Device1 query failed");
+	ComPtr<ID3D11DeviceContext1> lazy_context1;
+	lazy_device1->GetImmediateContext1(&lazy_context1);
+	require(lazy_context1 != nullptr, "ID3D11Device1::GetImmediateContext1 returned null");
+	ComPtr<ID3D11ShaderResourceView> ini_params_srv;
+	lazy_context1->PSGetShaderResources(120, 1, &ini_params_srv);
+	require(ini_params_srv != nullptr, "lazy GetImmediateContext1 did not bind IniParams SRV");
+
+	ComPtr<ID3D11Resource> ini_resource;
+	ini_params_srv->GetResource(&ini_resource);
+	require(ini_resource != nullptr, "IniParams SRV had no backing resource");
+	ComPtr<ID3D11Texture1D> ini_texture;
+	require(SUCCEEDED(ini_resource.As(&ini_texture)) && ini_texture != nullptr, "IniParams resource was not Texture1D");
+	D3D11_TEXTURE1D_DESC src_desc = {};
+	ini_texture->GetDesc(&src_desc);
+	require(src_desc.Width >= 1 && src_desc.Format == DXGI_FORMAT_R32G32B32A32_FLOAT,
+	        "unexpected IniParams texture descriptor");
+	D3D11_TEXTURE1D_DESC staging_desc = src_desc;
+	staging_desc.Usage = D3D11_USAGE_STAGING;
+	staging_desc.BindFlags = 0;
+	staging_desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	staging_desc.MiscFlags = 0;
+	ComPtr<ID3D11Texture1D> staging;
+	require(SUCCEEDED(lazy_device->CreateTexture1D(&staging_desc, nullptr, &staging)) && staging != nullptr,
+	        "could not create IniParams staging texture");
+	lazy_context1->CopyResource(staging.Get(), ini_texture.Get());
+	D3D11_MAPPED_SUBRESOURCE mapped = {};
+	require(SUCCEEDED(lazy_context1->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped)) && mapped.pData != nullptr,
+	        "could not map IniParams staging texture");
+	float x_value = 0.0f;
+	std::memcpy(&x_value, mapped.pData, sizeof(x_value));
+	lazy_context1->Unmap(staging.Get(), 0);
+	require(x_value == 1.0f, "lazy GetImmediateContext1 did not initialize [Constants] x=1");
+
+	D3D11_BUFFER_DESC cb_desc = {};
+	cb_desc.ByteWidth = 64;
+	cb_desc.Usage = D3D11_USAGE_DEFAULT;
+	cb_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	ComPtr<ID3D11Buffer> cb;
+	require(SUCCEEDED(lazy_device->CreateBuffer(&cb_desc, nullptr, &cb)) && cb != nullptr,
+	        "lazy device buffer creation failed");
+	lazy_context1->DiscardResource(cb.Get());
+	lazy_context1->ClearState();
+	ComPtr<ID3D11ShaderResourceView> rebound_srv;
+	lazy_context1->PSGetShaderResources(120, 1, &rebound_srv);
+	require(rebound_srv.Get() == ini_params_srv.Get(),
+	        "lazy GetImmediateContext1 ClearState did not rebind IniParams SRV");
+	std::printf("PASS %s lazy context1\n", mode);
+}
+
+void check_feature_levels(HMODULE proxy, PFN_D3D11_CREATE_DEVICE create, PFN_D3D11_CREATE_DEVICE_AND_SWAP_CHAIN swap,
+                          HWND window, const char *mode, UINT wanted, UINT buffers, bool chained,
+                          D3D_FEATURE_LEVEL native_swap_level)
+{
+	if (std::strcmp(mode, "feature-level-lazy") == 0)
+	{
+		check_lazy_context1(create, mode);
+		return;
+	}
+	if (std::strcmp(mode, "feature-level-hooked") == 0)
+		check_lazy_context1(create, mode);
+
+	const D3D_FEATURE_LEVEL request_11_1[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
+	ComPtr<ID3D11Device> device;
+	ComPtr<ID3D11DeviceContext> context;
+	D3D_FEATURE_LEVEL negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+	HRESULT hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_11_1, 2, D3D11_SDK_VERSION, &device,
+	                    &negotiated, &context);
+	require(SUCCEEDED(hr), "D3D11CreateDevice rejected 11.1 feature level request");
+	if (negotiated != D3D_FEATURE_LEVEL_11_1 || device->GetFeatureLevel() != D3D_FEATURE_LEVEL_11_1)
+	{
+		std::fprintf(stderr, "Feature level: wanted 0x%x, out 0x%x, device 0x%x\n",
+		             static_cast<unsigned>(D3D_FEATURE_LEVEL_11_1), static_cast<unsigned>(negotiated),
+		             static_cast<unsigned>(device->GetFeatureLevel()));
+	}
+	require(negotiated == D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_1,
+	        "D3D11CreateDevice did not preserve feature level 11.1");
+	check_device(device.Get(), wanted, false);
+	require(context != nullptr, "creation returned no context");
+	ComPtr<ID3D11Device1> device1;
+	require(SUCCEEDED(device.As(&device1)) && device1 != nullptr, "ID3D11Device1 unavailable with default settings");
+	ComPtr<ID3D11DeviceContext1> context1;
+	require(SUCCEEDED(context.As(&context1)) && context1 != nullptr,
+	        "ID3D11DeviceContext1 unavailable with default settings");
+	{
+		D3D11_BLEND_DESC1 blend_desc = {};
+		blend_desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+		ComPtr<ID3D11BlendState1> blend_state1;
+		require(SUCCEEDED(device1->CreateBlendState1(&blend_desc, &blend_state1)) && blend_state1 != nullptr,
+		        "ID3D11Device1::CreateBlendState1 failed");
+
+		D3D11_RASTERIZER_DESC1 raster_desc = {};
+		raster_desc.FillMode = D3D11_FILL_SOLID;
+		raster_desc.CullMode = D3D11_CULL_BACK;
+		raster_desc.DepthClipEnable = TRUE;
+		ComPtr<ID3D11RasterizerState1> raster_state1;
+		require(SUCCEEDED(device1->CreateRasterizerState1(&raster_desc, &raster_state1)) && raster_state1 != nullptr,
+		        "ID3D11Device1::CreateRasterizerState1 failed");
+
+		D3D11_BUFFER_DESC cb_desc = {};
+		cb_desc.ByteWidth = 256;
+		cb_desc.Usage = D3D11_USAGE_DEFAULT;
+		cb_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		ComPtr<ID3D11Buffer> cb;
+		require(SUCCEEDED(device->CreateBuffer(&cb_desc, nullptr, &cb)) && cb != nullptr,
+		        "constant buffer creation failed");
+		context1->DiscardResource(cb.Get());
+		const UINT first_const = 0;
+		const UINT num_consts = 16;
+		ID3D11Buffer *const cb_ptr = cb.Get();
+		context1->VSSetConstantBuffers1(0, 1, &cb_ptr, &first_const, &num_consts);
+		ComPtr<ID3D11Buffer> bound_cb;
+		UINT got_first = 99;
+		UINT got_num = 99;
+		context1->VSGetConstantBuffers1(0, 1, &bound_cb, &got_first, &got_num);
+		require(bound_cb != nullptr && got_first == 0 && got_num == 16,
+		        "ID3D11DeviceContext1 constant buffer round-trip failed");
+
+		ComPtr<ID3D11DeviceContext1> deferred1;
+		require(SUCCEEDED(device1->CreateDeferredContext1(0, &deferred1)) && deferred1 != nullptr,
+		        "ID3D11Device1::CreateDeferredContext1 failed");
+		deferred1->DiscardResource(cb.Get());
+		deferred1->ClearState();
+	}
+	context->ClearState();
+	std::printf("PASS %s creation 1 (device)\n", mode);
+
+	device.Reset();
+	context.Reset();
+	device1.Reset();
+	context1.Reset();
+	ComPtr<IDXGISwapChain> swap_chain;
+	DXGI_SWAP_CHAIN_DESC description = {};
+	description.BufferDesc.Width = 16;
+	description.BufferDesc.Height = 16;
+	description.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	description.SampleDesc.Count = 1;
+	description.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	description.BufferCount = 1;
+	description.OutputWindow = window;
+	description.Windowed = TRUE;
+	description.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+	const D3D_FEATURE_LEVEL request_12_0[] = {D3D_FEATURE_LEVEL_12_0, D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
+	negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+	hr = swap(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_12_0, 3, D3D11_SDK_VERSION, &description, &swap_chain,
+	          &device, &negotiated, &context);
+	require(SUCCEEDED(hr), "D3D11CreateDeviceAndSwapChain rejected 12.0/11.1 feature level request");
+	require(swap_chain != nullptr, "creation returned no swap chain");
+	if (negotiated != native_swap_level || device->GetFeatureLevel() != native_swap_level)
+	{
+		std::fprintf(stderr, "SwapChain feature level: native 0x%x, out 0x%x, device 0x%x\n",
+		             static_cast<unsigned>(native_swap_level), static_cast<unsigned>(negotiated),
+		             static_cast<unsigned>(device->GetFeatureLevel()));
+	}
+	require(negotiated == native_swap_level && device->GetFeatureLevel() == native_swap_level,
+	        "D3D11CreateDeviceAndSwapChain did not match native WARP feature level");
+	check_device(device.Get(), wanted, false);
+	DXGI_SWAP_CHAIN_DESC actual = {};
+	require(SUCCEEDED(swap_chain->GetDesc(&actual)), "swap-chain description unavailable");
+	require(actual.BufferCount == buffers, "proxy swap-chain policy was bypassed");
+	ComPtr<IDXGISwapChain4> swap_chain4;
+	require(SUCCEEDED(swap_chain.As(&swap_chain4)) && swap_chain4 != nullptr,
+	        "IDXGISwapChain4 unavailable on wrapped D3D11 swap chain");
+	require(context != nullptr, "creation returned no context");
+	context->ClearState();
+	std::printf("PASS %s creation 2 (device+swap)\n", mode);
+
+	auto create_factory2 =
+	    exported<HRESULT(WINAPI *)(UINT, REFIID, void **)>(load_system(L"dxgi.dll"), "CreateDXGIFactory2");
+	ComPtr<IDXGIFactory2> factory2;
+	require(SUCCEEDED(create_factory2(0, IID_PPV_ARGS(&factory2))) && factory2 != nullptr,
+	        "IDXGIFactory2 unavailable with default settings");
+	ComPtr<IDXGIFactory4> factory4;
+	require(SUCCEEDED(create_factory2(0, IID_PPV_ARGS(&factory4))) && factory4 != nullptr,
+	        "IDXGIFactory4 unavailable via hooked CreateDXGIFactory2");
+	ComPtr<IDXGIAdapter> warp_adapter;
+	require(SUCCEEDED(factory4->EnumWarpAdapter(IID_PPV_ARGS(&warp_adapter))) && warp_adapter != nullptr,
+	        "IDXGIFactory4 interface was corrupted by CreateDXGIFactory2 hook");
+	if (chained)
+	{
+		wchar_t sys_d3d11[MAX_PATH] = {};
+		require(GetSystemDirectoryW(sys_d3d11, MAX_PATH) != 0, "system directory unavailable");
+		require(wcscat_s(sys_d3d11, L"\\d3d11.dll") == 0, "system d3d11 path overflow");
+		HMODULE sys_module = LoadLibraryExW(sys_d3d11, nullptr, 0);
+		require(sys_module != nullptr && sys_module != proxy,
+		        "chained module redirected System32\\d3d11.dll back to outer proxy");
+		FreeLibrary(sys_module);
+	}
+	std::printf("PASS %s modern interfaces\n", mode);
+
+	device.Reset();
+	context.Reset();
+	swap_chain.Reset();
+	swap_chain4.Reset();
+	negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+	if (std::strcmp(mode, "feature-level-force") == 0)
+	{
+		const D3D_FEATURE_LEVEL request_10_0[] = {D3D_FEATURE_LEVEL_10_0};
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_10_0, 1, D3D11_SDK_VERSION, &device, &negotiated,
+		            &context);
+		require(SUCCEEDED(hr) && device != nullptr, "allow_create_device=2 failed to upgrade down-level request");
+		require(negotiated == D3D_FEATURE_LEVEL_11_0 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_0,
+		        "allow_create_device=2 did not upgrade down-level request to 11.0");
+		device.Reset();
+		context.Reset();
+
+		const D3D_FEATURE_LEVEL request_mixed_leading[] = {D3D_FEATURE_LEVEL_10_0, D3D_FEATURE_LEVEL_11_1};
+		negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_mixed_leading, 2, D3D11_SDK_VERSION, &device,
+		            &negotiated, &context);
+		require(SUCCEEDED(hr) && device != nullptr, "allow_create_device=2 rejected mixed down-level/11.1 request");
+		require(negotiated == D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_1,
+		        "allow_create_device=2 did not preserve 11.1 from mixed request");
+		device.Reset();
+		context.Reset();
+
+		const D3D_FEATURE_LEVEL request_mixed_trailing[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_9_2};
+		negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_mixed_trailing, 2, D3D11_SDK_VERSION, &device,
+		            &negotiated, &context);
+		require(SUCCEEDED(hr) && device != nullptr, "allow_create_device=2 rejected 11.1/9.2 fallback request");
+		require(negotiated == D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_1,
+		        "allow_create_device=2 did not preserve 11.1 with down-level fallback");
+		device.Reset();
+		context.Reset();
+
+		// An unrecognized higher feature-level enum triggers E_INVALIDARG from the
+		// runtime; mode 2 must step down by stripping only that enum and preserve 11.1.
+		const D3D_FEATURE_LEVEL request_future_enum[] = {static_cast<D3D_FEATURE_LEVEL>(0xf000), D3D_FEATURE_LEVEL_11_1,
+		                                                 D3D_FEATURE_LEVEL_11_0};
+		negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_future_enum, 3, D3D11_SDK_VERSION, &device,
+		            &negotiated, &context);
+		require(SUCCEEDED(hr) && device != nullptr,
+		        "allow_create_device=2 failed to step down unrecognized high feature level (device)");
+		require(negotiated == D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_1,
+		        "allow_create_device=2 did not preserve intermediate 11.1 on E_INVALIDARG step-down (device)");
+		device.Reset();
+		context.Reset();
+
+		negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+		hr = swap(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_future_enum, 3, D3D11_SDK_VERSION, &description,
+		          &swap_chain, &device, &negotiated, &context);
+		require(SUCCEEDED(hr) && device != nullptr && swap_chain != nullptr,
+		        "allow_create_device=2 failed to step down unrecognized high feature level (swap chain)");
+		require(negotiated == D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_1,
+		        "allow_create_device=2 did not preserve intermediate 11.1 on E_INVALIDARG step-down (swap chain)");
+	}
+	else
+	{
+		const D3D_FEATURE_LEVEL request_future_enum[] = {static_cast<D3D_FEATURE_LEVEL>(0xf000), D3D_FEATURE_LEVEL_11_1,
+		                                                 D3D_FEATURE_LEVEL_11_0};
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_future_enum, 3, D3D11_SDK_VERSION, &device,
+		            &negotiated, &context);
+		require(hr == E_INVALIDARG && device == nullptr,
+		        "mode 0 did not preserve runtime E_INVALIDARG for unrecognized high feature level");
+
+		const D3D_FEATURE_LEVEL request_9_2[] = {D3D_FEATURE_LEVEL_9_2};
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_9_2, 1, D3D11_SDK_VERSION, &device, &negotiated,
+		            &context);
+		require(hr == E_INVALIDARG && device == nullptr, "down-level feature level request was not rejected");
+
+		const D3D_FEATURE_LEVEL request_all_downlevel[] = {D3D_FEATURE_LEVEL_10_0, D3D_FEATURE_LEVEL_9_2};
+		negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_all_downlevel, 2, D3D11_SDK_VERSION, &device,
+		            &negotiated, &context);
+		require(hr == E_INVALIDARG && device == nullptr, "all-down-level feature level list was not rejected");
+
+		const D3D_FEATURE_LEVEL request_mixed_trailing[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_9_2};
+		negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_mixed_trailing, 2, D3D11_SDK_VERSION, &device,
+		            &negotiated, &context);
+		require(SUCCEEDED(hr) && device != nullptr, "mixed 11.1/9.2 request was rejected");
+		require(negotiated == D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_1,
+		        "mixed 11.1/9.2 request did not preserve 11.1");
+		device.Reset();
+		context.Reset();
+
+		const D3D_FEATURE_LEVEL request_mixed_leading[] = {D3D_FEATURE_LEVEL_10_0, D3D_FEATURE_LEVEL_11_1};
+		negotiated = static_cast<D3D_FEATURE_LEVEL>(0);
+		hr = create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_mixed_leading, 2, D3D11_SDK_VERSION, &device,
+		            &negotiated, &context);
+		require(SUCCEEDED(hr) && device != nullptr, "mixed 10.0/11.1 request was rejected");
+		require(negotiated == D3D_FEATURE_LEVEL_11_1 && device->GetFeatureLevel() == D3D_FEATURE_LEVEL_11_1,
+		        "mixed 10.0/11.1 request did not preserve 11.1");
+	}
+	std::printf("PASS %s downlevel policy\n", mode);
+}
+
 void run(const char *mode)
 {
 	load_system(L"dxgi.dll");
+	const bool feature_level = std::strstr(mode, "feature-level") != nullptr;
+	D3D_FEATURE_LEVEL native_swap_level = static_cast<D3D_FEATURE_LEVEL>(0);
+	if (feature_level)
+	{
+		const D3D_FEATURE_LEVEL request_12_0[] = {D3D_FEATURE_LEVEL_12_0, D3D_FEATURE_LEVEL_11_1,
+		                                          D3D_FEATURE_LEVEL_11_0};
+		HMODULE sys_d3d11 = load_system(L"d3d11.dll");
+		auto native_create = exported<PFN_D3D11_CREATE_DEVICE>(sys_d3d11, "D3D11CreateDevice");
+		const HRESULT probe_hr = native_create(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, request_12_0, 3,
+		                                       D3D11_SDK_VERSION, nullptr, &native_swap_level, nullptr);
+		FreeLibrary(sys_d3d11);
+		require(SUCCEEDED(probe_hr) && native_swap_level >= D3D_FEATURE_LEVEL_11_1,
+		        "native WARP probe for 12.0/11.1/11.0 failed");
+	}
 	const bool d3d12 = std::strncmp(mode, "d3d12-", 6) == 0;
 	const HRESULT native_null_device = d3d12 ? check_d3d12_swap_chain(nullptr, mode, true) : S_OK;
 	const HRESULT native_failure =
@@ -210,6 +523,12 @@ void run(const char *mode)
 	require(window != nullptr, "hidden test window unavailable");
 	// EDUP deliberately owns one rendering device per process. Its real-DLL
 	// check uses that one device; the boundary fixture covers repeated creation.
+	if (feature_level)
+	{
+		check_feature_levels(proxy, create, swap, window, mode, wanted, buffers, chain, native_swap_level);
+		DestroyWindow(window);
+		return;
+	}
 	const unsigned passes = edup || shutdown ? 1 : 4;
 	for (unsigned pass = 0; pass < passes; ++pass)
 	{

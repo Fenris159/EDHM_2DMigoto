@@ -32,6 +32,7 @@ class HackerSwapChain : public IDXGISwapChain1
 	HackerDevice *mHackerDevice;
 	HackerContext *mHackerContext;
 	std::atomic<DWORD> mFrameThread{0};
+	std::atomic<unsigned> mProxyFramesActive{0};
 	std::atomic<void *> mObservedPresent{nullptr};
 	std::atomic<void *> mObservedPresent1{nullptr};
 	bool mFrameOwnerTracked = false;
@@ -43,6 +44,8 @@ class HackerSwapChain : public IDXGISwapChain1
 	void RunFrameActions();
 	void ObserveProxyPresent();
 	bool AcquireProxyFrameOwner();
+	void EnterProxyFrame();
+	void LeaveProxyFrame();
 	void BeginProxyFrame(bool &profiling);
 	void EndProxyFrame(bool profiling);
 	Overlay *mOverlay;

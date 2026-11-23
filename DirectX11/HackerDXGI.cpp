@@ -88,7 +88,6 @@ void *proxy_target;
 void *proxy_target1;
 SRWLOCK proxy_hook_lock = SRWLOCK_INIT;
 std::atomic<HackerSwapChain *> proxy_frame_owner{nullptr};
-std::atomic<unsigned> proxy_frames_active{0};
 constexpr GUID frame_owner_guid = {0x947bd476, 0x69e4, 0x4962, {0xbd, 0x4f, 0x46, 0x12, 0xb2, 0xd3, 0x1b, 0xe9}};
 
 // Native SwapChain2/3 references can outlive the wrapper's last Release. This
@@ -153,24 +152,24 @@ thread_local HackerSwapChain *proxy_frame_chain;
 class ProxyFrame
 {
 	HackerSwapChain *chain = nullptr;
+	HackerSwapChain *previous_chain = nullptr;
 	bool profiling = false;
 	bool active = false;
 
   public:
 	ProxyFrame(IUnknown *object, UINT flags)
 	{
-		if (proxy_frame_chain)
-			return;
 		HackerSwapChain *candidate = nullptr;
 		if (FAILED(object->QueryInterface(IID_EdhmProxyFrame, reinterpret_cast<void **>(&candidate))) || !candidate)
 			return;
 		chain = candidate;
+		previous_chain = proxy_frame_chain;
 		proxy_frame_chain = chain;
 		// Even a rejected/test/secondary outer call must suppress any saved
 		// Present it forwards to another thread. Eligibility to run commands is
 		// separate from the lifetime of that forwarding scope.
-		proxy_frames_active.fetch_add(1, std::memory_order_release);
-		active = !(flags & DXGI_PRESENT_TEST) && chain->AcquireProxyFrameOwner();
+		chain->EnterProxyFrame();
+		active = !previous_chain && !(flags & DXGI_PRESENT_TEST) && chain->AcquireProxyFrameOwner();
 	}
 	void begin()
 	{
@@ -188,8 +187,8 @@ class ProxyFrame
 	{
 		if (!chain)
 			return;
-		proxy_frame_chain = nullptr;
-		proxy_frames_active.fetch_sub(1, std::memory_order_release);
+		proxy_frame_chain = previous_chain;
+		chain->LeaveProxyFrame();
 		chain->Release();
 	}
 	ProxyFrame(const ProxyFrame &) = delete;
@@ -269,6 +268,16 @@ void HackerSwapChain::ObserveProxyPresent()
 	ReleaseSRWLockExclusive(&proxy_hook_lock);
 	mObservedPresent.store(target, std::memory_order_release);
 	mObservedPresent1.store(target1, std::memory_order_release);
+}
+
+void HackerSwapChain::EnterProxyFrame()
+{
+	mProxyFramesActive.fetch_add(1);
+}
+
+void HackerSwapChain::LeaveProxyFrame()
+{
+	mProxyFramesActive.fetch_sub(1);
 }
 
 bool HackerSwapChain::AcquireProxyFrameOwner()
@@ -695,10 +704,16 @@ STDMETHODIMP HackerSwapChain::QueryInterface(THIS_
 	}
 	if (riid == __uuidof(IDXGISwapChain4))
 	{
-		LogInfo("***  returns E_NOINTERFACE as error for IDXGISwapChain4.\n");
-		reinterpret_cast<IUnknown *>(*ppvObject)->Release();
-		*ppvObject = nullptr;
-		return E_NOINTERFACE;
+		// Return interface without wrapper to support HDR10 metadata (SetHDRMetaData)
+		// and modern DXGI 1.5 consumers, matching IDXGISwapChain2 and IDXGISwapChain3.
+		// Known limitation: like IDXGISwapChain2/3, Present/Present1 calls made
+		// directly through this unwrapped pointer bypass HackerSwapChain::Present
+		// (RunFrameActions, overlay, and pre/post-present command lists); games that
+		// present via IDXGISwapChain/IDXGISwapChain1 and only QI IDXGISwapChain4 for
+		// metadata or color-space setup are unaffected.
+		LogInfo("  return IDXGISwapChain4 interface (%p) without wrapper.\n", ppvObject);
+		LogInfo("  returns result = %x for %p\n", hr, ppvObject);
+		return hr;
 	}
 
 	IUnknown *unk_this = nullptr;
@@ -903,7 +918,7 @@ STDMETHODIMP HackerSwapChain::Present(THIS_
                                           /* [in] */ UINT SyncInterval,
                                       /* [in] */ UINT Flags)
 {
-	if (proxy_frame_chain || proxy_frames_active.load(std::memory_order_acquire))
+	if (proxy_frame_chain || mProxyFramesActive.load())
 	{
 		bool previous = get_tls()->hooking_quirk_protection;
 		get_tls()->hooking_quirk_protection = true;
@@ -1230,7 +1245,7 @@ STDMETHODIMP HackerSwapChain::Present1(THIS_
                                        /* [annotation][in] */
                                        _In_ const DXGI_PRESENT_PARAMETERS *pPresentParameters)
 {
-	if (proxy_frame_chain || proxy_frames_active.load(std::memory_order_acquire))
+	if (proxy_frame_chain || mProxyFramesActive.load())
 	{
 		bool previous = get_tls()->hooking_quirk_protection;
 		get_tls()->hooking_quirk_protection = true;

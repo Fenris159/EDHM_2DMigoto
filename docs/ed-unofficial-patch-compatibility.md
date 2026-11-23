@@ -1,7 +1,8 @@
 # ED Unofficial Patch with EDHM_2DMigoto
 
-**Current setup:** the 0.1.8 runtime includes the repaired EDUP chain, native
-D3D12 helper pass-through and [frame actions through an outer Present
+**Current setup:** the 0.1.9 runtime includes the repaired EDUP chain, preserved
+D3D11.1+ feature levels and modern DXGI/D3D11 interfaces, native
+D3D12 helper pass-through, and [frame actions through an outer Present
 replacement](edup-proxy-frame-actions.md), plus the optional
 `show_reload_message` control. Use the
 [recommended wiki configuration](https://github.com/Fenris159/EDHM_2DMigoto/wiki/EDUP-Compatibility-and-Configuration#recommended-configuration)

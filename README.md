@@ -33,7 +33,7 @@ authorship, licensing, and attribution.
 
 ## EDUP support
 
-**EDHM_2DMigoto 0.1.8 supports EDHM alongside
+**EDHM_2DMigoto 0.1.9 supports EDHM alongside
 [Elite Dangerous Unofficial Patch (EDUP)](https://github.com/characterecho-sean/ed-unofficial-patch).**
 Keep EDUP as `d3d11.dll` and use our normal release DLL as `d3d11_edhm.dll`.
 EDUP supplies AA/upscaling; our DLL runs EDHM's HUD configuration and overrides.
@@ -45,6 +45,10 @@ These assets are published with each release.
 Follow the **[recommended EDUP configuration](https://github.com/Fenris159/EDHM_2DMigoto/wiki/EDUP-Compatibility-and-Configuration#recommended-configuration)**
 for load order, both INI files, optional quiet reloads, and validation limits.
 The pairing was checked with EDUP **0.22.1 and 0.22.2**; see the guide for the evidence.
+Version 0.1.9 preserves D3D11.1+ feature levels and modern DXGI/D3D11 interfaces
+(`ID3D11Device1`, `ID3D11DeviceContext1`, `IDXGIFactory2/4+`, `IDXGISwapChain4`),
+disables `LoadLibraryExW` redirection for renamed chained DLLs, and isolates
+forwarded-Present suppression per swap-chain wrapper.
 Version 0.1.8 [keeps EDHM hotkeys, presets and reload active with XeSS Frame Generation](docs/edup-proxy-frame-actions.md).
 Version 0.1.7 [preserves native D3D12 helper swap chains](docs/d3d12-helper-swap-chains.md)
 for EDUP’s XeSS Frame Generation initialization.
