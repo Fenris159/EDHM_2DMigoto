@@ -28,9 +28,9 @@ def main():
          "!data.call_info.skip && ShouldSkipTypedUavLoad(false)",
          "!data.call_info.skip && ShouldSkipTypedUavLoad(true)"),
         ("typed-uav-effective", device,
-         'if (!shader || (wcscmp(stage, L"ps") && wcscmp(stage, L"cs")))',
+         'if (!shader || (wcscmp(stage, L"ps") != 0 && wcscmp(stage, L"cs") != 0))',
          'if (!mGuardArmed.load(std::memory_order_relaxed) || !shader || '
-         '(wcscmp(stage, L"ps") && wcscmp(stage, L"cs")))'),
+         '(wcscmp(stage, L"ps") != 0 && wcscmp(stage, L"cs") != 0))'),
         ("typed-uav-lifetime", device,
          "G->mTypedUavLoadShaders.erase(handle);", "(void)handle;"),
         ("typed-uav-commands--submission", commands,

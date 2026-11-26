@@ -348,7 +348,7 @@ bool HackerDevice::SupportsTypedUavLoadFormat(const D3D11_UNORDERED_ACCESS_VIEW_
 void HackerDevice::RegisterTypedUavShader(ID3D11DeviceChild *shader, const void *bytecode, size_t length,
                                           const wchar_t *stage, uint64_t hash)
 {
-	if (!shader || (wcscmp(stage, L"ps") && wcscmp(stage, L"cs")))
+	if (!shader || (wcscmp(stage, L"ps") != 0 && wcscmp(stage, L"cs") != 0))
 		return;
 	const auto info = InspectTypedUavLoads(bytecode, length);
 	EnterCriticalSectionPretty(&G->mCriticalSection);
@@ -364,7 +364,7 @@ void HackerDevice::RegisterTypedUavShader(ID3D11DeviceChild *shader, const void 
 void HackerDevice::LogTypedUavShaderFailure(HRESULT hr, const void *bytecode, size_t length, const wchar_t *stage,
                                             uint64_t hash)
 {
-	if (SUCCEEDED(hr) || (wcscmp(stage, L"ps") && wcscmp(stage, L"cs")))
+	if (SUCCEEDED(hr) || (wcscmp(stage, L"ps") != 0 && wcscmp(stage, L"cs") != 0))
 		return;
 	const auto info = InspectTypedUavLoads(bytecode, length);
 	if ((info.requiresAdditionalFormats || info.typedLoadUavMask) &&

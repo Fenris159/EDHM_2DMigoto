@@ -60,7 +60,7 @@ bool operand(const unsigned char *code, size_t &at, size_t end, unsigned depth =
 		const unsigned components = token & 3;
 		if (components != 1 && components != 2)
 			return false;
-		const size_t count = (components == 1 ? 1u : 4u) * (type == 5 ? 2u : 1u);
+		const size_t count = (components == 1 ? size_t{1} : size_t{4}) * (type == 5 ? size_t{2} : size_t{1});
 		if (count > end - at)
 			return false;
 		at += count;

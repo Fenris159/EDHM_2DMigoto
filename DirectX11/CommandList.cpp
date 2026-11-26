@@ -1628,7 +1628,7 @@ void DrawCommand::run(CommandListState *state)
 	const bool compute = type == DrawCommandType::DISPATCH || type == DrawCommandType::DISPATCH_INDIRECT ||
 	                     (type == DrawCommandType::FROM_CALLER && info &&
 	                      (info->type == DrawCall::Dispatch || info->type == DrawCall::DispatchIndirect));
-	if (state->mHackerContext && state->mHackerContext->ShouldSkipTypedUavLoad(compute))
+	if (state->mHackerContext->ShouldSkipTypedUavLoad(compute))
 	{
 		++Profiling::skipped_draw_calls;
 		return;
