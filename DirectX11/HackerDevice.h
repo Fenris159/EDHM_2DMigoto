@@ -149,7 +149,7 @@ class HackerDevice : public ID3D11Device1
 	bool SupportsTypedUavLoadFormat(DXGI_FORMAT format);
 	bool SupportsTypedUavLoadFormat(const D3D11_UNORDERED_ACCESS_VIEW_DESC &desc);
 	void ObserveTypedUavView(ID3D11UnorderedAccessView *view);
-	// Called after successful creation/cleanup with the bytecode actually submitted to D3D.
+	// Atomically cleans reused handles and registers the actual submitted bytecode.
 	void RegisterTypedUavShader(ID3D11DeviceChild *shader, const void *bytecode, size_t length, const wchar_t *stage,
 	                            uint64_t hash);
 	void LogTypedUavShaderFailure(HRESULT hr, const void *bytecode, size_t length, const wchar_t *stage, uint64_t hash);

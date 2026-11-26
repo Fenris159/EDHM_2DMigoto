@@ -2486,7 +2486,6 @@ void CustomShader::substantiate(ID3D11Device *mOrigDevice1, HackerDevice *guardD
 	{
 		const HRESULT hr = mOrigDevice1->CreatePixelShader(ps_bytecode->GetBufferPointer(),
 		                                                   ps_bytecode->GetBufferSize(), nullptr, &ps);
-		CleanupShaderMaps(ps);
 		if (guardDevice)
 		{
 			const auto hash = fnv_64_buf(ps_bytecode->GetBufferPointer(), ps_bytecode->GetBufferSize());
@@ -2495,6 +2494,8 @@ void CustomShader::substantiate(ID3D11Device *mOrigDevice1, HackerDevice *guardD
 			guardDevice->RegisterTypedUavShader(ps, ps_bytecode->GetBufferPointer(), ps_bytecode->GetBufferSize(),
 			                                    L"ps", hash);
 		}
+		else
+			CleanupShaderMaps(ps);
 		ps_bytecode->Release();
 		ps_bytecode = nullptr;
 	}
@@ -2502,7 +2503,6 @@ void CustomShader::substantiate(ID3D11Device *mOrigDevice1, HackerDevice *guardD
 	{
 		const HRESULT hr = mOrigDevice1->CreateComputeShader(cs_bytecode->GetBufferPointer(),
 		                                                     cs_bytecode->GetBufferSize(), nullptr, &cs);
-		CleanupShaderMaps(cs);
 		if (guardDevice)
 		{
 			const auto hash = fnv_64_buf(cs_bytecode->GetBufferPointer(), cs_bytecode->GetBufferSize());
@@ -2511,6 +2511,8 @@ void CustomShader::substantiate(ID3D11Device *mOrigDevice1, HackerDevice *guardD
 			guardDevice->RegisterTypedUavShader(cs, cs_bytecode->GetBufferPointer(), cs_bytecode->GetBufferSize(),
 			                                    L"cs", hash);
 		}
+		else
+			CleanupShaderMaps(cs);
 		cs_bytecode->Release();
 		cs_bytecode = nullptr;
 	}

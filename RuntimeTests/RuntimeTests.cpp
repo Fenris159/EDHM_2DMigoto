@@ -693,6 +693,229 @@ void registers_actual_shaderfixes_and_retained_original_bytecode()
 	fixture.d3d.require_no_errors();
 }
 
+void guards_deferred_typed_uav_submissions()
+{
+	TypedUavFixture fixture;
+	const auto unsafe = fixture.compute(typed_uav_compute);
+	const auto safe = fixture.compute(typed_uav_store);
+	const auto pixel = fixture.pixel(typed_uav_pixel);
+	const auto mixed = fixture.compute(typed_uav_mixed);
+	const auto scalar_pixel = fixture.pixel(
+	    "RWTexture2D<float> image : register(u3); void main(float4 p : SV_Position) { image[uint2(0,0)] += 1; }");
+	const auto target = fixture.texture(DXGI_FORMAT_R32G32B32A32_FLOAT);
+	const auto pixel_target = fixture.texture(DXGI_FORMAT_R32G32B32A32_FLOAT);
+	const auto input = fixture.texture(DXGI_FORMAT_R32_FLOAT);
+	const auto scalar_target = fixture.texture(DXGI_FORMAT_R32_FLOAT);
+	D3D11_BUFFER_DESC args_desc{};
+	args_desc.ByteWidth = 12;
+	args_desc.MiscFlags = D3D11_RESOURCE_MISC_DRAWINDIRECT_ARGS;
+	const UINT groups[] = {1, 1, 1};
+	D3D11_SUBRESOURCE_DATA args_data{};
+	args_data.pSysMem = groups;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> args;
+	require(SUCCEEDED(fixture.d3d.device->CreateBuffer(&args_desc, &args_data, &args)),
+	        "deferred indirect args failed");
+	const auto vertex_code = compile_typed_uav_shader(
+	    "float4 main(uint i : SV_VertexID) : SV_Position { return float4(i == 2 ? 3 : -1, i == 1 ? 3 : -1, 0, 1); }",
+	    "vs_5_0");
+	Microsoft::WRL::ComPtr<ID3D11VertexShader> vertex;
+	require(SUCCEEDED(fixture.d3d.device->CreateVertexShader(vertex_code->GetBufferPointer(),
+	                                                         vertex_code->GetBufferSize(), nullptr, &vertex)),
+	        "deferred vertex shader creation failed");
+	D3D11_RASTERIZER_DESC raster{};
+	raster.FillMode = D3D11_FILL_SOLID;
+	raster.CullMode = D3D11_CULL_NONE;
+	Microsoft::WRL::ComPtr<ID3D11RasterizerState> raster_state;
+	require(SUCCEEDED(fixture.d3d.device->CreateRasterizerState(&raster, &raster_state)), "deferred rasterizer failed");
+	for (bool context1 : {false, true})
+	{
+		Microsoft::WRL::ComPtr<ID3D11DeviceContext> deferred;
+		if (context1)
+		{
+			Microsoft::WRL::ComPtr<ID3D11DeviceContext1> created;
+			require(SUCCEEDED(fixture.device->CreateDeferredContext1(0, &created)),
+			        "deferred context1 creation failed");
+			deferred = created;
+		}
+		else
+			require(SUCCEEDED(fixture.device->CreateDeferredContext(0, &deferred)), "deferred context creation failed");
+		auto play = [&](BOOL restore)
+		{
+			Microsoft::WRL::ComPtr<ID3D11CommandList> commands;
+			require(SUCCEEDED(deferred->FinishCommandList(restore, &commands)), "deferred recording failed");
+			fixture.d3d.context->ExecuteCommandList(commands.Get(), FALSE);
+		};
+		const float initial[] = {2, 2, 2, 2};
+		fixture.d3d.context->ClearUnorderedAccessViewFloat(target.Get(), initial);
+		ID3D11UnorderedAccessView *view = target.Get();
+		deferred->CSSetShader(unsafe.Get(), nullptr, 0);
+		deferred->CSSetUnorderedAccessViews(0, 1, &view, nullptr);
+		Microsoft::WRL::ComPtr<ID3D11ComputeShader> bound_compute;
+		deferred->CSGetShader(&bound_compute, nullptr, nullptr);
+		Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> bound_compute_view;
+		deferred->CSGetUnorderedAccessViews(0, 1, &bound_compute_view);
+		require(bound_compute.Get() == unsafe.Get() && bound_compute_view.Get() == target.Get(),
+		        "deferred compute getters did not return the effective bindings");
+		const auto skipped = Profiling::skipped_draw_calls;
+		G->fix_enabled = false;
+		deferred->Dispatch(1, 1, 1);
+		deferred->DispatchIndirect(args.Get(), 0);
+		play(TRUE);
+		deferred->Dispatch(1, 1, 1); // RestoreDeferredContextState retains the unsafe binding.
+		play(TRUE);
+		require(fixture.read(target.Get()) == std::array<float, 4>{2, 2, 2, 2},
+		        "unsafe deferred dispatch reached playback");
+		require(Profiling::skipped_draw_calls == skipped + 3, "deferred dispatches were not skipped exactly once");
+		deferred->CSSetShader(safe.Get(), nullptr, 0);
+		deferred->Dispatch(1, 1, 1);
+		play(FALSE);
+		require(fixture.read(target.Get()) == std::array<float, 4>{9, 9, 9, 9}, "legal deferred store was skipped");
+		ID3D11UnorderedAccessView *mixed_views[] = {target.Get(), input.Get()};
+		deferred->CSSetShader(mixed.Get(), nullptr, 0);
+		deferred->CSSetUnorderedAccessViews(0, 2, mixed_views, nullptr);
+		deferred->Dispatch(1, 1, 1);
+		play(FALSE);
+		require(fixture.read(target.Get()) == std::array<float, 4>{7, 7, 7, 7},
+		        "legal deferred mixed-format load was skipped");
+		deferred->ClearState();
+		fixture.d3d.context->ClearUnorderedAccessViewFloat(pixel_target.Get(), initial);
+		view = pixel_target.Get();
+		deferred->VSSetShader(vertex.Get(), nullptr, 0);
+		deferred->PSSetShader(pixel.Get(), nullptr, 0);
+		deferred->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		const D3D11_VIEWPORT viewport{0, 0, 1, 1, 0, 1};
+		deferred->RSSetViewports(1, &viewport);
+		deferred->RSSetState(raster_state.Get());
+		deferred->OMSetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, 3, 1, &view, nullptr);
+		Microsoft::WRL::ComPtr<ID3D11PixelShader> bound_pixel;
+		deferred->PSGetShader(&bound_pixel, nullptr, nullptr);
+		Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> bound_pixel_view;
+		deferred->OMGetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, 3, 1, &bound_pixel_view);
+		require(bound_pixel.Get() == pixel.Get() && bound_pixel_view.Get() == pixel_target.Get(),
+		        "deferred pixel getters did not return the effective bindings");
+		deferred->Draw(3, 0);
+		play(TRUE);
+		require(fixture.read(pixel_target.Get()) == std::array<float, 4>{2, 2, 2, 2},
+		        "unsafe deferred pixel draw reached playback");
+		fixture.d3d.context->ClearUnorderedAccessViewFloat(scalar_target.Get(), initial);
+		view = scalar_target.Get();
+		deferred->PSSetShader(scalar_pixel.Get(), nullptr, 0);
+		deferred->OMSetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, 3, 1, &view, nullptr);
+		deferred->Draw(3, 0);
+		play(FALSE);
+		require(fixture.read(scalar_target.Get())[0] == 3, "legal deferred pixel draw did not execute");
+		fixture.d3d.require_no_errors();
+	}
+}
+
+// A guarded memory page pauses the registration scan after the driver returns.
+// This is an OS-memory boundary, not a mock of shader registration or its lock.
+struct ShaderRegistrationReadGate;
+thread_local ShaderRegistrationReadGate *shader_registration_read_gate = nullptr;
+
+struct ShaderRegistrationReadGate
+{
+	void *bytes = nullptr;
+	size_t length = 0;
+	HANDLE entered = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+	HANDLE resume = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+	PVOID handler = nullptr;
+	std::atomic<bool> faulted{false};
+	std::thread worker;
+
+	static LONG CALLBACK on_exception(EXCEPTION_POINTERS *exception)
+	{
+		auto *gate = shader_registration_read_gate;
+		if (!gate || exception->ExceptionRecord->ExceptionCode != STATUS_GUARD_PAGE_VIOLATION ||
+		    exception->ExceptionRecord->NumberParameters < 2)
+			return EXCEPTION_CONTINUE_SEARCH;
+		const ULONG_PTR address = exception->ExceptionRecord->ExceptionInformation[1];
+		const ULONG_PTR start = reinterpret_cast<ULONG_PTR>(gate->bytes);
+		if (address < start || address - start >= gate->length)
+			return EXCEPTION_CONTINUE_SEARCH;
+		gate->faulted.store(true, std::memory_order_relaxed);
+		SetEvent(gate->entered);
+		WaitForSingleObject(gate->resume, INFINITE);
+		return EXCEPTION_CONTINUE_EXECUTION;
+	}
+
+	explicit ShaderRegistrationReadGate(ID3DBlob *code)
+	{
+		length = code->GetBufferSize();
+		bytes = VirtualAlloc(nullptr, length, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+		require(bytes && entered && resume, "could not create shader registration memory/events");
+		memcpy(bytes, code->GetBufferPointer(), code->GetBufferSize());
+		handler = AddVectoredExceptionHandler(1, on_exception);
+		require(handler != nullptr, "could not register shader memory handler");
+	}
+	ShaderRegistrationReadGate(const ShaderRegistrationReadGate &) = delete;
+	ShaderRegistrationReadGate &operator=(const ShaderRegistrationReadGate &) = delete;
+
+	~ShaderRegistrationReadGate()
+	{
+		SetEvent(resume);
+		if (worker.joinable())
+			worker.join();
+		if (handler)
+			RemoveVectoredExceptionHandler(handler);
+		if (bytes)
+			VirtualFree(bytes, 0, MEM_RELEASE);
+		CloseHandle(entered);
+		CloseHandle(resume);
+	}
+};
+
+void duplicate_shader_creation_keeps_live_guard_metadata()
+{
+	TypedUavFixture fixture;
+	const auto original = fixture.compute(typed_uav_compute);
+	const auto target = fixture.texture(DXGI_FORMAT_R32G32B32A32_FLOAT);
+	ID3D11UnorderedAccessView *view = target.Get();
+	fixture.context->CSSetShader(original.Get(), nullptr, 0);
+	fixture.context->CSSetUnorderedAccessViews(0, 1, &view, nullptr);
+	const auto code = compile_typed_uav_shader(typed_uav_compute, "cs_5_0");
+	ShaderRegistrationReadGate gate(code.Get());
+	fixture.boundary->duplicate_compute_shader = original.Get();
+	fixture.boundary->compute_shader_created = [&](const void *bytes, SIZE_T length)
+	{
+		DWORD old_protection = 0;
+		require(VirtualProtect(const_cast<void *>(bytes), length, PAGE_READONLY | PAGE_GUARD, &old_protection) != FALSE,
+		        "could not guard the registration scan");
+	};
+	HRESULT result = E_FAIL;
+	Microsoft::WRL::ComPtr<ID3D11ComputeShader> duplicate;
+	gate.worker = std::thread(
+	    [&]()
+	    {
+		    shader_registration_read_gate = &gate;
+		    try
+		    {
+			    result = fixture.device->CreateComputeShader(gate.bytes, code->GetBufferSize(), nullptr, &duplicate);
+		    }
+		    catch (...)
+		    {
+			    result = E_FAIL;
+		    }
+		    shader_registration_read_gate = nullptr;
+		    SetEvent(gate.entered); // Also releases the controller if creation fails before scanning.
+	    });
+	const DWORD waited = WaitForSingleObject(gate.entered, 30000); // Deadlock watchdog only.
+	const bool paused = waited == WAIT_OBJECT_0 && gate.faulted.load(std::memory_order_relaxed);
+	const auto skipped = Profiling::skipped_draw_calls;
+	if (paused)
+		fixture.context->Dispatch(1, 1, 1);
+	SetEvent(gate.resume);
+	gate.worker.join();
+	fixture.boundary->compute_shader_created = {};
+	fixture.boundary->duplicate_compute_shader = nullptr;
+	require(paused, "duplicate creation did not reach the guarded scan");
+	require(SUCCEEDED(result) && duplicate.Get() == original.Get(), "driver duplicate creation contract changed");
+	require(fixture.read(target.Get()) == std::array<float, 4>{2, 2, 2, 2},
+	        "duplicate creation exposed an unsafe dispatch");
+	require(Profiling::skipped_draw_calls == skipped + 1, "live shader metadata disappeared during duplicate creation");
+	fixture.d3d.require_no_errors();
+}
+
 void final_resource_release_removes_live_metadata()
 {
 	D3DFixture fixture;
@@ -3931,6 +4154,8 @@ int main(int argc, char **argv)
 	             {"typed-uav-lifetime", cleans_typed_uav_handles_and_logs_creation_failures},
 	             {"typed-uav-commands", guards_command_list_resources_and_custom_shaders},
 	             {"typed-uav-replacement", registers_actual_shaderfixes_and_retained_original_bytecode},
+	             {"typed-uav-deferred", guards_deferred_typed_uav_submissions},
+	             {"typed-uav-duplicate", duplicate_shader_creation_keeps_live_guard_metadata},
 	             {"empty-groups", rejects_empty_groups},
 	             {"leading-dot", accepts_leading_dot_numbers},
 	             {"pending-save", preserves_pending_save},

@@ -21,16 +21,16 @@ def main():
         ("typed-uav-formats", device,
          "return !IsConcreteTypedUav(desc) || SupportsTypedUavLoadFormat(desc.Format);",
          "return IsConcreteTypedUav(desc) || SupportsTypedUavLoadFormat(desc.Format);"),
-        ("typed-uav-compute", context, "return skip;", "return skip && !compute;"),
+        ("typed-uav-compute", context, "return skip;\n}\n\nvoid HackerContext::BeforeDraw",
+         "return skip && !compute;\n}\n\nvoid HackerContext::BeforeDraw"),
         ("typed-uav-mixed", scanner,
          "uint64_t{1} << slot : ~uint64_t{0}", "~uint64_t{0} : ~uint64_t{0}"),
         ("typed-uav-pixel", context,
          "!data.call_info.skip && ShouldSkipTypedUavLoad(false)",
          "!data.call_info.skip && ShouldSkipTypedUavLoad(true)"),
         ("typed-uav-effective", device,
-         'if (!shader || (wcscmp(stage, L"ps") != 0 && wcscmp(stage, L"cs") != 0))',
-         'if (!mGuardArmed.load(std::memory_order_relaxed) || !shader || '
-         '(wcscmp(stage, L"ps") != 0 && wcscmp(stage, L"cs") != 0))'),
+         'tracked_stage ? InspectTypedUavLoads(bytecode, length)',
+         'tracked_stage && mGuardArmed.load(std::memory_order_relaxed) ? InspectTypedUavLoads(bytecode, length)'),
         ("typed-uav-lifetime", device,
          "G->mTypedUavLoadShaders.erase(handle);", "(void)handle;"),
         ("typed-uav-commands--submission", commands,
@@ -44,6 +44,13 @@ def main():
         ("typed-uav-replacement", device,
          "RegisterTypedUavShader(*ppShader, replaceShader, replaceShaderSize, shaderType, hash);",
          "RegisterTypedUavShader(*ppShader, pShaderBytecode, BytecodeLength, shaderType, hash);"),
+        ("typed-uav-deferred", context,
+         "if (!mHackerDevice || !mHackerDevice->ShouldCheckTypedUavGuard())",
+         "if (!mHackerDevice || !mHackerDevice->ShouldCheckTypedUavGuard() || "
+         "mOrigContext1->GetType() == D3D11_DEVICE_CONTEXT_DEFERRED)"),
+        ("typed-uav-duplicate", device,
+         "const auto info = tracked_stage ? InspectTypedUavLoads(bytecode, length)",
+         "CleanupShaderMaps(shader);\n\tconst auto info = tracked_stage ? InspectTypedUavLoads(bytecode, length)"),
     ])
 
 

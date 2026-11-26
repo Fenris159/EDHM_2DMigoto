@@ -21,6 +21,8 @@ dispatch checks perform only relaxed atomic reads, without D3D queries, map
 lookups or locks. Once armed, the guard queries the effective bound shader and
 checks only the UAV slots that shader reads. Original, ShaderFixes, deferred,
 reloaded and custom shaders register the bytecode actually submitted to D3D.
+Cleanup and registration replace guard metadata under one lock, preserving
+protection when a driver returns an already-bound shader for identical bytecode.
 
 Each skipped stage/shader/slot/format combination is logged once per device.
 Affected rendering is omitted; the guard does not emulate the unsupported

@@ -5,6 +5,7 @@
 #include <d3d11_1.h>
 #include <d3d11_3.h>
 #include <wrl/client.h>
+#include <functional>
 
 // Pass through the D3D device boundary while recording creation descriptors.
 // WARP normalizes non-structured strides, so querying the finished buffer cannot
@@ -27,6 +28,8 @@ class D3DDeviceBoundary final : public ID3D11Device1
 	bool fail_typed_load_queries = false;
 	bool reject_typed_load_shaders = false;
 	DXGI_FORMAT unsupported_typed_load_format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	ID3D11ComputeShader *duplicate_compute_shader = nullptr;
+	std::function<void(const void *, SIZE_T)> compute_shader_created;
 
 	explicit D3DDeviceBoundary(ID3D11Device1 *original) : device(original) {}
 	HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **result) override
@@ -210,7 +213,18 @@ class D3DDeviceBoundary final : public ID3D11Device1
 				*ppComputeShader = nullptr;
 			return E_INVALIDARG;
 		}
-		return device->CreateComputeShader(pShaderBytecode, BytecodeLength, pClassLinkage, ppComputeShader);
+		HRESULT hr;
+		if (duplicate_compute_shader && ppComputeShader)
+		{
+			duplicate_compute_shader->AddRef();
+			*ppComputeShader = duplicate_compute_shader;
+			hr = S_OK;
+		}
+		else
+			hr = device->CreateComputeShader(pShaderBytecode, BytecodeLength, pClassLinkage, ppComputeShader);
+		if (SUCCEEDED(hr) && ppComputeShader && *ppComputeShader && compute_shader_created)
+			compute_shader_created(pShaderBytecode, BytecodeLength);
+		return hr;
 	}
 
 	HRESULT STDMETHODCALLTYPE CreateClassLinkage(ID3D11ClassLinkage **ppLinkage) override

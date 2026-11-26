@@ -745,7 +745,6 @@ void HackerContext::DeferredShaderReplacement(ID3D11DeviceChild *shader, UINT64 
 	hr = (mOrigDevice1->*CreateShader)(patched_bytecode.data(), patched_bytecode.size(), orig_info->linkage,
 	                                   &patched_shader);
 	mHackerDevice->LogTypedUavShaderFailure(hr, patched_bytecode.data(), patched_bytecode.size(), shader_type, hash);
-	CleanupShaderMaps(patched_shader);
 	if (FAILED(hr))
 	{
 		LogInfo("    *** Creating replacement shader failed\n");

@@ -348,11 +348,14 @@ bool HackerDevice::SupportsTypedUavLoadFormat(const D3D11_UNORDERED_ACCESS_VIEW_
 void HackerDevice::RegisterTypedUavShader(ID3D11DeviceChild *shader, const void *bytecode, size_t length,
                                           const wchar_t *stage, uint64_t hash)
 {
-	if (!shader || (wcscmp(stage, L"ps") != 0 && wcscmp(stage, L"cs") != 0))
+	if (!shader)
 		return;
-	const auto info = InspectTypedUavLoads(bytecode, length);
+	const bool tracked_stage = wcscmp(stage, L"ps") == 0 || wcscmp(stage, L"cs") == 0;
+	const auto info = tracked_stage ? InspectTypedUavLoads(bytecode, length) : TypedUavLoadInfo{};
 	EnterCriticalSectionPretty(&G->mCriticalSection);
-	G->mTypedUavLoadShaders.erase(shader);
+	// Identical bytecode may return a shader that is already bound on another
+	// thread. Readers must see its old metadata or the complete new record.
+	CleanupShaderMaps(shader);
 	if (info.typedLoadUavMask)
 	{
 		G->mTypedUavLoadShaders[shader] = {info.typedLoadUavMask, hash};
@@ -532,7 +535,7 @@ void HackerDevice::CreatePinkHuntingResources()
 		{
 			hr = mOrigDevice1->CreatePixelShader((DWORD *)blob->GetBufferPointer(), blob->GetBufferSize(), nullptr,
 			                                     &G->mPinkingShader);
-			CleanupShaderMaps(G->mPinkingShader);
+			RegisterTypedUavShader(G->mPinkingShader, blob->GetBufferPointer(), blob->GetBufferSize(), L"ps", 0);
 			if (FAILED(hr))
 				LogInfo("  Failed to create pinking pixel shader: %d\n", hr);
 			blob->Release();
@@ -1514,7 +1517,6 @@ HRESULT HackerDevice::ReplaceShaderFromShaderFixes(UINT64 hash, const void *pSha
 		goto out_delete;
 	}
 
-	CleanupShaderMaps(*ppShader);
 	RegisterTypedUavShader(*ppShader, replaceShader, replaceShaderSize, shaderType, hash);
 
 	LogInfo("    shader successfully replaced.\n");
@@ -1573,7 +1575,6 @@ HRESULT HackerDevice::ProcessShaderNotFoundInShaderFixes(UINT64 hash, const void
 	if (FAILED(hr) || !ppShader || !*ppShader)
 		return FAILED(hr) ? hr : E_POINTER;
 
-	CleanupShaderMaps(*ppShader);
 	RegisterTypedUavShader(*ppShader, pShaderBytecode, BytecodeLength, shaderType, hash);
 
 	// When in hunting mode, make a copy of the original binary, regardless.  This can be replaced, but we'll at least
@@ -1635,8 +1636,9 @@ bool HackerDevice::NeedOriginalShader(UINT64 hash)
 // This function ensures that a shader handle is expunged from all our shader
 // maps. Ideally we would call this when the shader is released, but since we
 // don't wrap or hook that call we can't do that. Instead, we call it just
-// after any CreateXXXShader call - at that time we know the handle was
-// previously invalid and is now valid, but we haven't used it yet.
+// after any CreateXXXShader call, before publishing the returned handle.
+// A driver can also return an existing shader for identical bytecode, so typed
+// UAV registration holds this lock through cleanup and metadata replacement.
 //
 // This is a big hammer, and we could probably cut this down, but I want to
 // make very certain that we don't have any other unusual sequences that could
@@ -1715,7 +1717,6 @@ void HackerDevice::KeepOriginalShader(UINT64 hash, const wchar_t *shaderType, ID
 
 	hr = (mOrigDevice1->*OrigCreateShader)(pShaderBytecode, BytecodeLength, pClassLinkage, &originalShader);
 	LogTypedUavShaderFailure(hr, pShaderBytecode, BytecodeLength, shaderType, hash);
-	CleanupShaderMaps(originalShader);
 	if (SUCCEEDED(hr))
 	{
 		RegisterTypedUavShader(originalShader, pShaderBytecode, BytecodeLength, shaderType, hash);

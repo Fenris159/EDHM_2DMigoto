@@ -25,10 +25,15 @@ UAV load guard through `HackerDevice` and `HackerContext`. They cover read slots
 DXBC, format-query failure, draw/dispatch skipping with fixes disabled, late
 arming, effective shader bindings, handle cleanup, reference ownership and bounded
 diagnostics, ShaderFixes/retained originals, custom shaders and injected dispatches.
+Deferred-context cases record and play back both pixel and compute work, retain
+state across `FinishCommandList(TRUE)`, and allow supported/write-only accesses.
+The duplicate-creation case uses a guarded memory page and events to pause the
+bytecode scan while the render thread submits against the already-bound shader.
+It checks GPU output without depending on thread scheduling or a sleep.
 WARP executes the allowed shaders; a device-boundary capability
 override simulates missing hardware support. This does not establish behavior on
 an affected physical GPU or in Elite Dangerous. In a disposable Windows checkout,
-`python RuntimeTests/check_typed_uav_mutations.py` verifies all ten cases detect
+`python RuntimeTests/check_typed_uav_mutations.py` verifies all twelve cases detect
 compiled behavior breaks and restores/rebuilds the production executable.
 
 The suite covers expression syntax, settings retry/atomic replacement/retention,
@@ -38,7 +43,7 @@ bounds, CB ranges, and INI/optimizer ordering and reload semantics. A real devic
 boundary records submitted buffer descriptors and can fail staging allocation;
 this catches errors that WARP normalizes in a completed buffer description.
 
-The 71 cases also cover monitor-mode/window/reload transitions and recursive or
+The 73 cases also cover monitor-mode/window/reload transitions and recursive or
 shared command counts; summary-only matching/view diagnostics; hash-first and
 ordered dual matching; documented expression operators; all four view kinds,
 resource/descriptor/raw/override fallbacks, changing `this` targets, warm-cache
