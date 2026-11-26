@@ -19,6 +19,7 @@
 #include "CommandList.h"
 #include "profiling.h"
 #include "lock.h"
+#include "TypedUavLoadGuard.h"
 
 extern HINSTANCE migoto_handle;
 
@@ -572,7 +573,9 @@ struct Globals
 	    mSelectedPixelShader_VertexBuffer; // std::set so that index buffers used with a shader will be sorted in log when marked
 	ID3D11PixelShader *mPinkingShader; // Special pixels shader to mark a selection with hot pink.
 
-	ShaderMap mShaders;               // All shaders ever registered with CreateXXXShader
+	ShaderMap mShaders; // All shaders ever registered with CreateXXXShader
+	// Borrowed shader handles, protected by mCriticalSection and cleared on reuse.
+	std::unordered_map<ID3D11DeviceChild *, TypedUavLoadShader> mTypedUavLoadShaders;
 	ShaderReloadMap mReloadedShaders; // Shaders that were reloaded live from ShaderFixes
 	ShaderReplacementMap
 	    mOriginalShaders; // When MarkingMode=Original, switch to original. Also used for show_original and shader reversion

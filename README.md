@@ -170,7 +170,7 @@ Click a badge for the GitHub compare view. Counts are approximate history diverg
 
 | Workflow | Purpose |
 |----------|---------|
-| [**CI**](.github/workflows/ci.yml) | PRs into **`develop`/`main`**, pushes to `main`, and manual: quality/meta checks, strict x64/Win32 builds, ordinary x64 Release/Zip Release builds |
+| [**CI**](.github/workflows/ci.yml) | PRs into **`develop`/`main`**, pushes to `main`, and manual: quality/meta checks, strict x64/Win32 builds, ordinary x64/Win32 Release/Zip Release builds |
 | [**Release**](.github/workflows/release.yml) | Manual: build from `main` (release) or `develop` (pre-release), optional SemVer tag, publish assets |
 | [**Update xxmi-base**](.github/workflows/update-xxmi-base.yml) | Keep the XXMI mirror current; open/refresh an `upstream-xxmi` review issue when it advances |
 | [**Branch status badges**](.github/workflows/branch-status-badges.yml) | Daily / after `main` push: refresh Shields JSON on the **`badges`** branch only |
@@ -218,6 +218,9 @@ updates this cache through a follow-up PR.
 See `docs/layout.md`.
 
 ## Building
+
+See the [documentation index](docs/README.md) for runtime guides, including
+[automatic typed UAV load protection](docs/typed-uav-load-guard.md).
 
 1. **Visual Studio 2022** (MSVC v143 / Windows 10 SDK)
 2. Open **`EDHM_2DMigoto.sln`**

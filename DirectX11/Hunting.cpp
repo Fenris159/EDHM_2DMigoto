@@ -877,7 +877,13 @@ static bool ReloadShader(wchar_t *shaderPath, wchar_t *fileName, HackerDevice *d
 				CleanupShaderMaps(replacement);
 			}
 			if (FAILED(hr))
+			{
+				device->LogTypedUavShaderFailure(hr, pShaderBytecode->GetBufferPointer(),
+				                                 pShaderBytecode->GetBufferSize(), shaderType.c_str(), hash);
 				goto err;
+			}
+			device->RegisterTypedUavShader(replacement, pShaderBytecode->GetBufferPointer(),
+			                               pShaderBytecode->GetBufferSize(), shaderType.c_str(), hash);
 
 			// If we have an older reloaded shader, let's release it to avoid a memory leak.  This only happens after 1st reload.
 			// New shader is loaded on GPU and ready to be used as override in VSSetShader or PSSetShader

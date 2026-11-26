@@ -11,6 +11,7 @@
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Fork/PR workflow, source map, validation and review guidance |
 | [layout.md](layout.md) | What lives on develop vs xxmi-base; d3d11 build graph |
 | [building.md](building.md) | How to build `d3d11.dll` and package `d3dcompiler_47.dll` |
+| [typed-uav-load-guard.md](typed-uav-load-guard.md) | Automatic protection against unsupported typed UAV reads and capability diagnostics |
 | [linux-wine-compat.md](linux-wine-compat.md) | Standard EDHM setup for Proton and Wine |
 | [develop-vs-original-3dmigoto.md](develop-vs-original-3dmigoto.md) | Measured develop versus original 1.4.9: CPU costs, surfaces/memory, AMD/Proton execution and vendor technology limits; no FPS or live-game monitoring |
 | [ed-unofficial-patch-compatibility.md](ed-unofficial-patch-compatibility.md) | Source assessment of ED-UP AA/upscaling with this DLL: chaining, HUD/shader risks, Proton and conditional performance benefits |

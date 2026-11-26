@@ -421,7 +421,7 @@ class CustomShader
 	~CustomShader();
 
 	bool compile(char type, wchar_t *filename, const wstring *wname, const wstring *mod_namespace);
-	void substantiate(ID3D11Device *mOrigDevice);
+	void substantiate(ID3D11Device *mOrigDevice, HackerDevice *guardDevice);
 
 	void merge_blend_states(ID3D11BlendState *state, FLOAT blend_factor[4], UINT sample_mask,
 	                        ID3D11Device *mOrigDevice);

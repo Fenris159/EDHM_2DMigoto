@@ -50,6 +50,7 @@
     <ClCompile Include="FrameAnalysis.cpp" />
     <ClCompile Include="HackerContext.cpp" />
     <ClCompile Include="HackerDevice.cpp" />
+    <ClCompile Include="TypedUavLoadGuard.cpp" />
     <ClCompile Include="HackerDXGI.cpp" />
     <ClCompile Include="HackerInputLayout.cpp" />
     <ClCompile Include="HookAddresses.c" />
@@ -87,6 +88,7 @@
     <ClInclude Include="Globals.h" />
     <ClInclude Include="HackerContext.h" />
     <ClInclude Include="HackerDevice.h" />
+    <ClInclude Include="TypedUavLoadGuard.h" />
     <ClInclude Include="HackerDXGI.h" />
     <ClInclude Include="HackerInputLayout.h" />
     <ClInclude Include="HookedContext.h" />

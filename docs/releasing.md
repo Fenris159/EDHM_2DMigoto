@@ -109,10 +109,14 @@ The ordinary runtime ZIP remains the installation package.
 
 ## CI
 
-**Actions → CI** runs when work lands on **`main`** (push or PR targeting `main`, typically after merging `develop`), plus **workflow_dispatch**:
+**Actions → CI** runs for PRs targeting **`develop`** or **`main`**, pushes to
+**`main`**, and **workflow_dispatch**:
 
 - Meta checks (`VERSION`, changelog, release notes)
-- Windows MSBuild **Release | x64** when the solution exists
+- Pinned native formatting and PowerShell analysis
+- Strict Windows MSBuild **Release | x64** and **Release | Win32** when the solution exists
+- Ordinary **Release** and **Zip Release** builds on **x64** and **Win32**
+- Optional strict **Zip Release** builds on both platforms with the manual `zip_release` input
 - Uploads `d3d11.dll` as a workflow artifact (14 days)
 
 It does **not** run on every commit to `develop`. Use **Actions → CI → Run workflow** if you need a build before merge.

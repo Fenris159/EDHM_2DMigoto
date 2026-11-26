@@ -225,6 +225,8 @@ class HackerContext : public ID3D11DeviceContext1
 	bool SnapshotAdvancedHuntingState();
 
 	void SetHackerDevice(HackerDevice *pDevice, bool ownsReference = false);
+	// Also used by command-list submissions, which deliberately bypass hooks.
+	bool ShouldSkipTypedUavLoad(bool compute);
 	HackerDevice *GetHackerDevice();
 	void Bind3DMigotoResources();
 	void InitIniParams();

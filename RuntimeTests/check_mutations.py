@@ -487,11 +487,12 @@ def restore_production(originals, mutations, evidence, original_failure):
         print(f"Production binary quarantined after cleanup failure: {restoration_failure}", file=sys.stderr)
 
 
-def main():
+def main(mutations=None):
     OUTPUT.mkdir(parents=True, exist_ok=True)
     command_list = ROOT / "DirectX11" / "CommandList.cpp"
     settings = ROOT / "DirectX11" / "IniHandler.cpp"
-    mutations = get_mutations(command_list, settings, ROOT / "DirectX11" / "profiling.cpp")
+    if mutations is None:
+        mutations = get_mutations(command_list, settings, ROOT / "DirectX11" / "profiling.cpp")
     originals = {path: path.read_bytes() for _, path, _, _ in mutations}
     evidence = []
     try:

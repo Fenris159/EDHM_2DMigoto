@@ -7,6 +7,7 @@
 #include "ImportBoundary.h"
 #include "../DirectX11/input.h"
 #include "../DirectX11/profiling.h"
+#include "../DirectX11/TypedUavLoadGuard.h"
 
 #include <atomic>
 #include <chrono>
@@ -163,6 +164,534 @@ struct D3DFixture
 			FreeLibrary(module);
 	}
 };
+
+Microsoft::WRL::ComPtr<ID3DBlob> compile_typed_uav_shader(const char *source, const char *profile)
+{
+	Microsoft::WRL::ComPtr<ID3DBlob> code;
+	Microsoft::WRL::ComPtr<ID3DBlob> errors;
+	const HRESULT hr = D3DCompile(source, strlen(source), "typed-uav-test", nullptr, nullptr, "main", profile,
+	                              D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &code, &errors);
+	if (FAILED(hr))
+		throw std::runtime_error(errors ? static_cast<const char *>(errors->GetBufferPointer())
+		                                : "typed UAV shader compilation failed");
+	return code;
+}
+
+constexpr char typed_uav_pixel[] =
+    "RWTexture2D<float4> image : register(u3);"
+    "void main(float4 p : SV_Position) { image[uint2(0,0)] = image[uint2(0,0)] + float4(1,2,3,4); }";
+constexpr char typed_uav_compute[] =
+    "RWTexture2D<float4> image : register(u0);"
+    "[numthreads(1,1,1)] void main() { image[uint2(0,0)] = image[uint2(0,0)] + float4(1,2,3,4); }";
+constexpr char typed_uav_mixed[] = "RWTexture2D<float4> output : register(u0); RWTexture2D<float> input : register(u1);"
+                                   "[numthreads(1,1,1)] void main() { output[uint2(0,0)] = input[uint2(0,0)] + 5; }";
+constexpr char typed_uav_store[] = "RWTexture2D<float4> image : register(u0);"
+                                   "[numthreads(1,1,1)] void main() { image[uint2(0,0)] = 9; }";
+
+void inspects_real_typed_uav_bytecode()
+{
+	const struct
+	{
+		const char *source;
+		const char *profile;
+		bool additional;
+		uint64_t mask;
+	} cases[] = {{typed_uav_pixel, "ps_5_0", true, 0x8},
+	             {typed_uav_mixed, "cs_5_0", false, 0x2},
+	             {typed_uav_store, "cs_5_0", false, 0},
+	             {"RWTexture2D<float> image : register(u63);"
+	              "[numthreads(1,1,1)] void main() { image[uint2(0,0)] += 1; }",
+	              "cs_5_0", false, 0x8000000000000000ull},
+	             {"RWTexture2D<float> image : register(u3);"
+	              "static const float values[4] = { 2, 3, 5, 7 };"
+	              "[numthreads(1,1,1)] void main(uint3 i : SV_DispatchThreadID) { image[i.xy] += values[i.x & 3]; }",
+	              "cs_5_0", false, 0x8},
+	             {"RWTexture2D<float4> image : register(u7); RWTexture2D<uint> result : register(u0);"
+	              "[numthreads(1,1,1)] void main() { uint status; float4 v = image.Load(uint2(0,0), status);"
+	              "result[uint2(0,0)] = CheckAccessFullyMapped(status) ? asuint(v.x) : 0; }",
+	              "cs_5_0", true, 0x80},
+	             {"RWByteAddressBuffer raw : register(u0); RWStructuredBuffer<uint> data : register(u1);"
+	              "[numthreads(1,1,1)] void main() { data[0] = raw.Load(0) + data[1]; }",
+	              "cs_5_0", false, 0}};
+	for (const auto &test : cases)
+	{
+		const auto code = compile_typed_uav_shader(test.source, test.profile);
+		const auto info = InspectTypedUavLoads(code->GetBufferPointer(), code->GetBufferSize());
+		require(info.requiresAdditionalFormats == test.additional, "incorrect SFI0 additional-format requirement");
+		require(info.typedLoadUavMask == test.mask, "incorrect typed-load slot mask");
+	}
+}
+
+void rejects_malformed_typed_uav_bytecode()
+{
+	const auto code = compile_typed_uav_shader(typed_uav_pixel, "ps_5_0");
+	const auto *bytes = static_cast<const unsigned char *>(code->GetBufferPointer());
+	for (size_t size = 0; size < code->GetBufferSize(); ++size)
+	{
+		const auto info = InspectTypedUavLoads(bytes, size);
+		require(!info.requiresAdditionalFormats && info.typedLoadUavMask == 0, "truncated DXBC was accepted");
+	}
+	for (size_t field : {size_t{0}, size_t{5}, size_t{6}, size_t{7}, size_t{8}})
+	{
+		std::vector<unsigned char> corrupt(bytes, bytes + code->GetBufferSize());
+		const uint32_t invalid = 0xffffffff;
+		memcpy(corrupt.data() + field * 4, &invalid, 4);
+		const auto info = InspectTypedUavLoads(corrupt.data(), corrupt.size());
+		require(!info.requiresAdditionalFormats && info.typedLoadUavMask == 0, "corrupt DXBC was accepted");
+	}
+	const auto info = InspectTypedUavLoads(nullptr, 100);
+	require(!info.requiresAdditionalFormats && info.typedLoadUavMask == 0, "null bytecode was accepted");
+	// Mutate a real load's UAV index to an unknown/relative encoding. Its
+	// requirements remain valid, but selecting only the old immediate slot is unsafe.
+	std::vector<uint32_t> indexed(code->GetBufferSize() / 4);
+	memcpy(indexed.data(), bytes, code->GetBufferSize());
+	bool changed = false;
+	for (size_t chunk = 0; chunk < indexed[7]; ++chunk)
+	{
+		const size_t offset = indexed[8 + chunk] / 4;
+		if (indexed[offset] != 0x58454853 && indexed[offset] != 0x52444853)
+			continue;
+		const size_t start = offset + 2;
+		const size_t end = start + indexed[start + 1];
+		for (size_t at = start + 2; at < end;)
+		{
+			const unsigned opcode = indexed[at] & 0x7ff;
+			const size_t count = opcode == 53 ? indexed[at + 1] : (indexed[at] >> 24) & 0x7f;
+			if (opcode == 163)
+			{
+				indexed[at + count - 2] |= 2u << 22;
+				changed = true;
+			}
+			at += count;
+		}
+	}
+	require(changed, "compiler did not emit the expected typed load");
+	const auto relative = InspectTypedUavLoads(indexed.data(), indexed.size() * 4);
+	require(relative.requiresAdditionalFormats && relative.typedLoadUavMask == ~uint64_t{0},
+	        "unrecognized UAV operand did not check every slot");
+}
+
+struct TypedUavFixture
+{
+	D3DFixture d3d;
+	D3DDeviceBoundary *boundary;
+	HackerDevice *device;
+	std::unique_ptr<HackerContext> context;
+	const bool old_fix_enabled = G->fix_enabled;
+	const UINT old_hunting = G->hunting;
+	FILE *old_log = LogFile;
+	FILE *log = nullptr;
+	std::vector<Microsoft::WRL::ComPtr<ID3D11DeviceChild>> shaders;
+
+	explicit TypedUavFixture(bool additional = false, DXGI_FORMAT unsupported = DXGI_FORMAT_R32G32B32A32_FLOAT,
+	                         bool fail_queries = false)
+	{
+		require(tmpfile_s(&log) == 0 && log, "could not capture guard diagnostics");
+		LogFile = log;
+		boundary = new D3DDeviceBoundary(d3d.device.Get());
+		boundary->override_typed_loads = true;
+		boundary->typed_load_additional_formats = additional;
+		boundary->unsupported_typed_load_format = unsupported;
+		boundary->fail_typed_load_queries = fail_queries;
+		device = new HackerDevice(boundary, d3d.context.Get());
+		context = std::make_unique<HackerContext>(boundary, d3d.context.Get());
+		context->SetHackerDevice(device);
+		G->fix_enabled = true;
+		G->hunting = HUNTING_MODE_DISABLED;
+	}
+
+	Microsoft::WRL::ComPtr<ID3D11ComputeShader> compute(const char *source)
+	{
+		const auto code = compile_typed_uav_shader(source, "cs_5_0");
+		Microsoft::WRL::ComPtr<ID3D11ComputeShader> shader;
+		require(
+		    SUCCEEDED(device->CreateComputeShader(code->GetBufferPointer(), code->GetBufferSize(), nullptr, &shader)),
+		    "compute shader creation failed");
+		shaders.emplace_back(shader);
+		return shader;
+	}
+
+	Microsoft::WRL::ComPtr<ID3D11PixelShader> pixel(const char *source)
+	{
+		const auto code = compile_typed_uav_shader(source, "ps_5_0");
+		Microsoft::WRL::ComPtr<ID3D11PixelShader> shader;
+		require(SUCCEEDED(device->CreatePixelShader(code->GetBufferPointer(), code->GetBufferSize(), nullptr, &shader)),
+		        "pixel shader creation failed");
+		shaders.emplace_back(shader);
+		return shader;
+	}
+
+	Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> texture(DXGI_FORMAT format)
+	{
+		D3D11_TEXTURE2D_DESC desc{};
+		desc.Width = desc.Height = desc.MipLevels = desc.ArraySize = desc.SampleDesc.Count = 1;
+		desc.Format = format;
+		desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+		Microsoft::WRL::ComPtr<ID3D11Texture2D> resource;
+		require(SUCCEEDED(d3d.device->CreateTexture2D(&desc, nullptr, &resource)), "UAV texture creation failed");
+		Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> view;
+		require(SUCCEEDED(device->CreateUnorderedAccessView(resource.Get(), nullptr, &view)), "UAV creation failed");
+		const float initial[] = {2, 2, 2, 2};
+		d3d.context->ClearUnorderedAccessViewFloat(view.Get(), initial);
+		return view;
+	}
+
+	std::array<float, 4> read(ID3D11UnorderedAccessView *view)
+	{
+		Microsoft::WRL::ComPtr<ID3D11Resource> resource;
+		view->GetResource(&resource);
+		Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+		require(SUCCEEDED(resource.As(&texture)), "UAV was not a texture");
+		D3D11_TEXTURE2D_DESC desc{};
+		texture->GetDesc(&desc);
+		desc.Usage = D3D11_USAGE_STAGING;
+		desc.BindFlags = 0;
+		desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+		Microsoft::WRL::ComPtr<ID3D11Texture2D> staging;
+		require(SUCCEEDED(d3d.device->CreateTexture2D(&desc, nullptr, &staging)), "readback texture creation failed");
+		d3d.context->CopyResource(staging.Get(), texture.Get());
+		D3D11_MAPPED_SUBRESOURCE mapped{};
+		require(SUCCEEDED(d3d.context->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped)), "UAV readback failed");
+		std::array<float, 4> values{};
+		memcpy(values.data(), mapped.pData, desc.Format == DXGI_FORMAT_R32_FLOAT ? 4 : 16);
+		d3d.context->Unmap(staging.Get(), 0);
+		return values;
+	}
+
+	std::string diagnostics()
+	{
+		fflush(log);
+		rewind(log);
+		std::string text;
+		char buffer[1024];
+		while (const size_t count = fread(buffer, 1, sizeof(buffer), log))
+			text.append(buffer, count);
+		return text;
+	}
+
+	~TypedUavFixture()
+	{
+		d3d.context->ClearState();
+		for (const auto &shader : shaders)
+			CleanupShaderMaps(shader.Get());
+		shaders.clear();
+		context.reset();
+		device->Release(); // owns the boundary's initial reference
+		G->fix_enabled = old_fix_enabled;
+		G->hunting = old_hunting;
+		LogFile = old_log;
+		fclose(log);
+	}
+};
+
+void classifies_typed_uav_formats_and_old_runtimes()
+{
+	TypedUavFixture fixture;
+	for (const auto format : {DXGI_FORMAT_R32_FLOAT, DXGI_FORMAT_R32_UINT, DXGI_FORMAT_R32_SINT})
+		require(fixture.device->SupportsTypedUavLoadFormat(format), "baseline typed load format was blocked");
+	D3D11_UNORDERED_ACCESS_VIEW_DESC desc{};
+	desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	desc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
+	require(!fixture.device->SupportsTypedUavLoadFormat(desc), "unsupported typed texture was allowed");
+	desc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+	desc.Buffer.Flags = D3D11_BUFFER_UAV_FLAG_RAW;
+	require(fixture.device->SupportsTypedUavLoadFormat(desc), "raw UAV was blocked");
+	desc.Buffer.Flags = 0;
+	desc.Format = DXGI_FORMAT_UNKNOWN;
+	require(fixture.device->SupportsTypedUavLoadFormat(desc), "structured UAV was blocked");
+	desc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
+	require(fixture.device->SupportsTypedUavLoadFormat(desc), "unknown inherited format was blocked");
+	require(fixture.device->SupportsTypedUavLoadFormat(DXGI_FORMAT_R8G8B8A8_UNORM), "supported RGBA8 was blocked");
+	TypedUavFixture rgba8(false, DXGI_FORMAT_R8G8B8A8_UNORM);
+	require(!rgba8.device->SupportsTypedUavLoadFormat(DXGI_FORMAT_R8G8B8A8_UNORM), "unsupported RGBA8 was allowed");
+	require(rgba8.device->SupportsTypedUavLoadFormat(DXGI_FORMAT_R32G32B32A32_FLOAT), "supported float4 was blocked");
+	TypedUavFixture old_runtime(false, DXGI_FORMAT_UNKNOWN, true);
+	require(old_runtime.device->SupportsTypedUavLoadFormat(DXGI_FORMAT_R32_FLOAT), "old runtime lost R32 support");
+	require(!old_runtime.device->SupportsTypedUavLoadFormat(DXGI_FORMAT_R32G32B32A32_FLOAT),
+	        "failed format query allowed an unsupported additional format");
+}
+
+void guards_compute_typed_uav_loads()
+{
+	TypedUavFixture fixture;
+	const auto shader = fixture.compute(typed_uav_compute);
+	const auto target = fixture.texture(DXGI_FORMAT_R32G32B32A32_FLOAT);
+	ID3D11UnorderedAccessView *bound = target.Get();
+	const auto view_references = target->AddRef();
+	target->Release();
+	fixture.context->CSSetShader(shader.Get(), nullptr, 0);
+	fixture.context->CSSetUnorderedAccessViews(0, 1, &bound, nullptr);
+	const auto skipped = Profiling::skipped_draw_calls;
+	fixture.context->Dispatch(1, 1, 1);
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = 12;
+	desc.MiscFlags = D3D11_RESOURCE_MISC_DRAWINDIRECT_ARGS;
+	const UINT counts[] = {1, 1, 1};
+	D3D11_SUBRESOURCE_DATA data{};
+	data.pSysMem = counts;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> args;
+	require(SUCCEEDED(fixture.d3d.device->CreateBuffer(&desc, &data, &args)), "indirect args creation failed");
+	fixture.context->DispatchIndirect(args.Get(), 0);
+	G->fix_enabled = false;
+	fixture.context->Dispatch(1, 1, 1);
+	require(fixture.read(target.Get()) == std::array<float, 4>{2, 2, 2, 2}, "unsupported dispatch changed its UAV");
+	require(Profiling::skipped_draw_calls == skipped + 3, "dispatch skips were not counted exactly once");
+	fixture.d3d.context->ClearState();
+	require(target->AddRef() == view_references, "guard leaked a UAV reference");
+	target->Release();
+	const auto log = fixture.diagnostics();
+	const std::string marker = "Typed UAV crash guard skipped dispatch:";
+	const auto first = log.find(marker);
+	require(first != std::string::npos && log.find(marker, first + 1) == std::string::npos,
+	        "guard did not log exactly once per shader/slot/format");
+	fixture.d3d.require_no_errors();
+}
+
+void allows_write_only_slots_beside_typed_loads()
+{
+	TypedUavFixture fixture;
+	const auto shader = fixture.compute(typed_uav_mixed);
+	const auto output = fixture.texture(DXGI_FORMAT_R32G32B32A32_FLOAT);
+	const auto input = fixture.texture(DXGI_FORMAT_R32_FLOAT);
+	ID3D11UnorderedAccessView *views[] = {output.Get(), input.Get()};
+	fixture.context->CSSetShader(shader.Get(), nullptr, 0);
+	fixture.context->CSSetUnorderedAccessViews(0, 2, views, nullptr);
+	const auto skipped = Profiling::skipped_draw_calls;
+	fixture.context->Dispatch(1, 1, 1);
+	require(fixture.read(output.Get()) == std::array<float, 4>{7, 7, 7, 7}, "legal mixed-format dispatch was skipped");
+	require(Profiling::skipped_draw_calls == skipped, "write-only slot caused a false skip");
+	fixture.d3d.require_no_errors();
+}
+
+void guards_pixel_typed_uav_loads()
+{
+	TypedUavFixture fixture;
+	const auto vertex_code = compile_typed_uav_shader(
+	    "float4 main(uint i : SV_VertexID) : SV_Position { return float4(i == 2 ? 3 : -1, i == 1 ? 3 : -1, 0, 1); }",
+	    "vs_5_0");
+	Microsoft::WRL::ComPtr<ID3D11VertexShader> vertex;
+	require(SUCCEEDED(fixture.d3d.device->CreateVertexShader(vertex_code->GetBufferPointer(),
+	                                                         vertex_code->GetBufferSize(), nullptr, &vertex)),
+	        "vertex shader creation failed");
+	fixture.context->VSSetShader(vertex.Get(), nullptr, 0);
+	fixture.context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	const D3D11_VIEWPORT viewport{0, 0, 1, 1, 0, 1};
+	fixture.context->RSSetViewports(1, &viewport);
+	D3D11_RASTERIZER_DESC raster{};
+	raster.FillMode = D3D11_FILL_SOLID;
+	raster.CullMode = D3D11_CULL_NONE;
+	Microsoft::WRL::ComPtr<ID3D11RasterizerState> raster_state;
+	require(SUCCEEDED(fixture.d3d.device->CreateRasterizerState(&raster, &raster_state)), "rasterizer creation failed");
+	fixture.context->RSSetState(raster_state.Get());
+	const auto shader = fixture.pixel(typed_uav_pixel);
+	const auto target = fixture.texture(DXGI_FORMAT_R32G32B32A32_FLOAT);
+	ID3D11UnorderedAccessView *view = target.Get();
+	fixture.context->PSSetShader(shader.Get(), nullptr, 0);
+	fixture.context->OMSetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, 3, 1, &view, nullptr);
+	const auto skipped = Profiling::skipped_draw_calls;
+	fixture.context->Draw(3, 0);
+	G->fix_enabled = false;
+	fixture.context->Draw(3, 0);
+	require(fixture.read(target.Get()) == std::array<float, 4>{2, 2, 2, 2}, "unsafe pixel shader executed");
+	require(Profiling::skipped_draw_calls == skipped + 2, "pixel skip accounting changed");
+	const auto log = fixture.diagnostics();
+	require(log.find("Typed UAV crash guard skipped draw: stage=ps") != std::string::npos,
+	        "pixel skip diagnostic was missing");
+	const auto safe_shader = fixture.pixel(
+	    "RWTexture2D<float> image : register(u3); void main(float4 p : SV_Position) { image[uint2(0,0)] += 1; }");
+	const auto safe = fixture.texture(DXGI_FORMAT_R32_FLOAT);
+	view = safe.Get();
+	fixture.context->PSSetShader(safe_shader.Get(), nullptr, 0);
+	fixture.context->OMSetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, 3, 1, &view, nullptr);
+	fixture.context->Draw(3, 0);
+	require(fixture.read(safe.Get())[0] == 3, "legal R32 pixel shader was skipped");
+	fixture.d3d.require_no_errors();
+}
+
+void arms_late_and_checks_effective_shaders()
+{
+	TypedUavFixture fixture(true);
+	const auto unsafe = fixture.compute(typed_uav_compute);
+	require(!fixture.device->ShouldCheckTypedUavGuard(), "capable device armed before an unsupported UAV existed");
+	const auto target = fixture.texture(DXGI_FORMAT_R32G32B32A32_FLOAT);
+	require(fixture.device->ShouldCheckTypedUavGuard(), "late unsupported UAV failed to arm the guard");
+	const auto safe = fixture.compute(typed_uav_store);
+	ID3D11UnorderedAccessView *view = target.Get();
+	fixture.context->CSSetUnorderedAccessViews(0, 1, &view, nullptr);
+	fixture.context->CSSetShader(safe.Get(), nullptr, 0);
+	// Mimic command-list/reload binding without updating HackerContext's shadow.
+	fixture.d3d.context->CSSetShader(unsafe.Get(), nullptr, 0);
+	fixture.context->Dispatch(1, 1, 1);
+	require(fixture.read(target.Get()) == std::array<float, 4>{2, 2, 2, 2},
+	        "effective unsafe shader escaped the guard");
+	fixture.d3d.context->CSSetShader(safe.Get(), nullptr, 0);
+	fixture.context->Dispatch(1, 1, 1);
+	require(fixture.read(target.Get()) == std::array<float, 4>{9, 9, 9, 9}, "effective write-only shader was skipped");
+	fixture.d3d.require_no_errors();
+	TypedUavFixture compliant(true, DXGI_FORMAT_UNKNOWN);
+	const auto supported_shader = compliant.compute(typed_uav_compute);
+	const auto supported_target = compliant.texture(DXGI_FORMAT_R32G32B32A32_FLOAT);
+	require(!compliant.device->ShouldCheckTypedUavGuard(), "compliant device armed the guard");
+	view = supported_target.Get();
+	compliant.context->CSSetUnorderedAccessViews(0, 1, &view, nullptr);
+	compliant.context->CSSetShader(supported_shader.Get(), nullptr, 0);
+	compliant.context->Dispatch(1, 1, 1);
+	require(compliant.read(supported_target.Get()) == std::array<float, 4>{3, 4, 5, 6},
+	        "compliant dispatch did not run");
+	compliant.d3d.require_no_errors();
+}
+
+void cleans_typed_uav_handles_and_logs_creation_failures()
+{
+	TypedUavFixture fixture;
+	const auto shader = fixture.compute(typed_uav_compute);
+	const auto references = shader->AddRef();
+	shader->Release();
+	CleanupShaderMaps(shader.Get());
+	const auto target = fixture.texture(DXGI_FORMAT_R32G32B32A32_FLOAT);
+	ID3D11UnorderedAccessView *view = target.Get();
+	fixture.context->CSSetShader(shader.Get(), nullptr, 0);
+	fixture.context->CSSetUnorderedAccessViews(0, 1, &view, nullptr);
+	const auto skipped = Profiling::skipped_draw_calls;
+	fixture.context->Dispatch(1, 1, 1);
+	require(fixture.read(target.Get()) == std::array<float, 4>{3, 4, 5, 6},
+	        "cleaned handle retained stale load metadata");
+	require(Profiling::skipped_draw_calls == skipped, "cleaned shader handle was falsely skipped");
+	fixture.d3d.context->ClearState();
+	require(shader->AddRef() == references, "guard leaked a shader reference");
+	shader->Release();
+	const auto code = compile_typed_uav_shader(typed_uav_compute, "cs_5_0");
+	fixture.boundary->reject_typed_load_shaders = true;
+	for (unsigned attempt = 0; attempt < 20; ++attempt)
+	{
+		Microsoft::WRL::ComPtr<ID3D11ComputeShader> rejected;
+		require(fixture.device->CreateComputeShader(code->GetBufferPointer(), code->GetBufferSize(), nullptr,
+		                                            &rejected) == E_INVALIDARG &&
+		            !rejected,
+		        "driver rejection contract changed");
+	}
+	const auto log = fixture.diagnostics();
+	size_t count = 0;
+	for (size_t at = 0; (at = log.find("Typed UAV shader creation failed:", at)) != std::string::npos; ++at)
+		++count;
+	require(count == 16 && log.find("hr=0x80070057 stage=cs") != std::string::npos &&
+	            log.find("TypedUAVLoadAdditionalFormats=0") != std::string::npos,
+	        "creation diagnostic was missing or unbounded");
+	fixture.d3d.require_no_errors();
+}
+
+void guards_command_list_resources_and_custom_shaders()
+{
+	TypedUavFixture fixture(true);
+	CustomShader custom;
+	custom.cs_bytecode = compile_typed_uav_shader(typed_uav_compute, "cs_5_0").Detach();
+	custom.cs_override = true;
+	custom.substantiate(fixture.boundary, fixture.device);
+	require(!fixture.device->ShouldCheckTypedUavGuard(), "custom shader armed a capable device");
+	fixture.d3d.context->CSSetShader(custom.cs, nullptr, 0);
+	D3D11_TEXTURE2D_DESC desc{};
+	desc.Width = desc.Height = desc.MipLevels = desc.ArraySize = desc.SampleDesc.Count = 1;
+	desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+	require(SUCCEEDED(fixture.d3d.device->CreateTexture2D(&desc, nullptr, &texture)), "custom texture creation failed");
+	CommandListState state;
+	state.mHackerDevice = fixture.device;
+	state.mHackerContext = fixture.context.get();
+	state.mOrigDevice1 = fixture.boundary;
+	state.mOrigContext1 = fixture.d3d.context.Get();
+	ResourceCopyOperation bind;
+	bind.options = ResourceCopyOptions::REFERENCE;
+	require(bind.dst.ParseTarget(L"cs-u0", false, nullptr, nullptr), "custom UAV binding was rejected");
+	bind.CopyResourceToResource(&state, texture.Get(), nullptr, 0, 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0);
+	Microsoft::WRL::ComPtr<ID3D11UnorderedAccessView> view;
+	fixture.d3d.context->CSGetUnorderedAccessViews(0, 1, &view);
+	require(view != nullptr, "command list did not create/bind its UAV");
+	require(fixture.device->ShouldCheckTypedUavGuard(), "internal UAV creation failed to arm the guard");
+	const float initial[] = {2, 2, 2, 2};
+	fixture.d3d.context->ClearUnorderedAccessViewFloat(view.Get(), initial);
+	CommandList commands;
+	std::wstring dispatch = L"1, 1, 1";
+	require(ParseCommandListGeneralCommands(L"CommandListGuard", L"dispatch", &dispatch, nullptr, &commands, nullptr,
+	                                        &config_namespace),
+	        "custom dispatch command was rejected");
+	const auto skipped = Profiling::skipped_draw_calls;
+	for (const auto &command : commands.commands)
+		command->run(&state);
+	require(fixture.read(view.Get()) == std::array<float, 4>{2, 2, 2, 2}, "injected custom dispatch escaped the guard");
+	require(Profiling::skipped_draw_calls == skipped + 1, "injected dispatch skip was not counted once");
+	CleanupShaderMaps(custom.cs);
+	fixture.d3d.require_no_errors();
+}
+
+void registers_actual_shaderfixes_and_retained_original_bytecode()
+{
+	struct ShaderFiles
+	{
+		std::filesystem::path root;
+		std::wstring old_path = G->SHADER_PATH;
+		std::wstring old_cache = G->SHADER_CACHE_PATH;
+		const ShaderHashType old_hash_type = G->shader_hash_type;
+		const bool old_reloadable = G->config_reloadable;
+		ShaderFiles()
+		{
+			wchar_t temporary[MAX_PATH];
+			wchar_t path[MAX_PATH];
+			require(GetTempPathW(MAX_PATH, temporary) != 0 && GetTempFileNameW(temporary, L"uav", 0, path) != 0,
+			        "could not reserve ShaderFixes test directory");
+			root = path;
+			require(DeleteFileW(path) && CreateDirectoryW(path, nullptr), "could not create ShaderFixes directory");
+			wcscpy_s(G->SHADER_PATH, root.c_str());
+			wcscpy_s(G->SHADER_CACHE_PATH, root.c_str());
+			G->shader_hash_type = ShaderHashType::FNV;
+			G->config_reloadable = true;
+		}
+		void replacement(ID3DBlob *original, ID3DBlob *replacement)
+		{
+			wchar_t filename[64];
+			swprintf_s(filename, L"%016llx-cs_replace.bin",
+			           fnv_64_buf(original->GetBufferPointer(), original->GetBufferSize()));
+			std::ofstream output(root / filename, std::ios::binary);
+			output.write(static_cast<const char *>(replacement->GetBufferPointer()),
+			             static_cast<std::streamsize>(replacement->GetBufferSize()));
+			require(output.good(), "could not write replacement bytecode");
+		}
+		~ShaderFiles()
+		{
+			wcscpy_s(G->SHADER_PATH, old_path.c_str());
+			wcscpy_s(G->SHADER_CACHE_PATH, old_cache.c_str());
+			G->shader_hash_type = old_hash_type;
+			G->config_reloadable = old_reloadable;
+			std::filesystem::remove_all(root);
+		}
+	} files;
+	TypedUavFixture fixture;
+	const auto safe_code = compile_typed_uav_shader(typed_uav_store, "cs_5_0");
+	const auto unsafe_code = compile_typed_uav_shader(typed_uav_compute, "cs_5_0");
+	files.replacement(safe_code.Get(), unsafe_code.Get());
+	const auto unsafe_replacement = fixture.compute(typed_uav_store);
+	const auto target = fixture.texture(DXGI_FORMAT_R32G32B32A32_FLOAT);
+	ID3D11UnorderedAccessView *view = target.Get();
+	fixture.context->CSSetUnorderedAccessViews(0, 1, &view, nullptr);
+	fixture.context->CSSetShader(unsafe_replacement.Get(), nullptr, 0);
+	fixture.context->Dispatch(1, 1, 1);
+	require(fixture.read(target.Get()) == std::array<float, 4>{2, 2, 2, 2},
+	        "unsafe ShaderFixes replacement was not guarded");
+	files.replacement(unsafe_code.Get(), safe_code.Get());
+	G->hunting = HUNTING_MODE_SOFT_DISABLED; // retain original for the normal fixes-off path
+	const auto safe_replacement = fixture.compute(typed_uav_compute);
+	fixture.context->CSSetShader(safe_replacement.Get(), nullptr, 0);
+	fixture.context->Dispatch(1, 1, 1);
+	require(fixture.read(target.Get()) == std::array<float, 4>{9, 9, 9, 9},
+	        "safe ShaderFixes replacement was falsely skipped");
+	G->hunting = HUNTING_MODE_ENABLED;
+	G->fix_enabled = false;
+	fixture.context->CSSetShader(safe_replacement.Get(), nullptr, 0);
+	fixture.context->Dispatch(1, 1, 1);
+	require(fixture.read(target.Get()) == std::array<float, 4>{9, 9, 9, 9},
+	        "retained unsafe original escaped the guard");
+	fixture.d3d.require_no_errors();
+}
 
 void final_resource_release_removes_live_metadata()
 {
@@ -3392,7 +3921,17 @@ int main(int argc, char **argv)
 	{
 		const char *name;
 		void (*run)();
-	} tests[] = {{"empty-groups", rejects_empty_groups},
+	} tests[] = {{"typed-uav-scan", inspects_real_typed_uav_bytecode},
+	             {"typed-uav-malformed", rejects_malformed_typed_uav_bytecode},
+	             {"typed-uav-formats", classifies_typed_uav_formats_and_old_runtimes},
+	             {"typed-uav-compute", guards_compute_typed_uav_loads},
+	             {"typed-uav-mixed", allows_write_only_slots_beside_typed_loads},
+	             {"typed-uav-pixel", guards_pixel_typed_uav_loads},
+	             {"typed-uav-effective", arms_late_and_checks_effective_shaders},
+	             {"typed-uav-lifetime", cleans_typed_uav_handles_and_logs_creation_failures},
+	             {"typed-uav-commands", guards_command_list_resources_and_custom_shaders},
+	             {"typed-uav-replacement", registers_actual_shaderfixes_and_retained_original_bytecode},
+	             {"empty-groups", rejects_empty_groups},
 	             {"leading-dot", accepts_leading_dot_numbers},
 	             {"pending-save", preserves_pending_save},
 	             {"pool-reset", resets_only_the_requested_pool_proxy},

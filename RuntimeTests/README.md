@@ -19,6 +19,18 @@ Use `Platform=Win32` and the corresponding output directory for 32-bit checks.
 Pass a case name, such as `store-values` or `settings-lifecycle`, to run it in its
 own process. CI runs every case separately, including both Windows architectures.
 
+The `typed-uav-*` cases compile real SM5 bytecode and exercise the automatic typed
+UAV load guard through `HackerDevice` and `HackerContext`. They cover read slots
+(including status loads and slot 63), write-only/raw/structured access, malformed
+DXBC, format-query failure, draw/dispatch skipping with fixes disabled, late
+arming, effective shader bindings, handle cleanup, reference ownership and bounded
+diagnostics, ShaderFixes/retained originals, custom shaders and injected dispatches.
+WARP executes the allowed shaders; a device-boundary capability
+override simulates missing hardware support. This does not establish behavior on
+an affected physical GPU or in Elite Dangerous. In a disposable Windows checkout,
+`python RuntimeTests/check_typed_uav_mutations.py` verifies all ten cases detect
+compiled behavior breaks and restores/rebuilds the production executable.
+
 The suite covers expression syntax, settings retry/atomic replacement/retention,
 pool reset/expiry/identifiers/static metadata, resource reference chains and
 cycles, typed/structured readback and owned views, buffer region counts and
@@ -26,7 +38,7 @@ bounds, CB ranges, and INI/optimizer ordering and reload semantics. A real devic
 boundary records submitted buffer descriptors and can fail staging allocation;
 this catches errors that WARP normalizes in a completed buffer description.
 
-The 60 cases also cover monitor-mode/window/reload transitions and recursive or
+The 71 cases also cover monitor-mode/window/reload transitions and recursive or
 shared command counts; summary-only matching/view diagnostics; hash-first and
 ordered dual matching; documented expression operators; all four view kinds,
 resource/descriptor/raw/override fallbacks, changing `this` targets, warm-cache

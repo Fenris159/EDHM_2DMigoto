@@ -13,5 +13,6 @@
     </Link>
     <PostBuildEvent><Command></Command></PostBuildEvent>
   </ItemDefinitionGroup>
+  <!-- TypedUavLoadGuard.cpp is inherited from the production source list. -->
   <ItemGroup><ClCompile Include="..\RuntimeTests\RuntimeTests.cpp" /></ItemGroup>
 </Project>

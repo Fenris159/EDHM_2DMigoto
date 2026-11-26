@@ -1,6 +1,13 @@
 #pragma once
 
 #include <unordered_map>
+#include <array>
+#include <atomic>
+#include <mutex>
+#include <set>
+#include <tuple>
+
+#include "TypedUavLoadGuard.h"
 
 #include <d3d11_1.h>
 #include <INITGUID.h>
@@ -47,6 +54,21 @@ class HackerDevice : public ID3D11Device1
 	ID3D11Device1 *mRealOrigDevice1;
 	ID3D11DeviceContext1 *mOrigContext1;
 	IUnknown *mUnknown;
+	D3D_FEATURE_LEVEL mTypedUavFeatureLevel{};
+	UINT mMaxTypedUavSlots{};
+	bool mTypedUavLoadAdditionalFormats = false;
+	std::atomic<bool> mGuardArmed{false};
+	std::atomic<bool> mHasTypedLoadShaders{false};
+	std::array<std::atomic<uint8_t>, 256> mTypedUavFormats{};
+	std::mutex mTypedUavFormatMutex;
+	std::unordered_map<UINT, bool> mOtherTypedUavFormats;
+	std::mutex mTypedUavLogMutex;
+	std::set<std::tuple<bool, uint64_t, UINT, DXGI_FORMAT>> mTypedUavSkipLogs;
+	std::atomic<unsigned> mTypedUavFailureLogs{0};
+	void InitializeTypedUavGuard();
+	bool QueryTypedUavLoadFormat(DXGI_FORMAT format);
+	HRESULT CreateMonitoredUnorderedAccessView(ID3D11Resource *resource, const D3D11_UNORDERED_ACCESS_VIEW_DESC *desc,
+	                                           ID3D11UnorderedAccessView **view);
 
 	HackerContext *mHackerContext{};
 	HackerSwapChain *mHackerSwapChain{};
@@ -116,6 +138,22 @@ class HackerDevice : public ID3D11Device1
 	ID3D11DeviceContext1 *GetPassThroughOrigContext1();
 	IUnknown *GetIUnknown();
 	void HookDevice();
+	bool ShouldCheckTypedUavGuard() const noexcept
+	{
+		return mGuardArmed.load(std::memory_order_relaxed) && mHasTypedLoadShaders.load(std::memory_order_relaxed);
+	}
+	UINT MaxTypedUavSlots() const noexcept
+	{
+		return mMaxTypedUavSlots;
+	}
+	bool SupportsTypedUavLoadFormat(DXGI_FORMAT format);
+	bool SupportsTypedUavLoadFormat(const D3D11_UNORDERED_ACCESS_VIEW_DESC &desc);
+	void ObserveTypedUavView(ID3D11UnorderedAccessView *view);
+	// Called after successful creation/cleanup with the bytecode actually submitted to D3D.
+	void RegisterTypedUavShader(ID3D11DeviceChild *shader, const void *bytecode, size_t length, const wchar_t *stage,
+	                            uint64_t hash);
+	void LogTypedUavShaderFailure(HRESULT hr, const void *bytecode, size_t length, const wchar_t *stage, uint64_t hash);
+	void LogTypedUavSkip(bool compute, uint64_t hash, UINT slot, DXGI_FORMAT format);
 
 	/*** IUnknown methods ***/
 

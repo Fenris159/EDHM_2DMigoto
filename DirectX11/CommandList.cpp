@@ -1625,6 +1625,15 @@ void DrawCommand::run(CommandListState *state)
 	// Ensure IniParams are visible:
 	CommandListFlushState(state);
 
+	const bool compute = type == DrawCommandType::DISPATCH || type == DrawCommandType::DISPATCH_INDIRECT ||
+	                     (type == DrawCommandType::FROM_CALLER && info &&
+	                      (info->type == DrawCall::Dispatch || info->type == DrawCall::DispatchIndirect));
+	if (state->mHackerContext && state->mHackerContext->ShouldSkipTypedUavLoad(compute))
+	{
+		++Profiling::skipped_draw_calls;
+		return;
+	}
+
 	Profiling::injected_draw_calls++;
 
 	switch (type)
@@ -2439,7 +2448,7 @@ err:
 	return true;
 }
 
-void CustomShader::substantiate(ID3D11Device *mOrigDevice1)
+void CustomShader::substantiate(ID3D11Device *mOrigDevice1, HackerDevice *guardDevice)
 {
 	if (substantiated)
 		return;
@@ -2475,15 +2484,33 @@ void CustomShader::substantiate(ID3D11Device *mOrigDevice1)
 	}
 	if (ps_bytecode)
 	{
-		mOrigDevice1->CreatePixelShader(ps_bytecode->GetBufferPointer(), ps_bytecode->GetBufferSize(), nullptr, &ps);
+		const HRESULT hr = mOrigDevice1->CreatePixelShader(ps_bytecode->GetBufferPointer(),
+		                                                   ps_bytecode->GetBufferSize(), nullptr, &ps);
 		CleanupShaderMaps(ps);
+		if (guardDevice)
+		{
+			const auto hash = fnv_64_buf(ps_bytecode->GetBufferPointer(), ps_bytecode->GetBufferSize());
+			guardDevice->LogTypedUavShaderFailure(hr, ps_bytecode->GetBufferPointer(), ps_bytecode->GetBufferSize(),
+			                                      L"ps", hash);
+			guardDevice->RegisterTypedUavShader(ps, ps_bytecode->GetBufferPointer(), ps_bytecode->GetBufferSize(),
+			                                    L"ps", hash);
+		}
 		ps_bytecode->Release();
 		ps_bytecode = nullptr;
 	}
 	if (cs_bytecode)
 	{
-		mOrigDevice1->CreateComputeShader(cs_bytecode->GetBufferPointer(), cs_bytecode->GetBufferSize(), nullptr, &cs);
+		const HRESULT hr = mOrigDevice1->CreateComputeShader(cs_bytecode->GetBufferPointer(),
+		                                                     cs_bytecode->GetBufferSize(), nullptr, &cs);
 		CleanupShaderMaps(cs);
+		if (guardDevice)
+		{
+			const auto hash = fnv_64_buf(cs_bytecode->GetBufferPointer(), cs_bytecode->GetBufferSize());
+			guardDevice->LogTypedUavShaderFailure(hr, cs_bytecode->GetBufferPointer(), cs_bytecode->GetBufferSize(),
+			                                      L"cs", hash);
+			guardDevice->RegisterTypedUavShader(cs, cs_bytecode->GetBufferPointer(), cs_bytecode->GetBufferSize(),
+			                                    L"cs", hash);
+		}
 		cs_bytecode->Release();
 		cs_bytecode = nullptr;
 	}
@@ -2715,7 +2742,7 @@ void RunCustomShaderCommand::run(CommandListState *state)
 		}
 	}
 
-	custom_shader->substantiate(mOrigDevice1);
+	custom_shader->substantiate(mOrigDevice1, state->mHackerDevice);
 
 	saved_shader_inst vs_inst, hs_inst, ds_inst, gs_inst, ps_inst, cs_inst;
 
@@ -11508,6 +11535,11 @@ static ID3D11View *_CreateCompatibleView(ID3D11Resource *resource, CommandListSt
 
 	if (pDesc)
 		LogDebugViewDesc(pDesc);
+	if constexpr (std::is_same<ViewType, ID3D11UnorderedAccessView>::value)
+	{
+		if (state->mHackerDevice)
+			state->mHackerDevice->ObserveTypedUavView(view);
+	}
 
 	return view;
 }

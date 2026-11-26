@@ -153,12 +153,13 @@ jobs:
           retention-days: 14
 
   ordinary-builds:
-    name: Ordinary ${{ matrix.configuration }} (x64)
+    name: Ordinary ${{ matrix.configuration }} (${{ matrix.platform }})
     runs-on: windows-2022
     strategy:
       fail-fast: false
       matrix:
         configuration: [Release, Zip Release]
+        platform: [x64, Win32]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
@@ -168,5 +169,5 @@ jobs:
         shell: pwsh
         run: >-
           msbuild EDHM_2DMigoto.sln -target:Rebuild
-          '-property:Configuration=${{ matrix.configuration }}' -property:Platform=x64
+          '-property:Configuration=${{ matrix.configuration }}' -property:Platform=${{ matrix.platform }}
           -property:EdhmStrictBuild=false -nodeReuse:false -verbosity:minimal -restore:false
