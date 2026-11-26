@@ -1,7 +1,11 @@
 #pragma once
 
+#include "../DirectX11/TypedUavLoadGuard.h"
+
 #include <d3d11_1.h>
+#include <d3d11_3.h>
 #include <wrl/client.h>
+#include <functional>
 
 // Pass through the D3D device boundary while recording creation descriptors.
 // WARP normalizes non-structured strides, so querying the finished buffer cannot
@@ -17,6 +21,15 @@ class D3DDeviceBoundary final : public ID3D11Device1
 	unsigned view_creations = 0;
 	bool fail_staging = false;
 	bool fail_views = false;
+	// Capability overrides affect queries only. Real WARP still creates and runs
+	// the shader/resources, so unsupported-hardware behavior is deterministic.
+	bool override_typed_loads = false;
+	bool typed_load_additional_formats = false;
+	bool fail_typed_load_queries = false;
+	bool reject_typed_load_shaders = false;
+	DXGI_FORMAT unsupported_typed_load_format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	ID3D11ComputeShader *duplicate_compute_shader = nullptr;
+	std::function<void(const void *, SIZE_T)> compute_shader_created;
 
 	explicit D3DDeviceBoundary(ID3D11Device1 *original) : device(original) {}
 	HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **result) override
@@ -167,6 +180,12 @@ class D3DDeviceBoundary final : public ID3D11Device1
 	                                            ID3D11ClassLinkage *pClassLinkage,
 	                                            ID3D11PixelShader **ppPixelShader) override
 	{
+		if (reject_typed_load_shaders && InspectTypedUavLoads(pShaderBytecode, BytecodeLength).typedLoadUavMask)
+		{
+			if (ppPixelShader)
+				*ppPixelShader = nullptr;
+			return E_INVALIDARG;
+		}
 		return device->CreatePixelShader(pShaderBytecode, BytecodeLength, pClassLinkage, ppPixelShader);
 	}
 
@@ -188,7 +207,24 @@ class D3DDeviceBoundary final : public ID3D11Device1
 	                                              ID3D11ClassLinkage *pClassLinkage,
 	                                              ID3D11ComputeShader **ppComputeShader) override
 	{
-		return device->CreateComputeShader(pShaderBytecode, BytecodeLength, pClassLinkage, ppComputeShader);
+		if (reject_typed_load_shaders && InspectTypedUavLoads(pShaderBytecode, BytecodeLength).typedLoadUavMask)
+		{
+			if (ppComputeShader)
+				*ppComputeShader = nullptr;
+			return E_INVALIDARG;
+		}
+		HRESULT hr;
+		if (duplicate_compute_shader && ppComputeShader)
+		{
+			duplicate_compute_shader->AddRef();
+			*ppComputeShader = duplicate_compute_shader;
+			hr = S_OK;
+		}
+		else
+			hr = device->CreateComputeShader(pShaderBytecode, BytecodeLength, pClassLinkage, ppComputeShader);
+		if (SUCCEEDED(hr) && ppComputeShader && *ppComputeShader && compute_shader_created)
+			compute_shader_created(pShaderBytecode, BytecodeLength);
+		return hr;
 	}
 
 	HRESULT STDMETHODCALLTYPE CreateClassLinkage(ID3D11ClassLinkage **ppLinkage) override
@@ -273,6 +309,26 @@ class D3DDeviceBoundary final : public ID3D11Device1
 	HRESULT STDMETHODCALLTYPE CheckFeatureSupport(D3D11_FEATURE Feature, void *pFeatureSupportData,
 	                                              UINT FeatureSupportDataSize) override
 	{
+		if (override_typed_loads && Feature == D3D11_FEATURE_D3D11_OPTIONS2 &&
+		    FeatureSupportDataSize == sizeof(D3D11_FEATURE_DATA_D3D11_OPTIONS2))
+		{
+			if (fail_typed_load_queries)
+				return E_INVALIDARG;
+			*static_cast<D3D11_FEATURE_DATA_D3D11_OPTIONS2 *>(pFeatureSupportData) = {};
+			static_cast<D3D11_FEATURE_DATA_D3D11_OPTIONS2 *>(pFeatureSupportData)->TypedUAVLoadAdditionalFormats =
+			    typed_load_additional_formats;
+			return S_OK;
+		}
+		if (override_typed_loads && Feature == D3D11_FEATURE_FORMAT_SUPPORT2 &&
+		    FeatureSupportDataSize == sizeof(D3D11_FEATURE_DATA_FORMAT_SUPPORT2))
+		{
+			if (fail_typed_load_queries)
+				return E_INVALIDARG;
+			auto *support = static_cast<D3D11_FEATURE_DATA_FORMAT_SUPPORT2 *>(pFeatureSupportData);
+			support->OutFormatSupport2 =
+			    support->InFormat == unsupported_typed_load_format ? 0 : D3D11_FORMAT_SUPPORT2_UAV_TYPED_LOAD;
+			return S_OK;
+		}
 		return device->CheckFeatureSupport(Feature, pFeatureSupportData, FeatureSupportDataSize);
 	}
 

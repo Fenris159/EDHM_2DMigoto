@@ -14,6 +14,12 @@ DLL file properties (`version.h`) match package SemVer (same MAJOR.MINOR.PATCH a
 
 ## [Unreleased]
 
+### Fixed
+
+- Automatically skip pixel draws and compute dispatches that read unsupported
+  typed UAV formats, including command-list submissions. Keep the crash guard
+  active with fixes disabled and log device support and rejected shader creation.
+
 ### Planned
 
 - Further EDHM smoke validation against stock 3Dmigoto / EDHM packages

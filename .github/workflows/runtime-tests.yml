@@ -286,13 +286,20 @@ jobs:
           vs-version: '[17.0,18.0)'
       - name: Verify Python runners and process-tree cleanup
         run: python -m unittest discover -s RuntimeTests -p 'test_*.py' -v
+      - name: Build ordinary native runtime checks
+        shell: pwsh
+        run: >-
+          msbuild DirectX11/RuntimeTests.vcxproj
+          -property:Configuration=Release -property:Platform=${{ matrix.platform }}
+          -property:SolutionDir="$pwd/" -property:EdhmStrictBuild=false
+          -target:Rebuild -nodeReuse:false -verbosity:minimal -restore:false
       - name: Build native runtime checks
         shell: pwsh
         run: >-
           msbuild DirectX11/RuntimeTests.vcxproj
           -property:Configuration=Release -property:Platform=${{ matrix.platform }}
           -property:SolutionDir="$pwd/" -property:EdhmStrictBuild=true
-          -target:Build -nodeReuse:false -verbosity:minimal -restore:false
+          -target:Rebuild -nodeReuse:false -verbosity:minimal -restore:false
       - name: Exercise runtime behavior
         shell: pwsh
         env:
@@ -300,7 +307,7 @@ jobs:
         run: |
           $exe = ".quality/runtime-tests/$env:TEST_PLATFORM/Release/RuntimeTests.exe"
           $failures = @()
-          foreach ($case in @('empty-groups', 'leading-dot', 'pending-save', 'pool-reset', 'constant-stride', 'reference-order', 'reference-cycles', 'pool-metadata', 'missing-metadata', 'nested-metadata', 'metadata-resource', 'metadata-resource-identity', 'metadata-lazy-index', 'metadata-fifo', 'metadata-expiration', 'metadata-hot-identity', 'metadata-cached-spatial', 'metadata-static-pin', 'metadata-alias', 'metadata-alias-expiration', 'metadata-destination-key-spatial', 'metadata-destination-key-fifo', 'pool-identifiers', 'store-values', 'store-views', 'store-failure', 'region-copy', 'region-vertex-bytes', 'region-views', 'region-cb', 'settings-atomic', 'settings-lifecycle', 'settings-deferred', 'settings-save-update', 'settings-batch-reload', 'settings-save-reload', 'analysis-reload', 'constants-order', 'ini-sections', 'if-conditions', 'expression-grammar', 'profiling-collections', 'profiling-reload', 'matching-diagnostics', 'view-reuse', 'view-descriptors', 'view-cache-metadata', 'view-ownership', 'view-failure', 'region-cb-small', 'view-clear', 'view-clear-integer', 'view-clear-stencil', 'metadata-static-variable', 'pool-learned-flags', 'pool-scalar-precedence', 'view-this-cache', 'profiling-zero-frame', 'resource-final-release', 'resource-retirement')) {
+          foreach ($case in @('typed-uav-scan', 'typed-uav-malformed', 'typed-uav-formats', 'typed-uav-compute', 'typed-uav-mixed', 'typed-uav-pixel', 'typed-uav-effective', 'typed-uav-lifetime', 'typed-uav-commands', 'typed-uav-replacement', 'typed-uav-deferred', 'typed-uav-duplicate', 'empty-groups', 'leading-dot', 'pending-save', 'pool-reset', 'constant-stride', 'reference-order', 'reference-cycles', 'pool-metadata', 'missing-metadata', 'nested-metadata', 'metadata-resource', 'metadata-resource-identity', 'metadata-lazy-index', 'metadata-fifo', 'metadata-expiration', 'metadata-hot-identity', 'metadata-cached-spatial', 'metadata-static-pin', 'metadata-alias', 'metadata-alias-expiration', 'metadata-destination-key-spatial', 'metadata-destination-key-fifo', 'pool-identifiers', 'store-values', 'store-views', 'store-failure', 'region-copy', 'region-vertex-bytes', 'region-views', 'region-cb', 'settings-atomic', 'settings-lifecycle', 'settings-deferred', 'settings-save-update', 'settings-batch-reload', 'settings-save-reload', 'analysis-reload', 'constants-order', 'ini-sections', 'if-conditions', 'expression-grammar', 'profiling-collections', 'profiling-reload', 'matching-diagnostics', 'view-reuse', 'view-descriptors', 'view-cache-metadata', 'view-ownership', 'view-failure', 'region-cb-small', 'view-clear', 'view-clear-integer', 'view-clear-stencil', 'metadata-static-variable', 'pool-learned-flags', 'pool-scalar-precedence', 'view-this-cache', 'profiling-zero-frame', 'resource-final-release', 'resource-retirement', 'save-om-state-uavs')) {
             & $exe $case
             if ($LASTEXITCODE -ne 0) { $failures += "$case (exit $LASTEXITCODE)" }
           }
@@ -308,6 +315,9 @@ jobs:
       - name: Verify regression sensitivity
         if: inputs.mutation_checks && matrix.platform == 'x64'
         run: python RuntimeTests/check_mutations.py
+      - name: Verify typed UAV guard regression sensitivity
+        if: matrix.platform == 'x64'
+        run: python RuntimeTests/check_typed_uav_mutations.py
       - name: Measure CPU mechanisms without the debug layer
         if: inputs.mechanism_benchmarks && matrix.platform == 'x64'
         shell: pwsh
@@ -368,6 +378,7 @@ jobs:
           path: |
             .quality/runtime-tests/${{ matrix.platform }}/Release/RuntimeTests.exe
             .quality/runtime-mutations/
+            .quality/typed-uav-mutations/
             .quality/runtime-benchmarks/
           if-no-files-found: warn
           retention-days: 14
@@ -378,6 +389,7 @@ jobs:
           name: runtime-failure-evidence-${{ matrix.platform }}-${{ github.sha }}
           path: |
             .quality/runtime-mutations/
+            .quality/typed-uav-mutations/
             .quality/runtime-benchmarks/
           if-no-files-found: ignore
           retention-days: 14

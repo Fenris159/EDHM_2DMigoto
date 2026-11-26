@@ -744,12 +744,14 @@ void HackerContext::DeferredShaderReplacement(ID3D11DeviceChild *shader, UINT64 
 
 	hr = (mOrigDevice1->*CreateShader)(patched_bytecode.data(), patched_bytecode.size(), orig_info->linkage,
 	                                   &patched_shader);
-	CleanupShaderMaps(patched_shader);
+	mHackerDevice->LogTypedUavShaderFailure(hr, patched_bytecode.data(), patched_bytecode.size(), shader_type, hash);
 	if (FAILED(hr))
 	{
 		LogInfo("    *** Creating replacement shader failed\n");
 		goto out_drop;
 	}
+	mHackerDevice->RegisterTypedUavShader(patched_shader, patched_bytecode.data(), patched_bytecode.size(), shader_type,
+	                                      hash);
 
 	// Update replacement map so we don't have to repeat this process.
 	// Not updating the bytecode in the replaced shader map - we do that
@@ -931,6 +933,70 @@ void HackerContext::RestoreInputLayout()
 		mOriginalInputLayout->Release();
 		mOriginalInputLayout = nullptr;
 	}
+}
+
+bool HackerContext::ShouldSkipTypedUavLoad(bool compute)
+{
+	if (!mHackerDevice || !mHackerDevice->ShouldCheckTypedUavGuard())
+		return false;
+	// Query the effective shader after all replacements/command lists. Getters
+	// return owned references; release every shader and view on every path.
+	ID3D11DeviceChild *shader = nullptr;
+	if (compute)
+	{
+		ID3D11ComputeShader *bound = nullptr;
+		GetPassThroughOrigContext1()->CSGetShader(&bound, nullptr, nullptr);
+		shader = bound;
+	}
+	else
+	{
+		ID3D11PixelShader *bound = nullptr;
+		GetPassThroughOrigContext1()->PSGetShader(&bound, nullptr, nullptr);
+		shader = bound;
+	}
+	TypedUavLoadShader info;
+	EnterCriticalSectionPretty(&G->mCriticalSection);
+	const auto found = G->mTypedUavLoadShaders.find(shader);
+	if (found != G->mTypedUavLoadShaders.end())
+		info = found->second;
+	LeaveCriticalSection(&G->mCriticalSection);
+	if (shader)
+		shader->Release();
+	const UINT slots = mHackerDevice->MaxTypedUavSlots();
+	const uint64_t mask = info.mask & (slots == 64 ? ~uint64_t{0} : (uint64_t{1} << slots) - 1);
+	if (!mask)
+		return false;
+	UINT first = 0;
+	UINT last = slots - 1;
+	while (!(mask & (uint64_t{1} << first)))
+		++first;
+	while (!(mask & (uint64_t{1} << last)))
+		--last;
+	ID3D11UnorderedAccessView *views[D3D11_1_UAV_SLOT_COUNT]{};
+	const UINT count = last - first + 1;
+	if (compute)
+		GetPassThroughOrigContext1()->CSGetUnorderedAccessViews(first, count, views);
+	else
+		GetPassThroughOrigContext1()->OMGetRenderTargetsAndUnorderedAccessViews(0, nullptr, nullptr, first, count,
+		                                                                        views);
+	bool skip = false;
+	for (UINT index = 0; index < count; ++index)
+	{
+		if (!views[index])
+			continue;
+		if (mask & (uint64_t{1} << (first + index)))
+		{
+			D3D11_UNORDERED_ACCESS_VIEW_DESC desc{};
+			views[index]->GetDesc(&desc);
+			if (!mHackerDevice->SupportsTypedUavLoadFormat(desc))
+			{
+				skip = true;
+				mHackerDevice->LogTypedUavSkip(compute, info.hash, first + index, desc.Format);
+			}
+		}
+		views[index]->Release();
+	}
+	return skip;
 }
 
 void HackerContext::BeforeDraw(DrawContext &data)
@@ -1248,6 +1314,8 @@ void HackerContext::BeforeDraw(DrawContext &data)
 	OverrideInputLayout();
 
 out_profile:
+	if (!data.call_info.skip && ShouldSkipTypedUavLoad(false))
+		data.call_info.skip = true;
 	if (Profiling::mode == Profiling::Mode::SUMMARY)
 		Profiling::end(&profiling_state, &Profiling::draw_overhead);
 }
@@ -2030,7 +2098,7 @@ bool HackerContext::BeforeDispatch(DispatchContext *context)
 	}
 
 	if (!G->fix_enabled)
-		return true;
+		return !ShouldSkipTypedUavLoad(true);
 
 	DeferredShaderReplacementBeforeDispatch();
 
@@ -2048,11 +2116,12 @@ bool HackerContext::BeforeDispatch(DispatchContext *context)
 			// compute shaders. The main thing we care
 			// about is the command list, so just run that:
 			RunCommandList(mHackerDevice, this, &i->second.command_list, &context->call_info, false);
-			return !context->call_info.skip;
 		}
 	}
 
-	return true;
+	if (!context->call_info.skip && ShouldSkipTypedUavLoad(true))
+		context->call_info.skip = true;
+	return !context->call_info.skip;
 }
 
 void HackerContext::AfterDispatch(DispatchContext *context)

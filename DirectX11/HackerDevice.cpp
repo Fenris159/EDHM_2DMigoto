@@ -17,6 +17,7 @@
 #include "FrameAnalysis.h"
 
 #include <D3Dcompiler.h>
+#include <d3d11_3.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -258,8 +259,153 @@ HackerDevice::HackerDevice(ID3D11Device1 *pDevice1, ID3D11DeviceContext1 *pConte
 	mOrigDevice1 = pDevice1;
 	mRealOrigDevice1 = pDevice1;
 	mOrigContext1 = pContext1;
+	InitializeTypedUavGuard();
 	// Must be done after mOrigDevice1 is set:
 	mUnknown = register_hacker_device(this);
+}
+
+void HackerDevice::InitializeTypedUavGuard()
+{
+	auto *device = GetPassThroughOrigDevice1();
+	mTypedUavFeatureLevel = device->GetFeatureLevel();
+	mMaxTypedUavSlots =
+	    mTypedUavFeatureLevel >= D3D_FEATURE_LEVEL_11_1 ? D3D11_1_UAV_SLOT_COUNT : D3D11_PS_CS_UAV_REGISTER_COUNT;
+	D3D11_FEATURE_DATA_D3D11_OPTIONS2 options{};
+	mTypedUavLoadAdditionalFormats =
+	    SUCCEEDED(device->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS2, &options, sizeof(options))) &&
+	    options.TypedUAVLoadAdditionalFormats;
+	mGuardArmed.store(!mTypedUavLoadAdditionalFormats, std::memory_order_relaxed);
+	const bool rgba = SupportsTypedUavLoadFormat(DXGI_FORMAT_R32G32B32A32_FLOAT);
+	LogInfo("Typed UAV loads: feature_level=0x%x TypedUAVLoadAdditionalFormats=%u "
+	        "R32G32B32A32_FLOAT_UAV_TYPED_LOAD=%u guard_armed=%u\n",
+	        static_cast<UINT>(mTypedUavFeatureLevel), mTypedUavLoadAdditionalFormats, rgba,
+	        mGuardArmed.load(std::memory_order_relaxed));
+}
+
+bool HackerDevice::QueryTypedUavLoadFormat(DXGI_FORMAT format)
+{
+	D3D11_FEATURE_DATA_FORMAT_SUPPORT2 support{};
+	support.InFormat = format;
+	if (SUCCEEDED(
+	        GetPassThroughOrigDevice1()->CheckFeatureSupport(D3D11_FEATURE_FORMAT_SUPPORT2, &support, sizeof(support))))
+		return (support.OutFormatSupport2 & D3D11_FORMAT_SUPPORT2_UAV_TYPED_LOAD) != 0;
+	// Old runtimes may not implement FORMAT_SUPPORT2. Only the mandatory set is
+	// known in that case; optional formats must never inherit the OPTIONS2 bit.
+	if (!mTypedUavLoadAdditionalFormats)
+		return false;
+	switch (format)
+	{
+	case DXGI_FORMAT_R32G32B32A32_FLOAT:
+	case DXGI_FORMAT_R32G32B32A32_UINT:
+	case DXGI_FORMAT_R32G32B32A32_SINT:
+	case DXGI_FORMAT_R16G16B16A16_FLOAT:
+	case DXGI_FORMAT_R16G16B16A16_UINT:
+	case DXGI_FORMAT_R16G16B16A16_SINT:
+	case DXGI_FORMAT_R8G8B8A8_UNORM:
+	case DXGI_FORMAT_R8G8B8A8_UINT:
+	case DXGI_FORMAT_R8G8B8A8_SINT:
+	case DXGI_FORMAT_R16_FLOAT:
+	case DXGI_FORMAT_R16_UINT:
+	case DXGI_FORMAT_R16_SINT:
+	case DXGI_FORMAT_R8_UNORM:
+	case DXGI_FORMAT_R8_UINT:
+	case DXGI_FORMAT_R8_SINT:
+		return true;
+	default:
+		return false;
+	}
+}
+
+bool HackerDevice::SupportsTypedUavLoadFormat(DXGI_FORMAT format)
+{
+	if (format == DXGI_FORMAT_UNKNOWN || IsAlwaysSupportedTypedUavLoadFormat(format))
+		return true;
+	const UINT index = static_cast<UINT>(format);
+	if (index < mTypedUavFormats.size())
+	{
+		uint8_t state = mTypedUavFormats[index].load(std::memory_order_relaxed);
+		if (!state)
+		{
+			state = QueryTypedUavLoadFormat(format) ? 1 : 2;
+			mTypedUavFormats[index].store(state, std::memory_order_relaxed);
+		}
+		return state == 1;
+	}
+	std::lock_guard<std::mutex> lock(mTypedUavFormatMutex);
+	const auto found = mOtherTypedUavFormats.find(index);
+	if (found != mOtherTypedUavFormats.end())
+		return found->second;
+	const bool supported = QueryTypedUavLoadFormat(format);
+	mOtherTypedUavFormats.emplace(index, supported);
+	return supported;
+}
+
+bool HackerDevice::SupportsTypedUavLoadFormat(const D3D11_UNORDERED_ACCESS_VIEW_DESC &desc)
+{
+	return !IsConcreteTypedUav(desc) || SupportsTypedUavLoadFormat(desc.Format);
+}
+
+void HackerDevice::RegisterTypedUavShader(ID3D11DeviceChild *shader, const void *bytecode, size_t length,
+                                          const wchar_t *stage, uint64_t hash)
+{
+	if (!shader)
+		return;
+	const bool tracked_stage = wcscmp(stage, L"ps") == 0 || wcscmp(stage, L"cs") == 0;
+	const auto info = tracked_stage ? InspectTypedUavLoads(bytecode, length) : TypedUavLoadInfo{};
+	EnterCriticalSectionPretty(&G->mCriticalSection);
+	// Identical bytecode may return a shader that is already bound on another
+	// thread. Readers must see its old metadata or the complete new record.
+	CleanupShaderMaps(shader);
+	if (info.typedLoadUavMask)
+	{
+		G->mTypedUavLoadShaders[shader] = {info.typedLoadUavMask, hash};
+		mHasTypedLoadShaders.store(true, std::memory_order_relaxed);
+	}
+	LeaveCriticalSection(&G->mCriticalSection);
+}
+
+void HackerDevice::LogTypedUavShaderFailure(HRESULT hr, const void *bytecode, size_t length, const wchar_t *stage,
+                                            uint64_t hash)
+{
+	if (SUCCEEDED(hr) || (wcscmp(stage, L"ps") != 0 && wcscmp(stage, L"cs") != 0))
+		return;
+	const auto info = InspectTypedUavLoads(bytecode, length);
+	if ((info.requiresAdditionalFormats || info.typedLoadUavMask) &&
+	    mTypedUavFailureLogs.fetch_add(1, std::memory_order_relaxed) < 16)
+		LogInfo("Typed UAV shader creation failed: hr=0x%08x stage=%ls hash=%016llx "
+		        "feature_level=0x%x TypedUAVLoadAdditionalFormats=%u\n",
+		        static_cast<UINT>(hr), stage, hash, static_cast<UINT>(mTypedUavFeatureLevel),
+		        mTypedUavLoadAdditionalFormats);
+}
+
+void HackerDevice::LogTypedUavSkip(bool compute, uint64_t hash, UINT slot, DXGI_FORMAT format)
+{
+	std::lock_guard<std::mutex> lock(mTypedUavLogMutex);
+	if (mTypedUavSkipLogs.emplace(compute, hash, slot, format).second)
+		LogInfo("Typed UAV crash guard skipped %s: stage=%s hash=%016llx slot=u%u format=%u\n",
+		        compute ? "dispatch" : "draw", compute ? "cs" : "ps", hash, slot, static_cast<UINT>(format));
+}
+
+HRESULT HackerDevice::CreateMonitoredUnorderedAccessView(ID3D11Resource *resource,
+                                                         const D3D11_UNORDERED_ACCESS_VIEW_DESC *desc,
+                                                         ID3D11UnorderedAccessView **view)
+{
+	const HRESULT hr = mOrigDevice1->CreateUnorderedAccessView(resource, desc, view);
+	if (SUCCEEDED(hr) && view)
+		ObserveTypedUavView(*view);
+	return hr;
+}
+
+void HackerDevice::ObserveTypedUavView(ID3D11UnorderedAccessView *view)
+{
+	if (view && !mGuardArmed.load(std::memory_order_relaxed))
+	{
+		D3D11_UNORDERED_ACCESS_VIEW_DESC actual{};
+		view->GetDesc(&actual);
+		if (!SupportsTypedUavLoadFormat(actual) && !mGuardArmed.exchange(true, std::memory_order_relaxed))
+			LogInfo("Typed UAV crash guard armed: created UAV format=%u without UAV_TYPED_LOAD\n",
+			        static_cast<UINT>(actual.Format));
+	}
 }
 
 void HackerDevice::SetZBufferResourceView(ID3D11ShaderResourceView *view)
@@ -389,7 +535,7 @@ void HackerDevice::CreatePinkHuntingResources()
 		{
 			hr = mOrigDevice1->CreatePixelShader((DWORD *)blob->GetBufferPointer(), blob->GetBufferSize(), nullptr,
 			                                     &G->mPinkingShader);
-			CleanupShaderMaps(G->mPinkingShader);
+			RegisterTypedUavShader(G->mPinkingShader, blob->GetBufferPointer(), blob->GetBufferSize(), L"ps", 0);
 			if (FAILED(hr))
 				LogInfo("  Failed to create pinking pixel shader: %d\n", hr);
 			blob->Release();
@@ -1364,13 +1510,14 @@ HRESULT HackerDevice::ReplaceShaderFromShaderFixes(UINT64 hash, const void *pSha
 
 	*ppShader = nullptr; // Appease the static analysis gods
 	hr = (mOrigDevice1->*OrigCreateShader)(replaceShader, replaceShaderSize, pClassLinkage, ppShader);
+	LogTypedUavShaderFailure(hr, replaceShader, replaceShaderSize, shaderType, hash);
 	if (FAILED(hr))
 	{
 		LogInfo("    error replacing shader.\n");
 		goto out_delete;
 	}
 
-	CleanupShaderMaps(*ppShader);
+	RegisterTypedUavShader(*ppShader, replaceShader, replaceShaderSize, shaderType, hash);
 
 	LogInfo("    shader successfully replaced.\n");
 
@@ -1424,10 +1571,11 @@ HRESULT HackerDevice::ProcessShaderNotFoundInShaderFixes(UINT64 hash, const void
 
 	*ppShader = nullptr; // Appease the static analysis gods
 	hr = (mOrigDevice1->*OrigCreateShader)(pShaderBytecode, BytecodeLength, pClassLinkage, ppShader);
+	LogTypedUavShaderFailure(hr, pShaderBytecode, BytecodeLength, shaderType, hash);
 	if (FAILED(hr) || !ppShader || !*ppShader)
 		return FAILED(hr) ? hr : E_POINTER;
 
-	CleanupShaderMaps(*ppShader);
+	RegisterTypedUavShader(*ppShader, pShaderBytecode, BytecodeLength, shaderType, hash);
 
 	// When in hunting mode, make a copy of the original binary, regardless.  This can be replaced, but we'll at least
 	// have a copy for every shader seen. If we are performing any sort of deferred shader replacement, such as pipline
@@ -1488,8 +1636,9 @@ bool HackerDevice::NeedOriginalShader(UINT64 hash)
 // This function ensures that a shader handle is expunged from all our shader
 // maps. Ideally we would call this when the shader is released, but since we
 // don't wrap or hook that call we can't do that. Instead, we call it just
-// after any CreateXXXShader call - at that time we know the handle was
-// previously invalid and is now valid, but we haven't used it yet.
+// after any CreateXXXShader call, before publishing the returned handle.
+// A driver can also return an existing shader for identical bytecode, so typed
+// UAV registration holds this lock through cleanup and metadata replacement.
 //
 // This is a big hammer, and we could probably cut this down, but I want to
 // make very certain that we don't have any other unusual sequences that could
@@ -1507,6 +1656,7 @@ void CleanupShaderMaps(ID3D11DeviceChild *handle)
 		return;
 
 	EnterCriticalSectionPretty(&G->mCriticalSection);
+	G->mTypedUavLoadShaders.erase(handle);
 
 	{
 		auto i = lookup_shader_hash(handle);
@@ -1566,9 +1716,12 @@ void HackerDevice::KeepOriginalShader(UINT64 hash, const wchar_t *shaderType, ID
 	EnterCriticalSectionPretty(&G->mCriticalSection);
 
 	hr = (mOrigDevice1->*OrigCreateShader)(pShaderBytecode, BytecodeLength, pClassLinkage, &originalShader);
-	CleanupShaderMaps(originalShader);
+	LogTypedUavShaderFailure(hr, pShaderBytecode, BytecodeLength, shaderType, hash);
 	if (SUCCEEDED(hr))
+	{
+		RegisterTypedUavShader(originalShader, pShaderBytecode, BytecodeLength, shaderType, hash);
 		G->mOriginalShaders[pShader] = originalShader;
+	}
 
 	// Unlike the *other* code path in CreateShader that can also
 	// fill out this structure, we do *not* bump the refcount on
@@ -1747,7 +1900,7 @@ STDMETHODIMP HackerDevice::CreateUnorderedAccessView(THIS_
 		D3D11_RESOURCE_DIMENSION dimension = D3D11_RESOURCE_DIMENSION_UNKNOWN;
 		pResource->GetType(&dimension);
 		if (dimension != D3D11_RESOURCE_DIMENSION_BUFFER)
-			return mOrigDevice1->CreateUnorderedAccessView(pResource, pDesc, ppUAView);
+			return CreateMonitoredUnorderedAccessView(pResource, pDesc, ppUAView);
 
 		TextureOverrideMatches matches;
 		find_texture_overrides_for_resource(pResource, &matches, nullptr);
@@ -1781,12 +1934,12 @@ STDMETHODIMP HackerDevice::CreateUnorderedAccessView(THIS_
 				D3D11_UNORDERED_ACCESS_VIEW_DESC pNewDesc = *pDesc;
 				pNewDesc.Buffer.NumElements = override_num_elements;
 				//LogOverlayW(LOG_INFO, L"UAV resized: %d->%d\n", pDesc->Buffer.NumElements, override_num_elements);
-				return mOrigDevice1->CreateUnorderedAccessView(pResource, &pNewDesc, ppUAView);
+				return CreateMonitoredUnorderedAccessView(pResource, &pNewDesc, ppUAView);
 			}
 		}
 	}
 
-	return mOrigDevice1->CreateUnorderedAccessView(pResource, pDesc, ppUAView);
+	return CreateMonitoredUnorderedAccessView(pResource, pDesc, ppUAView);
 }
 
 STDMETHODIMP HackerDevice::CreateRenderTargetView(THIS_
@@ -2718,7 +2871,12 @@ STDMETHODIMP HackerDevice::CreateShader(THIS_
 	if (!ppShader || !pShaderBytecode)
 	{
 		// Let DX worry about the error code
-		return (mOrigDevice1->*OrigCreateShader)(pShaderBytecode, BytecodeLength, pClassLinkage, ppShader);
+		const HRESULT result =
+		    (mOrigDevice1->*OrigCreateShader)(pShaderBytecode, BytecodeLength, pClassLinkage, ppShader);
+		if (FAILED(result) && pShaderBytecode)
+			LogTypedUavShaderFailure(result, pShaderBytecode, BytecodeLength, shaderType,
+			                         hash_shader(pShaderBytecode, BytecodeLength));
+		return result;
 	}
 
 	// Calculate hash

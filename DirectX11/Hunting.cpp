@@ -839,45 +839,45 @@ static bool ReloadShader(wchar_t *shaderPath, wchar_t *fileName, HackerDevice *d
 				hr = device->GetPassThroughOrigDevice1()->CreateVertexShader(
 				    pShaderBytecode->GetBufferPointer(), pShaderBytecode->GetBufferSize(), classLinkage,
 				    (ID3D11VertexShader **)&replacement);
-				CleanupShaderMaps(replacement);
 			}
 			else if (shaderType.compare(L"ps") == 0)
 			{
 				hr = device->GetPassThroughOrigDevice1()->CreatePixelShader(
 				    pShaderBytecode->GetBufferPointer(), pShaderBytecode->GetBufferSize(), classLinkage,
 				    (ID3D11PixelShader **)&replacement);
-				CleanupShaderMaps(replacement);
 			}
 			else if (shaderType.compare(L"cs") == 0)
 			{
 				hr = device->GetPassThroughOrigDevice1()->CreateComputeShader(
 				    pShaderBytecode->GetBufferPointer(), pShaderBytecode->GetBufferSize(), classLinkage,
 				    (ID3D11ComputeShader **)&replacement);
-				CleanupShaderMaps(replacement);
 			}
 			else if (shaderType.compare(L"gs") == 0)
 			{
 				hr = device->GetPassThroughOrigDevice1()->CreateGeometryShader(
 				    pShaderBytecode->GetBufferPointer(), pShaderBytecode->GetBufferSize(), classLinkage,
 				    (ID3D11GeometryShader **)&replacement);
-				CleanupShaderMaps(replacement);
 			}
 			else if (shaderType.compare(L"hs") == 0)
 			{
 				hr = device->GetPassThroughOrigDevice1()->CreateHullShader(
 				    pShaderBytecode->GetBufferPointer(), pShaderBytecode->GetBufferSize(), classLinkage,
 				    (ID3D11HullShader **)&replacement);
-				CleanupShaderMaps(replacement);
 			}
 			else if (shaderType.compare(L"ds") == 0)
 			{
 				hr = device->GetPassThroughOrigDevice1()->CreateDomainShader(
 				    pShaderBytecode->GetBufferPointer(), pShaderBytecode->GetBufferSize(), classLinkage,
 				    (ID3D11DomainShader **)&replacement);
-				CleanupShaderMaps(replacement);
 			}
 			if (FAILED(hr))
+			{
+				device->LogTypedUavShaderFailure(hr, pShaderBytecode->GetBufferPointer(),
+				                                 pShaderBytecode->GetBufferSize(), shaderType.c_str(), hash);
 				goto err;
+			}
+			device->RegisterTypedUavShader(replacement, pShaderBytecode->GetBufferPointer(),
+			                               pShaderBytecode->GetBufferSize(), shaderType.c_str(), hash);
 
 			// If we have an older reloaded shader, let's release it to avoid a memory leak.  This only happens after 1st reload.
 			// New shader is loaded on GPU and ready to be used as override in VSSetShader or PSSetShader
